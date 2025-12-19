@@ -18,7 +18,12 @@ export default function Header() {
         <SidebarTrigger />
       </div>
       <div className="flex-1">
-        <h1 className="text-xl font-semibold font-headline">{title}</h1>
+        <div className="flex items-center">
+          <a href="/" className="mr-4 hidden sm:block">
+            <img src="/icon.png" alt="Budo logo" className="h-8 w-8 object-contain" />
+          </a>
+          <h1 className="text-xl font-semibold font-headline">{title}</h1>
+        </div>
       </div>
     </header>
   );
