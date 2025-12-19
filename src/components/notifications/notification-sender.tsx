@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { checkNotificationRelevance } from "@/app/(dashboard)/notifications/actions";
+import { checkNotificationRelevance } from "@/app/dashboard/notifications/actions";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
