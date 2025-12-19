@@ -8,9 +8,9 @@ export default function TeamsPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-headline font-semibold">Teams Roster</h2>
+        <h2 className="text-2xl font-headline font-semibold">Clubs</h2>
         <Button>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Team
+          <PlusCircle className="mr-2 h-4 w-4" /> Add New Club
         </Button>
       </div>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -22,7 +22,7 @@ export default function TeamsPage() {
                 alt={`${team.name} logo`}
                 width={64}
                 height={64}
-                className="rounded-lg"
+                className="rounded-lg bg-white p-1"
                 data-ai-hint="team logo"
               />
               <div>
@@ -35,10 +35,10 @@ export default function TeamsPage() {
             <CardFooter className="flex justify-between items-center">
               <div className="text-sm font-mono">
                 <span className="font-semibold text-green-400">{team.wins}W</span>- 
-                <span className="font-semibold text-red-400">{team.losses}L</span>-
-                <span className="font-semibold text-gray-400">{team.draws}D</span>
+                <span className="font-semibold text-gray-400">{team.draws}D</span>-
+                <span className="font-semibold text-red-400">{team.losses}L</span>
               </div>
-              <Button variant="outline" size="sm">View Roster</Button>
+              <Button variant="outline" size="sm">View Squad</Button>
             </CardFooter>
           </Card>
         ))}

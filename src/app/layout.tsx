@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'The Budo League',
-  description: 'Manage your martial arts league with ease.',
+  title: 'Premier League Dashboard',
+  description: 'Manage your football league with ease.',
 };
 
 export default function RootLayout({
