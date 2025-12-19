@@ -1,3 +1,46 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "team-logo-1",
+      "description": "Logo for the Vipers team",
+      "imageUrl": "https://images.unsplash.com/photo-1757529151134-829421c56ac1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzbmFrZSUyMGxvZ298ZW58MHx8fHwxNzY2MDU5ODQxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "snake logo"
+    },
+    {
+      "id": "team-logo-2",
+      "description": "Logo for the Dragons team",
+      "imageUrl": "https://images.unsplash.com/photo-1730620020796-9322013eb0fe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxkcmFnb24lMjBsb2dvfGVufDB8fHx8MTc2NjA5ODc2Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "dragon logo"
+    },
+    {
+      "id": "team-logo-3",
+      "description": "Logo for the Tigers team",
+      "imageUrl": "https://images.unsplash.com/photo-1730014392438-317437a03007?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx0aWdlciUyMGxvZ298ZW58MHx8fHwxNzY2MTI1MzU4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "tiger logo"
+    },
+    {
+      "id": "team-logo-4",
+      "description": "Logo for the Wolves team",
+      "imageUrl": "https://images.unsplash.com/photo-1657817142233-8689b78b7f9f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHx3b2xmJTIwbG9nb3xlbnwwfHx8fDE3NjYwODY2NDh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "wolf logo"
+    },
+    {
+      "id": "player-avatar-1",
+      "description": "Avatar for a player",
+      "imageUrl": "https://images.unsplash.com/photo-1600180758890-6b94519a8ba6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYwODgyNTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "player-avatar-2",
+      "description": "Avatar for another player",
+      "imageUrl": "https://images.unsplash.com/photo-1531123414780-f74242c2b052?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cGVyc29uJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzY2MDg4MjU3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "admin-avatar",
+      "description": "Avatar for the admin user",
+      "imageUrl": "https://images.unsplash.com/photo-1594616838951-c155f8d978a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBhdmF0YXJ8ZW58MHx8fHwxNzY2MDUxMDE2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person avatar"
+    }
+  ]
 }
