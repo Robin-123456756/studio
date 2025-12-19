@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { myFantasyTeam, fantasyStandings, Player } from "@/lib/data";
 import { ArrowDown, ArrowUp, Minus, Shield, Swords } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 const PositionIcon = ({ position }: { position: Player["position"] }) => {
   switch (position) {
@@ -42,6 +41,61 @@ export default function FantasyPage() {
       </div>
 
       <div className="grid gap-8 md:grid-cols-3">
+        <div className="flex flex-col-reverse md:col-span-1 md:flex-col space-y-8">
+            {/* Points & Rank */}
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle>My Status</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 rounded-lg bg-card-foreground/5">
+                        <p className="text-sm text-muted-foreground">Total Points</p>
+                        <p className="text-3xl font-bold font-headline">{myFantasyTeam.points}</p>
+                    </div>
+                     <div className="text-center p-4 rounded-lg bg-card-foreground/5">
+                        <p className="text-sm text-muted-foreground">Overall Rank</p>
+                        <p className="text-3xl font-bold font-headline">{myFantasyTeam.rank.toLocaleString()}</p>
+                    </div>
+                </CardContent>
+            </Card>
+
+             {/* Mini Standings */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Mini-League</CardTitle>
+                    <CardDescription>Your rank among rivals.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[60px]">#</TableHead>
+                                <TableHead>Team</TableHead>
+                                <TableHead className="text-right">Pts</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {fantasyStandings.map((team) => (
+                                <TableRow key={team.rank} className={team.name === myFantasyTeam.name ? "bg-primary/20" : ""}>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-1">
+                                            {team.rank < myFantasyTeam.rank ? <ArrowUp className="text-green-400 h-4 w-4"/> : team.rank > myFantasyTeam.rank ? <ArrowDown className="text-red-400 h-4 w-4"/> : <Minus className="h-4 w-4"/> }
+                                            <span>{team.rank}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <p className="font-medium">{team.name}</p>
+                                        <p className="text-xs text-muted-foreground">{team.owner}</p>
+                                    </TableCell>
+                                    <TableCell className="text-right font-bold font-mono">{team.points}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                     </Table>
+                </CardContent>
+            </Card>
+        </div>
+        
         <div className="md:col-span-2 space-y-8">
             {/* Pitch View */}
             <Card className="bg-green-900/20 border-green-700/50">
@@ -82,7 +136,7 @@ export default function FantasyPage() {
                             <TableRow>
                                 <TableHead>Player</TableHead>
                                 <TableHead>Position</TableHead>
-                                <TableHead>Team</TableHead>
+                                <TableHead className="hidden sm:table-cell">Team</TableHead>
                                 <TableHead className="text-right">Price</TableHead>
                                 <TableHead className="text-right">Points</TableHead>
                             </TableRow>
@@ -102,66 +156,13 @@ export default function FantasyPage() {
                                             <span className="hidden sm:inline">{player.position}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>{player.team}</TableCell>
+                                    <TableCell className="hidden sm:table-cell">{player.team}</TableCell>
                                     <TableCell className="text-right font-mono">${player.price}m</TableCell>
                                     <TableCell className="text-right font-mono font-bold">{player.points}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
-                </CardContent>
-            </Card>
-        </div>
-        
-        <div className="space-y-8">
-            {/* Points & Rank */}
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle>My Status</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 rounded-lg bg-card-foreground/5">
-                        <p className="text-sm text-muted-foreground">Total Points</p>
-                        <p className="text-3xl font-bold font-headline">{myFantasyTeam.points}</p>
-                    </div>
-                     <div className="text-center p-4 rounded-lg bg-card-foreground/5">
-                        <p className="text-sm text-muted-foreground">Overall Rank</p>
-                        <p className="text-3xl font-bold font-headline">{myFantasyTeam.rank.toLocaleString()}</p>
-                    </div>
-                </CardContent>
-            </Card>
-
-             {/* Mini Standings */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Mini-League</CardTitle>
-                    <CardDescription>Your rank among rivals.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>#</TableHead>
-                                <TableHead>Team</TableHead>
-                                <TableHead className="text-right">Pts</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {fantasyStandings.map((team, index) => (
-                                <TableRow key={team.rank} className={team.name === myFantasyTeam.name ? "bg-primary/20" : ""}>
-                                    <TableCell className="font-medium flex items-center gap-1">
-                                        {team.rank < myFantasyTeam.rank ? <ArrowUp className="text-green-400 h-4 w-4"/> : team.rank > myFantasyTeam.rank ? <ArrowDown className="text-red-400 h-4 w-4"/> : <Minus className="h-4 w-4"/> }
-                                        {team.rank}
-                                    </TableCell>
-                                    <TableCell>
-                                        <p className="font-medium">{team.name}</p>
-                                        <p className="text-xs text-muted-foreground">{team.owner}</p>
-                                    </TableCell>
-                                    <TableCell className="text-right font-bold font-mono">{team.points}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                     </Table>
                 </CardContent>
             </Card>
         </div>
