@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Book, Calendar, LayoutDashboard, Medal, Users, Bell, LogOut, Settings } from "lucide-react";
+import { Book, Calendar, LayoutDashboard, Medal, Users, Bell, LogOut, Settings, HeartPulse } from "lucide-react";
 
 import {
   Sidebar,
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
   { href: "/dashboard/teams", icon: Users, label: "Teams" },
   { href: "/dashboard/scores", icon: Medal, label: "Scores" },
+  { href: "/dashboard/fantasy", icon: HeartPulse, label: "Fantasy" },
   { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
 ];
 
