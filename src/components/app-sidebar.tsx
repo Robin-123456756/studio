@@ -22,7 +22,6 @@ const navItems = [
   { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
   { href: "/dashboard/teams", icon: Users, label: "Teams" },
   { href: "/dashboard/scores", icon: Medal, label: "Scores" },
-  { href: "/dashboard/rules", icon: Book, label: "Rules" },
   { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
 ];
 
@@ -47,7 +46,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
+                isActive={pathname === item.href}
                 tooltip={item.label}
               >
                 <Link href={item.href}>
