@@ -5,7 +5,14 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recha
 import { teams, schedule, standings, recentScores } from "@/lib/data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
-import { ChartTooltipContent } from "@/components/ui/chart";
+import { ChartTooltipContent, ChartContainer, type ChartConfig } from "@/components/ui/chart";
+
+const chartConfig = {
+  points: {
+    label: "Points",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
 
 export default function DashboardPage() {
   const upcomingGames = schedule.filter(g => new Date(g.date) >= new Date()).length;
@@ -51,8 +58,8 @@ export default function DashboardPage() {
             <CardTitle>League Standings (Points)</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+             <ChartContainer config={chartConfig} className="w-full h-full">
+              <BarChart data={chartData} accessibilityLayer>
                 <XAxis
                   dataKey="name"
                   stroke="hsl(var(--muted-foreground))"
@@ -74,9 +81,9 @@ export default function DashboardPage() {
                   cursor={{ fill: 'hsl(var(--accent))', opacity: 0.1 }}
                   content={<ChartTooltipContent />}
                 />
-                <Bar dataKey="points" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="points" fill="var(--color-points)" radius={[4, 4, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
         <Card>
