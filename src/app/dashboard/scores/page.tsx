@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Image from "next/image";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
 export default function ScoresPage() {
@@ -19,8 +20,9 @@ export default function ScoresPage() {
         <TabsContent value="scores" className="mt-6">
           <div className="space-y-4">
             {recentScores.map(game => (
-              <Card key={game.id} className="transition-shadow hover:shadow-lg">
-                <CardContent className="p-4 flex items-center justify-between">
+              <Link key={game.id} href={`/match/${game.id}`} className="block">
+                <Card className="transition-shadow hover:shadow-lg">
+                  <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4 md:gap-8 flex-1">
                     <div className="flex flex-col items-end gap-2 text-right flex-1">
                       <div className="flex items-center gap-2 justify-end">
@@ -44,7 +46,8 @@ export default function ScoresPage() {
                     <div>{game.venue}</div>
                   </div>
                 </CardContent>
-              </Card>
+                </Card>
+              </Link>
             ))}
           </div>
         </TabsContent>

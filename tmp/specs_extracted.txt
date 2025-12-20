@@ -1,0 +1,73 @@
+---FILE: C:\Users\Emma.K\Downloads\Budo_League_App_Spec_Snapshot_v0_11.pdf---
+
+Budo League App
+ Storage Snapshot (v0.11) — Match Detail (Post-match)
+Date: 18 Dec 2025
+Match Detail
+Post-match first: scoreboard hero + FT status + meta (Sunday/time/pitch) +
+report content blocks. Live minute-by-minute deferred.
+Match Detail MVP blocks
+
+Top bar: Back + 'Match Centre' title.
+
+Scoreboard hero: teams + big score + FT chip.
+
+Meta: Sunday  time  Pitch A/B.
+
+Content: Match Report (default), optional Timeline + Man of the Match.
+
+Footer links: Back to Results, View Table.
+
+
+
+
+---FILE: C:\Users\Emma.K\Downloads\Budo_League_App_Living_Spec_v0_11.pdf---
+
+Budo League App
+Living Product Specification (Source of Truth)
+Version v0.11 • Snapshot date: 18 Dec 2025
+1. Match Detail Screen (Post-match) — MVP
+Match Detail is the main destination from Home 'Match Centre' and from Results cards. MVP is 
+post-match first.
+1.1 Header
+Top bar: back arrow (left), title 'Match Centre' (center), share icon (right, optional).
+1.2 Scoreboard hero section (top of page)
+Teams row: Home team (left) vs Away team (right).
+Large score in the middle: e.g., 2–1.
+Status chip: FT.
+Meta line: Sunday • 2:00 PM • Pitch A.
+1.3 Key actions (optional MVP)
+Buttons/links: 'Lineups' (optional), 'Stats' (optional), 'Report' (default).
+For MVP, default to Report tab content.
+1.4 Content blocks (MVP)
+Match Report: simple paragraph summary (admin/editor).
+Timeline (optional for MVP): key events list (Goal, Yellow, Red) with minute; can be added 
+later.
+Man of the Match (optional): player name + house/team.
+1.5 Footer links
+Link: 'Back to Results'
+Link: 'View Table'
+2. Post-match First Rule (locked)
+Match Detail prioritizes FT view and report content; live minute-by-minute is deferred.
+3. League Scheduling (locked)
+All matches are played on Sunday.
+Venues: Pitch A and Pitch B.
+4. Houses (dropdown values)
+Australia
+Canada
+Ghana
+Muteesa
+England
+South Africa
+Nigeria
+Grace
+Sabaganzi
+5. Change Log
+Version Date Notes
+v0.11 18 Dec 2025 Defined Match Detail (post-
+match) MVP: scoreboard 
+hero, FT status, pitch/time 
+meta, report-first content 
+blocks.
+
+
