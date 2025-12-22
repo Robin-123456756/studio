@@ -232,7 +232,6 @@ export default function MatchesPage() {
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
 
