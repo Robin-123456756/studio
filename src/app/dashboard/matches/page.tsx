@@ -83,25 +83,84 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 
 /** ---------- UI blocks ---------- */
 
-function MatchRow({
+/** Finished match row: neat 3-column alignment like Premier League */
+function FinishedMatchRow({
+  id,
+  venue,
+  team1,
+  team2,
+  score1,
+  score2,
+}: (typeof schedule)[number]) {
+  return (
+    <Link href={`/match/${id}`} className="block">
+      <div className="py-3">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          {/* LEFT team */}
+          <div className="flex items-center justify-end gap-2 min-w-0">
+            <div className="min-w-0 text-right">
+              <div className="truncate text-[13px] font-semibold leading-4">
+                {team1.name}
+              </div>
+            </div>
+            <Image
+              src={team1.logoUrl}
+              alt={team1.name}
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+            />
+          </div>
+
+          {/* MIDDLE score + FT */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="min-w-[60px] rounded-md bg-muted/40 px-3 py-1 text-center">
+              <span className="text-[14px] font-bold tabular-nums">
+                {score1 ?? "-"} - {score2 ?? "-"}
+              </span>
+            </div>
+            <div className="mt-1 text-[10px] font-semibold text-muted-foreground">
+              FT
+            </div>
+            <div className="mt-1 text-[10px] text-muted-foreground">{venue}</div>
+          </div>
+
+          {/* RIGHT team */}
+          <div className="flex items-center justify-start gap-2 min-w-0">
+            <Image
+              src={team2.logoUrl}
+              alt={team2.name}
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="truncate text-[13px] font-semibold leading-4">
+                {team2.name}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/** Scheduled/live row: keep your old style for now */
+function UpcomingMatchRow({
   id,
   date,
   time,
   venue,
   team1,
   team2,
-  score1,
-  score2,
   status,
 }: (typeof schedule)[number]) {
-  const isFT = status === "completed";
-
   return (
     <Link href={`/match/${id}`} className="block">
       <Card className="rounded-2xl border bg-card shadow-sm transition hover:bg-accent/30">
         <CardContent className="p-3">
           <div className="flex items-center justify-between gap-3">
-            {/* Left team */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <Image
@@ -115,14 +174,11 @@ function MatchRow({
               </div>
             </div>
 
-            {/* Middle score */}
             <div className="shrink-0 text-center">
-              <div className="text-base font-bold tabular-nums">
-                {isFT ? `${score1 ?? "-"} - ${score2 ?? "-"}` : "vs"}
-              </div>
+              <div className="text-base font-bold tabular-nums">vs</div>
               <div className="mt-1 flex items-center justify-center gap-2">
                 <Badge variant="secondary" className="h-5 px-2 text-[10px]">
-                  {isFT ? "FT" : status.toUpperCase()}
+                  {status.toUpperCase()}
                 </Badge>
                 <Badge variant="secondary" className="h-5 px-2 text-[10px]">
                   {venue}
@@ -130,7 +186,6 @@ function MatchRow({
               </div>
             </div>
 
-            {/* Right team */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-end gap-2">
                 <div className="truncate text-sm font-semibold text-right">
@@ -188,6 +243,9 @@ export default function MatchesPage() {
       .sort((a, b) => (a.venue ?? "").localeCompare(b.venue ?? ""));
   }, [allGames, activeDate]);
 
+  const finishedGames = weekGames.filter((g) => g.status === "completed");
+  const upcomingGames = weekGames.filter((g) => g.status !== "completed");
+
   const dateLabel = activeDate ? labelForDate(activeDate) : "Matches";
   const canPrev = mwIndex > 0;
   const canNext = mwIndex < matchweeks.length - 1;
@@ -195,9 +253,12 @@ export default function MatchesPage() {
   return (
     <div className="animate-in fade-in-50">
       <div className="rounded-3xl border bg-card p-4 shadow-sm">
+        {/* Season dropdown */}
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <div className="text-sm font-semibold text-muted-foreground">Season</div>
+            <div className="text-sm font-semibold text-muted-foreground">
+              Season
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -229,6 +290,11 @@ export default function MatchesPage() {
                     )}
                   >
                     <span className="font-semibold">{s.code}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Top tabs */}
@@ -271,6 +337,7 @@ export default function MatchesPage() {
 
             {/* MATCHES TAB */}
             <TabsContent value="matches" className="mt-4">
+              {/* Matchweek selector */}
               <div className="rounded-2xl border bg-background p-3 shadow-sm">
                 <div className="flex items-center justify-between">
                   <button
@@ -310,17 +377,40 @@ export default function MatchesPage() {
                 </div>
               </div>
 
+              {/* Date label */}
               <div className="mt-4 text-sm font-semibold text-muted-foreground">
                 {dateLabel}
               </div>
 
-              <div className="mt-3 space-y-3">
-                {weekGames.length === 0 ? (
+              {/* Finished matches in ONE card */}
+              <div className="mt-3">
+                {finishedGames.length > 0 && (
+                  <Card className="rounded-2xl border bg-card shadow-sm">
+                    <CardContent className="p-0">
+                      <div className="divide-y">
+                        {finishedGames.map((g) => (
+                          <div key={g.id} className="px-4">
+                            <FinishedMatchRow {...g} />
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Upcoming matches (optional) */}
+                {upcomingGames.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    {upcomingGames.map((g) => (
+                      <UpcomingMatchRow key={g.id} {...g} />
+                    ))}
+                  </div>
+                )}
+
+                {finishedGames.length === 0 && upcomingGames.length === 0 && (
                   <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
                     No matches found for this matchweek yet.
                   </div>
-                ) : (
-                  weekGames.map((g) => <MatchRow key={g.id} {...g} />)
                 )}
               </div>
             </TabsContent>
