@@ -21,18 +21,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /** ---------- helpers ---------- */
 
-type Season = { code: string};
-
-// ✅ FIX: add label for each season
-// ✅ UI will still show only `code`, but label exists for TS + future use
+type Season = { code: string; label: string };
 const seasons: Season[] = [
-  { code: "TBL9"},
-  { code: "TBL8"},
-  { code: "TBL7"},
-  { code: "TBL6"},
-  { code: "TBL5"},
-  { code: "TBL4"},
-  { code: "TBL3"},
+  { code: "TBL9", label: "2025/26" },
+  { code: "TBL8", label: "2024/25" },
+  { code: "TBL7", label: "2023/24" },
+  { code: "TBL6", label: "2022/23" },
+  { code: "TBL5", label: "2021/22" },
+  { code: "TBL4", label: "2020/21" },
+  { code: "TBL3", label: "2019/20" },
 ];
 
 function dayKey(d: string) {
@@ -82,9 +79,7 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
   const todayMs = startOfDayMs(today);
 
   // choose the first matchweek that is today or in the future; else last
-  const i = matchweeks.findIndex(
-    (mw) => startOfDayMs(new Date(mw.key)) >= todayMs
-  );
+  const i = matchweeks.findIndex((mw) => startOfDayMs(new Date(mw.key)) >= todayMs);
   return i === -1 ? Math.max(0, matchweeks.length - 1) : i;
 }
 
@@ -141,9 +136,7 @@ function MatchRow({
             {/* Right team */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-end gap-2">
-                <div className="truncate text-sm font-semibold text-right">
-                  {team2.name}
-                </div>
+                <div className="truncate text-sm font-semibold text-right">{team2.name}</div>
                 <Image
                   src={team2.logoUrl}
                   alt={team2.name}
@@ -170,9 +163,7 @@ export default function MatchesPage() {
   // Combine schedule + recentScores for “matchweek view”
   const allGames = React.useMemo(() => {
     const merged = [...schedule, ...recentScores];
-    return merged.sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    return merged.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, []);
 
   const matchweeks = React.useMemo(() => getMatchweeks(allGames), [allGames]);
@@ -180,9 +171,7 @@ export default function MatchesPage() {
   const [season, setSeason] = React.useState<Season>(seasons[0]);
   const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
 
-  const [mwIndex, setMwIndex] = React.useState(() =>
-    pickCurrentMatchweekIndex(matchweeks)
-  );
+  const [mwIndex, setMwIndex] = React.useState(() => pickCurrentMatchweekIndex(matchweeks));
 
   React.useEffect(() => {
     // if matchweeks length changes
@@ -206,37 +195,38 @@ export default function MatchesPage() {
 
   return (
     <div className="animate-in fade-in-50">
+      {/* Header gradient-ish block (simple, clean) */}
       <div className="rounded-3xl border bg-card p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           {/* Season */}
           <div className="space-y-1">
             <div className="text-sm font-semibold text-muted-foreground">Season</div>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-2xl border bg-background px-3 py-2 text-sm font-semibold shadow-sm"
                 >
-                  {/* ✅ SHOW ONLY CODE */}
                   <span>{season.code}</span>
+                  <span className="text-muted-foreground font-medium">{season.label}</span>
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
-
               <DropdownMenuContent align="start" className="w-48">
                 {seasons.map((s) => (
                   <DropdownMenuItem key={s.code} onClick={() => setSeason(s)}>
-                    {/* ✅ SHOW ONLY CODE */}
                     <span className="font-semibold">{s.code}</span>
+                    <span className="ml-2 text-muted-foreground">{s.label}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
+          {/* Optional space: you can later add filters like “All Clubs” */}
         </div>
 
-        {/* Top tabs */}
+        {/* Top tabs like Premier League */}
         <div className="mt-4">
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
             <TabsList className="w-full justify-start gap-2 bg-transparent p-0">
@@ -314,7 +304,7 @@ export default function MatchesPage() {
                 </div>
               </div>
 
-              {/* Date label */}
+              {/* Date label (Yesterday/Today/Upcoming) */}
               <div className="mt-4 text-sm font-semibold text-muted-foreground">
                 {dateLabel}
               </div>
@@ -331,17 +321,14 @@ export default function MatchesPage() {
               </div>
             </TabsContent>
 
-            {/* TABLE TAB (preview) */}
+            {/* TABLE TAB (simple preview, link to your full table page) */}
             <TabsContent value="table" className="mt-4">
               <Card className="rounded-2xl">
                 <CardContent className="p-4 space-y-3">
                   <div className="text-sm font-semibold">League Table (preview)</div>
                   <div className="space-y-2">
                     {standings.slice(0, 4).map((t, i) => (
-                      <div
-                        key={t.id}
-                        className="flex items-center justify-between text-sm"
-                      >
+                      <div key={t.id} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="w-5 text-muted-foreground">{i + 1}</span>
                           <Image
@@ -353,9 +340,7 @@ export default function MatchesPage() {
                           />
                           <span className="truncate font-semibold">{t.name}</span>
                         </div>
-                        <span className="font-bold tabular-nums">
-                          {t.wins * 3 + t.draws}
-                        </span>
+                        <span className="font-bold tabular-nums">{t.wins * 3 + t.draws}</span>
                       </div>
                     ))}
                   </div>
@@ -370,7 +355,7 @@ export default function MatchesPage() {
               </Card>
             </TabsContent>
 
-            {/* STATS TAB */}
+            {/* STATS TAB (placeholder for now) */}
             <TabsContent value="stats" className="mt-4">
               <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
                 Stats coming next (goals, clean sheets, top scorers, etc.)
@@ -380,6 +365,7 @@ export default function MatchesPage() {
         </div>
       </div>
 
+      {/* space so bottom nav never covers content */}
       <div className="h-24 md:hidden" />
     </div>
   );
