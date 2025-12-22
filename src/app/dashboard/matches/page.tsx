@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 /** ---------- helpers ---------- */
 
 type Season = { code: string };
+
 const seasons: Season[] = [
   { code: "TBL9" },
   { code: "TBL8" },
@@ -33,8 +34,7 @@ const seasons: Season[] = [
 ];
 
 function dayKey(d: string) {
-  // expects YYYY-MM-DD
-  return d;
+  return d; // expects YYYY-MM-DD
 }
 
 function sameDay(a: string, b: string) {
@@ -59,19 +59,17 @@ function labelForDate(yyyyMmDd: string) {
   if (diffDays === -1) return "Yesterday";
   if (diffDays === 1) return "Tomorrow";
   if (diffDays > 1) return "Upcoming";
-  // older than yesterday
   return format(target, "EEE, MMM d");
 }
 
 function getMatchweeks(allGames: { date: string }[]) {
-  // Group by date = a matchweek day (Sunday in your plan)
   const dates = Array.from(new Set(allGames.map((g) => dayKey(g.date)))).sort(
     (a, b) => new Date(a).getTime() - new Date(b).getTime()
   );
 
   return dates.map((d, idx) => ({
     key: d,
-    index: idx + 1, // Matchweek 1..N
+    index: idx + 1,
   }));
 }
 
@@ -149,7 +147,6 @@ function MatchRow({
             </div>
           </div>
 
-          {/* Bottom small line */}
           <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="tabular-nums">{time}</span>
             <span className="truncate">{format(new Date(date), "EEE, MMM d")}</span>
@@ -161,7 +158,6 @@ function MatchRow({
 }
 
 export default function MatchesPage() {
-  // Combine schedule + recentScores for “matchweek view”
   const allGames = React.useMemo(() => {
     const merged = [...schedule, ...recentScores];
     return merged.sort(
@@ -193,7 +189,6 @@ export default function MatchesPage() {
   }, [allGames, activeDate]);
 
   const dateLabel = activeDate ? labelForDate(activeDate) : "Matches";
-
   const canPrev = mwIndex > 0;
   const canNext = mwIndex < matchweeks.length - 1;
 
@@ -201,9 +196,9 @@ export default function MatchesPage() {
     <div className="animate-in fade-in-50">
       <div className="rounded-3xl border bg-card p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
-          {/* Season */}
           <div className="space-y-1">
             <div className="text-sm font-semibold text-muted-foreground">Season</div>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -214,26 +209,26 @@ export default function MatchesPage() {
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent
-               align="start"
-              className={cn(
-    "w-40 rounded-2xl border p-1 shadow-lg",
-    "bg-slate-950/90 text-white backdrop-blur"
-  )}
->
+                align="start"
+                className={cn(
+                  "w-40 rounded-2xl border p-1 shadow-lg",
+                  "bg-slate-950/90 text-white backdrop-blur"
+                )}
+              >
                 {seasons.map((s) => (
                   <DropdownMenuItem
-  key={s.code}
-  onClick={() => setSeason(s)}
-  className={cn(
-    "cursor-pointer rounded-xl px-3 py-2",
-    "focus:bg-white/10 focus:text-white",
-    "hover:bg-white/10 hover:text-white"
-  )}
->
-  <span className="font-semibold">{s.code}</span>
-</DropdownMenuItem>
-
+                    key={s.code}
+                    onClick={() => setSeason(s)}
+                    className={cn(
+                      "cursor-pointer rounded-xl px-3 py-2",
+                      "hover:bg-white/10 hover:text-white",
+                      "focus:bg-white/10 focus:text-white",
+                      season.code === s.code && "bg-white/15"
+                    )}
+                  >
+                    <span className="font-semibold">{s.code}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -340,12 +335,10 @@ export default function MatchesPage() {
               <Card className="rounded-2xl">
                 <CardContent className="p-4 space-y-3">
                   <div className="text-sm font-semibold">League Table (preview)</div>
+
                   <div className="space-y-2">
                     {standings.slice(0, 4).map((t, i) => (
-                      <div
-                        key={t.id}
-                        className="flex items-center justify-between text-sm"
-                      >
+                      <div key={t.id} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="w-5 text-muted-foreground">{i + 1}</span>
                           <Image
@@ -357,6 +350,7 @@ export default function MatchesPage() {
                           />
                           <span className="truncate font-semibold">{t.name}</span>
                         </div>
+
                         <span className="font-bold tabular-nums">
                           {t.wins * 3 + t.draws}
                         </span>
@@ -384,6 +378,7 @@ export default function MatchesPage() {
         </div>
       </div>
 
+      {/* space so bottom nav never covers content */}
       <div className="h-24 md:hidden" />
     </div>
   );
