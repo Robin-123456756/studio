@@ -83,7 +83,7 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 
 /** ---------- UI blocks ---------- */
 
-/** Finished match row: neat 3-column alignment like Premier League */
+/** Finished match row: neat 3-column alignment */
 function FinishedMatchRow({
   id,
   venue,
@@ -93,51 +93,49 @@ function FinishedMatchRow({
   score2,
 }: (typeof schedule)[number]) {
   return (
-    <Link href={`/match/${id}`} className="block">
-      <div className="py-3">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          {/* LEFT team */}
-          <div className="flex items-center justify-end gap-2 min-w-0">
-            <div className="min-w-0 text-right">
-              <div className="truncate text-[13px] font-semibold leading-4">
-                {team1.name}
-              </div>
+    <Link href={`/match/${id}`} className="block px-4 py-3">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        {/* LEFT team */}
+        <div className="flex items-center justify-end gap-2 min-w-0">
+          <div className="min-w-0 text-right">
+            <div className="truncate text-[12.5px] font-semibold leading-4">
+              {team1.name}
             </div>
-            <Image
-              src={team1.logoUrl}
-              alt={team1.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
-            />
           </div>
+          <Image
+            src={team1.logoUrl}
+            alt={team1.name}
+            width={22}
+            height={22}
+            className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+          />
+        </div>
 
-          {/* MIDDLE score + FT */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="min-w-[60px] rounded-md bg-muted/40 px-3 py-1 text-center">
-              <span className="text-[14px] font-bold tabular-nums">
-                {score1 ?? "-"} - {score2 ?? "-"}
-              </span>
-            </div>
-            <div className="mt-1 text-[10px] font-semibold text-muted-foreground">
-              FT
-            </div>
-            <div className="mt-1 text-[10px] text-muted-foreground">{venue}</div>
+        {/* MIDDLE score + FT + pitch */}
+        <div className="flex flex-col items-center justify-center">
+          <div className="min-w-[66px] rounded-md bg-muted/40 px-3 py-1 text-center">
+            <span className="text-[14px] font-bold tabular-nums">
+              {score1 ?? "-"} - {score2 ?? "-"}
+            </span>
           </div>
+          <div className="mt-1 text-[10px] font-semibold text-muted-foreground">
+            FT
+          </div>
+          <div className="mt-1 text-[10px] text-muted-foreground">{venue}</div>
+        </div>
 
-          {/* RIGHT team */}
-          <div className="flex items-center justify-start gap-2 min-w-0">
-            <Image
-              src={team2.logoUrl}
-              alt={team2.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
-            />
-            <div className="min-w-0">
-              <div className="truncate text-[13px] font-semibold leading-4">
-                {team2.name}
-              </div>
+        {/* RIGHT team */}
+        <div className="flex items-center justify-start gap-2 min-w-0">
+          <Image
+            src={team2.logoUrl}
+            alt={team2.name}
+            width={22}
+            height={22}
+            className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+          />
+          <div className="min-w-0">
+            <div className="truncate text-[12.5px] font-semibold leading-4">
+              {team2.name}
             </div>
           </div>
         </div>
@@ -146,7 +144,7 @@ function FinishedMatchRow({
   );
 }
 
-/** Scheduled/live row: keep your old style for now */
+/** Upcoming/live row: keep your current card style */
 function UpcomingMatchRow({
   id,
   date,
@@ -382,25 +380,23 @@ export default function MatchesPage() {
                 {dateLabel}
               </div>
 
-              {/* Finished matches in ONE card */}
-              <div className="mt-3">
+              <div className="mt-3 space-y-4">
+                {/* Finished matches (ONE card) */}
                 {finishedGames.length > 0 && (
                   <Card className="rounded-2xl border bg-card shadow-sm">
                     <CardContent className="p-0">
                       <div className="divide-y">
                         {finishedGames.map((g) => (
-                          <div key={g.id} className="px-4">
-                            <FinishedMatchRow {...g} />
-                          </div>
+                          <FinishedMatchRow key={g.id} {...g} />
                         ))}
                       </div>
                     </CardContent>
                   </Card>
                 )}
 
-                {/* Upcoming matches (optional) */}
+                {/* Upcoming matches */}
                 {upcomingGames.length > 0 && (
-                  <div className="mt-4 space-y-3">
+                  <div className="space-y-3">
                     {upcomingGames.map((g) => (
                       <UpcomingMatchRow key={g.id} {...g} />
                     ))}
