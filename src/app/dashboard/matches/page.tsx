@@ -214,10 +214,26 @@ export default function MatchesPage() {
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-40">
+              <DropdownMenuContent
+               align="start"
+              className={cn(
+    "w-40 rounded-2xl border p-1 shadow-lg",
+    "bg-slate-950/90 text-white backdrop-blur"
+  )}
+>
                 {seasons.map((s) => (
-                  <DropdownMenuItem key={s.code} onClick={() => setSeason(s)}>
-                    <span className="font-semibold">{s.code}</span>
+                  <DropdownMenuItem
+  key={s.code}
+  onClick={() => setSeason(s)}
+  className={cn(
+    "cursor-pointer rounded-xl px-3 py-2",
+    "focus:bg-white/10 focus:text-white",
+    "hover:bg-white/10 hover:text-white"
+  )}
+>
+  <span className="font-semibold">{s.code}</span>
+</DropdownMenuItem>
+
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
