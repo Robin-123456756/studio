@@ -229,10 +229,6 @@ export default function MatchesPage() {
                     )}
                   >
                     <span className="font-semibold">{s.code}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-          </div>
         </div>
 
         {/* Top tabs */}
