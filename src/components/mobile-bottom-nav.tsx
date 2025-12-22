@@ -1,3 +1,5 @@
+// mobile-bottom-nav.tsx
+
 "use client";
 
 import * as React from "react";
@@ -8,7 +10,6 @@ import {
   Home,
   Trophy,
   CalendarDays,
-  Table2,
   MoreHorizontal,
   Users,
   Compass,
@@ -30,14 +31,13 @@ import {
 const tabs = [
   { href: "/dashboard", label: "Latest", Icon: Home },
   { href: "/dashboard/matches", label: "Matches", Icon: CalendarDays },
-  { href: "/dashboard/table", label: "Table", Icon: Table2 },
   { href: "/dashboard/fantasy", label: "Fantasy", Icon: Trophy },
 ] as const;
 
 const moreItems = [
   { href: "/dashboard/teams", label: "Teams", Icon: Users },
   { href: "/dashboard/explore", label: "Explore", Icon: Compass },
-  { href: "/dashboard/scores", label: "Results", Icon: Medal },
+  { href: "/dashboard/scores", label: "Results", Icon: Medal }, // has standings too
   { href: "/dashboard/notifications", label: "Notifications", Icon: Bell },
   { href: "/dashboard/reviews", label: "Reviews", Icon: Star },
   { href: "/dashboard/settings", label: "Settings", Icon: Settings },
@@ -55,14 +55,14 @@ export default function MobileBottomNav() {
     <nav
       aria-label="Bottom navigation"
       className={cn(
-        // ✅ Keep nav above content but BELOW the sheet overlay/content (sheet is z-50)
-        "md:hidden fixed bottom-0 left-0 right-0 z-40",
+        "md:hidden fixed bottom-0 left-0 right-0 z-[9999]",
         "border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70",
         "pb-[env(safe-area-inset-bottom)]"
       )}
     >
       <div className="mx-auto w-full max-w-app px-2 py-2">
-        <div className="grid grid-cols-5 gap-1">
+        {/* ✅ now 4 columns: Latest, Matches, Fantasy, More */}
+        <div className="grid grid-cols-4 gap-1">
           {tabs.map(({ href, label, Icon }) => {
             const active = isActiveRoute(pathname, href);
 
@@ -98,16 +98,16 @@ export default function MobileBottomNav() {
             );
           })}
 
-          {/* MORE = opens sheet (no route) */}
+          {/* MORE */}
           <Sheet>
             <SheetTrigger asChild>
               <button
-                type="button"
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2",
                   "text-muted-foreground hover:text-foreground transition active:scale-[0.98]"
                 )}
                 aria-label="More"
+                type="button"
               >
                 <div className="grid h-10 w-10 place-items-center rounded-2xl">
                   <MoreHorizontal className="h-5 w-5" />
