@@ -21,18 +21,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /** ---------- helpers ---------- */
 
-type Season = { code: string; label: string };
+type Season = { code: string};
 
 // ✅ FIX: add label for each season
 // ✅ UI will still show only `code`, but label exists for TS + future use
 const seasons: Season[] = [
-  { code: "TBL9", label: "TBL9" },
-  { code: "TBL8", label: "TBL8" },
-  { code: "TBL7", label: "TBL7" },
-  { code: "TBL6", label: "TBL6" },
-  { code: "TBL5", label: "TBL5" },
-  { code: "TBL4", label: "TBL4" },
-  { code: "TBL3", label: "TBL3" },
+  { code: "TBL9"},
+  { code: "TBL8"},
+  { code: "TBL7"},
+  { code: "TBL6"},
+  { code: "TBL5"},
+  { code: "TBL4"},
+  { code: "TBL3"},
 ];
 
 function dayKey(d: string) {
