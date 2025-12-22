@@ -23,13 +23,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Season = { code: string; label: string };
 const seasons: Season[] = [
-  { code: "TBL9", label: "2025/26" },
-  { code: "TBL8", label: "2024/25" },
-  { code: "TBL7", label: "2023/24" },
-  { code: "TBL6", label: "2022/23" },
-  { code: "TBL5", label: "2021/22" },
-  { code: "TBL4", label: "2020/21" },
-  { code: "TBL3", label: "2019/20" },
+  { code: "TBL9" },
+  { code: "TBL8" },
+  { code: "TBL7" },
+  { code: "TBL6" },
+  { code: "TBL5" },
+  { code: "TBL4" },
+  { code: "TBL3" },
 ];
 
 function dayKey(d: string) {
