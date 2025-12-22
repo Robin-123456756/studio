@@ -83,7 +83,20 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 
 /** ---------- UI blocks ---------- */
 
-/** Finished match row: neat 3-column alignment */
+/**
+ * ✅ Name visibility helpers:
+ * - whitespace-normal: allow wrapping (not one-line)
+ * - break-words: allow long words to wrap
+ * - leading-tight: tighter lines
+ * - line-clamp-2: max 2 lines (prevents crazy tall rows)
+ *
+ * NOTE: line-clamp needs Tailwind line-clamp plugin.
+ * If you don't have it, remove "line-clamp-2" and it will still wrap.
+ */
+const TEAM_NAME_CLASS =
+  "text-[13px] font-semibold leading-tight whitespace-normal break-words line-clamp-2";
+
+/** Finished match row: neat 3-column alignment, names wrap nicely */
 function FinishedMatchRow({
   id,
   venue,
@@ -93,49 +106,47 @@ function FinishedMatchRow({
   score2,
 }: (typeof schedule)[number]) {
   return (
-    <Link href={`/match/${id}`} className="block px-4 py-3">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        {/* LEFT team */}
-        <div className="flex items-center justify-end gap-2 min-w-0">
-          <div className="min-w-0 text-right">
-            <div className="truncate text-[12.5px] font-semibold leading-4">
-              {team1.name}
+    <Link href={`/match/${id}`} className="block">
+      <div className="py-3">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          {/* LEFT team */}
+          <div className="flex items-center justify-end gap-2 min-w-0">
+            <div className="min-w-0 text-right">
+              <div className={TEAM_NAME_CLASS}>{team1.name}</div>
             </div>
+            <Image
+              src={team1.logoUrl}
+              alt={team1.name}
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+            />
           </div>
-          <Image
-            src={team1.logoUrl}
-            alt={team1.name}
-            width={22}
-            height={22}
-            className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
-          />
-        </div>
 
-        {/* MIDDLE score + FT + pitch */}
-        <div className="flex flex-col items-center justify-center">
-          <div className="min-w-[66px] rounded-md bg-muted/40 px-3 py-1 text-center">
-            <span className="text-[14px] font-bold tabular-nums">
-              {score1 ?? "-"} - {score2 ?? "-"}
-            </span>
+          {/* MIDDLE score + FT */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="min-w-[64px] rounded-md bg-muted/40 px-3 py-1 text-center">
+              <span className="text-[14px] font-bold tabular-nums">
+                {score1 ?? "-"} - {score2 ?? "-"}
+              </span>
+            </div>
+            <div className="mt-1 text-[10px] font-semibold text-muted-foreground">
+              FT
+            </div>
+            <div className="mt-1 text-[10px] text-muted-foreground">{venue}</div>
           </div>
-          <div className="mt-1 text-[10px] font-semibold text-muted-foreground">
-            FT
-          </div>
-          <div className="mt-1 text-[10px] text-muted-foreground">{venue}</div>
-        </div>
 
-        {/* RIGHT team */}
-        <div className="flex items-center justify-start gap-2 min-w-0">
-          <Image
-            src={team2.logoUrl}
-            alt={team2.name}
-            width={22}
-            height={22}
-            className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
-          />
-          <div className="min-w-0">
-            <div className="truncate text-[12.5px] font-semibold leading-4">
-              {team2.name}
+          {/* RIGHT team */}
+          <div className="flex items-center justify-start gap-2 min-w-0">
+            <Image
+              src={team2.logoUrl}
+              alt={team2.name}
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+            />
+            <div className="min-w-0">
+              <div className={TEAM_NAME_CLASS}>{team2.name}</div>
             </div>
           </div>
         </div>
@@ -144,7 +155,7 @@ function FinishedMatchRow({
   );
 }
 
-/** Upcoming/live row: keep your current card style */
+/** Scheduled/live row: keep style, but also allow names to wrap properly */
 function UpcomingMatchRow({
   id,
   date,
@@ -160,15 +171,17 @@ function UpcomingMatchRow({
         <CardContent className="p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <Image
                   src={team1.logoUrl}
                   alt={team1.name}
                   width={26}
                   height={26}
-                  className="h-[26px] w-[26px] rounded-full object-cover"
+                  className="h-[26px] w-[26px] rounded-full object-cover shrink-0"
                 />
-                <div className="truncate text-sm font-semibold">{team1.name}</div>
+                <div className="min-w-0 text-sm font-semibold whitespace-normal break-words line-clamp-2">
+                  {team1.name}
+                </div>
               </div>
             </div>
 
@@ -185,8 +198,8 @@ function UpcomingMatchRow({
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-end gap-2">
-                <div className="truncate text-sm font-semibold text-right">
+              <div className="flex items-center justify-end gap-2 min-w-0">
+                <div className="min-w-0 text-sm font-semibold text-right whitespace-normal break-words line-clamp-2">
                   {team2.name}
                 </div>
                 <Image
@@ -194,7 +207,7 @@ function UpcomingMatchRow({
                   alt={team2.name}
                   width={26}
                   height={26}
-                  className="h-[26px] w-[26px] rounded-full object-cover"
+                  className="h-[26px] w-[26px] rounded-full object-cover shrink-0"
                 />
               </div>
             </div>
@@ -297,7 +310,11 @@ export default function MatchesPage() {
 
         {/* Top tabs */}
         <div className="mt-4">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as any)}
+            className="w-full"
+          >
             <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
               <TabsTrigger
                 value="matches"
@@ -380,23 +397,21 @@ export default function MatchesPage() {
                 {dateLabel}
               </div>
 
-              <div className="mt-3 space-y-4">
-                {/* Finished matches (ONE card) */}
+              {/* ✅ OPTION 2 container: lighter, “free flowing” list + wrapping names */}
+              <div className="mt-3">
                 {finishedGames.length > 0 && (
-                  <Card className="rounded-2xl border bg-card shadow-sm">
-                    <CardContent className="p-0">
-                      <div className="divide-y">
-                        {finishedGames.map((g) => (
-                          <FinishedMatchRow key={g.id} {...g} />
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="rounded-2xl border bg-card/30 backdrop-blur-sm">
+                    <div className="divide-y divide-border/60 px-3">
+                      {finishedGames.map((g) => (
+                        <FinishedMatchRow key={g.id} {...g} />
+                      ))}
+                    </div>
+                  </div>
                 )}
 
-                {/* Upcoming matches */}
+                {/* Upcoming matches (optional) */}
                 {upcomingGames.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="mt-4 space-y-3">
                     {upcomingGames.map((g) => (
                       <UpcomingMatchRow key={g.id} {...g} />
                     ))}
@@ -419,7 +434,10 @@ export default function MatchesPage() {
 
                   <div className="space-y-2">
                     {standings.slice(0, 4).map((t, i) => (
-                      <div key={t.id} className="flex items-center justify-between text-sm">
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between text-sm"
+                      >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="w-5 text-muted-foreground">{i + 1}</span>
                           <Image
