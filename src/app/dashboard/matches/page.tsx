@@ -90,8 +90,11 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
  */
 const TEAM_NAME_CLASS =
   "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap truncate";
-
-/** ✅ EPL EXACT Finished row */
+/** ✅ EPL-style finished match:
+ * - Team names + logos + score are on the SAME line
+ * - FT sits just below the score
+ * - No background/padding behind the score
+ */
 function FinishedMatchRow({
   id,
   team1,
@@ -101,9 +104,10 @@ function FinishedMatchRow({
 }: (typeof schedule)[number]) {
   return (
     <Link href={`/match/${id}`} className="block">
-      <div className={cn("py-5", "transition hover:bg-accent/10")}>
-        <div className="grid grid-cols-[1fr_84px_1fr] items-center gap-2">
-          {/* LEFT: name then logo (tight to center) */}
+      <div className="py-5 transition hover:bg-accent/10">
+        {/* 1 line: team - score - team */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          {/* LEFT: name then logo */}
           <div className="flex items-center justify-end gap-3 min-w-0">
             <div className="min-w-0 text-right">
               <div className={TEAM_NAME_CLASS}>{team1.name}</div>
@@ -118,20 +122,17 @@ function FinishedMatchRow({
             />
           </div>
 
-          {/* CENTER: score + bigger FT (pitch removed) */}
+          {/* CENTER: score (no padding / bg) + FT under it */}
           <div className="flex flex-col items-center justify-center">
-            <div className="rounded-md bg-muted/30 px-3 py-1">
-              <span className="text-[16px] font-extrabold tabular-nums">
-                {score1 ?? "-"} - {score2 ?? "-"}
-              </span>
-            </div>
-
-            <div className="mt-2 text-[13px] font-bold text-muted-foreground">
+            <span className="text-[18px] font-extrabold tabular-nums">
+              {score1 ?? "-"} - {score2 ?? "-"}
+            </span>
+            <span className="mt-1 text-[12px] font-bold text-muted-foreground tracking-wide">
               FT
-            </div>
+            </span>
           </div>
 
-          {/* RIGHT: logo then name (tight to center) */}
+          {/* RIGHT: logo then name */}
           <div className="flex items-center justify-start gap-3 min-w-0">
             <Image
               src={team2.logoUrl}
