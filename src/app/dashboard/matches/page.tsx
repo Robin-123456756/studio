@@ -83,10 +83,15 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 
 /** ---------- UI blocks ---------- */
 
-/** EPL-style finished match row:
- * Team name + logo  |  SCORE  |  logo + team name
- * FT sits under the score.
+/**
+ * EPL-style typography for team names:
+ * - single line
+ * - nice tracking
  */
+const TEAM_NAME_CLASS =
+  "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap";
+
+/** ✅ EPL-style finished match row */
 function FinishedMatchRow({
   id,
   team1,
@@ -97,40 +102,42 @@ function FinishedMatchRow({
   return (
     <Link href={`/match/${id}`} className="block">
       <div className="py-5 transition hover:bg-accent/10">
-        {/* single horizontal line like EPL */}
+        {/* One horizontal line: Team 1 + logo | score | logo + Team 2 */}
         <div className="flex items-center justify-between gap-4">
-          {/* LEFT: name then logo */}
-          <div className="flex items-center gap-3 min-w-0 justify-end">
-            <span className={`text-right ${TEAM_NAME_CLASS}`}>{team1.name}</span>
+          {/* LEFT: name then logo, capped width so it never eats everything */}
+          <div className="flex min-w-0 max-w-[40%] items-center justify-end gap-3">
+            <span className={`truncate text-right ${TEAM_NAME_CLASS}`}>
+              {team1.name}
+            </span>
             <Image
               src={team1.logoUrl}
               alt={team1.name}
               width={22}
               height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
             />
           </div>
 
-          {/* CENTER: score on same row, FT below */}
-          <div className="flex flex-col items-center justify-center">
+          {/* CENTER: score + FT below */}
+          <div className="flex flex-col items-center justify-center min-w-[70px]">
             <span className="text-[18px] font-extrabold tabular-nums">
               {score1 ?? "-"} - {score2 ?? "-"}
             </span>
-            <span className="mt-1 text-[12px] font-bold text-muted-foreground tracking-wide">
+            <span className="mt-1 text-[12px] font-bold tracking-wide text-muted-foreground">
               FT
             </span>
           </div>
 
-          {/* RIGHT: logo then name */}
-          <div className="flex items-center gap-3 min-w-0 justify-start">
+          {/* RIGHT: logo then name, also capped width */}
+          <div className="flex min-w-0 max-w-[40%] items-center justify-start gap-3">
             <Image
               src={team2.logoUrl}
               alt={team2.name}
               width={22}
               height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
             />
-            <span className={TEAM_NAME_CLASS}>{team2.name}</span>
+            <span className={`truncate ${TEAM_NAME_CLASS}`}>{team2.name}</span>
           </div>
         </div>
       </div>
@@ -138,7 +145,7 @@ function FinishedMatchRow({
   );
 }
 
-/** ✅ Updated Upcoming row (fixes Accumulators logo collision) */
+/** Upcoming row (kept simple, EPL-ish layout) */
 function UpcomingMatchRow({
   id,
   date,
@@ -150,46 +157,39 @@ function UpcomingMatchRow({
   return (
     <Link href={`/match/${id}`} className="block">
       <div className="py-4 transition hover:bg-accent/10">
-        <div className="grid grid-cols-[1fr_84px_1fr] items-center gap-2">
-          {/* LEFT */}
-          <div className="flex items-center justify-end gap-3 min-w-0">
-            <div className="min-w-0 text-right">
-              <div className={TEAM_NAME_CLASS}>{team1.name}</div>
-            </div>
-
-            {/* slightly smaller logo helps tight layouts */}
+        <div className="flex items-center justify-between gap-4">
+          {/* LEFT side */}
+          <div className="flex min-w-0 max-w-[40%] items-center justify-end gap-3">
+            <span className={`truncate text-right ${TEAM_NAME_CLASS}`}>
+              {team1.name}
+            </span>
             <Image
               src={team1.logoUrl}
               alt={team1.name}
-              width={20}
-              height={20}
-              className="h-[20px] w-[20px] rounded-full object-cover shrink-0"
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
             />
           </div>
 
-          {/* CENTER */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-[15px] font-bold tabular-nums">vs</div>
-            <div className="mt-2 flex items-center justify-center">
-              <Badge variant="secondary" className="h-5 px-2 text-[10px]">
-                {status.toUpperCase()}
-              </Badge>
-            </div>
+          {/* CENTER: vs + status */}
+          <div className="flex min-w-[70px] flex-col items-center justify-center">
+            <span className="text-[16px] font-bold tabular-nums">vs</span>
+            <Badge variant="secondary" className="mt-1 h-5 px-2 text-[10px]">
+              {status.toUpperCase()}
+            </Badge>
           </div>
 
-          {/* RIGHT */}
-          <div className="flex items-center justify-start gap-3 min-w-0">
+          {/* RIGHT side */}
+          <div className="flex min-w-0 max-w-[40%] items-center justify-start gap-3">
             <Image
               src={team2.logoUrl}
               alt={team2.name}
-              width={20}
-              height={20}
-              className="h-[20px] w-[20px] rounded-full object-cover shrink-0"
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
             />
-
-            <div className="min-w-0">
-              <div className={TEAM_NAME_CLASS}>{team2.name}</div>
-            </div>
+            <span className={`truncate ${TEAM_NAME_CLASS}`}>{team2.name}</span>
           </div>
         </div>
 
@@ -201,6 +201,8 @@ function UpcomingMatchRow({
     </Link>
   );
 }
+
+/** ---------- Page ---------- */
 
 export default function MatchesPage() {
   const allGames = React.useMemo(() => {
@@ -372,7 +374,7 @@ export default function MatchesPage() {
                 {dateLabel}
               </div>
 
-              {/* ✅ EPL list container */}
+              {/* List of matches */}
               <div className="mt-3">
                 {finishedGames.length > 0 && (
                   <div className="divide-y divide-border/40">
@@ -403,16 +405,19 @@ export default function MatchesPage() {
               </div>
             </TabsContent>
 
-            {/* TABLE TAB (unchanged preview) */}
+            {/* TABLE TAB */}
             <TabsContent value="table" className="mt-4">
               <Card className="rounded-2xl">
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="space-y-3 p-4">
                   <div className="text-sm font-semibold">League Table (preview)</div>
 
                   <div className="space-y-2">
                     {standings.slice(0, 4).map((t, i) => (
-                      <div key={t.id} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
                           <span className="w-5 text-muted-foreground">{i + 1}</span>
                           <Image
                             src={t.logoUrl}
@@ -424,7 +429,9 @@ export default function MatchesPage() {
                           <span className="truncate font-semibold">{t.name}</span>
                         </div>
 
-                        <span className="font-bold tabular-nums">{t.wins * 3 + t.draws}</span>
+                        <span className="font-bold tabular-nums">
+                          {t.wins * 3 + t.draws}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -449,6 +456,7 @@ export default function MatchesPage() {
         </div>
       </div>
 
+      {/* space so bottom nav never covers content */}
       <div className="h-24 md:hidden" />
     </div>
   );
