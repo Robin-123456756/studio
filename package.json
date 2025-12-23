@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-   "dev": "next dev -p 9002",
+    "dev": "next dev -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -57,16 +57,13 @@
     "react-hook-form": "^7.54.2",
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
-    "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.2"
   },
-  {
   "devDependencies": {
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.0",
-    "autoprefixer": "^10.4.0",
     "@tailwindcss/typography": "^0.5.0",
-    "tailwindcss-animate": "^1.0.0",
-    // ...the rest of your dev deps (eslint, typescript, etc.)
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "tailwindcss-animate": "^1.0.0"
   }
 }
