@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
 import typography from "@tailwindcss/typography";
 
-const config = {
+const config: Config = {
   darkMode: ["class"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -24,16 +24,27 @@ const config = {
       },
     },
     extend: {
+      /**
+       * Mobile safe areas (notch + home indicator)
+       */
       spacing: {
         "safe-top": "env(safe-area-inset-top)",
         "safe-right": "env(safe-area-inset-right)",
         "safe-bottom": "env(safe-area-inset-bottom)",
         "safe-left": "env(safe-area-inset-left)",
       },
+
+      /**
+       * App-like widths
+       */
       maxWidth: {
         app: "28rem",
         appWide: "32rem",
       },
+
+      /**
+       * Fonts
+       */
       fontFamily: {
         body: ["Inter", "sans-serif"],
         headline: ["Space Grotesk", "sans-serif"],
@@ -46,6 +57,10 @@ const config = {
           "monospace",
         ],
       },
+
+      /**
+       * Colors via CSS variables (shadcn style)
+       */
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -98,6 +113,10 @@ const config = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+
+      /**
+       * Radius (shadcn)
+       */
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -105,6 +124,10 @@ const config = {
         xl: "calc(var(--radius) + 4px)",
         "2xl": "calc(var(--radius) + 8px)",
       },
+
+      /**
+       * Animations
+       */
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -132,6 +155,6 @@ const config = {
     },
   },
   plugins: [tailwindcssAnimate, typography],
-} satisfies Config;
+};
 
 export default config;
