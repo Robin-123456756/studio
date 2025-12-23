@@ -164,96 +164,100 @@ export default function DashboardPage() {
 
       {/* ✅ Replace the graph with a proper MOBILE table */}
       <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">League Table</CardTitle>
+  <CardHeader className="pb-2">
+    <div className="flex items-center justify-between">
+      <CardTitle className="text-base">League Table</CardTitle>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setExpanded((v) => !v)}
-              className="gap-1"
-              type="button"
-            >
-              {expanded ? (
-                <>
-                  Hide <ChevronUp className="h-4 w-4" />
-                </>
-              ) : (
-                <>
-                  Show more <ChevronDown className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </div>
-        </CardHeader>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setExpanded((v) => !v)}
+        className="gap-1"
+        type="button"
+      >
+        {expanded ? (
+          <>
+            Hide <ChevronUp className="h-4 w-4" />
+          </>
+        ) : (
+          <>
+            Show more <ChevronDown className="h-4 w-4" />
+          </>
+        )}
+      </Button>
+    </div>
+  </CardHeader>
 
-        <CardContent className="px-2 pb-3">
-          {/* No horizontal scroll: we keep columns tight */}
-          <Table>
-            <TableHeader>
-              <TableRow className="text-[11px]">
-                <TableHead className="w-[54px]">Pos</TableHead>
-                <TableHead>Team</TableHead>
-                <TableHead className="w-[34px] text-center">PL</TableHead>
-                <TableHead className="w-[34px] text-center">W</TableHead>
-                <TableHead className="w-[42px] text-center">GD</TableHead>
-                <TableHead className="w-[40px] text-center">LP</TableHead>
-                <TableHead className="w-[44px] text-right">Pts</TableHead>
-              </TableRow>
-            </TableHeader>
+  <CardContent className="px-2 pb-3">
+    {/* Keep columns tight to avoid horizontal scroll */}
+    <Table>
+      <TableHeader>
+        <TableRow className="text-[11px]">
+          <TableHead className="w-[40px] px-2">Pos</TableHead>
+          <TableHead className="px-2">Team</TableHead>
 
-            <TableBody>
-              {visibleRows.map((r, idx) => {
-                const pos = idx + 1;
-                const bar = posBarClass(pos);
+          <TableHead className="w-[28px] px-1 text-center">Pl</TableHead>
+          <TableHead className="w-[28px] px-1 text-center">W</TableHead>
+          <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+          <TableHead className="w-[28px] px-1 text-center">LP</TableHead>
+          <TableHead className="w-[34px] px-1 text-right">Pts</TableHead>
+        </TableRow>
+      </TableHeader>
 
-                return (
-                  <TableRow key={r.teamId} className="text-[12px]">
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`h-6 w-1.5 rounded-full ${bar}`} />
-                        <span className="font-semibold tabular-nums">{pos}</span>
-                      </div>
-                    </TableCell>
+      <TableBody>
+        {visibleRows.map((r, idx) => {
+          const pos = idx + 1;
+          const bar = posBarClass(pos);
 
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Image
-                          src={r.logoUrl}
-                          alt={r.name}
-                          width={20}
-                          height={20}
-                          className="rounded-full shrink-0"
-                        />
-                        <span className="truncate font-medium">{r.name}</span>
-                      </div>
-                    </TableCell>
+          return (
+            <TableRow key={r.teamId} className="text-[12px]">
+              {/* POS */}
+              <TableCell className="py-2 px-2">
+                <div className="flex items-center gap-1.5">
+                  <div className={`h-6 w-1 rounded-full ${bar}`} />
+                  <span className="font-semibold tabular-nums">{pos}</span>
+                </div>
+              </TableCell>
 
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.PL}</TableCell>
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.W}</TableCell>
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.GD}</TableCell>
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.LP}</TableCell>
-                    <TableCell className="py-3 text-right font-mono font-bold tabular-nums">{r.Pts}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+              {/* TEAM */}
+              <TableCell className="py-2 px-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Image
+                    src={r.logoUrl}
+                    alt={r.name}
+                    width={18}
+                    height={18}
+                    className="h-[18px] w-[18px] rounded-full shrink-0"
+                  />
+                  <span className="truncate font-medium">{r.name}</span>
+                </div>
+              </TableCell>
 
-          {!expanded && table.length > 4 && (
-  <div className="pt-3 px-2">
-    <Link
-      href="/dashboard/table"
-      className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-2 text-sm font-semibold"
-    >
-      View full table
-    </Link>
-  </div>
-)}
+              {/* NUMBERS */}
+              <TableCell className="py-2 px-1 text-center tabular-nums">{r.PL}</TableCell>
+              <TableCell className="py-2 px-1 text-center tabular-nums">{r.W}</TableCell>
+              <TableCell className="py-2 px-1 text-center tabular-nums">{r.GD}</TableCell>
+              <TableCell className="py-2 px-1 text-center tabular-nums">{r.LP}</TableCell>
+              <TableCell className="py-2 px-1 text-right font-bold tabular-nums">{r.Pts}</TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
 
-        </CardContent>
-      </Card>
+    {/* View full table under the top 4 (only when collapsed) */}
+    {!expanded && table.length > 4 && (
+      <div className="pt-3 px-1">
+        <Link
+          href="/dashboard/table"
+          className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-2 text-sm font-semibold"
+        >
+          View full table
+        </Link>
+      </div>
+    )}
+  </CardContent>
+</Card>
 
       {/* Recent Results (keep it, it’s useful on mobile) */}
       <Card>
