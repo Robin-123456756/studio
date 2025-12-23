@@ -163,44 +163,29 @@ export default function DashboardPage() {
       </div>
 
       {/* ✅ Replace the graph with a proper MOBILE table */}
-      <Card>
+     <Card>
+  {/* HEADER – title only, no button on the right */}
   <CardHeader className="pb-2">
-    <div className="flex items-center justify-between">
-      <CardTitle className="text-base">League Table</CardTitle>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setExpanded((v) => !v)}
-        className="gap-1"
-        type="button"
-      >
-        {expanded ? (
-          <>
-            Hide <ChevronUp className="h-4 w-4" />
-          </>
-        ) : (
-          <>
-            Show more <ChevronDown className="h-4 w-4" />
-          </>
-        )}
-      </Button>
-    </div>
+    <CardTitle className="text-base">League Table</CardTitle>
   </CardHeader>
 
   <CardContent className="px-2 pb-3">
-    {/* Keep columns tight to avoid horizontal scroll */}
+    {/* TABLE */}
     <Table>
       <TableHeader>
         <TableRow className="text-[11px]">
-          <TableHead className="w-[40px] px-2">Pos</TableHead>
-          <TableHead className="px-2">Team</TableHead>
+          {/* Pos + bar: narrower + less padding */}
+          <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
 
-          <TableHead className="w-[28px] px-1 text-center">Pl</TableHead>
-          <TableHead className="w-[28px] px-1 text-center">W</TableHead>
+          {/* Team: fixed-ish width so numbers can squeeze */}
+          <TableHead className="w-[112px] pr-1">Team</TableHead>
+
+          {/* Tight numeric columns so no horizontal scroll */}
+          <TableHead className="w-[26px] px-1 text-center">PL</TableHead>
+          <TableHead className="w-[26px] px-1 text-center">W</TableHead>
           <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
-          <TableHead className="w-[28px] px-1 text-center">LP</TableHead>
-          <TableHead className="w-[34px] px-1 text-right">Pts</TableHead>
+          <TableHead className="w-[32px] px-1 text-center">LP</TableHead>
+          <TableHead className="w-[36px] pl-1 pr-2 text-right">Pts</TableHead>
         </TableRow>
       </TableHeader>
 
@@ -211,53 +196,75 @@ export default function DashboardPage() {
 
           return (
             <TableRow key={r.teamId} className="text-[12px]">
-              {/* POS */}
-              <TableCell className="py-2 px-2">
+              {/* Pos cell – tighter gap */}
+              <TableCell className="py-2 pl-2 pr-1">
                 <div className="flex items-center gap-1.5">
-                  <div className={`h-6 w-1 rounded-full ${bar}`} />
+                  <div className={`h-5 w-1.5 rounded-full ${bar}`} />
                   <span className="font-semibold tabular-nums">{pos}</span>
                 </div>
               </TableCell>
 
-              {/* TEAM */}
-              <TableCell className="py-2 px-2">
+              {/* Team cell – smaller logo + less gap */}
+              <TableCell className="py-2 pr-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Image
                     src={r.logoUrl}
                     alt={r.name}
                     width={18}
                     height={18}
-                    className="h-[18px] w-[18px] rounded-full shrink-0"
+                    className="rounded-full shrink-0"
                   />
-                  <span className="truncate font-medium">{r.name}</span>
+                  <span className="truncate text-[12px] font-medium">
+                    {r.name}
+                  </span>
                 </div>
               </TableCell>
 
-              {/* NUMBERS */}
-              <TableCell className="py-2 px-1 text-center tabular-nums">{r.PL}</TableCell>
-              <TableCell className="py-2 px-1 text-center tabular-nums">{r.W}</TableCell>
-              <TableCell className="py-2 px-1 text-center tabular-nums">{r.GD}</TableCell>
-              <TableCell className="py-2 px-1 text-center tabular-nums">{r.LP}</TableCell>
-              <TableCell className="py-2 px-1 text-right font-bold tabular-nums">{r.Pts}</TableCell>
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.PL}
+              </TableCell>
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.W}
+              </TableCell>
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.GD}
+              </TableCell>
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.LP}
+              </TableCell>
+              <TableCell className="py-2 pl-1 pr-2 text-right font-mono font-bold tabular-nums">
+                {r.Pts}
+              </TableCell>
             </TableRow>
           );
         })}
       </TableBody>
     </Table>
 
-    {/* View full table under the top 4 (only when collapsed) */}
-    {!expanded && table.length > 4 && (
-      <div className="pt-3 px-1">
-        <Link
-          href="/dashboard/table"
-          className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-2 text-sm font-semibold"
+    {/* TEXT + BUTTON UNDER TOP 4 */}
+    {table.length > 4 && (
+      <div className="pt-2 px-2 space-y-2">
+        {!expanded && (
+          <p className="text-xs text-muted-foreground">
+            Showing top 4. Tap{" "}
+            <span className="font-medium">View full table</span> to see all teams.
+          </p>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full justify-center rounded-2xl text-sm font-semibold"
+          type="button"
         >
-          View full table
-        </Link>
+          {expanded ? "Hide full table" : "View full table"}
+        </Button>
       </div>
     )}
   </CardContent>
 </Card>
+
 
       {/* Recent Results (keep it, it’s useful on mobile) */}
       <Card>
