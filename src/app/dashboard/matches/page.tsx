@@ -86,7 +86,7 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 const TEAM_NAME_CLASS =
   "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap";
 
-/** ✅ EPL-style finished match row:
+/** EPL-style finished match row:
  * row 1:  [name] [logo] [score] [logo] [name]
  * row 2:  FT centered
  */
@@ -101,7 +101,7 @@ function FinishedMatchRow({
     <Link href={`/match/${id}`} className="block">
       <div className="py-5 transition hover:bg-accent/10">
         <div className="flex flex-col gap-1">
-          {/* first row: names, logos, score all on the SAME line */}
+          {/* row 1: names, logos, score all on the SAME line */}
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
             {/* left name */}
             <span
@@ -137,14 +137,7 @@ function FinishedMatchRow({
             />
 
             {/* right name */}
-            <span
-              className={cn(
-                TEAM_NAME_CLASS,
-                "truncate"
-              )}
-            >
-              {team2.name}
-            </span>
+            <span className={cn(TEAM_NAME_CLASS, "truncate")}>{team2.name}</span>
           </div>
 
           {/* FT centered under the score */}
@@ -157,11 +150,16 @@ function FinishedMatchRow({
   );
 }
 
-/** Upcoming row using same alignment idea */
+/** Upcoming row:
+ * row 1:  [name] [logo] [vs] [logo] [name]
+ * row 2:  SCHEDULED badge centered
+ * row 3:  time  •  Pitch A/B  •  date
+ */
 function UpcomingMatchRow({
   id,
   date,
   time,
+  venue,
   team1,
   team2,
   status,
@@ -170,6 +168,7 @@ function UpcomingMatchRow({
     <Link href={`/match/${id}`} className="block">
       <div className="py-4 transition hover:bg-accent/10">
         <div className="flex flex-col gap-1">
+          {/* row 1: teams + vs */}
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
             {/* left name */}
             <span
@@ -190,7 +189,7 @@ function UpcomingMatchRow({
               className="h-6 w-6 justify-self-end rounded-full object-cover"
             />
 
-            {/* vs in middle */}
+            {/* vs in the middle */}
             <span className="justify-self-center text-[16px] font-bold tabular-nums">
               vs
             </span>
@@ -208,13 +207,23 @@ function UpcomingMatchRow({
             <span className={cn(TEAM_NAME_CLASS, "truncate")}>{team2.name}</span>
           </div>
 
-          {/* status + date / time, centered under middle */}
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span className="tabular-nums">{time}</span>
-            <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+          {/* row 2: status badge centered */}
+          <div className="mt-1 flex justify-center">
+            <Badge
+              variant="secondary"
+              className="px-3 py-0.5 text-[10px] tracking-wide"
+            >
               {status.toUpperCase()}
             </Badge>
-            <span className="truncate">{format(new Date(date), "EEE, MMM d")}</span>
+          </div>
+
+          {/* row 3: time + pitch + date */}
+          <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="tabular-nums">{time}</span>
+            <span className="text-xs font-medium">{venue}</span>
+            <span className="truncate">
+              {format(new Date(date), "EEE, MMM d")}
+            </span>
           </div>
         </div>
       </div>
