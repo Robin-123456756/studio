@@ -84,11 +84,12 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 /** ---------- UI blocks ---------- */
 
 /**
- * EPL-style: keep names on one line, don’t clamp.
- * If a name is extremely long, it will still try to stay single-line.
+ * ✅ EPL-style (single line), BUT safe:
+ * - truncate prevents long names from colliding with logos/badges
+ * - min-w-0 on containers enables truncate
  */
 const TEAM_NAME_CLASS =
-  "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap";
+  "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap truncate";
 
 /** ✅ EPL EXACT Finished row */
 function FinishedMatchRow({
@@ -100,16 +101,10 @@ function FinishedMatchRow({
 }: (typeof schedule)[number]) {
   return (
     <Link href={`/match/${id}`} className="block">
-      <div
-        className={cn(
-          "py-5", // EPL-like vertical spacing
-          "transition hover:bg-accent/10"
-        )}
-      >
-        {/* Use full width so names stop breaking into 2 lines */}
+      <div className={cn("py-5", "transition hover:bg-accent/10")}>
         <div className="grid grid-cols-[1fr_84px_1fr] items-center gap-2">
           {/* LEFT: name then logo (tight to center) */}
-          <div className="flex items-center justify-end gap-2 min-w-0">
+          <div className="flex items-center justify-end gap-3 min-w-0">
             <div className="min-w-0 text-right">
               <div className={TEAM_NAME_CLASS}>{team1.name}</div>
             </div>
@@ -123,7 +118,7 @@ function FinishedMatchRow({
             />
           </div>
 
-          {/* CENTER: score + bigger FT */}
+          {/* CENTER: score + bigger FT (pitch removed) */}
           <div className="flex flex-col items-center justify-center">
             <div className="rounded-md bg-muted/30 px-3 py-1">
               <span className="text-[16px] font-extrabold tabular-nums">
@@ -131,16 +126,13 @@ function FinishedMatchRow({
               </span>
             </div>
 
-            {/* ✅ bigger FT */}
             <div className="mt-2 text-[13px] font-bold text-muted-foreground">
               FT
             </div>
-
-            {/* ✅ pitch removed */}
           </div>
 
           {/* RIGHT: logo then name (tight to center) */}
-          <div className="flex items-center justify-start gap-2 min-w-0">
+          <div className="flex items-center justify-start gap-3 min-w-0">
             <Image
               src={team2.logoUrl}
               alt={team2.name}
@@ -159,7 +151,7 @@ function FinishedMatchRow({
   );
 }
 
-/** Upcoming row (kept simple) */
+/** ✅ Updated Upcoming row (fixes Accumulators logo collision) */
 function UpcomingMatchRow({
   id,
   date,
@@ -172,36 +164,42 @@ function UpcomingMatchRow({
     <Link href={`/match/${id}`} className="block">
       <div className="py-4 transition hover:bg-accent/10">
         <div className="grid grid-cols-[1fr_84px_1fr] items-center gap-2">
-          <div className="flex items-center justify-end gap-2 min-w-0">
+          {/* LEFT */}
+          <div className="flex items-center justify-end gap-3 min-w-0">
             <div className="min-w-0 text-right">
               <div className={TEAM_NAME_CLASS}>{team1.name}</div>
             </div>
+
+            {/* slightly smaller logo helps tight layouts */}
             <Image
               src={team1.logoUrl}
               alt={team1.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+              width={20}
+              height={20}
+              className="h-[20px] w-[20px] rounded-full object-cover shrink-0"
             />
           </div>
 
+          {/* CENTER */}
           <div className="flex flex-col items-center justify-center">
             <div className="text-[15px] font-bold tabular-nums">vs</div>
-            <div className="mt-2 flex items-center justify-center gap-2">
+            <div className="mt-2 flex items-center justify-center">
               <Badge variant="secondary" className="h-5 px-2 text-[10px]">
                 {status.toUpperCase()}
               </Badge>
             </div>
           </div>
 
-          <div className="flex items-center justify-start gap-2 min-w-0">
+          {/* RIGHT */}
+          <div className="flex items-center justify-start gap-3 min-w-0">
             <Image
               src={team2.logoUrl}
               alt={team2.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+              width={20}
+              height={20}
+              className="h-[20px] w-[20px] rounded-full object-cover shrink-0"
             />
+
             <div className="min-w-0">
               <div className={TEAM_NAME_CLASS}>{team2.name}</div>
             </div>
@@ -387,7 +385,7 @@ export default function MatchesPage() {
                 {dateLabel}
               </div>
 
-              {/* ✅ EPL list container (no “card around results”) */}
+              {/* ✅ EPL list container */}
               <div className="mt-3">
                 {finishedGames.length > 0 && (
                   <div className="divide-y divide-border/40">
@@ -398,7 +396,12 @@ export default function MatchesPage() {
                 )}
 
                 {upcomingGames.length > 0 && (
-                  <div className={cn("divide-y divide-border/40", finishedGames.length > 0 && "mt-2")}>
+                  <div
+                    className={cn(
+                      "divide-y divide-border/40",
+                      finishedGames.length > 0 && "mt-2"
+                    )}
+                  >
                     {upcomingGames.map((g) => (
                       <UpcomingMatchRow key={g.id} {...g} />
                     ))}
