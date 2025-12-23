@@ -83,15 +83,13 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 
 /** ---------- UI blocks ---------- */
 
-/**
- * EPL-style typography for team names:
- * - single line
- * - nice tracking
- */
 const TEAM_NAME_CLASS =
   "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap";
 
-/** ✅ EPL-style finished match row */
+/** ✅ EPL-style finished match row:
+ * row 1:  [name] [logo] [score] [logo] [name]
+ * row 2:  FT centered
+ */
 function FinishedMatchRow({
   id,
   team1,
@@ -102,42 +100,56 @@ function FinishedMatchRow({
   return (
     <Link href={`/match/${id}`} className="block">
       <div className="py-5 transition hover:bg-accent/10">
-        {/* One horizontal line: Team 1 + logo | score | logo + Team 2 */}
-        <div className="flex items-center justify-between gap-4">
-          {/* LEFT: name then logo, capped width so it never eats everything */}
-          <div className="flex min-w-0 max-w-[40%] items-center justify-end gap-3">
-            <span className={`truncate text-right ${TEAM_NAME_CLASS}`}>
+        <div className="flex flex-col gap-1">
+          {/* first row: names, logos, score all on the SAME line */}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
+            {/* left name */}
+            <span
+              className={cn(
+                TEAM_NAME_CLASS,
+                "truncate text-right"
+              )}
+            >
               {team1.name}
             </span>
+
+            {/* left logo */}
             <Image
               src={team1.logoUrl}
               alt={team1.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-end rounded-full object-cover"
             />
-          </div>
 
-          {/* CENTER: score + FT below */}
-          <div className="flex flex-col items-center justify-center min-w-[70px]">
-            <span className="text-[18px] font-extrabold tabular-nums">
+            {/* score in the middle */}
+            <span className="justify-self-center text-[18px] font-extrabold tabular-nums">
               {score1 ?? "-"} - {score2 ?? "-"}
             </span>
-            <span className="mt-1 text-[12px] font-bold tracking-wide text-muted-foreground">
-              FT
-            </span>
-          </div>
 
-          {/* RIGHT: logo then name, also capped width */}
-          <div className="flex min-w-0 max-w-[40%] items-center justify-start gap-3">
+            {/* right logo */}
             <Image
               src={team2.logoUrl}
               alt={team2.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-start rounded-full object-cover"
             />
-            <span className={`truncate ${TEAM_NAME_CLASS}`}>{team2.name}</span>
+
+            {/* right name */}
+            <span
+              className={cn(
+                TEAM_NAME_CLASS,
+                "truncate"
+              )}
+            >
+              {team2.name}
+            </span>
+          </div>
+
+          {/* FT centered under the score */}
+          <div className="text-center text-[12px] font-bold tracking-wide text-muted-foreground">
+            FT
           </div>
         </div>
       </div>
@@ -145,7 +157,7 @@ function FinishedMatchRow({
   );
 }
 
-/** Upcoming row (kept simple, EPL-ish layout) */
+/** Upcoming row using same alignment idea */
 function UpcomingMatchRow({
   id,
   date,
@@ -157,45 +169,53 @@ function UpcomingMatchRow({
   return (
     <Link href={`/match/${id}`} className="block">
       <div className="py-4 transition hover:bg-accent/10">
-        <div className="flex items-center justify-between gap-4">
-          {/* LEFT side */}
-          <div className="flex min-w-0 max-w-[40%] items-center justify-end gap-3">
-            <span className={`truncate text-right ${TEAM_NAME_CLASS}`}>
+        <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
+            {/* left name */}
+            <span
+              className={cn(
+                TEAM_NAME_CLASS,
+                "truncate text-right"
+              )}
+            >
               {team1.name}
             </span>
+
+            {/* left logo */}
             <Image
               src={team1.logoUrl}
               alt={team1.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-end rounded-full object-cover"
             />
-          </div>
 
-          {/* CENTER: vs + status */}
-          <div className="flex min-w-[70px] flex-col items-center justify-center">
-            <span className="text-[16px] font-bold tabular-nums">vs</span>
-            <Badge variant="secondary" className="mt-1 h-5 px-2 text-[10px]">
-              {status.toUpperCase()}
-            </Badge>
-          </div>
+            {/* vs in middle */}
+            <span className="justify-self-center text-[16px] font-bold tabular-nums">
+              vs
+            </span>
 
-          {/* RIGHT side */}
-          <div className="flex min-w-0 max-w-[40%] items-center justify-start gap-3">
+            {/* right logo */}
             <Image
               src={team2.logoUrl}
               alt={team2.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] shrink-0 rounded-full object-cover"
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-start rounded-full object-cover"
             />
-            <span className={`truncate ${TEAM_NAME_CLASS}`}>{team2.name}</span>
-          </div>
-        </div>
 
-        <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-          <span className="tabular-nums">{time}</span>
-          <span className="truncate">{format(new Date(date), "EEE, MMM d")}</span>
+            {/* right name */}
+            <span className={cn(TEAM_NAME_CLASS, "truncate")}>{team2.name}</span>
+          </div>
+
+          {/* status + date / time, centered under middle */}
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="tabular-nums">{time}</span>
+            <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+              {status.toUpperCase()}
+            </Badge>
+            <span className="truncate">{format(new Date(date), "EEE, MMM d")}</span>
+          </div>
         </div>
       </div>
     </Link>
