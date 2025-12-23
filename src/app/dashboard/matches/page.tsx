@@ -84,19 +84,15 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 /** ---------- UI blocks ---------- */
 
 /**
- * ✅ Name visibility helpers:
- * - whitespace-normal: allow wrapping (not one-line)
- * - break-words: allow long words to wrap
- * - leading-tight: tighter lines
- * - line-clamp-2: max 2 lines (prevents crazy tall rows)
- *
- * NOTE: line-clamp needs Tailwind line-clamp plugin.
- * If you don't have it, remove "line-clamp-2" and it will still wrap.
+ * Team name style:
+ * - single line
+ * - ellipsis when too long
+ * - slightly bigger text
  */
 const TEAM_NAME_CLASS =
-  "text-[13px] font-semibold leading-tight whitespace-normal break-words line-clamp-2";
+  "text-[14px] font-semibold leading-4 whitespace-nowrap overflow-hidden text-ellipsis";
 
-/** Finished match row: neat 3-column alignment, names wrap nicely */
+/** Finished match row – EPL style, names fully visible on one line */
 function FinishedMatchRow({
   id,
   venue,
@@ -107,26 +103,26 @@ function FinishedMatchRow({
 }: (typeof schedule)[number]) {
   return (
     <Link href={`/match/${id}`} className="block">
-      <div className="py-3">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="py-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6">
           {/* LEFT team */}
-          <div className="flex items-center justify-end gap-2 min-w-0">
-            <div className="min-w-0 text-right">
+          <div className="flex items-center justify-end gap-3 min-w-0">
+            <div className="max-w-[160px] text-right">
               <div className={TEAM_NAME_CLASS}>{team1.name}</div>
             </div>
             <Image
               src={team1.logoUrl}
               alt={team1.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-full object-cover shrink-0"
             />
           </div>
 
-          {/* MIDDLE score + FT */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="min-w-[64px] rounded-md bg-muted/40 px-3 py-1 text-center">
-              <span className="text-[14px] font-bold tabular-nums">
+          {/* MIDDLE score + FT + pitch */}
+          <div className="flex flex-col items-center justify-center min-w-[68px]">
+            <div className="inline-flex items-center justify-center rounded-md bg-muted/40 px-3 py-1">
+              <span className="text-[15px] font-bold tabular-nums">
                 {score1 ?? "-"} - {score2 ?? "-"}
               </span>
             </div>
@@ -137,15 +133,15 @@ function FinishedMatchRow({
           </div>
 
           {/* RIGHT team */}
-          <div className="flex items-center justify-start gap-2 min-w-0">
+          <div className="flex items-center justify-start gap-3 min-w-0">
             <Image
               src={team2.logoUrl}
               alt={team2.name}
-              width={22}
-              height={22}
-              className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-full object-cover shrink-0"
             />
-            <div className="min-w-0">
+            <div className="max-w-[160px]">
               <div className={TEAM_NAME_CLASS}>{team2.name}</div>
             </div>
           </div>
@@ -155,7 +151,7 @@ function FinishedMatchRow({
   );
 }
 
-/** Scheduled/live row: keep style, but also allow names to wrap properly */
+/** Scheduled/live row – keep card, but with single-line names + ellipsis */
 function UpcomingMatchRow({
   id,
   date,
@@ -170,6 +166,7 @@ function UpcomingMatchRow({
       <Card className="rounded-2xl border bg-card shadow-sm transition hover:bg-accent/30">
         <CardContent className="p-3">
           <div className="flex items-center justify-between gap-3">
+            {/* LEFT team */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 min-w-0">
                 <Image
@@ -179,12 +176,15 @@ function UpcomingMatchRow({
                   height={26}
                   className="h-[26px] w-[26px] rounded-full object-cover shrink-0"
                 />
-                <div className="min-w-0 text-sm font-semibold whitespace-normal break-words line-clamp-2">
-                  {team1.name}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
+                    {team1.name}
+                  </div>
                 </div>
               </div>
             </div>
 
+            {/* CENTER status */}
             <div className="shrink-0 text-center">
               <div className="text-base font-bold tabular-nums">vs</div>
               <div className="mt-1 flex items-center justify-center gap-2">
@@ -197,10 +197,13 @@ function UpcomingMatchRow({
               </div>
             </div>
 
+            {/* RIGHT team */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-end gap-2 min-w-0">
-                <div className="min-w-0 text-sm font-semibold text-right whitespace-normal break-words line-clamp-2">
-                  {team2.name}
+                <div className="min-w-0 text-right">
+                  <div className="text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
+                    {team2.name}
+                  </div>
                 </div>
                 <Image
                   src={team2.logoUrl}
@@ -397,19 +400,16 @@ export default function MatchesPage() {
                 {dateLabel}
               </div>
 
-              {/* ✅ OPTION 2 container: lighter, “free flowing” list + wrapping names */}
+              {/* Finished + upcoming matches */}
               <div className="mt-3">
                 {finishedGames.length > 0 && (
-                  <div className="rounded-2xl border bg-card/30 backdrop-blur-sm">
-                    <div className="divide-y divide-border/60 px-3">
-                      {finishedGames.map((g) => (
-                        <FinishedMatchRow key={g.id} {...g} />
-                      ))}
-                    </div>
+                  <div className="divide-y divide-border/60">
+                    {finishedGames.map((g) => (
+                      <FinishedMatchRow key={g.id} {...g} />
+                    ))}
                   </div>
                 )}
 
-                {/* Upcoming matches (optional) */}
                 {upcomingGames.length > 0 && (
                   <div className="mt-4 space-y-3">
                     {upcomingGames.map((g) => (
