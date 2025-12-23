@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-/** ---------- helpers ---------- */
+/* ---------- helpers ---------- */
 
 type Season = { code: string };
 
@@ -73,7 +73,9 @@ function getMatchweeks(allGames: { date: string }[]) {
   }));
 }
 
-function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[]) {
+function pickCurrentMatchweekIndex(
+  matchweeks: { key: string; index: number }[]
+) {
   const todayMs = startOfDayMs(new Date());
   const i = matchweeks.findIndex(
     (mw) => startOfDayMs(new Date(mw.key)) >= todayMs
@@ -81,13 +83,13 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
   return i === -1 ? Math.max(0, matchweeks.length - 1) : i;
 }
 
-/** ---------- UI blocks ---------- */
+/* ---------- UI blocks ---------- */
 
 const TEAM_NAME_CLASS =
   "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap";
 
-/** EPL-style finished match row:
- * row 1:  [name] [logo] [score] [logo] [name]
+/** EPL-style finished row:
+ * row 1:  name  logo  score  logo  name
  * row 2:  FT centered
  */
 function FinishedMatchRow({
@@ -101,7 +103,6 @@ function FinishedMatchRow({
     <Link href={`/match/${id}`} className="block">
       <div className="py-5 transition hover:bg-accent/10">
         <div className="flex flex-col gap-1">
-          {/* row 1: names, logos, score all on the SAME line */}
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
             {/* left name */}
             <span
@@ -122,7 +123,7 @@ function FinishedMatchRow({
               className="h-6 w-6 justify-self-end rounded-full object-cover"
             />
 
-            {/* score in the middle */}
+            {/* score centre */}
             <span className="justify-self-center text-[18px] font-extrabold tabular-nums">
               {score1 ?? "-"} - {score2 ?? "-"}
             </span>
@@ -140,7 +141,7 @@ function FinishedMatchRow({
             <span className={cn(TEAM_NAME_CLASS, "truncate")}>{team2.name}</span>
           </div>
 
-          {/* FT centered under the score */}
+          {/* FT under score */}
           <div className="text-center text-[12px] font-bold tracking-wide text-muted-foreground">
             FT
           </div>
@@ -150,11 +151,7 @@ function FinishedMatchRow({
   );
 }
 
-/** Upcoming row:
- * row 1:  [name] [logo] [vs] [logo] [name]
- * row 2:  SCHEDULED badge centered
- * row 3:  time  •  Pitch A/B  •  date
- */
+/** Upcoming row with SCHEDULED + time/date/pitch */
 function UpcomingMatchRow({
   id,
   date,
@@ -168,7 +165,6 @@ function UpcomingMatchRow({
     <Link href={`/match/${id}`} className="block">
       <div className="py-4 transition hover:bg-accent/10">
         <div className="flex flex-col gap-1">
-          {/* row 1: teams + vs */}
           <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
             {/* left name */}
             <span
@@ -189,8 +185,8 @@ function UpcomingMatchRow({
               className="h-6 w-6 justify-self-end rounded-full object-cover"
             />
 
-            {/* vs in the middle */}
-            <span className="justify-self-center text-[16px] font-bold tabular-nums">
+            {/* vs centre */}
+            <span className="justify-self-center text-[16px] font-bold">
               vs
             </span>
 
@@ -207,20 +203,17 @@ function UpcomingMatchRow({
             <span className={cn(TEAM_NAME_CLASS, "truncate")}>{team2.name}</span>
           </div>
 
-          {/* row 2: status badge centered */}
+          {/* status on its own line */}
           <div className="mt-1 flex justify-center">
-            <Badge
-              variant="secondary"
-              className="px-3 py-0.5 text-[10px] tracking-wide"
-            >
+            <Badge variant="secondary" className="h-5 px-2 text-[10px]">
               {status.toUpperCase()}
             </Badge>
           </div>
 
-          {/* row 3: time + pitch + date */}
-          <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+          {/* time / pitch / date line */}
+          <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="tabular-nums">{time}</span>
-            <span className="text-xs font-medium">{venue}</span>
+            <span className="truncate">{venue}</span>
             <span className="truncate">
               {format(new Date(date), "EEE, MMM d")}
             </span>
@@ -231,7 +224,266 @@ function UpcomingMatchRow({
   );
 }
 
-/** ---------- Page ---------- */
+/* ---------- TABLE VIEWS ---------- */
+
+/** helpers to safely read stats from standings without caring about exact type */
+function getStat(
+  team: any,
+  key: string,
+  fallback: number | string = "-"
+): number | string {
+  if (team == null) return fallback;
+  if (team[key] == null) return fallback;
+  return team[key];
+}
+
+/** Short: Pos, Team, PL, W, D, GD */
+function ShortTable({ teams }: { teams: typeof standings }) {
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[420px] text-xs">
+        <thead>
+          <tr className="text-[11px] text-muted-foreground">
+            <th className="py-2 pr-3 text-left font-medium">Pos</th>
+            <th className="py-2 pr-3 text-left font-medium">Team</th>
+            <th className="py-2 px-2 text-center font-medium">PL</th>
+            <th className="py-2 px-2 text-center font-medium">W</th>
+            <th className="py-2 px-2 text-center font-medium">D</th>
+            <th className="py-2 pl-2 text-center font-medium">GD</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t, i) => {
+            const anyT = t as any;
+            const wins = anyT.wins ?? 0;
+            const draws = anyT.draws ?? 0;
+            const losses = anyT.losses ?? 0;
+            const played =
+              anyT.played ?? anyT.pl ?? wins + draws + losses ?? "-";
+            const gd =
+              anyT.gd ??
+              anyT.goalDifference ??
+              (anyT.goalsFor != null && anyT.goalsAgainst != null
+                ? anyT.goalsFor - anyT.goalsAgainst
+                : "-");
+
+            return (
+              <tr
+                key={t.id}
+                className="border-t border-border/40 text-[13px]"
+              >
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1 rounded-full bg-primary" />
+                    <span className="tabular-nums">{i + 1}</span>
+                  </div>
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={t.logoUrl}
+                      alt={t.name}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                    <span className="truncate font-semibold text-sm">
+                      {t.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2 px-2 text-center tabular-nums">{played}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{wins}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{draws}</td>
+                <td className="py-2 pl-2 text-center tabular-nums">{gd}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Full: Pos, Team, PL, W, D, L, GF, GA, GD, LP, Pts, Next */
+function FullTable({ teams }: { teams: typeof standings }) {
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[720px] text-xs">
+        <thead>
+          <tr className="text-[11px] text-muted-foreground">
+            <th className="py-2 pr-3 text-left font-medium">Pos</th>
+            <th className="py-2 pr-3 text-left font-medium">Team</th>
+            <th className="py-2 px-2 text-center font-medium">PL</th>
+            <th className="py-2 px-2 text-center font-medium">W</th>
+            <th className="py-2 px-2 text-center font-medium">D</th>
+            <th className="py-2 px-2 text-center font-medium">L</th>
+            <th className="py-2 px-2 text-center font-medium">GF</th>
+            <th className="py-2 px-2 text-center font-medium">GA</th>
+            <th className="py-2 px-2 text-center font-medium">GD</th>
+            <th className="py-2 px-2 text-center font-medium">LP</th>
+            <th className="py-2 px-2 text-center font-medium">Pts</th>
+            <th className="py-2 pl-2 text-center font-medium">Next</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t, i) => {
+            const anyT = t as any;
+            const wins = anyT.wins ?? 0;
+            const draws = anyT.draws ?? 0;
+            const losses = anyT.losses ?? 0;
+            const played =
+              anyT.played ?? anyT.pl ?? wins + draws + losses ?? "-";
+            const gf = getStat(anyT, "goalsFor");
+            const ga = getStat(anyT, "goalsAgainst");
+            const gd =
+              anyT.gd ??
+              anyT.goalDifference ??
+              (gf !== "-" && ga !== "-" ? (gf as number) - (ga as number) : "-");
+            const pts =
+              anyT.points ??
+              anyT.pts ??
+              (typeof wins === "number" && typeof draws === "number"
+                ? wins * 3 + draws
+                : "-");
+            const lp = getStat(anyT, "lastPosition", "-");
+            const nextLogo = anyT.nextOpponentLogoUrl;
+
+            return (
+              <tr
+                key={t.id}
+                className="border-t border-border/40 text-[13px]"
+              >
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1 rounded-full bg-primary" />
+                    <span className="tabular-nums">{i + 1}</span>
+                  </div>
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={t.logoUrl}
+                      alt={t.name}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                    <span className="truncate font-semibold text-sm">
+                      {t.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2 px-2 text-center tabular-nums">{played}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{wins}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{draws}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{losses}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{gf}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{ga}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{gd}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{lp}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{pts}</td>
+                <td className="py-2 pl-2 text-center">
+                  {nextLogo ? (
+                    <Image
+                      src={nextLogo}
+                      alt="Next opponent"
+                      width={20}
+                      height={20}
+                      className="mx-auto h-5 w-5 rounded-full"
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Form: Pos, Team, Form (5 circles) */
+function FormTable({ teams }: { teams: typeof standings }) {
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[420px] text-xs">
+        <thead>
+          <tr className="text-[11px] text-muted-foreground">
+            <th className="py-2 pr-3 text-left font-medium">Pos</th>
+            <th className="py-2 pr-3 text-left font-medium">Team</th>
+            <th className="py-2 pl-3 text-left font-medium">Form</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t, i) => {
+            const anyT = t as any;
+            const form: string[] =
+              anyT.recentForm && Array.isArray(anyT.recentForm)
+                ? anyT.recentForm
+                : []; // you can fill this array in lib/data
+
+            // fallback fake form so UI still looks nice if data missing
+            const fallback = ["W", "W", "D", "L", "W"];
+            const values = (form.length ? form : fallback).slice(0, 5);
+
+            return (
+              <tr
+                key={t.id}
+                className="border-t border-border/40 text-[13px]"
+              >
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1 rounded-full bg-primary" />
+                    <span className="tabular-nums">{i + 1}</span>
+                  </div>
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={t.logoUrl}
+                      alt={t.name}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                    <span className="truncate font-semibold text-sm">
+                      {t.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2 pl-3">
+                  <div className="flex gap-2">
+                    {values.map((r, idx) => {
+                      const result = r.toUpperCase();
+                      const base =
+                        "grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold";
+
+                      let colorClass = "bg-muted text-foreground";
+                      if (result === "W") colorClass = "bg-emerald-500 text-white";
+                      if (result === "D") colorClass = "bg-slate-400 text-white";
+                      if (result === "L") colorClass = "bg-rose-500 text-white";
+
+                      return (
+                        <span key={idx} className={cn(base, colorClass)}>
+                          {result}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ---------- Page ---------- */
 
 export default function MatchesPage() {
   const allGames = React.useMemo(() => {
@@ -245,6 +497,9 @@ export default function MatchesPage() {
 
   const [season, setSeason] = React.useState<Season>(seasons[0]);
   const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
+  const [tableView, setTableView] = React.useState<"short" | "full" | "form">(
+    "short"
+  );
 
   const [mwIndex, setMwIndex] = React.useState(() =>
     pickCurrentMatchweekIndex(matchweeks)
@@ -320,7 +575,11 @@ export default function MatchesPage() {
 
         {/* Top tabs */}
         <div className="mt-4">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as any)}
+            className="w-full"
+          >
             <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
               <TabsTrigger
                 value="matches"
@@ -437,45 +696,47 @@ export default function MatchesPage() {
             {/* TABLE TAB */}
             <TabsContent value="table" className="mt-4">
               <Card className="rounded-2xl">
-                <CardContent className="space-y-3 p-4">
-                  <div className="text-sm font-semibold">League Table (preview)</div>
+                <CardContent className="space-y-4 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold">League Table</div>
+                    <span className="text-xs text-muted-foreground">
+                      Season {season.code}
+                    </span>
+                  </div>
 
-                  <div className="space-y-2">
-                    {standings.slice(0, 4).map((t, i) => (
-                      <div
-                        key={t.id}
-                        className="flex items-center justify-between text-sm"
+                  {/* Short / Full / Form switch */}
+                  <div className="inline-flex w-full rounded-2xl bg-muted/40 p-1">
+                    {[
+                      { key: "short", label: "Short" },
+                      { key: "full", label: "Full" },
+                      { key: "form", label: "Form" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() =>
+                          setTableView(opt.key as "short" | "full" | "form")
+                        }
+                        className={cn(
+                          "flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition",
+                          tableView === opt.key
+                            ? "bg-background shadow-sm"
+                            : "text-muted-foreground hover:bg-muted/60"
+                        )}
                       >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="w-5 text-muted-foreground">{i + 1}</span>
-                          <Image
-                            src={t.logoUrl}
-                            alt={t.name}
-                            width={20}
-                            height={20}
-                            className="h-5 w-5 rounded-full"
-                          />
-                          <span className="truncate font-semibold">{t.name}</span>
-                        </div>
-
-                        <span className="font-bold tabular-nums">
-                          {t.wins * 3 + t.draws}
-                        </span>
-                      </div>
+                        {opt.label}
+                      </button>
                     ))}
                   </div>
 
-                  <Link
-                    href="/dashboard/table"
-                    className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-2 text-sm font-semibold"
-                  >
-                    Open full table
-                  </Link>
+                  {tableView === "short" && <ShortTable teams={standings} />}
+                  {tableView === "full" && <FullTable teams={standings} />}
+                  {tableView === "form" && <FormTable teams={standings} />}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* STATS TAB */}
+            {/* STATS TAB (placeholder for now) */}
             <TabsContent value="stats" className="mt-4">
               <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
                 Stats coming next (goals, clean sheets, top scorers, etc.)
