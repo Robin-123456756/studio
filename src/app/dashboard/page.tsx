@@ -163,7 +163,8 @@ export default function DashboardPage() {
       </div>
 
       {/* ✅ Replace the graph with a proper MOBILE table */}
-     <Card>
+
+      <Card>
   {/* HEADER – title only, no button on the right */}
   <CardHeader className="pb-2">
     <CardTitle className="text-base">League Table</CardTitle>

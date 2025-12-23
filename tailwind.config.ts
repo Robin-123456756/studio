@@ -24,27 +24,16 @@ const config: Config = {
       },
     },
     extend: {
-      /**
-       * Mobile safe areas (notch + home indicator)
-       */
       spacing: {
         "safe-top": "env(safe-area-inset-top)",
         "safe-right": "env(safe-area-inset-right)",
         "safe-bottom": "env(safe-area-inset-bottom)",
         "safe-left": "env(safe-area-inset-left)",
       },
-
-      /**
-       * App-like widths
-       */
       maxWidth: {
         app: "28rem",
         appWide: "32rem",
       },
-
-      /**
-       * Fonts
-       */
       fontFamily: {
         body: ["Inter", "sans-serif"],
         headline: ["Space Grotesk", "sans-serif"],
@@ -57,10 +46,6 @@ const config: Config = {
           "monospace",
         ],
       },
-
-      /**
-       * Colors via CSS variables (shadcn style)
-       */
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -113,10 +98,6 @@ const config: Config = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
-
-      /**
-       * Radius (shadcn)
-       */
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -124,10 +105,9 @@ const config: Config = {
         xl: "calc(var(--radius) + 4px)",
         "2xl": "calc(var(--radius) + 8px)",
       },
-
-      /**
-       * Animations
-       */
+      borderColor: {
+        DEFAULT: "hsl(var(--border))",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },

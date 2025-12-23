@@ -101,6 +101,8 @@ body {
   /* Global base styles */
   * {
     /* instead of @apply border-border */
+  /* Global defaults that used to rely on border-border */
+  * {
     border-color: hsl(var(--border));
   }
 
