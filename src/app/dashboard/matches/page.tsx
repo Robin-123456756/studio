@@ -83,17 +83,9 @@ function pickCurrentMatchweekIndex(matchweeks: { key: string; index: number }[])
 
 /** ---------- UI blocks ---------- */
 
-/**
- * ✅ EPL-style (single line), BUT safe:
- * - truncate prevents long names from colliding with logos/badges
- * - min-w-0 on containers enables truncate
- */
-const TEAM_NAME_CLASS =
-  "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap truncate";
-/** ✅ EPL-style finished match:
- * - Team names + logos + score are on the SAME line
- * - FT sits just below the score
- * - No background/padding behind the score
+/** EPL-style finished match row:
+ * Team name + logo  |  SCORE  |  logo + team name
+ * FT sits under the score.
  */
 function FinishedMatchRow({
   id,
@@ -105,14 +97,11 @@ function FinishedMatchRow({
   return (
     <Link href={`/match/${id}`} className="block">
       <div className="py-5 transition hover:bg-accent/10">
-        {/* 1 line: team - score - team */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        {/* single horizontal line like EPL */}
+        <div className="flex items-center justify-between gap-4">
           {/* LEFT: name then logo */}
-          <div className="flex items-center justify-end gap-3 min-w-0">
-            <div className="min-w-0 text-right">
-              <div className={TEAM_NAME_CLASS}>{team1.name}</div>
-            </div>
-
+          <div className="flex items-center gap-3 min-w-0 justify-end">
+            <span className={`text-right ${TEAM_NAME_CLASS}`}>{team1.name}</span>
             <Image
               src={team1.logoUrl}
               alt={team1.name}
@@ -122,7 +111,7 @@ function FinishedMatchRow({
             />
           </div>
 
-          {/* CENTER: score (no padding / bg) + FT under it */}
+          {/* CENTER: score on same row, FT below */}
           <div className="flex flex-col items-center justify-center">
             <span className="text-[18px] font-extrabold tabular-nums">
               {score1 ?? "-"} - {score2 ?? "-"}
@@ -133,7 +122,7 @@ function FinishedMatchRow({
           </div>
 
           {/* RIGHT: logo then name */}
-          <div className="flex items-center justify-start gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 justify-start">
             <Image
               src={team2.logoUrl}
               alt={team2.name}
@@ -141,10 +130,7 @@ function FinishedMatchRow({
               height={22}
               className="h-[22px] w-[22px] rounded-full object-cover shrink-0"
             />
-
-            <div className="min-w-0">
-              <div className={TEAM_NAME_CLASS}>{team2.name}</div>
-            </div>
+            <span className={TEAM_NAME_CLASS}>{team2.name}</span>
           </div>
         </div>
       </div>
