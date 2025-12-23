@@ -242,10 +242,16 @@ export default function DashboardPage() {
           </Table>
 
           {!expanded && table.length > 4 && (
-            <div className="pt-2 text-xs text-muted-foreground px-2">
-              Showing top 4. Tap <span className="font-medium">Show more</span> to view the full table.
-            </div>
-          )}
+  <div className="pt-3 px-2">
+    <Link
+      href="/dashboard/table"
+      className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-2 text-sm font-semibold"
+    >
+      View full table
+    </Link>
+  </div>
+)}
+
         </CardContent>
       </Card>
 
