@@ -3,301 +3,751 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Users, Calendar, Trophy, History } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { format } from "date-fns";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { schedule, recentScores, standings } from "@/lib/data";
 
-import { teams, schedule, recentScores, type Game, type Team } from "@/lib/data";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// ---------- Standings logic (computed from completed games) ----------
-type Row = {
-  teamId: string;
-  name: string;
-  logoUrl: string;
-  PL: number;
-  W: number;
-  D: number;
-  L: number;
-  GF: number;
-  GA: number;
-  GD: number;
-  LP: number; // Lady points
-  Pts: number;
-};
+/* ---------- helpers ---------- */
 
-function hasLadyOnField(game: Game, teamName: string) {
-  // If you later set game.onField1/onField2 with gender info, LP will auto-work.
-  const side1 = game.team1.name === teamName ? game.onField1?.players : undefined;
-  const side2 = game.team2.name === teamName ? game.onField2?.players : undefined;
+type Season = { code: string };
 
-  const players = side1 ?? side2 ?? [];
-  return players.some((p) => p.gender === "female");
+const seasons: Season[] = [
+  { code: "TBL9" },
+  { code: "TBL8" },
+  { code: "TBL7" },
+  { code: "TBL6" },
+  { code: "TBL5" },
+  { code: "TBL4" },
+  { code: "TBL3" },
+];
+
+function dayKey(d: string) {
+  return d; // expects YYYY-MM-DD
 }
 
-function computeTable(allTeams: Team[], games: Game[]): Row[] {
-  const map = new Map<string, Row>();
-
-  for (const t of allTeams) {
-    map.set(t.id, {
-      teamId: t.id,
-      name: t.name,
-      logoUrl: t.logoUrl,
-      PL: 0,
-      W: 0,
-      D: 0,
-      L: 0,
-      GF: 0,
-      GA: 0,
-      GD: 0,
-      LP: 0,
-      Pts: 0,
-    });
-  }
-
-  const completed = games.filter((g) => g.status === "completed" && typeof g.score1 === "number" && typeof g.score2 === "number");
-
-  for (const g of completed) {
-    const a = map.get(g.team1.id);
-    const b = map.get(g.team2.id);
-    if (!a || !b) continue;
-
-    const s1 = g.score1 ?? 0;
-    const s2 = g.score2 ?? 0;
-
-    a.PL += 1;
-    b.PL += 1;
-
-    a.GF += s1;
-    a.GA += s2;
-
-    b.GF += s2;
-    b.GA += s1;
-
-    if (s1 > s2) {
-      a.W += 1;
-      b.L += 1;
-    } else if (s1 < s2) {
-      b.W += 1;
-      a.L += 1;
-    } else {
-      a.D += 1;
-      b.D += 1;
-    }
-
-    // Lady points: +1 if a lady was fielded (optional)
-    if (hasLadyOnField(g, g.team1.name)) a.LP += 1;
-    if (hasLadyOnField(g, g.team2.name)) b.LP += 1;
-  }
-
-  // finalize GD + points
-  for (const r of map.values()) {
-    r.GD = r.GF - r.GA;
-    r.Pts = r.W * 3 + r.D + r.LP; // ✅ LP contributes even if team loses/wins
-  }
-
-  // Sort: points desc, then GD desc, then name
-  return Array.from(map.values()).sort((x, y) => {
-    if (y.Pts !== x.Pts) return y.Pts - x.Pts;
-    if (y.GD !== x.GD) return y.GD - x.GD;
-    return x.name.localeCompare(y.name);
-  });
+function sameDay(a: string, b: string) {
+  return dayKey(a) === dayKey(b);
 }
 
-// ---------- UI helpers ----------
-function posBarClass(pos: number) {
-  // 1–4 blue, 5–8 orange, else transparent
-  if (pos >= 1 && pos <= 4) return "bg-blue-500";
-  if (pos >= 5 && pos <= 8) return "bg-orange-500";
-  return "bg-transparent";
+function startOfDayMs(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x.getTime();
 }
 
-export default function DashboardPage() {
-  const [expanded, setExpanded] = React.useState(false);
+function labelForDate(yyyyMmDd: string) {
+  const target = new Date(yyyyMmDd);
+  const today = new Date();
 
-  const upcomingGames = schedule.filter((g) => new Date(g.date) >= new Date()).length;
+  const diffDays = Math.round(
+    (startOfDayMs(target) - startOfDayMs(today)) / (1000 * 60 * 60 * 24)
+  );
 
-  // Build table from completed games you have (recentScores)
-  // If later you add more completed games, it will automatically update.
-  const table = computeTable(teams, recentScores);
+  if (diffDays === 0) return "Today";
+  if (diffDays === -1) return "Yesterday";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays > 1) return "Upcoming";
+  return format(target, "EEE, MMM d");
+}
 
-  const visibleRows = expanded ? table : table.slice(0, 4);
+function getMatchweeks(allGames: { date: string }[]) {
+  const dates = Array.from(new Set(allGames.map((g) => dayKey(g.date)))).sort(
+    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+  );
+
+  return dates.map((d, idx) => ({
+    key: d,
+    index: idx + 1,
+  }));
+}
+
+function pickCurrentMatchweekIndex(
+  matchweeks: { key: string; index: number }[]
+) {
+  const todayMs = startOfDayMs(new Date());
+  const i = matchweeks.findIndex(
+    (mw) => startOfDayMs(new Date(mw.key)) >= todayMs
+  );
+  return i === -1 ? Math.max(0, matchweeks.length - 1) : i;
+}
+
+/* ---------- UI blocks ---------- */
+
+const TEAM_NAME_CLASS =
+  "text-[14px] font-semibold leading-none tracking-tight whitespace-nowrap";
+
+/** EPL-style finished row:
+ * row 1:  name  logo  score  logo  name
+ * row 2:  FT centered
+ */
+function FinishedMatchRow({
+  id,
+  team1,
+  team2,
+  score1,
+  score2,
+}: (typeof schedule)[number]) {
+  return (
+    <Link href={`/match/${id}`} className="block">
+      <div className="py-5 transition hover:bg-accent/10">
+        <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
+            {/* left name */}
+            <span
+              className={cn(
+                TEAM_NAME_CLASS,
+                "truncate text-right"
+              )}
+            >
+              {team1.name}
+            </span>
+
+            {/* left logo */}
+            <Image
+              src={team1.logoUrl}
+              alt={team1.name}
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-end rounded-full object-cover"
+            />
+
+            {/* score centre */}
+            <span className="justify-self-center text-[18px] font-extrabold tabular-nums">
+              {score1 ?? "-"} - {score2 ?? "-"}
+            </span>
+
+            {/* right logo */}
+            <Image
+              src={team2.logoUrl}
+              alt={team2.name}
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-start rounded-full object-cover"
+            />
+
+            {/* right name */}
+            <span className={cn(TEAM_NAME_CLASS, "truncate")}>{team2.name}</span>
+          </div>
+
+          {/* FT under score */}
+          <div className="text-center text-[12px] font-bold tracking-wide text-muted-foreground">
+            FT
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/** Upcoming row with SCHEDULED + time/date/pitch */
+function UpcomingMatchRow({
+  id,
+  date,
+  time,
+  venue,
+  team1,
+  team2,
+  status,
+}: (typeof schedule)[number]) {
+  return (
+    <Link href={`/match/${id}`} className="block">
+      <div className="py-4 transition hover:bg-accent/10">
+        <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-x-3">
+            {/* left name */}
+            <span
+              className={cn(
+                TEAM_NAME_CLASS,
+                "truncate text-right"
+              )}
+            >
+              {team1.name}
+            </span>
+
+            {/* left logo */}
+            <Image
+              src={team1.logoUrl}
+              alt={team1.name}
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-end rounded-full object-cover"
+            />
+
+            {/* vs centre */}
+            <span className="justify-self-center text-[16px] font-bold">
+              vs
+            </span>
+
+            {/* right logo */}
+            <Image
+              src={team2.logoUrl}
+              alt={team2.name}
+              width={24}
+              height={24}
+              className="h-6 w-6 justify-self-start rounded-full object-cover"
+            />
+
+            {/* right name */}
+            <span className={cn(TEAM_NAME_CLASS, "truncate")}>{team2.name}</span>
+          </div>
+
+          {/* status on its own line */}
+          <div className="mt-1 flex justify-center">
+            <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+              {status.toUpperCase()}
+            </Badge>
+          </div>
+
+          {/* time / pitch / date line */}
+          <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="tabular-nums">{time}</span>
+            <span className="truncate">{venue}</span>
+            <span className="truncate">
+              {format(new Date(date), "EEE, MMM d")}
+            </span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ---------- TABLE VIEWS ---------- */
+
+/** helpers to safely read stats from standings without caring about exact type */
+function getStat(
+  team: any,
+  key: string,
+  fallback: number | string = "-"
+): number | string {
+  if (team == null) return fallback;
+  if (team[key] == null) return fallback;
+  return team[key];
+}
+
+/** Short: Pos, Team, PL, W, D, GD */
+function ShortTable({ teams }: { teams: typeof standings }) {
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[420px] text-xs">
+        <thead>
+          <tr className="text-[11px] text-muted-foreground">
+            <th className="py-2 pr-3 text-left font-medium">Pos</th>
+            <th className="py-2 pr-3 text-left font-medium">Team</th>
+            <th className="py-2 px-2 text-center font-medium">PL</th>
+            <th className="py-2 px-2 text-center font-medium">W</th>
+            <th className="py-2 px-2 text-center font-medium">D</th>
+            <th className="py-2 pl-2 text-center font-medium">GD</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t, i) => {
+            const anyT = t as any;
+            const wins = anyT.wins ?? 0;
+            const draws = anyT.draws ?? 0;
+            const losses = anyT.losses ?? 0;
+            const played =
+              anyT.played ?? anyT.pl ?? wins + draws + losses ?? "-";
+            const gd =
+              anyT.gd ??
+              anyT.goalDifference ??
+              (anyT.goalsFor != null && anyT.goalsAgainst != null
+                ? anyT.goalsFor - anyT.goalsAgainst
+                : "-");
+
+            return (
+              <tr
+                key={t.id}
+                className="border-t border-border/40 text-[13px]"
+              >
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1 rounded-full bg-primary" />
+                    <span className="tabular-nums">{i + 1}</span>
+                  </div>
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={t.logoUrl}
+                      alt={t.name}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                    <span className="truncate font-semibold text-sm">
+                      {t.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2 px-2 text-center tabular-nums">{played}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{wins}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{draws}</td>
+                <td className="py-2 pl-2 text-center tabular-nums">{gd}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Full: Pos, Team, PL, W, D, L, GF, GA, GD, LP, Pts, Next */
+function FullTable({ teams }: { teams: typeof standings }) {
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[720px] text-xs">
+        <thead>
+          <tr className="text-[11px] text-muted-foreground">
+            <th className="py-2 pr-3 text-left font-medium">Pos</th>
+            <th className="py-2 pr-3 text-left font-medium">Team</th>
+            <th className="py-2 px-2 text-center font-medium">PL</th>
+            <th className="py-2 px-2 text-center font-medium">W</th>
+            <th className="py-2 px-2 text-center font-medium">D</th>
+            <th className="py-2 px-2 text-center font-medium">L</th>
+            <th className="py-2 px-2 text-center font-medium">GF</th>
+            <th className="py-2 px-2 text-center font-medium">GA</th>
+            <th className="py-2 px-2 text-center font-medium">GD</th>
+            <th className="py-2 px-2 text-center font-medium">LP</th>
+            <th className="py-2 px-2 text-center font-medium">Pts</th>
+            <th className="py-2 pl-2 text-center font-medium">Next</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t, i) => {
+            const anyT = t as any;
+            const wins = anyT.wins ?? 0;
+            const draws = anyT.draws ?? 0;
+            const losses = anyT.losses ?? 0;
+            const played =
+              anyT.played ?? anyT.pl ?? wins + draws + losses ?? "-";
+            const gf = getStat(anyT, "goalsFor");
+            const ga = getStat(anyT, "goalsAgainst");
+            const gd =
+              anyT.gd ??
+              anyT.goalDifference ??
+              (gf !== "-" && ga !== "-" ? (gf as number) - (ga as number) : "-");
+            const pts =
+              anyT.points ??
+              anyT.pts ??
+              (typeof wins === "number" && typeof draws === "number"
+                ? wins * 3 + draws
+                : "-");
+            const lp = getStat(anyT, "lastPosition", "-");
+            const nextLogo = anyT.nextOpponentLogoUrl;
+
+            return (
+              <tr
+                key={t.id}
+                className="border-t border-border/40 text-[13px]"
+              >
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1 rounded-full bg-primary" />
+                    <span className="tabular-nums">{i + 1}</span>
+                  </div>
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={t.logoUrl}
+                      alt={t.name}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                    <span className="truncate font-semibold text-sm">
+                      {t.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2 px-2 text-center tabular-nums">{played}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{wins}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{draws}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{losses}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{gf}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{ga}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{gd}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{lp}</td>
+                <td className="py-2 px-2 text-center tabular-nums">{pts}</td>
+                <td className="py-2 pl-2 text-center">
+                  {nextLogo ? (
+                    <Image
+                      src={nextLogo}
+                      alt="Next opponent"
+                      width={20}
+                      height={20}
+                      className="mx-auto h-5 w-5 rounded-full"
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Form: Pos, Team, Form (5 circles) */
+function FormTable({ teams }: { teams: typeof standings }) {
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full min-w-[420px] text-xs">
+        <thead>
+          <tr className="text-[11px] text-muted-foreground">
+            <th className="py-2 pr-3 text-left font-medium">Pos</th>
+            <th className="py-2 pr-3 text-left font-medium">Team</th>
+            <th className="py-2 pl-3 text-left font-medium">Form</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t, i) => {
+            const anyT = t as any;
+            const form: string[] =
+              anyT.recentForm && Array.isArray(anyT.recentForm)
+                ? anyT.recentForm
+                : []; // you can fill this array in lib/data
+
+            // fallback fake form so UI still looks nice if data missing
+            const fallback = ["W", "W", "D", "L", "W"];
+            const values = (form.length ? form : fallback).slice(0, 5);
+
+            return (
+              <tr
+                key={t.id}
+                className="border-t border-border/40 text-[13px]"
+              >
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1 rounded-full bg-primary" />
+                    <span className="tabular-nums">{i + 1}</span>
+                  </div>
+                </td>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={t.logoUrl}
+                      alt={t.name}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                    <span className="truncate font-semibold text-sm">
+                      {t.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2 pl-3">
+                  <div className="flex gap-2">
+                    {values.map((r, idx) => {
+                      const result = r.toUpperCase();
+                      const base =
+                        "grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold";
+
+                      let colorClass = "bg-muted text-foreground";
+                      if (result === "W") colorClass = "bg-emerald-500 text-white";
+                      if (result === "D") colorClass = "bg-slate-400 text-white";
+                      if (result === "L") colorClass = "bg-rose-500 text-white";
+
+                      return (
+                        <span key={idx} className={cn(base, colorClass)}>
+                          {result}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ---------- Page ---------- */
+
+export default function MatchesPage() {
+  const allGames = React.useMemo(() => {
+    const merged = [...schedule, ...recentScores];
+    return merged.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  }, []);
+
+  const matchweeks = React.useMemo(() => getMatchweeks(allGames), [allGames]);
+
+  const [season, setSeason] = React.useState<Season>(seasons[0]);
+  const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
+  const [tableView, setTableView] = React.useState<"short" | "full" | "form">(
+    "short"
+  );
+
+  const [mwIndex, setMwIndex] = React.useState(() =>
+    pickCurrentMatchweekIndex(matchweeks)
+  );
+
+  React.useEffect(() => {
+    setMwIndex((prev) => Math.min(prev, Math.max(0, matchweeks.length - 1)));
+  }, [matchweeks.length]);
+
+  const activeMw = matchweeks[mwIndex];
+  const activeDate = activeMw?.key;
+
+  const weekGames = React.useMemo(() => {
+    if (!activeDate) return [];
+    return allGames
+      .filter((g) => sameDay(g.date, activeDate))
+      .sort((a, b) => (a.venue ?? "").localeCompare(b.venue ?? ""));
+  }, [allGames, activeDate]);
+
+  const finishedGames = weekGames.filter((g) => g.status === "completed");
+  const upcomingGames = weekGames.filter((g) => g.status !== "completed");
+
+  const dateLabel = activeDate ? labelForDate(activeDate) : "Matches";
+  const canPrev = mwIndex > 0;
+  const canNext = mwIndex < matchweeks.length - 1;
 
   return (
-    <div className="space-y-6 animate-in fade-in-50">
-      {/* Summary cards */}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Teams</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{teams.length}</div>
-            <p className="text-xs text-muted-foreground">Currently in the league</p>
-          </CardContent>
-        </Card>
+    <div className="animate-in fade-in-50">
+      <div className="rounded-3xl border bg-card p-4 shadow-sm">
+        {/* Season dropdown */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-muted-foreground">
+              Season
+            </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Games</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{upcomingGames}</div>
-            <p className="text-xs text-muted-foreground">Scheduled matches</p>
-          </CardContent>
-        </Card>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-2xl border bg-background px-3 py-2 text-sm font-semibold shadow-sm"
+                >
+                  <span>{season.code}</span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Top Team</CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{table[0]?.name ?? "—"}</div>
-            <p className="text-xs text-muted-foreground">{table[0]?.Pts ?? 0} points</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ✅ Replace the graph with a proper MOBILE table */}
-
-      <Card>
-  {/* HEADER – title only, no button on the right */}
-  <CardHeader className="pb-2">
-    <CardTitle className="text-base">League Table</CardTitle>
-  </CardHeader>
-
-  <CardContent className="px-2 pb-3">
-    {/* TABLE */}
-    <Table>
-      <TableHeader>
-        <TableRow className="text-[11px]">
-          {/* Pos + bar: narrower + less padding */}
-          <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
-
-          {/* Team: fixed-ish width so numbers can squeeze */}
-          <TableHead className="w-[112px] pr-1">Team</TableHead>
-
-          {/* Tight numeric columns so no horizontal scroll */}
-          <TableHead className="w-[26px] px-1 text-center">PL</TableHead>
-          <TableHead className="w-[26px] px-1 text-center">W</TableHead>
-          <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
-          <TableHead className="w-[32px] px-1 text-center">LP</TableHead>
-          <TableHead className="w-[36px] pl-1 pr-2 text-right">Pts</TableHead>
-        </TableRow>
-      </TableHeader>
-
-      <TableBody>
-        {visibleRows.map((r, idx) => {
-          const pos = idx + 1;
-          const bar = posBarClass(pos);
-
-          return (
-            <TableRow key={r.teamId} className="text-[12px]">
-              {/* Pos cell – tighter gap */}
-              <TableCell className="py-2 pl-2 pr-1">
-                <div className="flex items-center gap-1.5">
-                  <div className={`h-5 w-1.5 rounded-full ${bar}`} />
-                  <span className="font-semibold tabular-nums">{pos}</span>
-                </div>
-              </TableCell>
-
-              {/* Team cell – smaller logo + less gap */}
-              <TableCell className="py-2 pr-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Image
-                    src={r.logoUrl}
-                    alt={r.name}
-                    width={18}
-                    height={18}
-                    className="rounded-full shrink-0"
-                  />
-                  <span className="truncate text-[12px] font-medium">
-                    {r.name}
-                  </span>
-                </div>
-              </TableCell>
-
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.PL}
-              </TableCell>
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.W}
-              </TableCell>
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.GD}
-              </TableCell>
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.LP}
-              </TableCell>
-              <TableCell className="py-2 pl-1 pr-2 text-right font-mono font-bold tabular-nums">
-                {r.Pts}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-
-    {/* TEXT + BUTTON UNDER TOP 4 */}
-    {table.length > 4 && (
-      <div className="pt-2 px-2 space-y-2">
-        {!expanded && (
-          <p className="text-xs text-muted-foreground">
-            Showing top 4. Tap{" "}
-            <span className="font-medium">View full table</span> to see all teams.
-          </p>
-        )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setExpanded((v) => !v)}
-          className="w-full justify-center rounded-2xl text-sm font-semibold"
-          type="button"
-        >
-          {expanded ? "Hide full table" : "View full table"}
-        </Button>
-      </div>
-    )}
-  </CardContent>
-</Card>
-
-
-      {/* Recent Results (keep it, it’s useful on mobile) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <History className="h-5 w-5" /> Recent Results
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-2">
-          <div className="space-y-2">
-            {recentScores.map((g) => (
-              <Link
-                key={g.id}
-                href={`/match/${g.id}`}
-                className="flex items-center justify-between rounded-xl border bg-card px-3 py-3 hover:bg-accent transition-colors"
+              <DropdownMenuContent
+                align="start"
+                className={cn(
+                  "w-40 rounded-2xl border p-1 shadow-lg",
+                  "bg-slate-950/90 text-white backdrop-blur"
+                )}
               >
-                <div className="min-w-0">
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(g.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })} • {g.venue}
-                  </div>
-                  <div className="truncate text-sm font-medium">
-                    {g.team1.name} vs {g.team2.name}
-                  </div>
-                </div>
-                <div className="shrink-0 text-sm font-bold font-mono tabular-nums">
-                  {(g.score1 ?? "-") + " - " + (g.score2 ?? "-")}
-                </div>
-              </Link>
-            ))}
+                {seasons.map((s) => (
+                  <DropdownMenuItem
+                    key={s.code}
+                    onClick={() => setSeason(s)}
+                    className={cn(
+                      "cursor-pointer rounded-xl px-3 py-2",
+                      "hover:bg-white/10 hover:text-white",
+                      "focus:bg-white/10 focus:text-white",
+                      season.code === s.code && "bg-white/15"
+                    )}
+                  >
+                    <span className="font-semibold">{s.code}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Top tabs */}
+        <div className="mt-4">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as any)}
+            className="w-full"
+          >
+            <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
+              <TabsTrigger
+                value="matches"
+                className={cn(
+                  "rounded-none px-0 pb-2 text-base font-semibold",
+                  "data-[state=active]:shadow-none",
+                  "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
+                )}
+              >
+                Matches
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="table"
+                className={cn(
+                  "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
+                  "data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                  "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
+                )}
+              >
+                Table
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="stats"
+                className={cn(
+                  "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
+                  "data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                  "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
+                )}
+              >
+                Stats
+              </TabsTrigger>
+            </TabsList>
+
+            {/* MATCHES TAB */}
+            <TabsContent value="matches" className="mt-4">
+              {/* Matchweek selector */}
+              <div className="rounded-2xl border bg-background p-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => canPrev && setMwIndex((x) => x - 1)}
+                    disabled={!canPrev}
+                    className={cn(
+                      "grid h-9 w-9 place-items-center rounded-full border bg-card",
+                      !canPrev && "opacity-40"
+                    )}
+                    aria-label="Previous matchweek"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+
+                  <div className="text-center">
+                    <div className="text-lg font-bold">
+                      Matchweek {activeMw?.index ?? 1}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {activeDate ? format(new Date(activeDate), "EEE d MMM") : ""}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => canNext && setMwIndex((x) => x + 1)}
+                    disabled={!canNext}
+                    className={cn(
+                      "grid h-9 w-9 place-items-center rounded-full border bg-card",
+                      !canNext && "opacity-40"
+                    )}
+                    aria-label="Next matchweek"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Date label */}
+              <div className="mt-4 text-sm font-semibold text-muted-foreground">
+                {dateLabel}
+              </div>
+
+              {/* List of matches */}
+              <div className="mt-3">
+                {finishedGames.length > 0 && (
+                  <div className="divide-y divide-border/40">
+                    {finishedGames.map((g) => (
+                      <FinishedMatchRow key={g.id} {...g} />
+                    ))}
+                  </div>
+                )}
+
+                {upcomingGames.length > 0 && (
+                  <div
+                    className={cn(
+                      "divide-y divide-border/40",
+                      finishedGames.length > 0 && "mt-2"
+                    )}
+                  >
+                    {upcomingGames.map((g) => (
+                      <UpcomingMatchRow key={g.id} {...g} />
+                    ))}
+                  </div>
+                )}
+
+                {finishedGames.length === 0 && upcomingGames.length === 0 && (
+                  <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
+                    No matches found for this matchweek yet.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* TABLE TAB */}
+            <TabsContent value="table" className="mt-4">
+              <Card className="rounded-2xl">
+                <CardContent className="space-y-4 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold">League Table</div>
+                    <span className="text-xs text-muted-foreground">
+                      Season {season.code}
+                    </span>
+                  </div>
+
+                  {/* Short / Full / Form switch */}
+                  <div className="inline-flex w-full rounded-2xl bg-muted/40 p-1">
+                    {[
+                      { key: "short", label: "Short" },
+                      { key: "full", label: "Full" },
+                      { key: "form", label: "Form" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() =>
+                          setTableView(opt.key as "short" | "full" | "form")
+                        }
+                        className={cn(
+                          "flex-1 rounded-2xl px-3 py-2 text-sm font-semibold transition",
+                          tableView === opt.key
+                            ? "bg-background shadow-sm"
+                            : "text-muted-foreground hover:bg-muted/60"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {tableView === "short" && <ShortTable teams={standings} />}
+                  {tableView === "full" && <FullTable teams={standings} />}
+                  {tableView === "form" && <FormTable teams={standings} />}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* STATS TAB (placeholder for now) */}
+            <TabsContent value="stats" className="mt-4">
+              <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
+                Stats coming next (goals, clean sheets, top scorers, etc.)
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+
+      {/* space so bottom nav never covers content */}
+      <div className="h-24 md:hidden" />
     </div>
   );
 }
