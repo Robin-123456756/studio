@@ -98,7 +98,7 @@ body {
     --sidebar-ring: 158 100% 50%;
   }
 
-  /* Global base styles (no more @apply border-border) */
+  /* Global base styles */
   *,
   *::before,
   *::after {
