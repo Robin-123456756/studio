@@ -98,11 +98,10 @@ body {
     --sidebar-ring: 158 100% 50%;
   }
 
-  /* Global base styles */
-  * {
-    /* instead of @apply border-border */
-  /* Global defaults that used to rely on border-border */
-  * {
+  /* Global base styles (no more @apply border-border) */
+  *,
+  *::before,
+  *::after {
     border-color: hsl(var(--border));
   }
 
