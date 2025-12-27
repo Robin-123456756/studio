@@ -4,9 +4,10 @@ import "./globals.css";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
 import { Toaster } from "@/components/ui/toaster";
 
-export const metadata: Metadata = {
-  title: "TBL",
-  description: "The Budo League.",
+export const metadata = {
+  title: "The Budo League",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0b1220",
 };
 
 export default function RootLayout({
