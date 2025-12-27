@@ -474,6 +474,245 @@ function FormTable({ data, games }: { data: Team[]; games: Game[] }) {
     </Card>
   );
 }
+/** ---------- STATS DATA ---------- */
+
+type PlayerStatRow = {
+  rank: number;
+  name: string;
+  club: string;
+  clubLogo: string;
+  value: number;
+};
+
+type PlayerStatGroup = {
+  id: string;
+  label: string;
+  rows: PlayerStatRow[];
+};
+
+type ClubStatRow = {
+  rank: number;
+  club: string;
+  clubLogo: string;
+  value: number;
+};
+
+type ClubStatGroup = {
+  id: string;
+  label: string;
+  rows: ClubStatRow[];
+};
+
+const playerStatGroups: PlayerStatGroup[] = [
+  {
+    id: "goals",
+    label: "Goals",
+    rows: [
+      {
+        rank: 1,
+        name: "Erling Haaland",
+        club: "Man City",
+        clubLogo: "/clubs/man-city.png",
+        value: 19,
+      },
+      {
+        rank: 2,
+        name: "Igor Thiago",
+        club: "Brentford",
+        clubLogo: "/clubs/brentford.png",
+        value: 11,
+      },
+      {
+        rank: 3,
+        name: "Hugo Ekitiké",
+        club: "Liverpool",
+        clubLogo: "/clubs/liverpool.png",
+        value: 8,
+      },
+    ],
+  },
+  {
+    id: "assists",
+    label: "Assists",
+    rows: [
+      {
+        rank: 1,
+        name: "Bruno Fernandes",
+        club: "Man Utd",
+        clubLogo: "/clubs/man-utd.png",
+        value: 7,
+      },
+      {
+        rank: 2,
+        name: "Bukayo Saka",
+        club: "Arsenal",
+        clubLogo: "/clubs/arsenal.png",
+        value: 6,
+      },
+      {
+        rank: 3,
+        name: "Kevin De Bruyne",
+        club: "Man City",
+        clubLogo: "/clubs/man-city.png",
+        value: 6,
+      },
+    ],
+  },
+];
+
+const clubStatGroups: ClubStatGroup[] = [
+  {
+    id: "goals-for",
+    label: "Goals",
+    rows: [
+      {
+        rank: 1,
+        club: "Man City",
+        clubLogo: "/clubs/man-city.png",
+        value: 41,
+      },
+      {
+        rank: 2,
+        club: "Arsenal",
+        clubLogo: "/clubs/arsenal.png",
+        value: 31,
+      },
+      {
+        rank: 3,
+        club: "Man Utd",
+        clubLogo: "/clubs/man-utd.png",
+        value: 31,
+      },
+    ],
+  },
+  {
+    id: "goals-against",
+    label: "Goals conceded",
+    rows: [
+      {
+        rank: 1,
+        club: "Wolves",
+        clubLogo: "/clubs/wolves.png",
+        value: 37,
+      },
+      {
+        rank: 2,
+        club: "Brighton",
+        clubLogo: "/clubs/brighton.png",
+        value: 34,
+      },
+      {
+        rank: 3,
+        club: "Crystal Palace",
+        clubLogo: "/clubs/crystal-palace.png",
+        value: 33,
+      },
+    ],
+  },
+];
+
+/** Player stats card */
+function PlayerStatsCard({ group }: { group: PlayerStatGroup }) {
+  return (
+    <Card className="rounded-2xl border bg-card">
+      <CardContent className="p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm font-semibold">{group.label}</div>
+          <button className="text-[11px] font-semibold text-primary">
+            View all &gt;
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {group.rows.map((row) => (
+            <div
+              key={row.rank + row.name}
+              className="flex items-center justify-between gap-3"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="w-4 text-xs font-semibold text-muted-foreground">
+                  {row.rank}
+                </span>
+
+                <div className="relative h-10 w-10 overflow-hidden rounded-full bg-muted">
+                  <Image
+                    src={row.clubLogo}
+                    alt={row.club}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">
+                    {row.name}
+                  </div>
+                  <div className="mt-[2px] flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <span>{row.club}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right text-base font-extrabold tabular-nums">
+                {row.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Club stats card */
+function ClubStatsCard({ group }: { group: ClubStatGroup }) {
+  return (
+    <Card className="rounded-2xl border bg-card">
+      <CardContent className="p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-sm font-semibold">{group.label}</div>
+          <button className="text-[11px] font-semibold text-primary">
+            View all &gt;
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {group.rows.map((row) => (
+            <div
+              key={row.rank + row.club}
+              className="flex items-center justify-between gap-3"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="w-4 text-xs font-semibold text-muted-foreground">
+                  {row.rank}
+                </span>
+
+                <div className="relative h-10 w-10 overflow-hidden rounded-full bg-muted">
+                  <Image
+                    src={row.clubLogo}
+                    alt={row.club}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="min-w-0 truncate text-sm font-semibold">
+                  {row.club}
+                </div>
+              </div>
+
+              <div className="text-right text-base font-extrabold tabular-nums">
+                {row.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 /* ---------------- Page ---------------- */
 
