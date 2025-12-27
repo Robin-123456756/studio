@@ -1,48 +1,16 @@
-// mobile-bottom-nav.tsx
-
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  Home,
-  Trophy,
-  CalendarDays,
-  MoreHorizontal,
-  Users,
-  Medal,
-  Settings,
-  Star,
-  UserCircle2,
-  ArrowLeftRight,
-  ChevronRight,
-} from "lucide-react";
-
-import {
-  Sheet,
-  SheetTrigger,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetClose,
-} from "@/components/ui/sheet";
+import { Home, Trophy, CalendarDays, MoreHorizontal } from "lucide-react";
 
 const tabs = [
   { href: "/dashboard", label: "Latest", Icon: Home },
   { href: "/dashboard/matches", label: "Matches", Icon: CalendarDays },
   { href: "/dashboard/fantasy", label: "Fantasy", Icon: Trophy },
-] as const;
-
-// ✅ PL-style "More" items
-const moreItems = [
-  { href: "/dashboard/settings", label: "myTBL Settings", Icon: Settings },
-  { href: "/dashboard/teams", label: "Teams", Icon: Users },
-  { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
-  { href: "/dashboard/transfers", label: "Transfers", Icon: ArrowLeftRight },
-  { href: "/dashboard/results", label: "Results", Icon: Medal },
-  { href: "/dashboard/reviews", label: "Reviews", Icon: Star },
+  { href: "/dashboard/more", label: "More", Icon: MoreHorizontal }, // ✅ now its own page
 ] as const;
 
 function isActiveRoute(pathname: string, href: string) {
@@ -63,7 +31,6 @@ export default function MobileBottomNav() {
       )}
     >
       <div className="mx-auto w-full max-w-app px-2 py-2">
-        {/* 4 columns: Latest, Matches, Fantasy, More */}
         <div className="grid grid-cols-4 gap-1">
           {tabs.map(({ href, label, Icon }) => {
             const active = isActiveRoute(pathname, href);
@@ -99,60 +66,6 @@ export default function MobileBottomNav() {
               </Link>
             );
           })}
-
-          {/* MORE – opens PL-style list */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <button
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2",
-                  "text-muted-foreground hover:text-foreground transition active:scale-[0.98]"
-                )}
-                aria-label="More"
-                type="button"
-              >
-                <div className="grid h-10 w-10 place-items-center rounded-2xl">
-                  <MoreHorizontal className="h-5 w-5" />
-                </div>
-                <span className="text-[11px] leading-none font-medium">
-                  More
-                </span>
-              </button>
-            </SheetTrigger>
-
-            <SheetContent
-              side="bottom"
-              // ⬇️ give it a max height & flex so inner area can scroll
-              className="rounded-t-3xl pb-[env(safe-area-inset-bottom)] max-h-[70vh] flex flex-col"
-            >
-              <SheetHeader className="pb-3">
-                <SheetTitle>More</SheetTitle>
-              </SheetHeader>
-
-              {/* Scrollable list area */}
-              <div className="mt-1 flex-1 overflow-y-auto">
-                <nav className="space-y-1 pb-3">
-                  {moreItems.map(({ href, label, Icon }) => (
-                    <SheetClose asChild key={href}>
-                      <Link
-                        href={href}
-                        className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 text-sm font-medium hover:bg-accent/10 active:bg-accent/20"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <span className="text-[15px]">{label}</span>
-                        </div>
-
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </Link>
-                    </SheetClose>
-                  ))}
-                </nav>
-              </div>
-            </SheetContent>
-          </Sheet>
         </div>
       </div>
     </nav>
