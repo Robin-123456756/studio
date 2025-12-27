@@ -7,7 +7,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { myFantasyTeam, fantasyStandings, type Player } from "@/lib/data";
-import { ArrowDown, ArrowUp, Minus, Shirt, ArrowLeftRight } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Minus,
+  Shirt,
+  ArrowLeftRight,
+  Crown,
+  ShieldCheck,
+  X,
+} from "lucide-react";
+
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 type TabKey = "pitch" | "list";
 
@@ -20,13 +36,47 @@ function groupByPosition(players: Player[]) {
   };
 }
 
+/**
+ * Build a "starting XI" using a simple default formation:
+ * GK 1, DEF 4, MID 4, FWD 3 (or fewer if you don't have enough players yet).
+ * Bench = everyone else.
+ */
+function splitStartingAndBench(players: Player[]) {
+  const g = groupByPosition(players);
+  const starting = [
+    ...g.Goalkeepers.slice(0, 1),
+    ...g.Defenders.slice(0, 4),
+    ...g.Midfielders.slice(0, 4),
+    ...g.Forwards.slice(0, 3),
+  ];
+
+  const startingIds = new Set(starting.map((p) => p.id));
+  const bench = players.filter((p) => !startingIds.has(p.id));
+
+  return { starting, bench };
+}
+
+function swapPlayersInArray(players: Player[], aId: string, bId: string) {
+  const aIndex = players.findIndex((p) => p.id === aId);
+  const bIndex = players.findIndex((p) => p.id === bId);
+  if (aIndex < 0 || bIndex < 0) return players;
+
+  const next = [...players];
+  const temp = next[aIndex];
+  next[aIndex] = next[bIndex];
+  next[bIndex] = temp;
+  return next;
+}
+
 function MiniLeague() {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         <div className="px-4 pt-4 pb-2">
           <div className="text-base font-semibold">Mini-League</div>
-          <div className="text-sm text-muted-foreground">Your rank among rivals.</div>
+          <div className="text-sm text-muted-foreground">
+            Your rank among rivals.
+          </div>
         </div>
 
         <div className="px-2 pb-3">
@@ -34,7 +84,11 @@ function MiniLeague() {
             {fantasyStandings.map((t) => {
               const isMe = t.name === myFantasyTeam.name;
               const trend =
-                t.rank < myFantasyTeam.rank ? "up" : t.rank > myFantasyTeam.rank ? "down" : "same";
+                t.rank < myFantasyTeam.rank
+                  ? "up"
+                  : t.rank > myFantasyTeam.rank
+                  ? "down"
+                  : "same";
 
               return (
                 <div
@@ -57,11 +111,15 @@ function MiniLeague() {
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{t.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{t.owner}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {t.owner}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="text-sm font-bold font-mono tabular-nums">{t.points}</div>
+                  <div className="text-sm font-bold font-mono tabular-nums">
+                    {t.points}
+                  </div>
                 </div>
               );
             })}
@@ -72,9 +130,41 @@ function MiniLeague() {
   );
 }
 
-function PlayerPill({ player }: { player: Player }) {
+function CaptainBadge({ type }: { type: "C" | "VC" }) {
   return (
-    <div className="flex flex-col items-center gap-1 w-[76px]">
+    <div
+      className={cn(
+        "absolute -top-2 -right-2 h-6 w-6 rounded-full",
+        "grid place-items-center text-[11px] font-extrabold",
+        type === "C" ? "bg-amber-400 text-black" : "bg-emerald-400 text-black"
+      )}
+    >
+      {type}
+    </div>
+  );
+}
+
+function PlayerPill({
+  player,
+  onClick,
+  captainId,
+  viceId,
+}: {
+  player: Player;
+  onClick: (p: Player) => void;
+  captainId?: string | null;
+  viceId?: string | null;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(player)}
+      className="relative flex flex-col items-center gap-1 w-[76px] active:scale-[0.98] transition"
+      aria-label={`Open ${player.name}`}
+    >
+      {captainId === player.id ? <CaptainBadge type="C" /> : null}
+      {viceId === player.id ? <CaptainBadge type="VC" /> : null}
+
       <div className="rounded-xl bg-white/90 text-black w-full overflow-hidden shadow">
         <div className="flex items-center gap-2 px-2 pt-2">
           <div className="h-8 w-8 rounded-full overflow-hidden bg-black/10 shrink-0">
@@ -87,7 +177,9 @@ function PlayerPill({ player }: { player: Player }) {
             />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold truncate leading-tight">{player.name}</div>
+            <div className="text-[11px] font-semibold truncate leading-tight">
+              {player.name}
+            </div>
             <div className="text-[10px] text-black/60 truncate">{player.team}</div>
           </div>
         </div>
@@ -96,58 +188,149 @@ function PlayerPill({ player }: { player: Player }) {
           <div className="text-[11px] font-bold">{player.points} pts</div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
-function PitchView({ players }: { players: Player[] }) {
-  const grouped = groupByPosition(players);
+function BenchRow({
+  bench,
+  onPick,
+  captainId,
+  viceId,
+}: {
+  bench: Player[];
+  onPick: (p: Player) => void;
+  captainId?: string | null;
+  viceId?: string | null;
+}) {
+  if (bench.length === 0) return null;
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden border"
-      style={{
-        backgroundImage: "url('/pitch.svg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      <div className="backdrop-brightness-[0.92] p-3">
-        <div className="flex flex-col gap-4 py-3">
-          {/* GK */}
-          <div className="flex justify-center">
-            {grouped.Goalkeepers.slice(0, 1).map((p) => (
-              <PlayerPill key={p.id} player={p} />
-            ))}
-          </div>
+    <div className="rounded-2xl border bg-card p-3">
+      <div className="flex items-center justify-between pb-2">
+        <div className="text-sm font-semibold">Bench</div>
+        <div className="text-xs text-muted-foreground">Tap to swap</div>
+      </div>
 
-          {/* DEF */}
-          <div className="flex justify-center gap-3 flex-wrap">
-            {grouped.Defenders.slice(0, 4).map((p) => (
-              <PlayerPill key={p.id} player={p} />
-            ))}
+      <div className="flex gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+        {bench.map((p) => (
+          <div key={p.id} className="shrink-0">
+            <PlayerPill
+              player={p}
+              onClick={onPick}
+              captainId={captainId}
+              viceId={viceId}
+            />
           </div>
-
-          {/* MID */}
-          <div className="flex justify-center gap-3 flex-wrap">
-            {grouped.Midfielders.slice(0, 4).map((p) => (
-              <PlayerPill key={p.id} player={p} />
-            ))}
-          </div>
-
-          {/* FWD */}
-          <div className="flex justify-center gap-3 flex-wrap">
-            {grouped.Forwards.slice(0, 3).map((p) => (
-              <PlayerPill key={p.id} player={p} />
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function ListView({ players }: { players: Player[] }) {
+function PitchView({
+  players,
+  onPickPlayer,
+  captainId,
+  viceId,
+}: {
+  players: Player[];
+  onPickPlayer: (p: Player) => void;
+  captainId?: string | null;
+  viceId?: string | null;
+}) {
+  const { starting, bench } = splitStartingAndBench(players);
+  const grouped = groupByPosition(starting);
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="rounded-2xl overflow-hidden border"
+        style={{
+          backgroundImage: "url('/pitch.svg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="backdrop-brightness-[0.92] p-3">
+          <div className="flex flex-col gap-4 py-3">
+            {/* GK */}
+            <div className="flex justify-center">
+              {grouped.Goalkeepers.slice(0, 1).map((p) => (
+                <PlayerPill
+                  key={p.id}
+                  player={p}
+                  onClick={onPickPlayer}
+                  captainId={captainId}
+                  viceId={viceId}
+                />
+              ))}
+            </div>
+
+            {/* DEF */}
+            <div className="flex justify-center gap-3 flex-wrap">
+              {grouped.Defenders.slice(0, 4).map((p) => (
+                <PlayerPill
+                  key={p.id}
+                  player={p}
+                  onClick={onPickPlayer}
+                  captainId={captainId}
+                  viceId={viceId}
+                />
+              ))}
+            </div>
+
+            {/* MID */}
+            <div className="flex justify-center gap-3 flex-wrap">
+              {grouped.Midfielders.slice(0, 4).map((p) => (
+                <PlayerPill
+                  key={p.id}
+                  player={p}
+                  onClick={onPickPlayer}
+                  captainId={captainId}
+                  viceId={viceId}
+                />
+              ))}
+            </div>
+
+            {/* FWD */}
+            <div className="flex justify-center gap-3 flex-wrap">
+              {grouped.Forwards.slice(0, 3).map((p) => (
+                <PlayerPill
+                  key={p.id}
+                  player={p}
+                  onClick={onPickPlayer}
+                  captainId={captainId}
+                  viceId={viceId}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ Bench row (horizontal + scroll) */}
+      <BenchRow
+        bench={bench}
+        onPick={onPickPlayer}
+        captainId={captainId}
+        viceId={viceId}
+      />
+    </div>
+  );
+}
+
+function ListView({
+  players,
+  onPickPlayer,
+  captainId,
+  viceId,
+}: {
+  players: Player[];
+  onPickPlayer: (p: Player) => void;
+  captainId?: string | null;
+  viceId?: string | null;
+}) {
   const grouped = groupByPosition(players);
 
   const Section = ({ title, list }: { title: string; list: Player[] }) => (
@@ -159,9 +342,14 @@ function ListView({ players }: { players: Player[] }) {
 
       <div className="divide-y">
         {list.map((p) => (
-          <div key={p.id} className="px-4 py-3 flex items-center justify-between">
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onPickPlayer(p)}
+            className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-accent/10 active:bg-accent/20 transition"
+          >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
+              <div className="relative h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
                 <Image
                   src={p.avatarUrl}
                   alt={p.name}
@@ -169,7 +357,17 @@ function ListView({ players }: { players: Player[] }) {
                   height={40}
                   className="h-10 w-10 object-cover"
                 />
+                {captainId === p.id ? (
+                  <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-400 text-black grid place-items-center text-[10px] font-extrabold">
+                    C
+                  </div>
+                ) : viceId === p.id ? (
+                  <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-400 text-black grid place-items-center text-[9px] font-extrabold">
+                    VC
+                  </div>
+                ) : null}
               </div>
+
               <div className="min-w-0">
                 <div className="text-sm font-medium truncate">{p.name}</div>
                 <div className="text-xs text-muted-foreground truncate">
@@ -180,9 +378,11 @@ function ListView({ players }: { players: Player[] }) {
 
             <div className="text-right shrink-0">
               <div className="text-sm font-mono tabular-nums">${p.price}m</div>
-              <div className="text-sm font-bold font-mono tabular-nums">{p.points}</div>
+              <div className="text-sm font-bold font-mono tabular-nums">
+                {p.points}
+              </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -198,15 +398,245 @@ function ListView({ players }: { players: Player[] }) {
   );
 }
 
+function PlayerActionSheet({
+  open,
+  onOpenChange,
+  selected,
+  players,
+  onSwapWith,
+  onSetCaptain,
+  onSetVice,
+  captainId,
+  viceId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  selected: Player | null;
+  players: Player[];
+  onSwapWith: (otherId: string) => void;
+  onSetCaptain: () => void;
+  onSetVice: () => void;
+  captainId?: string | null;
+  viceId?: string | null;
+}) {
+  const [mode, setMode] = React.useState<"actions" | "swap">("actions");
+
+  React.useEffect(() => {
+    if (!open) setMode("actions");
+  }, [open]);
+
+  if (!selected) return null;
+
+  const others = players.filter((p) => p.id !== selected.id);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className={cn(
+          "rounded-t-3xl pb-[env(safe-area-inset-bottom)]",
+          "max-h-[85vh] overflow-y-auto"
+        )}
+      >
+        <SheetHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <SheetTitle>{mode === "swap" ? "Swap Player" : "Player"}</SheetTitle>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded-xl p-2 hover:bg-accent/20 active:bg-accent/30"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </SheetHeader>
+
+        {/* Selected player header */}
+        <div className="rounded-2xl border bg-card p-3">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-full overflow-hidden bg-muted shrink-0">
+              <Image
+                src={selected.avatarUrl}
+                alt={selected.name}
+                width={48}
+                height={48}
+                className="h-12 w-12 object-cover"
+              />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="text-base font-semibold truncate">{selected.name}</div>
+              <div className="text-sm text-muted-foreground truncate">
+                {selected.team} • {selected.position}
+              </div>
+              <div className="mt-1 text-sm font-mono tabular-nums">
+                ${selected.price}m • <span className="font-bold">{selected.points}</span> pts
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {captainId === selected.id ? (
+                <div className="flex items-center gap-1 rounded-full bg-amber-400/90 px-2 py-1 text-xs font-extrabold text-black">
+                  <Crown className="h-4 w-4" /> C
+                </div>
+              ) : null}
+              {viceId === selected.id ? (
+                <div className="flex items-center gap-1 rounded-full bg-emerald-400/90 px-2 py-1 text-xs font-extrabold text-black">
+                  <ShieldCheck className="h-4 w-4" /> VC
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {mode === "actions" ? (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-2xl"
+              onClick={() => setMode("swap")}
+            >
+              <span className="flex items-center gap-2">
+                <ArrowLeftRight className="h-5 w-5" />
+                Swap
+              </span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-2xl"
+              onClick={() => {
+                onSetCaptain();
+                onOpenChange(false);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <Crown className="h-5 w-5" />
+                Captain
+              </span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-2xl"
+              onClick={() => {
+                onSetVice();
+                onOpenChange(false);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5" />
+                Vice
+              </span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-2xl"
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <div className="flex items-center justify-between pb-2">
+              <div className="text-sm font-semibold">Swap with</div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setMode("actions")}
+                className="rounded-xl"
+              >
+                Back
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              {others.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onSwapWith(p.id);
+                    onOpenChange(false);
+                  }}
+                  className="w-full rounded-2xl border bg-card px-3 py-3 text-left hover:bg-accent/10 active:bg-accent/20 transition"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
+                        <Image
+                          src={p.avatarUrl}
+                          alt={p.name}
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{p.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {p.team} • {p.position}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-mono tabular-nums">${p.price}m</div>
+                      <div className="text-sm font-bold font-mono tabular-nums">
+                        {p.points}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export default function FantasyPage() {
   const [tab, setTab] = React.useState<TabKey>("pitch");
+
+  // ✅ squad players must be local state (so swaps update UI)
+  const [squadPlayers, setSquadPlayers] = React.useState<Player[]>(() => [
+    ...myFantasyTeam.players,
+  ]);
 
   // ✅ let user create / edit their team name
   const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
 
+  // ✅ captain + vice (persist)
+  const [captainId, setCaptainId] = React.useState<string | null>(null);
+  const [viceId, setViceId] = React.useState<string | null>(null);
+
+  // ✅ player sheet state
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+
+  const selected = React.useMemo(
+    () => squadPlayers.find((p) => p.id === selectedId) ?? null,
+    [squadPlayers, selectedId]
+  );
+
   React.useEffect(() => {
-    const saved = window.localStorage.getItem("tbl_team_name");
-    if (saved && saved.trim().length > 0) setTeamName(saved);
+    const savedName = window.localStorage.getItem("tbl_team_name");
+    if (savedName && savedName.trim().length > 0) setTeamName(savedName);
+
+    const savedC = window.localStorage.getItem("tbl_captain_id");
+    const savedVC = window.localStorage.getItem("tbl_vice_id");
+    if (savedC) setCaptainId(savedC);
+    if (savedVC) setViceId(savedVC);
   }, []);
 
   function editTeamName() {
@@ -216,6 +646,40 @@ export default function FantasyPage() {
     if (!cleaned) return;
     setTeamName(cleaned);
     window.localStorage.setItem("tbl_team_name", cleaned);
+  }
+
+  function openPlayer(p: Player) {
+    setSelectedId(p.id);
+    setSheetOpen(true);
+  }
+
+  function swapWith(otherId: string) {
+    if (!selectedId) return;
+    setSquadPlayers((prev) => swapPlayersInArray(prev, selectedId, otherId));
+  }
+
+  function setCaptain() {
+    if (!selectedId) return;
+    setCaptainId(selectedId);
+    window.localStorage.setItem("tbl_captain_id", selectedId);
+
+    // If captain becomes same as vice, clear vice (clean UX)
+    if (viceId === selectedId) {
+      setViceId(null);
+      window.localStorage.removeItem("tbl_vice_id");
+    }
+  }
+
+  function setVice() {
+    if (!selectedId) return;
+    setViceId(selectedId);
+    window.localStorage.setItem("tbl_vice_id", selectedId);
+
+    // If vice becomes same as captain, clear captain
+    if (captainId === selectedId) {
+      setCaptainId(null);
+      window.localStorage.removeItem("tbl_captain_id");
+    }
   }
 
   // Fake numbers to match PL layout (replace later with real data)
@@ -330,13 +794,36 @@ export default function FantasyPage() {
 
       {/* Main content */}
       {tab === "pitch" ? (
-        <PitchView players={myFantasyTeam.players} />
+        <PitchView
+          players={squadPlayers}
+          onPickPlayer={openPlayer}
+          captainId={captainId}
+          viceId={viceId}
+        />
       ) : (
-        <ListView players={myFantasyTeam.players} />
+        <ListView
+          players={squadPlayers}
+          onPickPlayer={openPlayer}
+          captainId={captainId}
+          viceId={viceId}
+        />
       )}
 
-      {/* Mini-league (PL-ish section) */}
+      {/* Mini-league */}
       <MiniLeague />
+
+      {/* ✅ Player actions bottom sheet */}
+      <PlayerActionSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        selected={selected}
+        players={squadPlayers}
+        onSwapWith={swapWith}
+        onSetCaptain={setCaptain}
+        onSetVice={setVice}
+        captainId={captainId}
+        viceId={viceId}
+      />
     </div>
   );
 }
