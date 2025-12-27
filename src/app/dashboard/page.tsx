@@ -188,12 +188,12 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="px-2 pb-3">
+        <CardContent className="px-1 pb-2">
           {/* No horizontal scroll: we keep columns tight */}
           <Table>
             <TableHeader>
               <TableRow className="text-[11px]">
-                <TableHead className="w-[54px]">Pos</TableHead>
+                <TableHead className="w-[50px]">Pos</TableHead>
                 <TableHead>Team</TableHead>
                 <TableHead className="w-[30px] text-center">PL</TableHead>
                 <TableHead className="w-[30px] text-center">W</TableHead>
