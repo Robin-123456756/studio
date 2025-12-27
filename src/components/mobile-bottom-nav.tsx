@@ -25,7 +25,7 @@ export default function MobileBottomNav() {
     <nav
       aria-label="Bottom navigation"
       className={cn(
-        "md:hidden fixed bottom-0 left-0 right-0 z-[9999]",
+        "md:hidden fixed bottom-0 left-0 right-0 z-40",
         "border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70",
         "pb-[env(safe-area-inset-bottom)]"
       )}
