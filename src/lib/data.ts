@@ -6,9 +6,19 @@ export type Team = {
   name: string;
   players: Player[];
   logoUrl: string;
+
+  // base stats (we keep them required for compatibility)
   wins: number;
   losses: number;
   draws: number;
+
+  // ✅ computed extras for table UI
+  played?: number; // PL
+  gf?: number;     // Goals For
+  ga?: number;     // Goals Against
+  gd?: number;     // Goal Difference
+  lp?: number;     // Lady Points
+  pts?: number;    // Total points (W*3 + D + LP)
 };
 
 export type Player = {
@@ -20,7 +30,7 @@ export type Player = {
   points: number;
   team: string;
 
-  // ✅ NEW: needed to enforce "9 males + optional 1 lady on field"
+  // ✅ needed to enforce "9 males + optional 1 lady on field"
   gender: "male" | "female";
 };
 
@@ -45,7 +55,13 @@ export type Game = {
   score2?: number;
   status: "scheduled" | "live" | "completed";
 
-  // ✅ NEW (optional): who is available vs who is currently fielded
+  // ✅ Lady participation (optional flags)
+  // If you set onField1/onField2, we’ll detect from that first.
+  // Otherwise you can set lady1/lady2 directly on a completed match.
+  lady1?: boolean;
+  lady2?: boolean;
+
+  // ✅ optional: who is available vs who is currently fielded
   squad1?: MatchDaySquad;
   squad2?: MatchDaySquad;
   onField1?: OnFieldLineup;
@@ -109,6 +125,118 @@ export function autoPickOnFieldLineup(team: Team, squad: MatchDaySquad): OnField
   const lineup: OnFieldLineup = { players: [...males, ...lady] };
   validateOnFieldLineup(team, lineup);
   return lineup;
+}
+
+// =====================
+// STANDINGS COMPUTATION (GD + LP from matches)
+// =====================
+type TeamStats = {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  gf: number;
+  ga: number;
+  lp: number;
+};
+
+function hasLady(lineup?: OnFieldLineup) {
+  return !!lineup?.players?.some((p) => p.gender === "female");
+}
+
+function getLadyPlayed(game: Game, side: 1 | 2) {
+  // Prefer onField detection (best source of truth)
+  if (side === 1) {
+    if (game.onField1) return hasLady(game.onField1);
+    return !!game.lady1;
+  }
+  if (game.onField2) return hasLady(game.onField2);
+  return !!game.lady2;
+}
+
+function computeStandings(allTeams: Team[], games: Game[]) {
+  const stats = new Map<string, TeamStats>();
+
+  for (const t of allTeams) {
+    stats.set(t.id, { played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, lp: 0 });
+  }
+
+  const playedGames = games.filter(
+    (g) =>
+      (g.status === "completed" || g.status === "live") &&
+      typeof g.score1 === "number" &&
+      typeof g.score2 === "number"
+  );
+
+  for (const g of playedGames) {
+    const s1 = stats.get(g.team1.id);
+    const s2 = stats.get(g.team2.id);
+    if (!s1 || !s2) continue;
+
+    // Played count
+    s1.played += 1;
+    s2.played += 1;
+
+    // GF/GA
+    s1.gf += g.score1!;
+    s1.ga += g.score2!;
+    s2.gf += g.score2!;
+    s2.ga += g.score1!;
+
+    // W/D/L
+    if (g.score1! > g.score2!) {
+      s1.wins += 1;
+      s2.losses += 1;
+    } else if (g.score1! < g.score2!) {
+      s2.wins += 1;
+      s1.losses += 1;
+    } else {
+      s1.draws += 1;
+      s2.draws += 1;
+    }
+
+    // ✅ LP: +1 if a lady played for that team in that match
+    if (getLadyPlayed(g, 1)) s1.lp += 1;
+    if (getLadyPlayed(g, 2)) s2.lp += 1;
+  }
+
+  const computed: Team[] = allTeams.map((t) => {
+    const s = stats.get(t.id)!;
+    const gd = s.gf - s.ga;
+    const pts = s.wins * 3 + s.draws + s.lp;
+
+    return {
+      ...t,
+      wins: s.wins,
+      draws: s.draws,
+      losses: s.losses,
+      played: s.played,
+      gf: s.gf,
+      ga: s.ga,
+      gd,
+      lp: s.lp,
+      pts,
+    };
+  });
+
+  // Sort: Pts desc, then GD desc, then Wins desc, then GF desc (common tie-break)
+  computed.sort((a, b) => {
+    const ptsA = a.pts ?? (a.wins * 3 + a.draws + (a.lp ?? 0));
+    const ptsB = b.pts ?? (b.wins * 3 + b.draws + (b.lp ?? 0));
+    if (ptsB !== ptsA) return ptsB - ptsA;
+
+    const gdA = a.gd ?? 0;
+    const gdB = b.gd ?? 0;
+    if (gdB !== gdA) return gdB - gdA;
+
+    if (b.wins !== a.wins) return b.wins - a.wins;
+
+    const gfA = a.gf ?? 0;
+    const gfB = b.gf ?? 0;
+    return gfB - gfA;
+  });
+
+  return computed;
 }
 
 // =====================
@@ -202,18 +330,41 @@ schedule[0].onField2 = autoPickOnFieldLineup(teams[1], game1Team2Squad);
 
 // =====================
 // RECENT SCORES (sample)
+// ✅ Add lady1/lady2 OR add onField1/onField2 (either works)
 // =====================
 export const recentScores: Game[] = [
-  { id: "g5", date: "2024-08-11", time: "14:00", venue: "Pitch A", team1: teams[0], team2: teams[2], score1: 2, score2: 1, status: "completed" },
-  { id: "g6", date: "2024-08-11", time: "14:00", venue: "Pitch B", team1: teams[1], team2: teams[3], score1: 0, score2: 0, status: "completed" },
+  {
+    id: "g5",
+    date: "2024-08-11",
+    time: "14:00",
+    venue: "Pitch A",
+    team1: teams[0], // Bifa
+    team2: teams[2], // Accumulators
+    score1: 2,
+    score2: 1,
+    lady1: true,  // ✅ Bifa fielded a lady
+    lady2: false, // ✅ Accumulators did not
+    status: "completed",
+  },
+  {
+    id: "g6",
+    date: "2024-08-11",
+    time: "14:00",
+    venue: "Pitch B",
+    team1: teams[1], // Komunoballo
+    team2: teams[3], // Masappe
+    score1: 0,
+    score2: 0,
+    lady1: true, // ✅ Komunoballo fielded a lady
+    lady2: true, // ✅ Masappe fielded a lady
+    status: "completed",
+  },
 ];
 
 // =====================
-// STANDINGS
+// STANDINGS (computed from scores)
 // =====================
-export const standings = [...teams].sort(
-  (a, b) => b.wins * 3 + b.draws - (a.wins * 3 + a.draws)
-);
+export const standings: Team[] = computeStandings(teams, [...schedule, ...recentScores]);
 
 // =====================
 // MY FANTASY TEAM
@@ -238,4 +389,3 @@ export const fantasyStandings = [
   { rank: 12, name: "Admin FC", owner: "League Admin", points: 219 },
   { rank: 13, name: "The Wanderers", owner: "Mike R.", points: 218 },
 ];
-

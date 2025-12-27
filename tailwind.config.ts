@@ -1,6 +1,8 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
+import typography from "@tailwindcss/typography";
 
-const config = {
+const config: Config = {
   darkMode: ["class"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -22,38 +24,28 @@ const config = {
       },
     },
     extend: {
-      /**
-       * Mobile balancing helpers (notch + home indicator safe areas)
-       * Use: pb-safe-bottom, pt-safe-top, etc.
-       */
       spacing: {
         "safe-top": "env(safe-area-inset-top)",
         "safe-right": "env(safe-area-inset-right)",
         "safe-bottom": "env(safe-area-inset-bottom)",
         "safe-left": "env(safe-area-inset-left)",
       },
-
-      /**
-       * "App-like" widths (Premier League feel)
-       * Use: max-w-app, max-w-appWide
-       */
       maxWidth: {
-        app: "28rem", // ~448px (like max-w-md)
-        appWide: "32rem", // ~512px (like max-w-lg)
+        app: "28rem",
+        appWide: "32rem",
       },
-
-      /**
-       * Fonts
-       */
       fontFamily: {
         body: ["Inter", "sans-serif"],
         headline: ["Space Grotesk", "sans-serif"],
-        code: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
+        code: [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          "monospace",
+        ],
       },
-
-      /**
-       * Colors (shadcn / CSS variables)
-       */
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -106,10 +98,6 @@ const config = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
-
-      /**
-       * Radius (shadcn)
-       */
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -117,10 +105,9 @@ const config = {
         xl: "calc(var(--radius) + 4px)",
         "2xl": "calc(var(--radius) + 8px)",
       },
-
-      /**
-       * Animations (Radix accordion + small extras)
-       */
+      borderColor: {
+        DEFAULT: "hsl(var(--border))",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -147,7 +134,7 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
-} satisfies Config;
+  plugins: [tailwindcssAnimate, typography],
+};
 
 export default config;
