@@ -3,21 +3,9 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ChevronDown,
-  ChevronUp,
-  Users,
-  Calendar,
-  Trophy,
-  History,
-} from "lucide-react";
+import { Users, Calendar, Trophy, History } from "lucide-react";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -28,13 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 
-import {
-  teams,
-  schedule,
-  recentScores,
-  type Game,
-  type Team,
-} from "@/lib/data";
+import { teams, schedule, recentScores, type Game, type Team } from "@/lib/data";
 
 // ---------- Standings logic (computed from completed games) ----------
 type Row = {
@@ -151,7 +133,6 @@ export default function DashboardPage() {
   const upcomingGames =
     schedule.filter((g) => new Date(g.date) >= new Date()).length;
 
-  // Build table from completed games you have (recentScores)
   const table = computeTable(teams, recentScores);
   const visibleRows = expanded ? table : table.slice(0, 4);
 
@@ -174,16 +155,12 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Upcoming Games
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Upcoming Games</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{upcomingGames}</div>
-            <p className="text-xs text-muted-foreground">
-              Scheduled matches
-            </p>
+            <p className="text-xs text-muted-foreground">Scheduled matches</p>
           </CardContent>
         </Card>
 
@@ -210,19 +187,18 @@ export default function DashboardPage() {
         </CardHeader>
 
         <CardContent className="px-2 pb-3">
-          {/* TABLE */}
           <Table>
+            {/* ✅ NEW: aligned header widths + centered Pts */}
             <TableHeader>
               <TableRow className="text-[11px]">
                 <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
-                <TableHead className="w-[112px] pr-1">Team</TableHead>
-                <TableHead className="w-[26px] px-1 text-center">PL</TableHead>
-                <TableHead className="w-[26px] px-1 text-center">W</TableHead>
+                <TableHead className="w-[120px] pr-1">Team</TableHead>
+
+                <TableHead className="w-[28px] px-1 text-center">PL</TableHead>
+                <TableHead className="w-[28px] px-1 text-center">W</TableHead>
                 <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
                 <TableHead className="w-[32px] px-1 text-center">LP</TableHead>
-                <TableHead className="w-[36px] pl-1 pr-2 text-right">
-                  Pts
-                </TableHead>
+                <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -235,12 +211,8 @@ export default function DashboardPage() {
                   <TableRow key={r.teamId} className="text-[12px]">
                     <TableCell className="py-2 pl-2 pr-1">
                       <div className="flex items-center gap-1.5">
-                        <div
-                          className={`h-5 w-1.5 rounded-full ${bar}`}
-                        />
-                        <span className="font-semibold tabular-nums">
-                          {pos}
-                        </span>
+                        <div className={`h-5 w-1.5 rounded-full ${bar}`} />
+                        <span className="font-semibold tabular-nums">{pos}</span>
                       </div>
                     </TableCell>
 
@@ -259,6 +231,7 @@ export default function DashboardPage() {
                       </div>
                     </TableCell>
 
+                    {/* ✅ NEW: all numeric columns centered + same padding */}
                     <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
                       {r.PL}
                     </TableCell>
@@ -271,7 +244,7 @@ export default function DashboardPage() {
                     <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
                       {r.LP}
                     </TableCell>
-                    <TableCell className="py-2 pl-1 pr-2 text-right font-mono font-bold tabular-nums">
+                    <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">
                       {r.Pts}
                     </TableCell>
                   </TableRow>
