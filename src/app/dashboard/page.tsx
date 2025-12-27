@@ -3,130 +3,131 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Users, Calendar, Trophy, History, ChevronDown, ChevronUp } from "lucide-react";
-import { format } from "date-fns";
+import { ChevronDown, ChevronUp, Users, Calendar, Trophy, History } from "lucide-react";
 
-import { teams, schedule, standings, recentScores } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 
-function PosPill({ pos }: { pos: number }) {
-  const inTop4 = pos <= 4;
-  const in5to8 = pos >= 5 && pos <= 8;
+import { teams, schedule, recentScores, type Game, type Team } from "@/lib/data";
 
-  return (
-    <div
-      className={[
-        "grid h-7 w-7 place-items-center rounded-md text-xs font-bold tabular-nums",
-        inTop4 ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" : "",
-        in5to8 ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30" : "",
-        !inTop4 && !in5to8 ? "bg-muted text-foreground/80" : "",
-      ].join(" ")}
-      aria-label={`Position ${pos}`}
-      title={`Position ${pos}`}
-    >
-      {pos}
-    </div>
-  );
+// ---------- Standings logic (computed from completed games) ----------
+type Row = {
+  teamId: string;
+  name: string;
+  logoUrl: string;
+  PL: number;
+  W: number;
+  D: number;
+  L: number;
+  GF: number;
+  GA: number;
+  GD: number;
+  LP: number; // Lady points
+  Pts: number;
+};
+
+function hasLadyOnField(game: Game, teamName: string) {
+  // If you later set game.onField1/onField2 with gender info, LP will auto-work.
+  const side1 = game.team1.name === teamName ? game.onField1?.players : undefined;
+  const side2 = game.team2.name === teamName ? game.onField2?.players : undefined;
+
+  const players = side1 ?? side2 ?? [];
+  return players.some((p) => p.gender === "female");
 }
 
-function MiniStandingsTable() {
-  const [expanded, setExpanded] = React.useState(false);
+function computeTable(allTeams: Team[], games: Game[]): Row[] {
+  const map = new Map<string, Row>();
 
-  const visible = expanded ? standings : standings.slice(0, 4);
+  for (const t of allTeams) {
+    map.set(t.id, {
+      teamId: t.id,
+      name: t.name,
+      logoUrl: t.logoUrl,
+      PL: 0,
+      W: 0,
+      D: 0,
+      L: 0,
+      GF: 0,
+      GA: 0,
+      GD: 0,
+      LP: 0,
+      Pts: 0,
+    });
+  }
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-base font-semibold">League Table</CardTitle>
+  const completed = games.filter((g) => g.status === "completed" && typeof g.score1 === "number" && typeof g.score2 === "number");
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-          >
-            <span className="text-xs font-medium text-muted-foreground">
-              {expanded ? "Show less" : "Show more"}
-            </span>
-            {expanded ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
-          </Button>
-        </div>
+  for (const g of completed) {
+    const a = map.get(g.team1.id);
+    const b = map.get(g.team2.id);
+    if (!a || !b) continue;
 
-        {/* Column labels (compact, phone-friendly) */}
-        <div className="grid grid-cols-[40px_1fr_36px_44px_36px_44px] items-center px-2 text-[11px] font-semibold text-muted-foreground">
-          <div className="text-left">POS</div>
-          <div className="text-left">TEAM</div>
-          <div className="text-center">W</div>
-          <div className="text-center">GD</div>
-          <div className="text-center">LP</div>
-          <div className="text-right">PTS</div>
-        </div>
-      </CardHeader>
+    const s1 = g.score1 ?? 0;
+    const s2 = g.score2 ?? 0;
 
-      <CardContent className="pt-0">
-        <div className="divide-y divide-border rounded-xl border bg-card">
-          {visible.map((team, idx) => {
-            const pos = expanded ? idx + 1 : idx + 1; // still correct because we slice from top
-            const pts = team.pts ?? team.wins * 3 + team.draws + (team.lp ?? 0);
-            const gd = team.gd ?? 0;
-            const lp = team.lp ?? 0;
+    a.PL += 1;
+    b.PL += 1;
 
-            return (
-              <div
-                key={team.id}
-                className="grid grid-cols-[40px_1fr_36px_44px_36px_44px] items-center px-2 py-2"
-              >
-                <div className="flex items-center justify-start">
-                  <PosPill pos={pos} />
-                </div>
+    a.GF += s1;
+    a.GA += s2;
 
-                <div className="flex min-w-0 items-center gap-2">
-                  <Image
-                    src={team.logoUrl}
-                    alt={team.name}
-                    width={22}
-                    height={22}
-                    className="h-[22px] w-[22px] rounded-full object-cover"
-                  />
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium leading-5">{team.name}</div>
-                  </div>
-                </div>
+    b.GF += s2;
+    b.GA += s1;
 
-                <div className="text-center text-sm font-semibold tabular-nums">{team.wins}</div>
-                <div className="text-center text-sm font-semibold tabular-nums">{gd}</div>
-                <div className="text-center text-sm font-semibold tabular-nums">{lp}</div>
-                <div className="text-right text-sm font-bold tabular-nums">{pts}</div>
-              </div>
-            );
-          })}
-        </div>
+    if (s1 > s2) {
+      a.W += 1;
+      b.L += 1;
+    } else if (s1 < s2) {
+      b.W += 1;
+      a.L += 1;
+    } else {
+      a.D += 1;
+      b.D += 1;
+    }
 
-        {/* Optional: quick link to full table page if you have it */}
-        <div className="mt-3 flex justify-end">
-          <Link href="/dashboard/table" className="text-xs font-medium text-primary hover:underline">
-            View full table
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
-  );
+    // Lady points: +1 if a lady was fielded (optional)
+    if (hasLadyOnField(g, g.team1.name)) a.LP += 1;
+    if (hasLadyOnField(g, g.team2.name)) b.LP += 1;
+  }
+
+  // finalize GD + points
+  for (const r of map.values()) {
+    r.GD = r.GF - r.GA;
+    r.Pts = r.W * 3 + r.D + r.LP; // ✅ LP contributes even if team loses/wins
+  }
+
+  // Sort: points desc, then GD desc, then name
+  return Array.from(map.values()).sort((x, y) => {
+    if (y.Pts !== x.Pts) return y.Pts - x.Pts;
+    if (y.GD !== x.GD) return y.GD - x.GD;
+    return x.name.localeCompare(y.name);
+  });
+}
+
+// ---------- UI helpers ----------
+function posBarClass(pos: number) {
+  // 1–4 blue, 5–8 orange, else transparent
+  if (pos >= 1 && pos <= 4) return "bg-blue-500";
+  if (pos >= 5 && pos <= 8) return "bg-orange-500";
+  return "bg-transparent";
 }
 
 export default function DashboardPage() {
+  const [expanded, setExpanded] = React.useState(false);
+
   const upcomingGames = schedule.filter((g) => new Date(g.date) >= new Date()).length;
 
-  const top = standings[0];
-  const topPts = top?.pts ?? (top ? top.wins * 3 + top.draws + (top.lp ?? 0) : 0);
+  // Build table from completed games you have (recentScores)
+  // If later you add more completed games, it will automatically update.
+  const table = computeTable(teams, recentScores);
+
+  const visibleRows = expanded ? table : table.slice(0, 4);
 
   return (
     <div className="space-y-6 animate-in fade-in-50">
       {/* Summary cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Teams</CardTitle>
@@ -149,57 +150,136 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="sm:col-span-2 lg:col-span-1">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Top Team</CardTitle>
             <Trophy className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{top?.name ?? "—"}</div>
-            <p className="text-xs text-muted-foreground">{top ? `${topPts} pts` : "No matches yet"}</p>
+            <div className="text-2xl font-bold">{table[0]?.name ?? "—"}</div>
+            <p className="text-xs text-muted-foreground">{table[0]?.Pts ?? 0} points</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Replace graph card with mobile standings table */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <MiniStandingsTable />
+      {/* ✅ Replace the graph with a proper MOBILE table */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">League Table</CardTitle>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" /> Recent Results
-            </CardTitle>
-          </CardHeader>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpanded((v) => !v)}
+              className="gap-1"
+              type="button"
+            >
+              {expanded ? (
+                <>
+                  Hide <ChevronUp className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Show more <ChevronDown className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
 
-          <CardContent>
-            <div className="divide-y divide-border rounded-xl border bg-card">
-              {recentScores.map((game) => (
-                <Link
-                  key={game.id}
-                  href={`/match/${game.id}`}
-                  className="flex items-center justify-between gap-3 px-3 py-3 hover:bg-accent/40"
-                >
-                  <div className="text-xs text-muted-foreground tabular-nums">
-                    {format(new Date(game.date), "MMM d")}
-                  </div>
+        <CardContent className="px-2 pb-3">
+          {/* No horizontal scroll: we keep columns tight */}
+          <Table>
+            <TableHeader>
+              <TableRow className="text-[11px]">
+                <TableHead className="w-[54px]">Pos</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead className="w-[34px] text-center">PL</TableHead>
+                <TableHead className="w-[34px] text-center">W</TableHead>
+                <TableHead className="w-[42px] text-center">GD</TableHead>
+                <TableHead className="w-[40px] text-center">LP</TableHead>
+                <TableHead className="w-[44px] text-right">Pts</TableHead>
+              </TableRow>
+            </TableHeader>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">
-                      {game.team1.name} vs {game.team2.name}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">{game.venue}</div>
-                  </div>
+            <TableBody>
+              {visibleRows.map((r, idx) => {
+                const pos = idx + 1;
+                const bar = posBarClass(pos);
 
-                  <div className="text-sm font-bold tabular-nums">
-                    {game.score1} – {game.score2}
-                  </div>
-                </Link>
-              ))}
+                return (
+                  <TableRow key={r.teamId} className="text-[12px]">
+                    <TableCell className="py-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`h-6 w-1.5 rounded-full ${bar}`} />
+                        <span className="font-semibold tabular-nums">{pos}</span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Image
+                          src={r.logoUrl}
+                          alt={r.name}
+                          width={20}
+                          height={20}
+                          className="rounded-full shrink-0"
+                        />
+                        <span className="truncate font-medium">{r.name}</span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.PL}</TableCell>
+                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.W}</TableCell>
+                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.GD}</TableCell>
+                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.LP}</TableCell>
+                    <TableCell className="py-3 text-right font-mono font-bold tabular-nums">{r.Pts}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+
+          {!expanded && table.length > 4 && (
+            <div className="pt-2 text-xs text-muted-foreground px-2">
+              Showing top 4. Tap <span className="font-medium">Show more</span> to view the full table.
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Results (keep it, it’s useful on mobile) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <History className="h-5 w-5" /> Recent Results
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-2">
+          <div className="space-y-2">
+            {recentScores.map((g) => (
+              <Link
+                key={g.id}
+                href={`/match/${g.id}`}
+                className="flex items-center justify-between rounded-xl border bg-card px-3 py-3 hover:bg-accent transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(g.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })} • {g.venue}
+                  </div>
+                  <div className="truncate text-sm font-medium">
+                    {g.team1.name} vs {g.team2.name}
+                  </div>
+                </div>
+                <div className="shrink-0 text-sm font-bold font-mono tabular-nums">
+                  {(g.score1 ?? "-") + " - " + (g.score2 ?? "-")}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
