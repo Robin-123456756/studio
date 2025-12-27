@@ -1,172 +1,342 @@
+"use client";
 
+import * as React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { myFantasyTeam, fantasyStandings, Player } from "@/lib/data";
-import { ArrowDown, ArrowUp, Minus, Shield, Swords } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { myFantasyTeam, fantasyStandings, type Player } from "@/lib/data";
+import { ArrowDown, ArrowUp, Minus, Shirt, ArrowLeftRight } from "lucide-react";
 
-const PositionIcon = ({ position }: { position: Player["position"] }) => {
-  switch (position) {
-    case "Goalkeeper":
-      return <Shield className="h-4 w-4 text-yellow-400" />;
-    case "Defender":
-      return <Shield className="h-4 w-4 text-green-400" />;
-    case "Midfielder":
-      return <Shield className="h-4 w-4 text-blue-400" />;
-    case "Forward":
-      return <Swords className="h-4 w-4 text-red-400" />;
-    default:
-      return null;
-  }
-};
+type TabKey = "pitch" | "list";
 
-
-export default function FantasyPage() {
-  const pitchPositions: { [key: string]: Player[] } = {
-    'Forwards': myFantasyTeam.players.filter(p => p.position === 'Forward'),
-    'Midfielders': myFantasyTeam.players.filter(p => p.position === 'Midfielder'),
-    'Defenders': myFantasyTeam.players.filter(p => p.position === 'Defender'),
-    'Goalkeepers': myFantasyTeam.players.filter(p => p.position === 'Goalkeeper'),
+function groupByPosition(players: Player[]) {
+  return {
+    Goalkeepers: players.filter((p) => p.position === "Goalkeeper"),
+    Defenders: players.filter((p) => p.position === "Defender"),
+    Midfielders: players.filter((p) => p.position === "Midfielder"),
+    Forwards: players.filter((p) => p.position === "Forward"),
   };
+}
+
+function MiniLeague() {
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-0">
+        <div className="px-4 pt-4 pb-2">
+          <div className="text-base font-semibold">Mini-League</div>
+          <div className="text-sm text-muted-foreground">Your rank among rivals.</div>
+        </div>
+
+        <div className="px-2 pb-3">
+          <div className="space-y-1">
+            {fantasyStandings.map((t) => {
+              const isMe = t.name === myFantasyTeam.name;
+              const trend =
+                t.rank < myFantasyTeam.rank ? "up" : t.rank > myFantasyTeam.rank ? "down" : "same";
+
+              return (
+                <div
+                  key={t.rank}
+                  className={cn(
+                    "flex items-center justify-between rounded-xl px-3 py-2",
+                    isMe ? "bg-primary/15" : "bg-transparent"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 text-sm font-medium flex items-center gap-1">
+                      {trend === "up" ? (
+                        <ArrowUp className="h-4 w-4" />
+                      ) : trend === "down" ? (
+                        <ArrowDown className="h-4 w-4" />
+                      ) : (
+                        <Minus className="h-4 w-4" />
+                      )}
+                      <span className="tabular-nums">{t.rank}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{t.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{t.owner}</div>
+                    </div>
+                  </div>
+
+                  <div className="text-sm font-bold font-mono tabular-nums">{t.points}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PlayerPill({ player }: { player: Player }) {
+  return (
+    <div className="flex flex-col items-center gap-1 w-[76px]">
+      <div className="rounded-xl bg-white/90 text-black w-full overflow-hidden shadow">
+        <div className="flex items-center gap-2 px-2 pt-2">
+          <div className="h-8 w-8 rounded-full overflow-hidden bg-black/10 shrink-0">
+            <Image
+              src={player.avatarUrl}
+              alt={player.name}
+              width={32}
+              height={32}
+              className="h-8 w-8 object-cover"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold truncate leading-tight">{player.name}</div>
+            <div className="text-[10px] text-black/60 truncate">{player.team}</div>
+          </div>
+        </div>
+        <div className="px-2 pb-2 pt-1">
+          <div className="text-[10px] text-black/60">{player.position}</div>
+          <div className="text-[11px] font-bold">{player.points} pts</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PitchView({ players }: { players: Player[] }) {
+  const grouped = groupByPosition(players);
 
   return (
-    <div className="space-y-8 animate-in fade-in-50">
-       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-headline font-bold tracking-tight">Fantasy League</h2>
-          <p className="text-muted-foreground">Your weekly fantasy hub.</p>
-        </div>
-        <Button>Manage Team</Button>
-      </div>
+    <div
+      className="rounded-2xl overflow-hidden border"
+      style={{
+        backgroundImage: "url('/pitch.svg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="backdrop-brightness-[0.92] p-3">
+        <div className="flex flex-col gap-4 py-3">
+          {/* GK */}
+          <div className="flex justify-center">
+            {grouped.Goalkeepers.slice(0, 1).map((p) => (
+              <PlayerPill key={p.id} player={p} />
+            ))}
+          </div>
 
-      <div className="grid gap-8 md:grid-cols-3">
-        <div className="flex flex-col-reverse md:col-span-1 md:flex-col space-y-8">
-            {/* Points & Rank */}
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle>My Status</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 rounded-lg bg-card-foreground/5">
-                        <p className="text-sm text-muted-foreground">Total Points</p>
-                        <p className="text-3xl font-bold font-headline">{myFantasyTeam.points}</p>
-                    </div>
-                     <div className="text-center p-4 rounded-lg bg-card-foreground/5">
-                        <p className="text-sm text-muted-foreground">Overall Rank</p>
-                        <p className="text-3xl font-bold font-headline">{myFantasyTeam.rank.toLocaleString()}</p>
-                    </div>
-                </CardContent>
-            </Card>
+          {/* DEF */}
+          <div className="flex justify-center gap-3 flex-wrap">
+            {grouped.Defenders.slice(0, 4).map((p) => (
+              <PlayerPill key={p.id} player={p} />
+            ))}
+          </div>
 
-             {/* Mini Standings */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Mini-League</CardTitle>
-                    <CardDescription>Your rank among rivals.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[60px]">#</TableHead>
-                                <TableHead>Team</TableHead>
-                                <TableHead className="text-right">Pts</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {fantasyStandings.map((team) => (
-                                <TableRow key={team.rank} className={team.name === myFantasyTeam.name ? "bg-primary/20" : ""}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center gap-1">
-                                            {team.rank < myFantasyTeam.rank ? <ArrowUp className="text-green-400 h-4 w-4"/> : team.rank > myFantasyTeam.rank ? <ArrowDown className="text-red-400 h-4 w-4"/> : <Minus className="h-4 w-4"/> }
-                                            <span>{team.rank}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <p className="font-medium">{team.name}</p>
-                                        <p className="text-xs text-muted-foreground">{team.owner}</p>
-                                    </TableCell>
-                                    <TableCell className="text-right font-bold font-mono">{team.points}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                     </Table>
-                </CardContent>
-            </Card>
-        </div>
-        
-        <div className="md:col-span-2 space-y-8">
-            {/* Pitch View */}
-            <Card className="bg-green-900/20 border-green-700/50">
-                <CardHeader>
-                    <CardTitle className="text-white">{myFantasyTeam.name}</CardTitle>
-                    <CardDescription>Gameweek 8</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="bg-center bg-no-repeat bg-contain" style={{backgroundImage: "url('/pitch.svg')", height: '450px'}}>
-                        <div className="flex flex-col justify-around h-full text-center">
-                            {Object.entries(pitchPositions).map(([position, players]) => (
-                                <div key={position} className="flex justify-center gap-4">
-                                {players.map(player => (
-                                    <div key={player.id} className="flex flex-col items-center">
-                                        <div className="bg-primary p-1 rounded-t-md">
-                                            <span className="text-xs font-bold text-primary-foreground px-2">{player.name}</span>
-                                        </div>
-                                        <div className="bg-primary/80 p-1 rounded-b-md">
-                                            <span className="text-xs text-primary-foreground font-mono">{player.points} pts</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+          {/* MID */}
+          <div className="flex justify-center gap-3 flex-wrap">
+            {grouped.Midfielders.slice(0, 4).map((p) => (
+              <PlayerPill key={p.id} player={p} />
+            ))}
+          </div>
 
-            {/* My Team List */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>My Squad</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Player</TableHead>
-                                <TableHead>Position</TableHead>
-                                <TableHead className="hidden sm:table-cell">Team</TableHead>
-                                <TableHead className="text-right">Price</TableHead>
-                                <TableHead className="text-right">Points</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {myFantasyTeam.players.map(player => (
-                                <TableRow key={player.id}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center gap-3">
-                                            <Image src={player.avatarUrl} alt={player.name} width={28} height={28} className="rounded-full" data-ai-hint="person avatar" />
-                                            <span>{player.name}</span>
-                                        </div>
-                                    </TableCell>
-                                     <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <PositionIcon position={player.position} />
-                                            <span className="hidden sm:inline">{player.position}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="hidden sm:table-cell">{player.team}</TableCell>
-                                    <TableCell className="text-right font-mono">${player.price}m</TableCell>
-                                    <TableCell className="text-right font-mono font-bold">{player.points}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+          {/* FWD */}
+          <div className="flex justify-center gap-3 flex-wrap">
+            {grouped.Forwards.slice(0, 3).map((p) => (
+              <PlayerPill key={p.id} player={p} />
+            ))}
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ListView({ players }: { players: Player[] }) {
+  const grouped = groupByPosition(players);
+
+  const Section = ({ title, list }: { title: string; list: Player[] }) => (
+    <div className="rounded-2xl border bg-card">
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+        <div className="text-base font-semibold">{title}</div>
+        <div className="text-xs text-muted-foreground">Price • Points</div>
+      </div>
+
+      <div className="divide-y">
+        {list.map((p) => (
+          <div key={p.id} className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
+                <Image
+                  src={p.avatarUrl}
+                  alt={p.name}
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{p.name}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {p.team} • {p.position}
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <div className="text-sm font-mono tabular-nums">${p.price}m</div>
+              <div className="text-sm font-bold font-mono tabular-nums">{p.points}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <Section title="Goalkeepers" list={grouped.Goalkeepers} />
+      <Section title="Defenders" list={grouped.Defenders} />
+      <Section title="Midfielders" list={grouped.Midfielders} />
+      <Section title="Forwards" list={grouped.Forwards} />
+    </div>
+  );
+}
+
+export default function FantasyPage() {
+  const [tab, setTab] = React.useState<TabKey>("pitch");
+
+  // ✅ let user create / edit their team name
+  const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
+
+  React.useEffect(() => {
+    const saved = window.localStorage.getItem("tbl_team_name");
+    if (saved && saved.trim().length > 0) setTeamName(saved);
+  }, []);
+
+  function editTeamName() {
+    const next = window.prompt("Enter your team name:", teamName);
+    if (!next) return;
+    const cleaned = next.trim().slice(0, 30);
+    if (!cleaned) return;
+    setTeamName(cleaned);
+    window.localStorage.setItem("tbl_team_name", cleaned);
+  }
+
+  // Fake numbers to match PL layout (replace later with real data)
+  const average = 29;
+  const pointsThisGW = 34;
+  const highest = 104;
+
+  return (
+    <div className="space-y-5 animate-in fade-in-50">
+      {/* PL-style top fantasy card */}
+      <div
+        className={cn(
+          "rounded-3xl overflow-hidden",
+          "bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500"
+        )}
+      >
+        <div className="p-4 text-white">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={editTeamName}
+              className="flex items-center gap-3 rounded-2xl bg-white/10 px-3 py-2 hover:bg-white/15 active:bg-white/20"
+              aria-label="Edit team name"
+            >
+              <div className="h-12 w-12 rounded-2xl bg-white/20 grid place-items-center">
+                <Shirt className="h-6 w-6" />
+              </div>
+              <div className="text-left">
+                <div className="text-xl font-bold leading-tight">{teamName}</div>
+                <div className="text-sm text-white/80">{myFantasyTeam.owner}</div>
+              </div>
+            </button>
+
+            <div className="text-white/80 text-sm">GW 18</div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-3xl font-extrabold tabular-nums">{average}</div>
+              <div className="text-sm text-white/80">Average</div>
+            </div>
+            <div>
+              <div className="text-5xl font-extrabold tabular-nums leading-none">
+                {pointsThisGW}
+              </div>
+              <div className="text-sm text-white/80">Points</div>
+            </div>
+            <div>
+              <div className="text-3xl font-extrabold tabular-nums">{highest}</div>
+              <div className="text-sm text-white/80">Highest</div>
+            </div>
+          </div>
+
+          <div className="mt-4 text-center">
+            <div className="text-base text-white/85">Gameweek 19</div>
+            <div className="text-lg font-bold">Deadline: Tuesday 30 Dec at 21:00</div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <Button
+              asChild
+              className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
+              variant="secondary"
+            >
+              <Link href="/dashboard/fantasy/pick-team">
+                <span className="flex items-center justify-center gap-2">
+                  <Shirt className="h-5 w-5" /> Pick Team
+                </span>
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
+              variant="secondary"
+            >
+              <Link href="/dashboard/transfers">
+                <span className="flex items-center justify-center gap-2">
+                  <ArrowLeftRight className="h-5 w-5" /> Transfers
+                </span>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Pitch/List segmented control */}
+      <div className="flex items-center justify-center">
+        <div className="rounded-2xl bg-muted p-1 inline-flex">
+          <button
+            type="button"
+            onClick={() => setTab("pitch")}
+            className={cn(
+              "px-6 py-2 rounded-2xl text-sm font-semibold transition",
+              tab === "pitch" ? "bg-background shadow" : "text-muted-foreground"
+            )}
+          >
+            Pitch
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("list")}
+            className={cn(
+              "px-6 py-2 rounded-2xl text-sm font-semibold transition",
+              tab === "list" ? "bg-background shadow" : "text-muted-foreground"
+            )}
+          >
+            List
+          </button>
+        </div>
+      </div>
+
+      {/* Main content */}
+      {tab === "pitch" ? (
+        <PitchView players={myFantasyTeam.players} />
+      ) : (
+        <ListView players={myFantasyTeam.players} />
+      )}
+
+      {/* Mini-league (PL-ish section) */}
+      <MiniLeague />
     </div>
   );
 }
