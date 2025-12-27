@@ -187,67 +187,108 @@ export default function DashboardPage() {
             </Button>
           </div>
         </CardHeader>
+<Card>
+  {/* HEADER – title only, no button on the right */}
+  <CardHeader className="pb-2">
+    <CardTitle className="text-base">League Table</CardTitle>
+  </CardHeader>
 
-        <CardContent className="px-1 pb-2">
-          {/* No horizontal scroll: we keep columns tight */}
-          <Table>
-            <TableHeader>
-              <TableRow className="text-[11px]">
-                <TableHead className="w-[50px]">Pos</TableHead>
-                <TableHead>Team</TableHead>
-                <TableHead className="w-[30px] text-center">PL</TableHead>
-                <TableHead className="w-[30px] text-center">W</TableHead>
-                <TableHead className="w-[38px] text-center">GD</TableHead>
-                <TableHead className="w-[36px] text-center">LP</TableHead>
-                <TableHead className="w-[40px] text-right">Pts</TableHead>
-              </TableRow>
-            </TableHeader>
+  <CardContent className="px-2 pb-3">
+    {/* TABLE */}
+    <Table>
+      <TableHeader>
+        <TableRow className="text-[11px]">
+          {/* Pos + bar: narrower + less padding */}
+          <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
 
-            <TableBody>
-              {visibleRows.map((r, idx) => {
-                const pos = idx + 1;
-                const bar = posBarClass(pos);
+          {/* Team: fixed-ish width so numbers can squeeze */}
+          <TableHead className="w-[112px] pr-1">Team</TableHead>
 
-                return (
-                  <TableRow key={r.teamId} className="text-[12px]">
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`h-6 w-1.5 rounded-full ${bar}`} />
-                        <span className="font-semibold tabular-nums">{pos}</span>
-                      </div>
-                    </TableCell>
+          {/* Tight numeric columns so no horizontal scroll */}
+          <TableHead className="w-[26px] px-1 text-center">PL</TableHead>
+          <TableHead className="w-[26px] px-1 text-center">W</TableHead>
+          <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+          <TableHead className="w-[32px] px-1 text-center">LP</TableHead>
+          <TableHead className="w-[36px] pl-1 pr-2 text-right">Pts</TableHead>
+        </TableRow>
+      </TableHeader>
 
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Image
-                          src={r.logoUrl}
-                          alt={r.name}
-                          width={20}
-                          height={20}
-                          className="rounded-full shrink-0"
-                        />
-                        <span className="truncate font-medium">{r.name}</span>
-                      </div>
-                    </TableCell>
+      <TableBody>
+        {visibleRows.map((r, idx) => {
+          const pos = idx + 1;
+          const bar = posBarClass(pos);
 
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.PL}</TableCell>
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.W}</TableCell>
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.GD}</TableCell>
-                    <TableCell className="py-3 text-center font-mono tabular-nums">{r.LP}</TableCell>
-                    <TableCell className="py-3 text-right font-mono font-bold tabular-nums">{r.Pts}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          return (
+            <TableRow key={r.teamId} className="text-[12px]">
+              {/* Pos cell – tighter gap */}
+              <TableCell className="py-2 pl-2 pr-1">
+                <div className="flex items-center gap-1.5">
+                  <div className={`h-5 w-1.5 rounded-full ${bar}`} />
+                  <span className="font-semibold tabular-nums">{pos}</span>
+                </div>
+              </TableCell>
 
-          {!expanded && table.length > 4 && (
-            <div className="pt-2 text-xs text-muted-foreground px-2">
-              Showing top 4. Tap <span className="font-medium">Show more</span> to view the full table.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {/* Team cell – smaller logo + less gap */}
+              <TableCell className="py-2 pr-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Image
+                    src={r.logoUrl}
+                    alt={r.name}
+                    width={18}
+                    height={18}
+                    className="rounded-full shrink-0"
+                  />
+                  <span className="truncate text-[12px] font-medium">
+                    {r.name}
+                  </span>
+                </div>
+              </TableCell>
+
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.PL}
+              </TableCell>
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.W}
+              </TableCell>
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.GD}
+              </TableCell>
+              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                {r.LP}
+              </TableCell>
+              <TableCell className="py-2 pl-1 pr-2 text-right font-mono font-bold tabular-nums">
+                {r.Pts}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+
+    {/* TEXT + BUTTON UNDER TOP 4 */}
+    {table.length > 4 && (
+      <div className="pt-2 px-2 space-y-2">
+        {!expanded && (
+          <p className="text-xs text-muted-foreground">
+            Showing top 4. Tap{" "}
+            <span className="font-medium">View full table</span> to see all teams.
+          </p>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full justify-center rounded-2xl text-sm font-semibold"
+          type="button"
+        >
+          {expanded ? "Hide full table" : "View full table"}
+        </Button>
+      </div>
+    )}
+  </CardContent>
+</Card>
+
 
       {/* Recent Results (keep it, it’s useful on mobile) */}
       <Card>
