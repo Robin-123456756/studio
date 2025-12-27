@@ -206,24 +206,6 @@ export default function DashboardPage() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">League Table</CardTitle>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setExpanded((v) => !v)}
-              className="gap-1"
-              type="button"
-            >
-              {expanded ? (
-                <>
-                  Hide <ChevronUp className="h-4 w-4" />
-                </>
-              ) : (
-                <>
-                  Show more <ChevronDown className="h-4 w-4" />
-                </>
-              )}
-            </Button>
           </div>
         </CardHeader>
 
