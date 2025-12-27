@@ -37,7 +37,7 @@ const tabs = [
 
 // ✅ PL-style "More" items
 const moreItems = [
-  { href: "/dashboard/settings", label: "myPL Settings", Icon: Settings },
+  { href: "/dashboard/settings", label: "myTBL Settings", Icon: Settings },
   { href: "/dashboard/teams", label: "Teams", Icon: Users },
   { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
   { href: "/dashboard/transfers", label: "Transfers", Icon: ArrowLeftRight },
