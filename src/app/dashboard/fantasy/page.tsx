@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,12 +17,7 @@ import {
   X,
 } from "lucide-react";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 type TabKey = "pitch" | "list";
 
@@ -74,9 +68,7 @@ function MiniLeague() {
       <CardContent className="p-0">
         <div className="px-4 pt-4 pb-2">
           <div className="text-base font-semibold">Mini-League</div>
-          <div className="text-sm text-muted-foreground">
-            Your rank among rivals.
-          </div>
+          <div className="text-sm text-muted-foreground">Your rank among rivals.</div>
         </div>
 
         <div className="px-2 pb-3">
@@ -84,11 +76,7 @@ function MiniLeague() {
             {fantasyStandings.map((t) => {
               const isMe = t.name === myFantasyTeam.name;
               const trend =
-                t.rank < myFantasyTeam.rank
-                  ? "up"
-                  : t.rank > myFantasyTeam.rank
-                  ? "down"
-                  : "same";
+                t.rank < myFantasyTeam.rank ? "up" : t.rank > myFantasyTeam.rank ? "down" : "same";
 
               return (
                 <div
@@ -111,15 +99,11 @@ function MiniLeague() {
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{t.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {t.owner}
-                      </div>
+                      <div className="text-xs text-muted-foreground truncate">{t.owner}</div>
                     </div>
                   </div>
 
-                  <div className="text-sm font-bold font-mono tabular-nums">
-                    {t.points}
-                  </div>
+                  <div className="text-sm font-bold font-mono tabular-nums">{t.points}</div>
                 </div>
               );
             })}
@@ -168,18 +152,17 @@ function PlayerPill({
       <div className="rounded-xl bg-white/90 text-black w-full overflow-hidden shadow">
         <div className="flex items-center gap-2 px-2 pt-2">
           <div className="h-8 w-8 rounded-full overflow-hidden bg-black/10 shrink-0">
-            <Image
+            {/* ✅ Option B: use plain img */}
+            <img
               src={player.avatarUrl}
               alt={player.name}
-              width={32}
-              height={32}
               className="h-8 w-8 object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
             />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold truncate leading-tight">
-              {player.name}
-            </div>
+            <div className="text-[11px] font-semibold truncate leading-tight">{player.name}</div>
             <div className="text-[10px] text-black/60 truncate">{player.team}</div>
           </div>
         </div>
@@ -215,12 +198,7 @@ function BenchRow({
       <div className="flex gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
         {bench.map((p) => (
           <div key={p.id} className="shrink-0">
-            <PlayerPill
-              player={p}
-              onClick={onPick}
-              captainId={captainId}
-              viceId={viceId}
-            />
+            <PlayerPill player={p} onClick={onPick} captainId={captainId} viceId={viceId} />
           </div>
         ))}
       </div>
@@ -254,7 +232,6 @@ function PitchView({
       >
         <div className="backdrop-brightness-[0.92] p-3">
           <div className="flex flex-col gap-4 py-3">
-            {/* GK */}
             <div className="flex justify-center">
               {grouped.Goalkeepers.slice(0, 1).map((p) => (
                 <PlayerPill
@@ -267,7 +244,6 @@ function PitchView({
               ))}
             </div>
 
-            {/* DEF */}
             <div className="flex justify-center gap-3 flex-wrap">
               {grouped.Defenders.slice(0, 4).map((p) => (
                 <PlayerPill
@@ -280,7 +256,6 @@ function PitchView({
               ))}
             </div>
 
-            {/* MID */}
             <div className="flex justify-center gap-3 flex-wrap">
               {grouped.Midfielders.slice(0, 4).map((p) => (
                 <PlayerPill
@@ -293,7 +268,6 @@ function PitchView({
               ))}
             </div>
 
-            {/* FWD */}
             <div className="flex justify-center gap-3 flex-wrap">
               {grouped.Forwards.slice(0, 3).map((p) => (
                 <PlayerPill
@@ -309,13 +283,7 @@ function PitchView({
         </div>
       </div>
 
-      {/* ✅ Bench row (horizontal + scroll) */}
-      <BenchRow
-        bench={bench}
-        onPick={onPickPlayer}
-        captainId={captainId}
-        viceId={viceId}
-      />
+      <BenchRow bench={bench} onPick={onPickPlayer} captainId={captainId} viceId={viceId} />
     </div>
   );
 }
@@ -350,13 +318,15 @@ function ListView({
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                <Image
+                {/* ✅ Option B: use plain img */}
+                <img
                   src={p.avatarUrl}
                   alt={p.name}
-                  width={40}
-                  height={40}
                   className="h-10 w-10 object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
+
                 {captainId === p.id ? (
                   <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-400 text-black grid place-items-center text-[10px] font-extrabold">
                     C
@@ -378,9 +348,7 @@ function ListView({
 
             <div className="text-right shrink-0">
               <div className="text-sm font-mono tabular-nums">${p.price}m</div>
-              <div className="text-sm font-bold font-mono tabular-nums">
-                {p.points}
-              </div>
+              <div className="text-sm font-bold font-mono tabular-nums">{p.points}</div>
             </div>
           </button>
         ))}
@@ -433,10 +401,7 @@ function PlayerActionSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className={cn(
-          "rounded-t-3xl pb-[env(safe-area-inset-bottom)]",
-          "max-h-[85vh] overflow-y-auto"
-        )}
+        className={cn("rounded-t-3xl pb-[env(safe-area-inset-bottom)]", "max-h-[85vh] overflow-y-auto")}
       >
         <SheetHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -452,16 +417,16 @@ function PlayerActionSheet({
           </div>
         </SheetHeader>
 
-        {/* Selected player header */}
         <div className="rounded-2xl border bg-card p-3">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-full overflow-hidden bg-muted shrink-0">
-              <Image
+              {/* ✅ Option B */}
+              <img
                 src={selected.avatarUrl}
                 alt={selected.name}
-                width={48}
-                height={48}
                 className="h-12 w-12 object-cover"
+                loading="lazy"
+                referrerPolicy="no-referrer"
               />
             </div>
 
@@ -492,12 +457,7 @@ function PlayerActionSheet({
 
         {mode === "actions" ? (
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              className="rounded-2xl"
-              onClick={() => setMode("swap")}
-            >
+            <Button type="button" variant="secondary" className="rounded-2xl" onClick={() => setMode("swap")}>
               <span className="flex items-center gap-2">
                 <ArrowLeftRight className="h-5 w-5" />
                 Swap
@@ -534,12 +494,7 @@ function PlayerActionSheet({
               </span>
             </Button>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-2xl"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" className="rounded-2xl" onClick={() => onOpenChange(false)}>
               Close
             </Button>
           </div>
@@ -547,13 +502,7 @@ function PlayerActionSheet({
           <div className="mt-3">
             <div className="flex items-center justify-between pb-2">
               <div className="text-sm font-semibold">Swap with</div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setMode("actions")}
-                className="rounded-xl"
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => setMode("actions")} className="rounded-xl">
                 Back
               </Button>
             </div>
@@ -572,12 +521,13 @@ function PlayerActionSheet({
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                        <Image
+                        {/* ✅ Option B */}
+                        <img
                           src={p.avatarUrl}
                           alt={p.name}
-                          width={40}
-                          height={40}
                           className="h-10 w-10 object-cover"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
                         />
                       </div>
                       <div className="min-w-0">
@@ -590,9 +540,7 @@ function PlayerActionSheet({
 
                     <div className="text-right shrink-0">
                       <div className="text-sm font-mono tabular-nums">${p.price}m</div>
-                      <div className="text-sm font-bold font-mono tabular-nums">
-                        {p.points}
-                      </div>
+                      <div className="text-sm font-bold font-mono tabular-nums">{p.points}</div>
                     </div>
                   </div>
                 </button>
@@ -608,19 +556,13 @@ function PlayerActionSheet({
 export default function FantasyPage() {
   const [tab, setTab] = React.useState<TabKey>("pitch");
 
-  // ✅ squad players must be local state (so swaps update UI)
-  const [squadPlayers, setSquadPlayers] = React.useState<Player[]>(() => [
-    ...myFantasyTeam.players,
-  ]);
+  const [squadPlayers, setSquadPlayers] = React.useState<Player[]>(() => [...myFantasyTeam.players]);
 
-  // ✅ let user create / edit their team name
   const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
 
-  // ✅ captain + vice (persist)
   const [captainId, setCaptainId] = React.useState<string | null>(null);
   const [viceId, setViceId] = React.useState<string | null>(null);
 
-  // ✅ player sheet state
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
@@ -663,7 +605,6 @@ export default function FantasyPage() {
     setCaptainId(selectedId);
     window.localStorage.setItem("tbl_captain_id", selectedId);
 
-    // If captain becomes same as vice, clear vice (clean UX)
     if (viceId === selectedId) {
       setViceId(null);
       window.localStorage.removeItem("tbl_vice_id");
@@ -675,27 +616,19 @@ export default function FantasyPage() {
     setViceId(selectedId);
     window.localStorage.setItem("tbl_vice_id", selectedId);
 
-    // If vice becomes same as captain, clear captain
     if (captainId === selectedId) {
       setCaptainId(null);
       window.localStorage.removeItem("tbl_captain_id");
     }
   }
 
-  // Fake numbers to match PL layout (replace later with real data)
   const average = 29;
   const pointsThisGW = 34;
   const highest = 104;
 
   return (
     <div className="space-y-5 animate-in fade-in-50">
-      {/* PL-style top fantasy card */}
-      <div
-        className={cn(
-          "rounded-3xl overflow-hidden",
-          "bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500"
-        )}
-      >
+      <div className={cn("rounded-3xl overflow-hidden", "bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500")}>
         <div className="p-4 text-white">
           <div className="flex items-center justify-between">
             <button
@@ -722,9 +655,7 @@ export default function FantasyPage() {
               <div className="text-sm text-white/80">Average</div>
             </div>
             <div>
-              <div className="text-5xl font-extrabold tabular-nums leading-none">
-                {pointsThisGW}
-              </div>
+              <div className="text-5xl font-extrabold tabular-nums leading-none">{pointsThisGW}</div>
               <div className="text-sm text-white/80">Points</div>
             </div>
             <div>
@@ -739,11 +670,7 @@ export default function FantasyPage() {
           </div>
 
           <div className="mt-4 space-y-3">
-            <Button
-              asChild
-              className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
-              variant="secondary"
-            >
+            <Button asChild className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20" variant="secondary">
               <Link href="/dashboard/fantasy/pick-team">
                 <span className="flex items-center justify-center gap-2">
                   <Shirt className="h-5 w-5" /> Pick Team
@@ -751,11 +678,7 @@ export default function FantasyPage() {
               </Link>
             </Button>
 
-            <Button
-              asChild
-              className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
-              variant="secondary"
-            >
+            <Button asChild className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20" variant="secondary">
               <Link href="/dashboard/transfers">
                 <span className="flex items-center justify-center gap-2">
                   <ArrowLeftRight className="h-5 w-5" /> Transfers
@@ -766,7 +689,6 @@ export default function FantasyPage() {
         </div>
       </div>
 
-      {/* Pitch/List segmented control */}
       <div className="flex items-center justify-center">
         <div className="rounded-2xl bg-muted p-1 inline-flex">
           <button
@@ -792,27 +714,14 @@ export default function FantasyPage() {
         </div>
       </div>
 
-      {/* Main content */}
       {tab === "pitch" ? (
-        <PitchView
-          players={squadPlayers}
-          onPickPlayer={openPlayer}
-          captainId={captainId}
-          viceId={viceId}
-        />
+        <PitchView players={squadPlayers} onPickPlayer={openPlayer} captainId={captainId} viceId={viceId} />
       ) : (
-        <ListView
-          players={squadPlayers}
-          onPickPlayer={openPlayer}
-          captainId={captainId}
-          viceId={viceId}
-        />
+        <ListView players={squadPlayers} onPickPlayer={openPlayer} captainId={captainId} viceId={viceId} />
       )}
 
-      {/* Mini-league */}
       <MiniLeague />
 
-      {/* ✅ Player actions bottom sheet */}
       <PlayerActionSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
