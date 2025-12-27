@@ -35,9 +35,9 @@ const tabs = [
   { href: "/dashboard/fantasy", label: "Fantasy", Icon: Trophy },
 ] as const;
 
-// ✅ PL-style "More" items
+// PL-style "More" items
 const moreItems = [
-  { href: "/dashboard/settings", label: "myTBL Settings", Icon: Settings },
+  { href: "/dashboard/settings", label: "myPL Settings", Icon: Settings },
   { href: "/dashboard/teams", label: "Teams", Icon: Users },
   { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
   { href: "/dashboard/transfers", label: "Transfers", Icon: ArrowLeftRight },
@@ -120,37 +120,34 @@ export default function MobileBottomNav() {
               </button>
             </SheetTrigger>
 
-            {/* ✅ Scrollable bottom sheet like PL app */}
+            {/* ✅ Make the bottom sheet itself scrollable */}
             <SheetContent
               side="bottom"
-              className="rounded-t-3xl pb-[env(safe-area-inset-bottom)] max-h-[80vh] flex flex-col"
+              className="rounded-t-3xl pb-[env(safe-area-inset-bottom)] max-h-[80vh] overflow-y-auto"
             >
-              <SheetHeader className="pb-3">
+              <SheetHeader className="pb-3 sticky top-0 bg-background">
                 <SheetTitle>More</SheetTitle>
               </SheetHeader>
 
-              {/* Scroll area */}
-              <div className="flex-1 overflow-y-auto">
-                <nav className="space-y-1 pb-4">
-                  {moreItems.map(({ href, label, Icon }) => (
-                    <SheetClose asChild key={href}>
-                      <Link
-                        href={href}
-                        className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 text-sm font-medium hover:bg-accent/10 active:bg-accent/20"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <span className="text-[15px]">{label}</span>
+              <nav className="space-y-1 pb-4">
+                {moreItems.map(({ href, label, Icon }) => (
+                  <SheetClose asChild key={href}>
+                    <Link
+                      href={href}
+                      className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 text-sm font-medium hover:bg-accent/10 active:bg-accent/20"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                          <Icon className="h-4 w-4" />
                         </div>
+                        <span className="text-[15px]">{label}</span>
+                      </div>
 
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </Link>
-                    </SheetClose>
-                  ))}
-                </nav>
-              </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Link>
+                  </SheetClose>
+                ))}
+              </nav>
             </SheetContent>
           </Sheet>
         </div>
