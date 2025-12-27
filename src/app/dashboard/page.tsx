@@ -3,13 +3,38 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Users, Calendar, Trophy, History } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Users,
+  Calendar,
+  Trophy,
+  History,
+} from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 
-import { teams, schedule, recentScores, type Game, type Team } from "@/lib/data";
+import {
+  teams,
+  schedule,
+  recentScores,
+  type Game,
+  type Team,
+} from "@/lib/data";
 
 // ---------- Standings logic (computed from completed games) ----------
 type Row = {
@@ -29,8 +54,10 @@ type Row = {
 
 function hasLadyOnField(game: Game, teamName: string) {
   // If you later set game.onField1/onField2 with gender info, LP will auto-work.
-  const side1 = game.team1.name === teamName ? game.onField1?.players : undefined;
-  const side2 = game.team2.name === teamName ? game.onField2?.players : undefined;
+  const side1 =
+    game.team1.name === teamName ? game.onField1?.players : undefined;
+  const side2 =
+    game.team2.name === teamName ? game.onField2?.players : undefined;
 
   const players = side1 ?? side2 ?? [];
   return players.some((p) => p.gender === "female");
@@ -56,7 +83,12 @@ function computeTable(allTeams: Team[], games: Game[]): Row[] {
     });
   }
 
-  const completed = games.filter((g) => g.status === "completed" && typeof g.score1 === "number" && typeof g.score2 === "number");
+  const completed = games.filter(
+    (g) =>
+      g.status === "completed" &&
+      typeof g.score1 === "number" &&
+      typeof g.score2 === "number"
+  );
 
   for (const g of completed) {
     const a = map.get(g.team1.id);
@@ -94,7 +126,7 @@ function computeTable(allTeams: Team[], games: Game[]): Row[] {
   // finalize GD + points
   for (const r of map.values()) {
     r.GD = r.GF - r.GA;
-    r.Pts = r.W * 3 + r.D + r.LP; // ✅ LP contributes even if team loses/wins
+    r.Pts = r.W * 3 + r.D + r.LP;
   }
 
   // Sort: points desc, then GD desc, then name
@@ -116,12 +148,11 @@ function posBarClass(pos: number) {
 export default function DashboardPage() {
   const [expanded, setExpanded] = React.useState(false);
 
-  const upcomingGames = schedule.filter((g) => new Date(g.date) >= new Date()).length;
+  const upcomingGames =
+    schedule.filter((g) => new Date(g.date) >= new Date()).length;
 
   // Build table from completed games you have (recentScores)
-  // If later you add more completed games, it will automatically update.
   const table = computeTable(teams, recentScores);
-
   const visibleRows = expanded ? table : table.slice(0, 4);
 
   return (
@@ -135,18 +166,24 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{teams.length}</div>
-            <p className="text-xs text-muted-foreground">Currently in the league</p>
+            <p className="text-xs text-muted-foreground">
+              Currently in the league
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Games</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Upcoming Games
+            </CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{upcomingGames}</div>
-            <p className="text-xs text-muted-foreground">Scheduled matches</p>
+            <p className="text-xs text-muted-foreground">
+              Scheduled matches
+            </p>
           </CardContent>
         </Card>
 
@@ -157,12 +194,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{table[0]?.name ?? "—"}</div>
-            <p className="text-xs text-muted-foreground">{table[0]?.Pts ?? 0} points</p>
+            <p className="text-xs text-muted-foreground">
+              {table[0]?.Pts ?? 0} points
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* ✅ Replace the graph with a proper MOBILE table */}
+      {/* League table card */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -187,110 +226,104 @@ export default function DashboardPage() {
             </Button>
           </div>
         </CardHeader>
-<Card>
-  {/* HEADER – title only, no button on the right */}
-  <CardHeader className="pb-2">
-    <CardTitle className="text-base">League Table</CardTitle>
-  </CardHeader>
 
-  <CardContent className="px-2 pb-3">
-    {/* TABLE */}
-    <Table>
-      <TableHeader>
-        <TableRow className="text-[11px]">
-          {/* Pos + bar: narrower + less padding */}
-          <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
+        <CardContent className="px-2 pb-3">
+          {/* TABLE */}
+          <Table>
+            <TableHeader>
+              <TableRow className="text-[11px]">
+                <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
+                <TableHead className="w-[112px] pr-1">Team</TableHead>
+                <TableHead className="w-[26px] px-1 text-center">PL</TableHead>
+                <TableHead className="w-[26px] px-1 text-center">W</TableHead>
+                <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                <TableHead className="w-[32px] px-1 text-center">LP</TableHead>
+                <TableHead className="w-[36px] pl-1 pr-2 text-right">
+                  Pts
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-          {/* Team: fixed-ish width so numbers can squeeze */}
-          <TableHead className="w-[112px] pr-1">Team</TableHead>
+            <TableBody>
+              {visibleRows.map((r, idx) => {
+                const pos = idx + 1;
+                const bar = posBarClass(pos);
 
-          {/* Tight numeric columns so no horizontal scroll */}
-          <TableHead className="w-[26px] px-1 text-center">PL</TableHead>
-          <TableHead className="w-[26px] px-1 text-center">W</TableHead>
-          <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
-          <TableHead className="w-[32px] px-1 text-center">LP</TableHead>
-          <TableHead className="w-[36px] pl-1 pr-2 text-right">Pts</TableHead>
-        </TableRow>
-      </TableHeader>
+                return (
+                  <TableRow key={r.teamId} className="text-[12px]">
+                    <TableCell className="py-2 pl-2 pr-1">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className={`h-5 w-1.5 rounded-full ${bar}`}
+                        />
+                        <span className="font-semibold tabular-nums">
+                          {pos}
+                        </span>
+                      </div>
+                    </TableCell>
 
-      <TableBody>
-        {visibleRows.map((r, idx) => {
-          const pos = idx + 1;
-          const bar = posBarClass(pos);
+                    <TableCell className="py-2 pr-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Image
+                          src={r.logoUrl}
+                          alt={r.name}
+                          width={18}
+                          height={18}
+                          className="rounded-full shrink-0"
+                        />
+                        <span className="truncate text-[12px] font-medium">
+                          {r.name}
+                        </span>
+                      </div>
+                    </TableCell>
 
-          return (
-            <TableRow key={r.teamId} className="text-[12px]">
-              {/* Pos cell – tighter gap */}
-              <TableCell className="py-2 pl-2 pr-1">
-                <div className="flex items-center gap-1.5">
-                  <div className={`h-5 w-1.5 rounded-full ${bar}`} />
-                  <span className="font-semibold tabular-nums">{pos}</span>
-                </div>
-              </TableCell>
+                    <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                      {r.PL}
+                    </TableCell>
+                    <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                      {r.W}
+                    </TableCell>
+                    <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                      {r.GD}
+                    </TableCell>
+                    <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
+                      {r.LP}
+                    </TableCell>
+                    <TableCell className="py-2 pl-1 pr-2 text-right font-mono font-bold tabular-nums">
+                      {r.Pts}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
 
-              {/* Team cell – smaller logo + less gap */}
-              <TableCell className="py-2 pr-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Image
-                    src={r.logoUrl}
-                    alt={r.name}
-                    width={18}
-                    height={18}
-                    className="rounded-full shrink-0"
-                  />
-                  <span className="truncate text-[12px] font-medium">
-                    {r.name}
-                  </span>
-                </div>
-              </TableCell>
+          {/* TEXT + BUTTON UNDER TOP 4 */}
+          {table.length > 4 && (
+            <div className="pt-2 px-2 space-y-2">
+              {!expanded && (
+                <p className="text-xs text-muted-foreground">
+                  Showing top 4. Tap{" "}
+                  <span className="font-medium">View full table</span> to see
+                  all teams.
+                </p>
+              )}
 
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.PL}
-              </TableCell>
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.W}
-              </TableCell>
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.GD}
-              </TableCell>
-              <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                {r.LP}
-              </TableCell>
-              <TableCell className="py-2 pl-1 pr-2 text-right font-mono font-bold tabular-nums">
-                {r.Pts}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setExpanded((v) => !v)}
+                className="w-full justify-center rounded-2xl text-sm font-semibold"
+                type="button"
+              >
+                {expanded ? "Hide full table" : "View full table"}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-    {/* TEXT + BUTTON UNDER TOP 4 */}
-    {table.length > 4 && (
-      <div className="pt-2 px-2 space-y-2">
-        {!expanded && (
-          <p className="text-xs text-muted-foreground">
-            Showing top 4. Tap{" "}
-            <span className="font-medium">View full table</span> to see all teams.
-          </p>
-        )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setExpanded((v) => !v)}
-          className="w-full justify-center rounded-2xl text-sm font-semibold"
-          type="button"
-        >
-          {expanded ? "Hide full table" : "View full table"}
-        </Button>
-      </div>
-    )}
-  </CardContent>
-</Card>
-
-
-      {/* Recent Results (keep it, it’s useful on mobile) */}
+      {/* Recent Results */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -307,7 +340,11 @@ export default function DashboardPage() {
               >
                 <div className="min-w-0">
                   <div className="text-xs text-muted-foreground">
-                    {new Date(g.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })} • {g.venue}
+                    {new Date(g.date).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    • {g.venue}
                   </div>
                   <div className="truncate text-sm font-medium">
                     {g.team1.name} vs {g.team2.name}
