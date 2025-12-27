@@ -195,11 +195,11 @@ export default function DashboardPage() {
               <TableRow className="text-[11px]">
                 <TableHead className="w-[54px]">Pos</TableHead>
                 <TableHead>Team</TableHead>
-                <TableHead className="w-[34px] text-center">PL</TableHead>
-                <TableHead className="w-[34px] text-center">W</TableHead>
-                <TableHead className="w-[42px] text-center">GD</TableHead>
-                <TableHead className="w-[40px] text-center">LP</TableHead>
-                <TableHead className="w-[44px] text-right">Pts</TableHead>
+                <TableHead className="w-[30px] text-center">PL</TableHead>
+                <TableHead className="w-[30px] text-center">W</TableHead>
+                <TableHead className="w-[38px] text-center">GD</TableHead>
+                <TableHead className="w-[36px] text-center">LP</TableHead>
+                <TableHead className="w-[40px] text-right">Pts</TableHead>
               </TableRow>
             </TableHeader>
 
