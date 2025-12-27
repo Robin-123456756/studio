@@ -12,11 +12,12 @@ import {
   CalendarDays,
   MoreHorizontal,
   Users,
-  Compass,
   Medal,
-  Bell,
   Settings,
   Star,
+  UserCircle2,
+  ArrowLeftRight,
+  ChevronRight,
 } from "lucide-react";
 
 import {
@@ -34,13 +35,14 @@ const tabs = [
   { href: "/dashboard/fantasy", label: "Fantasy", Icon: Trophy },
 ] as const;
 
+// ✅ PL-style "More" items
 const moreItems = [
+  { href: "/dashboard/settings", label: "myPL Settings", Icon: Settings },
   { href: "/dashboard/teams", label: "Teams", Icon: Users },
-  { href: "/dashboard/explore", label: "Explore", Icon: Compass },
-  { href: "/dashboard/scores", label: "Results", Icon: Medal }, // has standings too
-  { href: "/dashboard/notifications", label: "Notifications", Icon: Bell },
+  { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
+  { href: "/dashboard/transfers", label: "Transfers", Icon: ArrowLeftRight },
+  { href: "/dashboard/results", label: "Results", Icon: Medal },
   { href: "/dashboard/reviews", label: "Reviews", Icon: Star },
-  { href: "/dashboard/settings", label: "Settings", Icon: Settings },
 ] as const;
 
 function isActiveRoute(pathname: string, href: string) {
@@ -61,7 +63,7 @@ export default function MobileBottomNav() {
       )}
     >
       <div className="mx-auto w-full max-w-app px-2 py-2">
-        {/* ✅ now 4 columns: Latest, Matches, Fantasy, More */}
+        {/* 4 columns: Latest, Matches, Fantasy, More */}
         <div className="grid grid-cols-4 gap-1">
           {tabs.map(({ href, label, Icon }) => {
             const active = isActiveRoute(pathname, href);
@@ -98,7 +100,7 @@ export default function MobileBottomNav() {
             );
           })}
 
-          {/* MORE */}
+          {/* MORE – opens PL-style list */}
           <Sheet>
             <SheetTrigger asChild>
               <button
@@ -112,33 +114,40 @@ export default function MobileBottomNav() {
                 <div className="grid h-10 w-10 place-items-center rounded-2xl">
                   <MoreHorizontal className="h-5 w-5" />
                 </div>
-                <span className="text-[11px] leading-none font-medium">More</span>
+                <span className="text-[11px] leading-none font-medium">
+                  More
+                </span>
               </button>
             </SheetTrigger>
 
-            <SheetContent side="bottom" className="rounded-t-3xl">
-              <SheetHeader className="pb-2">
+            <SheetContent
+              side="bottom"
+              className="rounded-t-3xl pb-[env(safe-area-inset-bottom)]"
+            >
+              <SheetHeader className="pb-3">
                 <SheetTitle>More</SheetTitle>
               </SheetHeader>
 
-              <div className="grid grid-cols-2 gap-2 pb-[env(safe-area-inset-bottom)]">
+              {/* ✅ PL-style vertical list */}
+              <nav className="space-y-1">
                 {moreItems.map(({ href, label, Icon }) => (
                   <SheetClose asChild key={href}>
                     <Link
                       href={href}
-                      className={cn(
-                        "flex items-center gap-3 rounded-2xl border bg-card p-4 shadow-sm",
-                        "hover:bg-accent transition-colors"
-                      )}
+                      className="flex items-center justify-between rounded-2xl bg-card px-4 py-3 text-sm font-medium hover:bg-accent/10 active:bg-accent/20"
                     >
-                      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-muted">
-                        <Icon className="h-5 w-5" />
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <span className="text-[15px]">{label}</span>
                       </div>
-                      <div className="font-medium">{label}</div>
+
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </Link>
                   </SheetClose>
                 ))}
-              </div>
+              </nav>
             </SheetContent>
           </Sheet>
         </div>

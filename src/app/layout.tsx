@@ -5,8 +5,8 @@ import MobileBottomNav from "@/components/mobile-bottom-nav";
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: "Budo League",
-  description: "Manage your martial arts league with ease.",
+  title: "TBL",
+  description: "The Budo League.",
 };
 
 export default function RootLayout({
