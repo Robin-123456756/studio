@@ -1,57 +1,56 @@
-// src/app/dashboard/teams/[teamId]/page.tsx
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { teams, type Team, type Player } from "@/lib/data";
+import { teams, type Team } from "@/lib/data";
+
+type DbPlayer = {
+  id: string;
+  name: string;
+  position: string;
+  team_id: string;
+  avatar_url: string | null;
+  price: number;
+  points: number;
+};
+
 function getTeam(teamId: string): Team | undefined {
-  return teams.find((t) => String(t.id) === String(teamId));
-}
-
-function getPlayersForTeam(team: Team): Player[] {
-  // ✅ If your data already stores players inside each team
-  if (Array.isArray((team as any).players)) {
-    return (team as any).players as Player[];
-  }
-
-  // ✅ Otherwise, build a global list from teams
-  const allPlayers = teams.flatMap((t: any) => (Array.isArray(t.players) ? t.players : []));
-
-  // Prefer teamId match if present
-  const byId = allPlayers.filter((p: any) => String(p.teamId) === String(team.id));
-  if (byId.length > 0) return byId;
-
-  // Fallback: team name match (only if p.team exists)
-  return allPlayers.filter((p: any) => String(p.team) === String(team.name));
+  return teams.find((t) => t.id === teamId);
 }
 
 export default function TeamDetailPage() {
-  const params = useParams();
-  const teamId = (params?.teamId as string) ?? "";
+  const params = useParams<{ teamId: string }>();
+  const teamId = params.teamId;
 
   const team = getTeam(teamId);
+
+  const [teamPlayers, setTeamPlayers] = React.useState<DbPlayer[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const res = await fetch(`/api/players?teamId=${encodeURIComponent(teamId)}`);
+      const json = await res.json();
+      setTeamPlayers(json.players ?? []);
+      setLoading(false);
+    })();
+  }, [teamId]);
 
   if (!team) {
     return (
       <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28">
         <p className="text-sm text-muted-foreground">Team not found.</p>
-
-        <Link
-          href="/dashboard/teams"
-          className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-foreground"
-        >
+        <Link href="/dashboard/teams" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold">
           <ChevronLeft className="h-4 w-4" /> Back to Teams
         </Link>
       </div>
     );
   }
-
-  const teamPlayers = getPlayersForTeam(team);
 
   return (
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
@@ -65,17 +64,11 @@ export default function TeamDetailPage() {
 
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center gap-3">
-          <Image
-            src={team.logoUrl}
-            alt={team.name}
-            width={44}
-            height={44}
-            className="rounded-2xl bg-white p-1"
-          />
-          <div className="min-w-0">
-            <CardTitle className="text-xl truncate">{team.name}</CardTitle>
+          <Image src={team.logoUrl} alt={team.name} width={44} height={44} className="rounded-2xl" />
+          <div>
+            <CardTitle className="text-xl">{team.name}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {teamPlayers.length} players
+              {loading ? "Loading..." : `${teamPlayers.length} players`}
             </p>
           </div>
         </CardHeader>
@@ -88,9 +81,8 @@ export default function TeamDetailPage() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-11 w-11 rounded-full overflow-hidden bg-muted shrink-0">
-                    {/* use img to avoid Next/Image domain issues */}
                     <img
-                      src={p.avatarUrl}
+                      src={p.avatar_url ?? "/placeholder-player.png"}
                       alt={p.name}
                       className="h-11 w-11 object-cover"
                       loading="lazy"
@@ -100,43 +92,28 @@ export default function TeamDetailPage() {
 
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {p.position}
-                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{p.position}</div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 shrink-0">
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground">Price</div>
-                    <div className="font-mono font-semibold tabular-nums">
-                      ${p.price}m
-                    </div>
-                  </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xs text-muted-foreground">Price</div>
+                  <div className="font-mono font-semibold tabular-nums">${p.price}m</div>
+                </div>
 
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground">Pts</div>
-                    <div className="font-mono font-extrabold tabular-nums">
-                      {p.points}
-                    </div>
-                  </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xs text-muted-foreground">Pts</div>
+                  <div className="font-mono font-extrabold tabular-nums">{p.points}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
 
-        {teamPlayers.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No players linked to this team yet. Add{" "}
-            <span className="font-semibold">teamId</span> on each player in your{" "}
-            <span className="font-semibold">data</span>.
-          </p>
-        )}
+        {!loading && teamPlayers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No players for this team yet. Add players from Admin.</p>
+        ) : null}
       </div>
     </div>
   );
 }
-
-
-
