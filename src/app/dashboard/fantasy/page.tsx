@@ -31,8 +31,8 @@ function groupByPosition(players: Player[]) {
 }
 
 /**
- * Build a "starting XI" using a simple default formation:
- * GK 1, DEF 4, MID 4, FWD 3 (or fewer if you don't have enough players yet).
+ * Default formation:
+ * GK 1, DEF 4, MID 4, FWD 3 (or fewer if not enough).
  * Bench = everyone else.
  */
 function splitStartingAndBench(players: Player[]) {
@@ -46,7 +46,6 @@ function splitStartingAndBench(players: Player[]) {
 
   const startingIds = new Set(starting.map((p) => p.id));
   const bench = players.filter((p) => !startingIds.has(p.id));
-
   return { starting, bench };
 }
 
@@ -114,68 +113,79 @@ function MiniLeague() {
   );
 }
 
-function CaptainBadge({ type }: { type: "C" | "VC" }) {
-  return (
-    <div
-      className={cn(
-        "absolute -top-2 -right-2 h-6 w-6 rounded-full",
-        "grid place-items-center text-[11px] font-extrabold",
-        type === "C" ? "bg-amber-400 text-black" : "bg-emerald-400 text-black"
-      )}
-    >
-      {type}
-    </div>
-  );
-}
+/* =========================
+   ✅ NEW PL-STYLE PITCH UI
+   ========================= */
 
-function PlayerPill({
+function PitchPlayerCard({
   player,
   onClick,
   captainId,
   viceId,
+  fixtureText,
 }: {
   player: Player;
   onClick: (p: Player) => void;
   captainId?: string | null;
   viceId?: string | null;
+  fixtureText?: string;
 }) {
+  const badge =
+    captainId === player.id
+      ? { label: "C", cls: "bg-amber-400 text-black" }
+      : viceId === player.id
+      ? { label: "VC", cls: "bg-emerald-400 text-black" }
+      : null;
+
   return (
     <button
       type="button"
       onClick={() => onClick(player)}
-      className="relative flex flex-col items-center gap-1 w-[76px] active:scale-[0.98] transition"
+      className="relative w-[86px] active:scale-[0.98] transition"
       aria-label={`Open ${player.name}`}
     >
-      {captainId === player.id ? <CaptainBadge type="C" /> : null}
-      {viceId === player.id ? <CaptainBadge type="VC" /> : null}
-
-      <div className="rounded-xl bg-white/90 text-black w-full overflow-hidden shadow">
-        <div className="flex items-center gap-2 px-2 pt-2">
-          <div className="h-8 w-8 rounded-full overflow-hidden bg-black/10 shrink-0">
-            {/* ✅ Option B: use plain img */}
-            <img
-              src={player.avatarUrl}
-              alt={player.name}
-              className="h-8 w-8 object-cover"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold truncate leading-tight">{player.name}</div>
-            <div className="text-[10px] text-black/60 truncate">{player.team}</div>
-          </div>
+      {badge ? (
+        <div
+          className={cn(
+            "absolute -top-2 -right-2 z-10 h-6 w-6 rounded-full grid place-items-center",
+            "text-[11px] font-extrabold shadow",
+            badge.cls
+          )}
+        >
+          {badge.label}
         </div>
-        <div className="px-2 pb-2 pt-1">
-          <div className="text-[10px] text-black/60">{player.position}</div>
-          <div className="text-[11px] font-bold">{player.points} pts</div>
+      ) : null}
+
+      <div className="rounded-2xl overflow-hidden shadow-md">
+        <div className="bg-white/15 backdrop-blur border border-white/10">
+          <div className="px-2 pt-2 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 grid place-items-center overflow-hidden">
+              <img
+                src={player.avatarUrl}
+                alt={player.name}
+                className="h-12 w-12 object-cover"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>
+
+          {/* Name plate */}
+          <div className="mt-2 bg-white text-black px-2 py-2">
+            <div className="text-[12px] font-extrabold leading-tight truncate text-center">
+              {player.name}
+            </div>
+            <div className="text-[11px] font-semibold text-black/70 text-center">
+              {fixtureText ?? player.team}
+            </div>
+          </div>
         </div>
       </div>
     </button>
   );
 }
 
-function BenchRow({
+function BenchStrip({
   bench,
   onPick,
   captainId,
@@ -186,19 +196,25 @@ function BenchRow({
   captainId?: string | null;
   viceId?: string | null;
 }) {
-  if (bench.length === 0) return null;
+  if (!bench.length) return null;
 
   return (
-    <div className="rounded-2xl border bg-card p-3">
+    <div className="rounded-2xl border bg-card/60 backdrop-blur px-3 py-3">
       <div className="flex items-center justify-between pb-2">
         <div className="text-sm font-semibold">Bench</div>
-        <div className="text-xs text-muted-foreground">Tap to swap</div>
+        <div className="text-xs text-muted-foreground">Tap any player</div>
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
         {bench.map((p) => (
           <div key={p.id} className="shrink-0">
-            <PlayerPill player={p} onClick={onPick} captainId={captainId} viceId={viceId} />
+            <PitchPlayerCard
+              player={p}
+              onClick={onPick}
+              captainId={captainId}
+              viceId={viceId}
+              fixtureText={p.position}
+            />
           </div>
         ))}
       </div>
@@ -218,64 +234,84 @@ function PitchView({
   viceId?: string | null;
 }) {
   const { starting, bench } = splitStartingAndBench(players);
-  const grouped = groupByPosition(starting);
+  const g = groupByPosition(starting);
 
   return (
     <div className="space-y-3">
       <div
-        className="rounded-2xl overflow-hidden border"
-        style={{
-          backgroundImage: "url('/pitch.svg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
+        className={cn(
+          "relative rounded-3xl overflow-hidden border",
+          "bg-[radial-gradient(circle_at_top,#22c55e33,transparent_60%),linear-gradient(180deg,#0b3b1b,#0a2a16)]"
+        )}
       >
-        <div className="backdrop-brightness-[0.92] p-3">
-          <div className="flex flex-col gap-4 py-3">
+        {/* Top ribbon */}
+        <div className="absolute inset-x-0 top-0 h-10 bg-white/10 backdrop-blur border-b border-white/10 flex items-center justify-center">
+          <div className="text-xs font-semibold text-white/80 tracking-wide">
+            THE BUDO LEAGUE • FANTASY
+          </div>
+        </div>
+
+        {/* Pitch lines overlay */}
+        <div className="absolute inset-0 opacity-[0.18] pointer-events-none">
+          <div className="absolute inset-6 rounded-3xl border border-white/60" />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-36 w-36 rounded-full border border-white/60" />
+          <div className="absolute left-1/2 top-[34%] -translate-x-1/2 h-28 w-44 rounded-2xl border border-white/60" />
+          <div className="absolute left-1/2 top-[18%] -translate-x-1/2 h-20 w-28 rounded-2xl border border-white/60" />
+          <div className="absolute left-1/2 bottom-[34%] -translate-x-1/2 h-28 w-44 rounded-2xl border border-white/60" />
+          <div className="absolute left-1/2 bottom-[18%] -translate-x-1/2 h-20 w-28 rounded-2xl border border-white/60" />
+        </div>
+
+        {/* Players */}
+        <div className="relative pt-12 pb-5 px-3">
+          <div className="flex flex-col gap-6 py-3">
             <div className="flex justify-center">
-              {grouped.Goalkeepers.slice(0, 1).map((p) => (
-                <PlayerPill
+              {g.Goalkeepers.slice(0, 1).map((p) => (
+                <PitchPlayerCard
                   key={p.id}
                   player={p}
                   onClick={onPickPlayer}
                   captainId={captainId}
                   viceId={viceId}
+                  fixtureText="GK"
                 />
               ))}
             </div>
 
             <div className="flex justify-center gap-3 flex-wrap">
-              {grouped.Defenders.slice(0, 4).map((p) => (
-                <PlayerPill
+              {g.Defenders.slice(0, 4).map((p) => (
+                <PitchPlayerCard
                   key={p.id}
                   player={p}
                   onClick={onPickPlayer}
                   captainId={captainId}
                   viceId={viceId}
+                  fixtureText="DEF"
                 />
               ))}
             </div>
 
             <div className="flex justify-center gap-3 flex-wrap">
-              {grouped.Midfielders.slice(0, 4).map((p) => (
-                <PlayerPill
+              {g.Midfielders.slice(0, 4).map((p) => (
+                <PitchPlayerCard
                   key={p.id}
                   player={p}
                   onClick={onPickPlayer}
                   captainId={captainId}
                   viceId={viceId}
+                  fixtureText="MID"
                 />
               ))}
             </div>
 
             <div className="flex justify-center gap-3 flex-wrap">
-              {grouped.Forwards.slice(0, 3).map((p) => (
-                <PlayerPill
+              {g.Forwards.slice(0, 3).map((p) => (
+                <PitchPlayerCard
                   key={p.id}
                   player={p}
                   onClick={onPickPlayer}
                   captainId={captainId}
                   viceId={viceId}
+                  fixtureText="FWD"
                 />
               ))}
             </div>
@@ -283,10 +319,14 @@ function PitchView({
         </div>
       </div>
 
-      <BenchRow bench={bench} onPick={onPickPlayer} captainId={captainId} viceId={viceId} />
+      <BenchStrip bench={bench} onPick={onPickPlayer} captainId={captainId} viceId={viceId} />
     </div>
   );
 }
+
+/* =========================
+   LIST VIEW (same as yours)
+   ========================= */
 
 function ListView({
   players,
@@ -318,7 +358,6 @@ function ListView({
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                {/* ✅ Option B: use plain img */}
                 <img
                   src={p.avatarUrl}
                   alt={p.name}
@@ -420,7 +459,6 @@ function PlayerActionSheet({
         <div className="rounded-2xl border bg-card p-3">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-full overflow-hidden bg-muted shrink-0">
-              {/* ✅ Option B */}
               <img
                 src={selected.avatarUrl}
                 alt={selected.name}
@@ -521,7 +559,6 @@ function PlayerActionSheet({
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                        {/* ✅ Option B */}
                         <img
                           src={p.avatarUrl}
                           alt={p.name}
@@ -555,9 +592,7 @@ function PlayerActionSheet({
 
 export default function FantasyPage() {
   const [tab, setTab] = React.useState<TabKey>("pitch");
-
   const [squadPlayers, setSquadPlayers] = React.useState<Player[]>(() => [...myFantasyTeam.players]);
-
   const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
 
   const [captainId, setCaptainId] = React.useState<string | null>(null);
@@ -628,6 +663,7 @@ export default function FantasyPage() {
 
   return (
     <div className="space-y-5 animate-in fade-in-50">
+      {/* Top card */}
       <div className={cn("rounded-3xl overflow-hidden", "bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500")}>
         <div className="p-4 text-white">
           <div className="flex items-center justify-between">
@@ -689,6 +725,7 @@ export default function FantasyPage() {
         </div>
       </div>
 
+      {/* Segmented control */}
       <div className="flex items-center justify-center">
         <div className="rounded-2xl bg-muted p-1 inline-flex">
           <button
@@ -714,6 +751,7 @@ export default function FantasyPage() {
         </div>
       </div>
 
+      {/* Main */}
       {tab === "pitch" ? (
         <PitchView players={squadPlayers} onPickPlayer={openPlayer} captainId={captainId} viceId={viceId} />
       ) : (
