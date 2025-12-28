@@ -8,19 +8,26 @@ import { useParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { teams, players, type Team, type Player } from "@/lib/data";
-
+import { teams, type Team, type Player } from "@/lib/data";
 function getTeam(teamId: string): Team | undefined {
   return teams.find((t) => String(t.id) === String(teamId));
 }
 
 function getPlayersForTeam(team: Team): Player[] {
-  // Preferred: teamId match
-  const byId = players.filter((p: any) => String(p.teamId) === String(team.id));
+  // ✅ If your data already stores players inside each team
+  if (Array.isArray((team as any).players)) {
+    return (team as any).players as Player[];
+  }
+
+  // ✅ Otherwise, build a global list from teams
+  const allPlayers = teams.flatMap((t: any) => (Array.isArray(t.players) ? t.players : []));
+
+  // Prefer teamId match if present
+  const byId = allPlayers.filter((p: any) => String(p.teamId) === String(team.id));
   if (byId.length > 0) return byId;
 
-  // Fallback: team name match (if you haven’t added teamId everywhere yet)
-  return players.filter((p) => String(p.team) === String(team.name));
+  // Fallback: team name match (only if p.team exists)
+  return allPlayers.filter((p: any) => String(p.team) === String(team.name));
 }
 
 export default function TeamDetailPage() {
