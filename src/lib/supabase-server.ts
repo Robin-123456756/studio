@@ -1,39 +1,20 @@
-// src/lib/supabase-server.ts
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
-let cached: SupabaseClient | null = null;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-function isValidHttpUrl(value: string) {
-  return /^https?:\/\//i.test(value);
-}
-
-/**
- * Server-only Supabase client.
- * - Safe: does NOT throw at import time
- * - Creates client lazily (on first call)
- * - Uses service role key (keep it server-only)
- */
-export function getSupabaseServer() {
-  if (cached) return cached;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-  if (!supabaseUrl || !isValidHttpUrl(supabaseUrl)) {
-    throw new Error(
-      "Invalid NEXT_PUBLIC_SUPABASE_URL. It must be a valid http(s) URL in Vercel env vars."
-    );
+export function getSupabaseServerOrThrow() {
+  if (!supabaseUrl || !/^https?:\/\//i.test(supabaseUrl)) {
+    throw new Error("Invalid NEXT_PUBLIC_SUPABASE_URL. Must be http(s)://...");
   }
-
   if (!serviceRoleKey) {
-    throw new Error(
-      "Missing SUPABASE_SERVICE_ROLE_KEY. Add it in Vercel env vars."
-    );
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  cached = createClient(supabaseUrl, serviceRoleKey, {
+  return createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
-
-  return cached;
 }
+
+// ✅ this is what your route expects
+export const supabaseServer = getSupabaseServerOrThrow();
