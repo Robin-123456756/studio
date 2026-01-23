@@ -11,11 +11,14 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const teamId = (searchParams.get("team_id") || "").trim();
 
-  let q = supabase.from("players").select("*").order("created_at", { ascending: false });
+  let query = supabase
+  .from("players")
+  .select("id, web_name, position, team_id, avatar_url, now_cost");
 
-  if (teamId) q = q.eq("team_id", teamId);
 
-  const { data, error } = await q;
+  if (teamId) query = query.eq("team_id", teamId);
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ players: data ?? [] });
