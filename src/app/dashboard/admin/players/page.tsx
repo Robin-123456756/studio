@@ -15,16 +15,27 @@ type DbPlayer = {
   points: number;
 };
 
-export default function AdminPlayersPage() {
+export default function PlayersPage() {
   const [players, setPlayers] = React.useState<DbPlayer[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
-      const res = await fetch("/api/players");
-      const json = await res.json();
-      setPlayers(json.players ?? []);
-      setLoading(false);
+      try {
+        const res = await fetch("/api/players");
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `Request failed with ${res.status}`);
+        }
+        const json = await res.json();
+        setPlayers(json.players ?? []);
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Failed to load players");
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -41,12 +52,17 @@ export default function AdminPlayersPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="p-4 text-sm text-muted-foreground">Loading...</div>
+          ) : error ? (
+            <div className="p-4 text-sm text-red-500">{error}</div>
           ) : players.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground">No players yet.</div>
           ) : (
             <div className="divide-y">
               {players.map((p) => (
-                <div key={p.id} className="p-4 flex items-center justify-between gap-3">
+                <div
+                  key={p.id}
+                  className="p-4 flex items-center justify-between gap-3"
+                >
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{p.name}</div>
                     <div className="text-xs text-muted-foreground truncate">
@@ -54,8 +70,12 @@ export default function AdminPlayersPage() {
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-mono tabular-nums">${p.price}m</div>
-                    <div className="text-sm font-extrabold font-mono tabular-nums">{p.points}</div>
+                    <div className="text-sm font-mono tabular-nums">
+                      ${p.price}m
+                    </div>
+                    <div className="text-sm font-extrabold font-mono tabular-nums">
+                      {p.points}
+                    </div>
                   </div>
                 </div>
               ))}
