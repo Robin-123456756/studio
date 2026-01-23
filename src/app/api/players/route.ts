@@ -12,7 +12,8 @@ function getSupabaseOrError() {
   if (!url || !/^https?:\/\//i.test(url)) {
     return {
       supabase: null as any,
-      error: "Invalid NEXT_PUBLIC_SUPABASE_URL. It must start with http:// or https://",
+      error:
+        "Invalid NEXT_PUBLIC_SUPABASE_URL. It must start with http:// or https://",
     };
   }
   if (!key) {
@@ -29,37 +30,31 @@ function getSupabaseOrError() {
   return { supabase, error: null as string | null };
 }
 
-/**
- * GET /api/players
- * Optional query params:
- *   - team_id=TEAM_CODE   (e.g. AUS, BAR, etc.)
- *   - limit=50
- */
-export async function GET(req: Request) {
+export async function GET() {
   const { supabase, error: envError } = getSupabaseOrError();
   if (envError) {
     return NextResponse.json({ error: envError }, { status: 500 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const teamId = (searchParams.get("team_id") || "").trim(); // this is your team_code
-  const limit = Number(searchParams.get("limit") || "200");
-
-  let query = supabase
+  const { data, error } = await supabase
     .from("players")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .select("id, web_name, position, team_id, avatar_url, now_cost");
 
-  if (teamId) {
-    query = query.eq("team_id", teamId);
-  }
-
-  const { data, error } = await query;
-
+  // ✅ Handle Supabase error
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ players: data ?? [] });
+  const players =
+    (data || []).map((p: any) => ({
+      id: p.id,
+      name: p.web_name, // map web_name → name for the UI
+      position: p.position,
+      team_id: p.team_id,
+      avatar_url: p.avatar_url,
+      price: Number(p.now_cost ?? 0),
+      points: 0, // or compute later from player_stats
+    })) ?? [];
+
+  return NextResponse.json({ players });
 }
