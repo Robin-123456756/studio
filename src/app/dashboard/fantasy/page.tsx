@@ -94,6 +94,33 @@ function formatDeadlineUG(iso: string) {
     .replace(/\bp\.m\.\b/i, "PM");
 }
 
+function sortBench(players: Player[]) {
+  const posOrder: Record<string, number> = {
+    Goalkeeper: 0,
+    Defender: 1,
+    Midfielder: 2,
+    Forward: 3,
+  };
+
+  return [...players].sort((a, b) => {
+    const pa = posOrder[a.position] ?? 99;
+    const pb = posOrder[b.position] ?? 99;
+    if (pa !== pb) return pa - pb;
+
+    // same position -> points desc
+    const ptsA = Number(a.points ?? 0);
+    const ptsB = Number(b.points ?? 0);
+    if (ptsB !== ptsA) return ptsB - ptsA;
+
+    // tie-breaker -> price desc (optional)
+    const prA = Number(a.price ?? 0);
+    const prB = Number(b.price ?? 0);
+    if (prB !== prA) return prB - prA;
+
+    return (a.name ?? "").localeCompare(b.name ?? "");
+  });
+}
+
 function splitStartingAndBench(players: Player[]) {
   const g = groupByPosition(players);
   const starting = [
@@ -278,6 +305,7 @@ function BenchStrip({
   );
 }
 
+
 function PitchView({
   players,
   onPickPlayer,
@@ -289,8 +317,9 @@ function PitchView({
   captainId?: string | null;
   viceId?: string | null;
 }) {
-  const { starting, bench } = splitStartingAndBench(players);
-  const g = groupByPosition(starting);
+  const { onField, bench, errors } = pickMatchDay10(players);
+const benchSorted = React.useMemo(() => sortBench(bench), [bench]);
+const g = groupByPosition(onField);
 
   return (
     <div className="space-y-3">
@@ -372,10 +401,123 @@ function PitchView({
         </div>
       </div>
 
-      <BenchStrip bench={bench} onPick={onPickPlayer} captainId={captainId} viceId={viceId} />
+      <BenchStrip
+  bench={benchSorted}
+  onPick={onPickPlayer}
+  captainId={captainId}
+  viceId={viceId}
+/>
+
     </div>
   );
 }
+
+function pickMatchDay10(players: Player[]) {
+  const isGK = (p: Player) => p.position === "Goalkeeper";
+  const isDEF = (p: Player) => p.position === "Defender";
+  const isMID = (p: Player) => p.position === "Midfielder";
+  const isFWD = (p: Player) => p.position === "Forward";
+
+  const byBest = (list: Player[]) =>
+    [...list].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+
+  const selected = new Map<string, Player>();
+  const add = (p?: Player | null) => {
+    if (!p) return;
+    if (selected.size >= 10) return;
+    selected.set(p.id, p);
+  };
+
+  // 1) EXACTLY 1 GK
+  const gk = byBest(players.filter(isGK))[0];
+  add(gk);
+
+  // 2) MUST have 1 lady attacker (lady forward)
+  const ladyFwd = byBest(players.filter((p) => isFWD(p) && !!p.isLady))[0];
+  add(ladyFwd);
+
+  // 3) Fill attackers up to max 3 total
+  const fwdNeed = 3 - [...selected.values()].filter(isFWD).length;
+  byBest(players.filter((p) => isFWD(p) && !selected.has(p.id)))
+    .slice(0, Math.max(0, fwdNeed))
+    .forEach(add);
+
+  // 4) Fill midfielders up to max 4 (aim 4)
+  byBest(players.filter((p) => isMID(p) && !selected.has(p.id)))
+    .slice(0, 4)
+    .forEach(add);
+
+  // 5) Ensure at least 2 defenders
+  const defNeed = Math.max(
+    0,
+    2 - [...selected.values()].filter(isDEF).length
+  );
+  byBest(players.filter((p) => isDEF(p) && !selected.has(p.id)))
+    .slice(0, defNeed)
+    .forEach(add);
+
+  // 6) Fill remaining slots to reach 10:
+  // Prefer DEF, then MID (if <4), then FWD (if <3).
+  // NEVER add another GK.
+  while (selected.size < 10) {
+    const current = [...selected.values()];
+    const midCount = current.filter(isMID).length;
+    const fwdCount = current.filter(isFWD).length;
+
+    const nextDef = byBest(
+      players.filter((p) => isDEF(p) && !selected.has(p.id))
+    )[0];
+    if (nextDef) {
+      add(nextDef);
+      continue;
+    }
+
+    if (midCount < 4) {
+      const nextMid = byBest(
+        players.filter((p) => isMID(p) && !selected.has(p.id))
+      )[0];
+      if (nextMid) {
+        add(nextMid);
+        continue;
+      }
+    }
+
+    if (fwdCount < 3) {
+      const nextFwd = byBest(
+        players.filter((p) => isFWD(p) && !selected.has(p.id))
+      )[0];
+      if (nextFwd) {
+        add(nextFwd);
+        continue;
+      }
+    }
+
+    // No legal player to add without breaking rules
+    break;
+  }
+
+  const onField = [...selected.values()].slice(0, 10);
+
+  // Bench = everyone else (including any extra goalkeepers)
+  const bench = players.filter((p) => !selected.has(p.id));
+
+  // Validate rules
+  const errors: string[] = [];
+  const gkCount = onField.filter(isGK).length;
+  const defCount = onField.filter(isDEF).length;
+  const midCount = onField.filter(isMID).length;
+  const fwdCount = onField.filter(isFWD).length;
+  const ladyFwdCount = onField.filter((p) => isFWD(p) && !!p.isLady).length;
+
+  if (gkCount !== 1) errors.push("Pitch must have exactly 1 Goalkeeper.");
+  if (defCount < 2) errors.push("Pitch must have at least 2 Defenders.");
+  if (midCount > 4) errors.push("Pitch cannot have more than 4 Midfielders.");
+  if (fwdCount > 3) errors.push("Pitch cannot have more than 3 Attackers.");
+  if (ladyFwdCount < 1) errors.push("Pitch must include 1 Lady Attacker.");
+
+  return { onField, bench, errors };
+}
+
 
 function ListView({
   players,
