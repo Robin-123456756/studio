@@ -2,16 +2,15 @@
 // TYPES
 // =====================
 export type Team = {
-  id: string;       // UI route id (e.g. "t-bifa")
-  dbId: number;     // ✅ Supabase teams.id (e.g. 3, 11, ...)
-  name: string;
+  id: string;        // route slug "t-bifa"
+  dbId: number;      // supabase teams.id (int4)
+  name: string;      // full name "BIFA"
+  shortName: string; // ✅ "BIF"
   players: Player[];
   logoUrl: string;
-
   wins: number;
   losses: number;
   draws: number;
-
   played?: number;
   gf?: number;
   ga?: number;
@@ -19,7 +18,6 @@ export type Team = {
   lp?: number;
   pts?: number;
 };
-
 
 export type Player = {
   id: string;
@@ -260,7 +258,7 @@ const allPlayers: Player[] = [
   { id: "p7", name: "Ren Mori", avatarUrl: "https://picsum.photos/seed/p7/100/100", position: "Forward", price: 9.2, points: 48, team: "Accumulators", gender: "male" },
   { id: "p8", name: "Kaito Abe", avatarUrl: "https://picsum.photos/seed/p8/100/100", position: "Defender", price: 5.1, points: 29, team: "Accumulators", gender: "male" },
   { id: "p9", name: "Itsuki Sasaki", avatarUrl: "https://picsum.photos/seed/p9/100/100", position: "Midfielder", price: 7.3, points: 33, team: "Accumulators", gender: "male" },
-  { id: "p15", name: "Sarah Atim", avatarUrl: "https://picsum.photos/seed/p15/100/100", position: "Defender", price: 5.9, points: 15, team: "Accumulators", gender: "female" },
+  { id: "p15", name: "Sarah Atim", avatarUrl: "https://picsum.photos/seed/p15/1006666/100", position: "Defender", price: 5.9, points: 15, team: "Accumulators", gender: "female" },
 
   // Masappe (✅ corrected spelling)
   { id: "p10", name: "Hinata Saito", avatarUrl: "https://picsum.photos/seed/p10/100/100", position: "Midfielder", price: 6.9, points: 25, team: "Masappe", gender: "male" },
@@ -273,27 +271,27 @@ const allPlayers: Player[] = [
 // TEAMS + LOGOS (make sure logos are in public/logos)
 // =====================
 const teamDefs = [
-  { id: "t-accumulators", name: "Accumulators", dbId: 1, logoUrl: "/logos/t-accumulators.png" },
-  { id: "t-basunzi", name: "Basunzi", dbId: 2, logoUrl: "/logos/t-basunzi.png" },
-  { id: "t-bifa", name: "BIFA", dbId: 3, logoUrl: "/logos/t-bifa.png" },
+  { id: "t-accumulators", name: "Accumulators", shortName: "ACC", dbId: 1, logoUrl: "/logos/t-accumulators.png" },
+  { id: "t-basunzi", name: "Basunzi", shortName: "BAS", dbId: 2, logoUrl: "/logos/t-basunzi.png" },
+  { id: "t-bifa", name: "BIFA", shortName: "BIF", dbId: 3, logoUrl: "/logos/t-bifa.png" },
 
-  { id: "t-trotballo", name: "Trotballo", dbId: 4, logoUrl: "/logos/t-trotballo.png" },
-  { id: "t-dujay", name: "Dujay", dbId: 5, logoUrl: "/logos/t-dujay.png" },
-  { id: "t-night-prep", name: "Night prep", dbId: 6, logoUrl: "/logos/t-night-prep.png" },
+  { id: "t-trotballo", name: "Trotballo", shortName: "TRO", dbId: 4, logoUrl: "/logos/t-trotballo.png" },
+  { id: "t-dujay", name: "Dujay", shortName: "DUJ", dbId: 5, logoUrl: "/logos/t-dujay.png" },
+  { id: "t-night-prep", name: "Night prep", shortName: "NIG", dbId: 6, logoUrl: "/logos/t-night-prep.png" },
 
-  { id: "t-peaky-blinders", name: "Peaky blinders", dbId: 7, logoUrl: "/logos/t-peaky-blinders.png" },
-  { id: "t-komunoballo", name: "Komunoballo", dbId: 8, logoUrl: "/logos/t-komunoballo.png" },
-  { id: "t-masappe", name: "Masappe", dbId: 9, logoUrl: "/logos/t-masappe.png" },
+  { id: "t-peaky-blinders", name: "Peaky blinders", shortName: "PEA", dbId: 7, logoUrl: "/logos/t-peaky-blinders.png" },
+  { id: "t-komunoballo", name: "Komunoballo", shortName: "KOM", dbId: 8, logoUrl: "/logos/t-komunoballo.png" },
+  { id: "t-masappe", name: "Masappe", shortName: "MAS", dbId: 9, logoUrl: "/logos/t-masappe.png" },
 
-  { id: "t-midnight-express", name: "Midnight Express", dbId: 10, logoUrl: "/logos/t-midnight-express.png" },
-  { id: "t-centurions", name: "Centurions", dbId: 11, logoUrl: "/logos/t-centurions.png" },
-  { id: "t-jubilewos", name: "Jubilewos", dbId: 12, logoUrl: "/logos/t-jubilewos.png" },
+  { id: "t-midnight-express", name: "Midnight Express", shortName: "MID", dbId: 10, logoUrl: "/logos/t-midnight-express.png" },
+  { id: "t-centurions", name: "Centurions", shortName: "CEN", dbId: 11, logoUrl: "/logos/t-centurions.png" },
+  { id: "t-jubilewos", name: "Jubilewos", shortName: "JUB", dbId: 12, logoUrl: "/logos/t-jubilewos.png" },
 
-  { id: "t-endgame", name: "Endgame", dbId: 13, logoUrl: "/logos/t-endgame.png" },
-  { id: "t-abacuba", name: "Abacuba", dbId: 14, logoUrl: "/logos/t-abacuba.png" },
-  { id: "t-thazoballo", name: "Thazoballo", dbId: 15, logoUrl: "/logos/t-thazoballo.png" },
+  { id: "t-endgame", name: "Endgame", shortName: "END", dbId: 13, logoUrl: "/logos/t-endgame.png" },
+  { id: "t-abacuba", name: "Abacuba", shortName: "ABA", dbId: 14, logoUrl: "/logos/t-abacuba.png" },
+  { id: "t-thazoballo", name: "Thazoballo", shortName: "THA", dbId: 15, logoUrl: "/logos/t-thazoballo.png" },
 
-  { id: "t-quadballo", name: "Quadballo", dbId: 16, logoUrl: "/logos/t-quadballo.png" },
+  { id: "t-quadballo", name: "Quadballo", shortName: "QUA", dbId: 16, logoUrl: "/logos/t-quadballo.png" },
 ] as const;
 
 const playersByTeam = groupPlayersByTeam(allPlayers);
@@ -302,13 +300,13 @@ export const teams = teamDefs.map((t) => ({
   id: t.id,
   dbId: t.dbId,
   name: t.name,
+  shortName: t.shortName,
   logoUrl: t.logoUrl,
   players: playersByTeam[t.name] ?? [],
   wins: 0,
   losses: 0,
   draws: 0,
 }));
-
 
 // =====================
 // SCHEDULE (example Sundays, Pitch A & Pitch B)

@@ -8,44 +8,60 @@ import { ChevronLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { teams, type Team } from "@/lib/data";
 
+// ✅ Make team_id a number (matches Supabase int4)
 type DbPlayer = {
   id: string;
   name: string;
   position: string;
-  team_id: string | number;
-  avatar_url: string | null;
+  team_id: number;
+  avatarUrl: string | null;
   price: number;
   points: number;
 };
 
-function getTeam(teamId: string): Team | undefined {
-  return teams.find((t) => t.id === teamId);
+// ✅ teamId here is the ROUTE slug (string), not db id
+function getTeam(teamSlug: string): Team | undefined {
+  return teams.find((t) => t.id === teamSlug);
 }
 
 export default function TeamDetailPage() {
-  const params = useParams<{ teamId: string }>();
-  const teamId = params.teamId;
+  const params = useParams();
+  const teamId = (params?.teamId as string) ?? "";
 
-  const team = getTeam(teamId);
+  const team = React.useMemo(() => getTeam(teamId), [teamId]);
 
   const [teamPlayers, setTeamPlayers] = React.useState<DbPlayer[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       if (!team) return;
 
-      setLoading(true);
+      try {
+        setLoading(true);
 
-      const res = await fetch(
-        `/api/players?team_id=${encodeURIComponent(String(team.dbId))}`
-      );
-      const json = await res.json();
+        // team.dbId should be the numeric teams.id from Supabase
+        const res = await fetch(`/api/players?team_id=${team.dbId}`, {
+          cache: "no-store",
+        });
+        const json = await res.json();
 
-      setTeamPlayers(json.players ?? []);
-      setLoading(false);
+        if (!res.ok) throw new Error(json?.error || "Failed to load players");
+
+        if (!cancelled) setTeamPlayers((json.players ?? []) as DbPlayer[]);
+      } catch {
+        if (!cancelled) setTeamPlayers([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
-  }, [teamId, team?.dbId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [team]);
 
   if (!team) {
     return (
@@ -97,7 +113,7 @@ export default function TeamDetailPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-11 w-11 rounded-full overflow-hidden bg-muted shrink-0">
                     <img
-                      src={p.avatar_url ?? "/placeholder-player.png"}
+                      src={p.avatarUrl ?? "/placeholder-player.png"}
                       alt={p.name}
                       className="h-11 w-11 object-cover"
                       loading="lazy"
