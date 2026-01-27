@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { myFantasyTeam, fantasyStandings, type Player } from "@/lib/data";
+import { myFantasyTeam, fantasyStandings } from "@/lib/data";
 import {
   ArrowDown,
   ArrowUp,
@@ -19,6 +19,32 @@ import {
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
+type Player = {
+  id: string;
+  name: string;
+  position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward" | string;
+  price: number;
+  points: number;
+  avatarUrl?: string | null;
+  isLady?: boolean;
+
+  // labels from teams table
+  teamShort?: string | null; // "CEN"
+  teamName?: string | null; // "Centurions"
+};
+
+type ApiPlayer = {
+  id: string;
+  name: string;
+  position?: string | null;
+  price?: number | null;
+  points?: number | null;
+  avatarUrl?: string | null;
+  isLady?: boolean | null;
+  teamShort?: string | null;
+  teamName?: string | null;
+};
+
 type TabKey = "pitch" | "list";
 
 function groupByPosition(players: Player[]) {
@@ -30,11 +56,44 @@ function groupByPosition(players: Player[]) {
   };
 }
 
-/**
- * Default formation:
- * GK 1, DEF 4, MID 4, FWD 3 (or fewer if not enough).
- * Bench = everyone else.
- */
+function normalizePosition(pos?: string | null): Player["position"] {
+  const p = (pos ?? "").trim().toLowerCase();
+  if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
+  if (p === "def" || p === "df" || p === "defender") return "Defender";
+  if (p === "mid" || p === "mf" || p === "midfielder") return "Midfielder";
+  if (p === "fwd" || p === "fw" || p === "forward" || p === "striker") return "Forward";
+  return pos ?? "Midfielder";
+}
+
+type ApiGameweek = {
+  id: number;
+  name: string | null;
+  deadline_time: string;
+};
+
+const LS_PICKS = "tbl_picked_player_ids";
+
+function formatDeadlineUG(iso: string) {
+  const d = new Date(iso);
+
+  const s = new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Africa/Kampala",
+  }).format(d);
+
+  return s
+    .replace(/\bam\b/i, "AM")
+    .replace(/\bpm\b/i, "PM")
+    .replace(/\ba\.m\.\b/i, "AM")
+    .replace(/\bp\.m\.\b/i, "PM");
+}
+
 function splitStartingAndBench(players: Player[]) {
   const g = groupByPosition(players);
   const starting = [
@@ -113,10 +172,6 @@ function MiniLeague() {
   );
 }
 
-/* =========================
-   ✅ NEW PL-STYLE PITCH UI
-   ========================= */
-
 function PitchPlayerCard({
   player,
   onClick,
@@ -160,23 +215,24 @@ function PitchPlayerCard({
         <div className="bg-white/15 backdrop-blur border border-white/10">
           <div className="px-2 pt-2 flex items-center justify-center">
             <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 grid place-items-center overflow-hidden">
-              <img
-                src={player.avatarUrl}
-                alt={player.name}
-                className="h-12 w-12 object-cover"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
+              {player.avatarUrl ? (
+                <img
+                  src={player.avatarUrl}
+                  alt={player.name}
+                  className="h-12 w-12 object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              ) : null}
             </div>
           </div>
 
-          {/* Name plate */}
           <div className="mt-2 bg-white text-black px-2 py-2">
             <div className="text-[12px] font-extrabold leading-tight truncate text-center">
               {player.name}
             </div>
             <div className="text-[11px] font-semibold text-black/70 text-center">
-              {fixtureText ?? player.team}
+              {fixtureText ?? player.teamShort ?? player.teamName ?? "—"}
             </div>
           </div>
         </div>
@@ -244,14 +300,12 @@ function PitchView({
           "bg-[radial-gradient(circle_at_top,#22c55e33,transparent_60%),linear-gradient(180deg,#0b3b1b,#0a2a16)]"
         )}
       >
-        {/* Top ribbon */}
         <div className="absolute inset-x-0 top-0 h-10 bg-white/10 backdrop-blur border-b border-white/10 flex items-center justify-center">
           <div className="text-xs font-semibold text-white/80 tracking-wide">
             THE BUDO LEAGUE • FANTASY
           </div>
         </div>
 
-        {/* Pitch lines overlay */}
         <div className="absolute inset-0 opacity-[0.18] pointer-events-none">
           <div className="absolute inset-6 rounded-3xl border border-white/60" />
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-36 w-36 rounded-full border border-white/60" />
@@ -261,7 +315,6 @@ function PitchView({
           <div className="absolute left-1/2 bottom-[18%] -translate-x-1/2 h-20 w-28 rounded-2xl border border-white/60" />
         </div>
 
-        {/* Players */}
         <div className="relative pt-12 pb-5 px-3">
           <div className="flex flex-col gap-6 py-3">
             <div className="flex justify-center">
@@ -324,10 +377,6 @@ function PitchView({
   );
 }
 
-/* =========================
-   LIST VIEW (same as yours)
-   ========================= */
-
 function ListView({
   players,
   onPickPlayer,
@@ -358,13 +407,15 @@ function ListView({
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                <img
-                  src={p.avatarUrl}
-                  alt={p.name}
-                  className="h-10 w-10 object-cover"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                />
+                {p.avatarUrl ? (
+                  <img
+                    src={p.avatarUrl}
+                    alt={p.name}
+                    className="h-10 w-10 object-cover"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : null}
 
                 {captainId === p.id ? (
                   <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-400 text-black grid place-items-center text-[10px] font-extrabold">
@@ -380,7 +431,7 @@ function ListView({
               <div className="min-w-0">
                 <div className="text-sm font-medium truncate">{p.name}</div>
                 <div className="text-xs text-muted-foreground truncate">
-                  {p.team} • {p.position}
+                  {p.teamName ?? p.teamShort ?? "—"} • {p.position}
                 </div>
               </div>
             </div>
@@ -459,19 +510,21 @@ function PlayerActionSheet({
         <div className="rounded-2xl border bg-card p-3">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-full overflow-hidden bg-muted shrink-0">
-              <img
-                src={selected.avatarUrl}
-                alt={selected.name}
-                className="h-12 w-12 object-cover"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
+              {selected.avatarUrl ? (
+                <img
+                  src={selected.avatarUrl}
+                  alt={selected.name}
+                  className="h-12 w-12 object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              ) : null}
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="text-base font-semibold truncate">{selected.name}</div>
               <div className="text-sm text-muted-foreground truncate">
-                {selected.team} • {selected.position}
+                {selected.teamName ?? selected.teamShort ?? "—"} • {selected.position}
               </div>
               <div className="mt-1 text-sm font-mono tabular-nums">
                 ${selected.price}m • <span className="font-bold">{selected.points}</span> pts
@@ -559,18 +612,20 @@ function PlayerActionSheet({
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                        <img
-                          src={p.avatarUrl}
-                          alt={p.name}
-                          className="h-10 w-10 object-cover"
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                        />
+                        {p.avatarUrl ? (
+                          <img
+                            src={p.avatarUrl}
+                            alt={p.name}
+                            className="h-10 w-10 object-cover"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : null}
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-semibold truncate">{p.name}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {p.team} • {p.position}
+                          {p.teamName ?? p.teamShort ?? "—"} • {p.position}
                         </div>
                       </div>
                     </div>
@@ -592,12 +647,12 @@ function PlayerActionSheet({
 
 export default function FantasyPage() {
   const [tab, setTab] = React.useState<TabKey>("pitch");
-  const [squadPlayers, setSquadPlayers] = React.useState<Player[]>(() => [...myFantasyTeam.players]);
-  const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
+  const [squadPlayers, setSquadPlayers] = React.useState<Player[]>([]);
+  const [squadError, setSquadError] = React.useState<string | null>(null);
 
+  const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
   const [captainId, setCaptainId] = React.useState<string | null>(null);
   const [viceId, setViceId] = React.useState<string | null>(null);
-
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
@@ -606,6 +661,54 @@ export default function FantasyPage() {
     [squadPlayers, selectedId]
   );
 
+  const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
+  const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
+  const [gwLoading, setGwLoading] = React.useState(true);
+  const [gwError, setGwError] = React.useState<string | null>(null);
+
+  // Load squad from localStorage + api
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setSquadError(null);
+
+        const raw = window.localStorage.getItem(LS_PICKS);
+        const pickedIds: string[] = raw ? JSON.parse(raw) : [];
+
+        // if no picks yet, just show empty squad (or show demo if you want)
+        if (!Array.isArray(pickedIds) || pickedIds.length === 0) {
+          setSquadPlayers([]);
+          return;
+        }
+
+        const res = await fetch("/api/players", { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || "Failed to load players");
+
+        const all: Player[] = (json.players as ApiPlayer[]).map((p) => ({
+          id: p.id,
+          name: p.name,
+          position: normalizePosition(p.position),
+          price: Number(p.price ?? 0),
+          points: Number(p.points ?? 0),
+          avatarUrl: p.avatarUrl ?? null,
+          isLady: Boolean(p.isLady),
+          teamShort: p.teamShort ?? null,
+          teamName: p.teamName ?? null,
+        }));
+
+        const byId = new Map(all.map((p) => [p.id, p]));
+        const picked = pickedIds.map((id) => byId.get(id)).filter(Boolean) as Player[];
+
+        setSquadPlayers(picked);
+      } catch (e: any) {
+        setSquadError(e?.message || "Failed to load squad");
+        setSquadPlayers([]); // safe fallback
+      }
+    })();
+  }, []);
+
+  // Load saved team name + captain/vice
   React.useEffect(() => {
     const savedName = window.localStorage.getItem("tbl_team_name");
     if (savedName && savedName.trim().length > 0) setTeamName(savedName);
@@ -639,7 +742,6 @@ export default function FantasyPage() {
     if (!selectedId) return;
     setCaptainId(selectedId);
     window.localStorage.setItem("tbl_captain_id", selectedId);
-
     if (viceId === selectedId) {
       setViceId(null);
       window.localStorage.removeItem("tbl_vice_id");
@@ -650,12 +752,33 @@ export default function FantasyPage() {
     if (!selectedId) return;
     setViceId(selectedId);
     window.localStorage.setItem("tbl_vice_id", selectedId);
-
     if (captainId === selectedId) {
       setCaptainId(null);
       window.localStorage.removeItem("tbl_captain_id");
     }
   }
+
+  // Load gameweeks
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setGwLoading(true);
+        setGwError(null);
+
+        const res = await fetch("/api/gameweeks/current", { cache: "no-store" });
+        const json = await res.json();
+
+        if (!res.ok) throw new Error(json?.error || "Failed to load gameweeks");
+
+        setCurrentGW(json.current ?? null);
+        setNextGW(json.next ?? null);
+      } catch (e: any) {
+        setGwError(e?.message || "Unknown error");
+      } finally {
+        setGwLoading(false);
+      }
+    })();
+  }, []);
 
   const average = 29;
   const pointsThisGW = 34;
@@ -664,7 +787,12 @@ export default function FantasyPage() {
   return (
     <div className="space-y-5 animate-in fade-in-50">
       {/* Top card */}
-      <div className={cn("rounded-3xl overflow-hidden", "bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500")}>
+      <div
+        className={cn(
+          "rounded-3xl overflow-hidden",
+          "bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500"
+        )}
+      >
         <div className="p-4 text-white">
           <div className="flex items-center justify-between">
             <button
@@ -682,7 +810,9 @@ export default function FantasyPage() {
               </div>
             </button>
 
-            <div className="text-white/80 text-sm">GW 18</div>
+            <div className="text-white/80 text-sm">
+              {gwLoading ? "GW ..." : `GW ${currentGW?.id ?? "—"}`}
+            </div>
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-2 text-center">
@@ -701,12 +831,27 @@ export default function FantasyPage() {
           </div>
 
           <div className="mt-4 text-center">
-            <div className="text-base text-white/85">Gameweek 19</div>
-            <div className="text-lg font-bold">Deadline: Tuesday 30 Dec at 21:00</div>
+            <div className="text-base text-white/85">
+              {gwLoading ? "Gameweek ..." : `Gameweek ${nextGW?.id ?? "—"}`}
+            </div>
+
+            <div className="text-lg font-bold">
+              {gwLoading
+                ? "Deadline: ..."
+                : nextGW?.deadline_time
+                ? `Deadline: ${formatDeadlineUG(nextGW.deadline_time)}`
+                : "Deadline: —"}
+            </div>
+
+            {gwError ? <div className="mt-2 text-xs text-white/80">⚠ {gwError}</div> : null}
           </div>
 
           <div className="mt-4 space-y-3">
-            <Button asChild className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20" variant="secondary">
+            <Button
+              asChild
+              className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
+              variant="secondary"
+            >
               <Link href="/dashboard/fantasy/pick-team">
                 <span className="flex items-center justify-center gap-2">
                   <Shirt className="h-5 w-5" /> Pick Team
@@ -714,7 +859,11 @@ export default function FantasyPage() {
               </Link>
             </Button>
 
-            <Button asChild className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20" variant="secondary">
+            <Button
+              asChild
+              className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
+              variant="secondary"
+            >
               <Link href="/dashboard/transfers">
                 <span className="flex items-center justify-center gap-2">
                   <ArrowLeftRight className="h-5 w-5" /> Transfers
@@ -724,6 +873,10 @@ export default function FantasyPage() {
           </div>
         </div>
       </div>
+
+      {squadError ? (
+        <div className="text-sm text-muted-foreground">⚠ Squad load: {squadError}</div>
+      ) : null}
 
       {/* Segmented control */}
       <div className="flex items-center justify-center">

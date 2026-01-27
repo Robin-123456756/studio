@@ -2,24 +2,24 @@
 // TYPES
 // =====================
 export type Team = {
-  id: string;
+  id: string;       // UI route id (e.g. "t-bifa")
+  dbId: number;     // ✅ Supabase teams.id (e.g. 3, 11, ...)
   name: string;
   players: Player[];
   logoUrl: string;
 
-  // base stats (we keep them required for compatibility)
   wins: number;
   losses: number;
   draws: number;
 
-  // ✅ computed extras for table UI
-  played?: number; // PL
-  gf?: number;     // Goals For
-  ga?: number;     // Goals Against
-  gd?: number;     // Goal Difference
-  lp?: number;     // Lady Points
-  pts?: number;    // Total points (W*3 + D + LP)
+  played?: number;
+  gf?: number;
+  ga?: number;
+  gd?: number;
+  lp?: number;
+  pts?: number;
 };
+
 
 export type Player = {
   id: string;
@@ -273,31 +273,34 @@ const allPlayers: Player[] = [
 // TEAMS + LOGOS (make sure logos are in public/logos)
 // =====================
 const teamDefs = [
-  { id: "t-bifa", name: "Bifa", logoUrl: "/logos/t-bifa.png" },
-  { id: "t-komunoballo", name: "Komunoballo", logoUrl: "/logos/t-komunoballo.png" },
-  { id: "t-accumulators", name: "Accumulators", logoUrl: "/logos/t-accumulators.png" },
-  { id: "t-masappe", name: "Masappe", logoUrl: "/logos/t-masappe.png" },
+  { id: "t-accumulators", name: "Accumulators", dbId: 1, logoUrl: "/logos/t-accumulators.png" },
+  { id: "t-basunzi", name: "Basunzi", dbId: 2, logoUrl: "/logos/t-basunzi.png" },
+  { id: "t-bifa", name: "BIFA", dbId: 3, logoUrl: "/logos/t-bifa.png" },
 
-  { id: "t-centurions", name: "Centurions", logoUrl: "/logos/t-centurions.png" },
-  { id: "t-jubilewos", name: "Jubilewos", logoUrl: "/logos/t-jubilewos.png" },
-  { id: "t-basunzi", name: "Basunzi", logoUrl: "/logos/t-basunzi.png" },
-  { id: "t-dujay", name: "Dujay", logoUrl: "/logos/t-dujay.png" },
+  { id: "t-trotballo", name: "Trotballo", dbId: 4, logoUrl: "/logos/t-trotballo.png" },
+  { id: "t-dujay", name: "Dujay", dbId: 5, logoUrl: "/logos/t-dujay.png" },
+  { id: "t-night-prep", name: "Night prep", dbId: 6, logoUrl: "/logos/t-night-prep.png" },
 
-  { id: "t-quadballo", name: "Quadballo", logoUrl: "/logos/t-quadballo.png" },
-  { id: "t-thazobalo", name: "Thazobalo", logoUrl: "/logos/t-thazobalo.png" },
-  { id: "t-midnight-express", name: "Midnight Express", logoUrl: "/logos/t-midnight-express.png" },
-  { id: "t-abachuba", name: "Abachuba", logoUrl: "/logos/t-abachuba.png" },
+  { id: "t-peaky-blinders", name: "Peaky blinders", dbId: 7, logoUrl: "/logos/t-peaky-blinders.png" },
+  { id: "t-komunoballo", name: "Komunoballo", dbId: 8, logoUrl: "/logos/t-komunoballo.png" },
+  { id: "t-masappe", name: "Masappe", dbId: 9, logoUrl: "/logos/t-masappe.png" },
 
-  { id: "t-endgame", name: "Endgame", logoUrl: "/logos/t-endgame.png" },
-  { id: "t-peaky-blinders", name: "Peaky blinders", logoUrl: "/logos/t-peaky-blinders.png" },
-  { id: "t-night-prep", name: "Night prep", logoUrl: "/logos/t-night-prep.png" },
-  { id: "t-trotballo", name: "Trotballo", logoUrl: "/logos/t-trotballo.png" },
+  { id: "t-midnight-express", name: "Midnight Express", dbId: 10, logoUrl: "/logos/t-midnight-express.png" },
+  { id: "t-centurions", name: "Centurions", dbId: 11, logoUrl: "/logos/t-centurions.png" },
+  { id: "t-jubilewos", name: "Jubilewos", dbId: 12, logoUrl: "/logos/t-jubilewos.png" },
+
+  { id: "t-endgame", name: "Endgame", dbId: 13, logoUrl: "/logos/t-endgame.png" },
+  { id: "t-abacuba", name: "Abacuba", dbId: 14, logoUrl: "/logos/t-abacuba.png" },
+  { id: "t-thazoballo", name: "Thazoballo", dbId: 15, logoUrl: "/logos/t-thazoballo.png" },
+
+  { id: "t-quadballo", name: "Quadballo", dbId: 16, logoUrl: "/logos/t-quadballo.png" },
 ] as const;
 
 const playersByTeam = groupPlayersByTeam(allPlayers);
 
-export const teams: Team[] = teamDefs.map((t) => ({
+export const teams = teamDefs.map((t) => ({
   id: t.id,
+  dbId: t.dbId,
   name: t.name,
   logoUrl: t.logoUrl,
   players: playersByTeam[t.name] ?? [],
@@ -305,6 +308,7 @@ export const teams: Team[] = teamDefs.map((t) => ({
   losses: 0,
   draws: 0,
 }));
+
 
 // =====================
 // SCHEDULE (example Sundays, Pitch A & Pitch B)

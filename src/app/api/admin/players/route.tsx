@@ -13,7 +13,7 @@ export async function GET(req: Request) {
 
   let query = supabase
   .from("players")
-  .select("id, web_name, position, team_id, avatar_url, now_cost");
+  .select("id, web_name, position, team_id, now_cost");
 
 
   if (teamId) query = query.eq("team_id", teamId);

@@ -46,6 +46,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/fantasy", icon: HeartPulse, label: "Fantasy" },
   { href: "/dashboard/matches", icon: CalendarDays, label: "Matches" },
   { href: "/dashboard/teams", icon: Users, label: "Teams" },
+  { href:"/dashboard/players", icon: Users, label: "Players" },
   { href: "/dashboard/scores", icon: Medal, label: "Results" },
   { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
   { href: "/dashboard/reviews", icon: Star, label: "Reviews" },

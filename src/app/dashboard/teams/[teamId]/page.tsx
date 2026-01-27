@@ -12,7 +12,7 @@ type DbPlayer = {
   id: string;
   name: string;
   position: string;
-  team_id: string;
+  team_id: string | number;
   avatar_url: string | null;
   price: number;
   points: number;
@@ -33,19 +33,28 @@ export default function TeamDetailPage() {
 
   React.useEffect(() => {
     (async () => {
+      if (!team) return;
+
       setLoading(true);
-      const res = await fetch(`/api/players?teamId=${encodeURIComponent(teamId)}`);
+
+      const res = await fetch(
+        `/api/players?team_id=${encodeURIComponent(String(team.dbId))}`
+      );
       const json = await res.json();
+
       setTeamPlayers(json.players ?? []);
       setLoading(false);
     })();
-  }, [teamId]);
+  }, [teamId, team?.dbId]);
 
   if (!team) {
     return (
       <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28">
         <p className="text-sm text-muted-foreground">Team not found.</p>
-        <Link href="/dashboard/teams" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold">
+        <Link
+          href="/dashboard/teams"
+          className="mt-3 inline-flex items-center gap-2 text-sm font-semibold"
+        >
           <ChevronLeft className="h-4 w-4" /> Back to Teams
         </Link>
       </div>
@@ -64,7 +73,13 @@ export default function TeamDetailPage() {
 
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center gap-3">
-          <Image src={team.logoUrl} alt={team.name} width={44} height={44} className="rounded-2xl" />
+          <Image
+            src={team.logoUrl}
+            alt={team.name}
+            width={44}
+            height={44}
+            className="rounded-2xl"
+          />
           <div>
             <CardTitle className="text-xl">{team.name}</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -92,18 +107,24 @@ export default function TeamDetailPage() {
 
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{p.position}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {p.position}
+                    </div>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
                   <div className="text-xs text-muted-foreground">Price</div>
-                  <div className="font-mono font-semibold tabular-nums">${p.price}m</div>
+                  <div className="font-mono font-semibold tabular-nums">
+                    ${p.price}m
+                  </div>
                 </div>
 
                 <div className="text-right shrink-0">
                   <div className="text-xs text-muted-foreground">Pts</div>
-                  <div className="font-mono font-extrabold tabular-nums">{p.points}</div>
+                  <div className="font-mono font-extrabold tabular-nums">
+                    {p.points}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -111,7 +132,9 @@ export default function TeamDetailPage() {
         ))}
 
         {!loading && teamPlayers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No players for this team yet. Add players from Admin.</p>
+          <p className="text-sm text-muted-foreground">
+            No players for this team yet.
+          </p>
         ) : null}
       </div>
     </div>
