@@ -410,61 +410,6 @@ export default function PickTeamPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border">
-        <div className="p-4 border-b">
-          <div className="text-sm font-semibold">All Players</div>
-          <div className="text-xs text-muted-foreground">
-            Click to pick/unpick. Use “Start” button to add/remove from starting 9.
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="p-4 text-sm text-muted-foreground">Loading...</div>
-        ) : (
-          <div className="divide-y">
-            {players.map((p) => {
-              const isPicked = pickedIds.includes(p.id);
-              const isStarting = startingIds.includes(p.id);
-
-              return (
-                <div key={p.id} className="p-3 flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => togglePick(p.id)}
-                    className={cn(
-                      "flex items-center gap-3 min-w-0 text-left rounded-xl px-2 py-2 flex-1",
-                      isPicked ? "bg-primary/10" : "hover:bg-accent/10"
-                    )}
-                  >
-                    <div className="h-10 w-10 rounded-full bg-muted overflow-hidden shrink-0">
-                      {p.avatarUrl ? (
-                        <img src={p.avatarUrl} alt={p.webName ?? p.name} className="h-10 w-10 object-cover" />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold truncate">
-                        {p.name} {p.isLady ? "👩" : ""}
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {(p.teamShort ?? p.teamName ?? "—")} • {normalizePosition(p.position)}
-                      </div>
-                    </div>
-                  </button>
-
-                  <Button
-                    type="button"
-                    variant={isStarting ? "default" : "secondary"}
-                    className="rounded-xl"
-                    onClick={() => toggleStarting(p.id)}
-                  >
-                    {isStarting ? "Starting" : "Start"}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
