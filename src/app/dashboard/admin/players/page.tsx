@@ -8,12 +8,30 @@ import { Card, CardContent } from "@/components/ui/card";
 type DbPlayer = {
   id: string;
   name: string;
-  position: string;
-  team_id: string;
+
+  // may be "GK/DEF/MID/FWD" or full words
+  position: string | null;
+
+  team_id: number | string | null;
+
+  // ✅ add these two (from API)
+  teamName?: string | null;
+  teamShort?: string | null;
+
   avatar_url: string | null;
-  price: number;
-  points: number;
+  price: number | null;
+  points: number | null;
 };
+
+function positionFull(pos?: string | null) {
+  const p = (pos ?? "").trim().toLowerCase();
+  if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
+  if (p === "def" || p === "defender" || p === "df") return "Defender";
+  if (p === "mid" || p === "midfielder" || p === "mf") return "Midfielder";
+  if (p === "fwd" || p === "forward" || p === "fw" || p === "striker") return "Forward";
+  // if your DB already stores "Goalkeeper" etc, this keeps it
+  return pos ?? "—";
+}
 
 export default function PlayersPage() {
   const [players, setPlayers] = React.useState<DbPlayer[]>([]);
@@ -23,7 +41,7 @@ export default function PlayersPage() {
   React.useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/players");
+        const res = await fetch("/api/players", { cache: "no-store" });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || `Request failed with ${res.status}`);
@@ -59,23 +77,20 @@ export default function PlayersPage() {
           ) : (
             <div className="divide-y">
               {players.map((p) => (
-                <div
-                  key={p.id}
-                  className="p-4 flex items-center justify-between gap-3"
-                >
+                <div key={p.id} className="p-4 flex items-center justify-between gap-3">
                   <div className="min-w-0">
+                    {/* ✅ full name */}
                     <div className="font-semibold truncate">{p.name}</div>
+
+                    {/* ✅ full position + full team name */}
                     <div className="text-xs text-muted-foreground truncate">
-                      {p.position} • teamId: {p.team_id}
+                      {positionFull(p.position)} • {p.teamName ?? p.teamShort ?? `Team #${p.team_id ?? "—"}`}
                     </div>
                   </div>
+
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-mono tabular-nums">
-                      ${p.price}m
-                    </div>
-                    <div className="text-sm font-extrabold font-mono tabular-nums">
-                      {p.points}
-                    </div>
+                    <div className="text-sm font-mono tabular-nums">${Number(p.price ?? 0)}m</div>
+                    <div className="text-sm font-extrabold font-mono tabular-nums">{Number(p.points ?? 0)}</div>
                   </div>
                 </div>
               ))}

@@ -10,6 +10,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function positionFull(pos?: string | null) {
+  const p = (pos ?? "").trim().toLowerCase();
+  if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
+  if (p === "def" || p === "defender" || p === "df") return "Defender";
+  if (p === "mid" || p === "midfielder" || p === "mf") return "Midfielder";
+  if (p === "fwd" || p === "forward" || p === "fw" || p === "striker") return "Forward";
+  return pos ?? "—";
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const teamIdRaw = (searchParams.get("team_id") || "").trim();
@@ -47,17 +56,23 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const players = (data ?? []).map((p: any) => ({
-    id: p.id,
-    name: p.web_name ?? p.name,
-    fullName: p.name ?? p.web_name,
-    position: p.position,
+    id: String(p.id),
+
+    // ✅ FULL NAME (what you asked for)
+    name: p.name ?? p.web_name ?? "—",
+    webName: p.web_name ?? null,
+
+    // ✅ FULL position text
+    position: positionFull(p.position),
+
     price: Number(p.now_cost ?? 0),
     points: Number(p.total_points ?? 0),
-    avatarUrl: p.avatar_url,
+    avatarUrl: p.avatar_url ?? null,
     isLady: !!p.is_lady,
+
     teamId: p.team_id,
-    teamName: p.teams?.name ?? null,
-    teamShort: p.teams?.short_name ?? null,
+    teamName: p.teams?.name ?? "—",
+    teamShort: p.teams?.short_name ?? "—",
   }));
 
   return NextResponse.json({ players });
