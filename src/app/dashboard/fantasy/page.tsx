@@ -104,6 +104,15 @@ function formatDeadlineUG(iso?: string | null) {
     .replace(/\bp\.m\.\b/i, "PM");
 }
 
+function posShort(pos?: string | null) {
+  const p = (pos ?? "").toLowerCase();
+  if (p.startsWith("goal") || p === "gk") return "GK";
+  if (p.startsWith("def") || p === "def") return "DEF";
+  if (p.startsWith("mid") || p === "mid") return "MID";
+  if (p.startsWith("for") || p === "fwd") return "FWD";
+  return "—";
+}
+
 function sortBench(players: Player[]) {
   const posOrder: Record<string, number> = {
     Goalkeeper: 0,
@@ -206,13 +215,16 @@ function PitchPlayerCard({
   captainId,
   viceId,
   fixtureText,
+  isBench,
 }: {
   player: Player;
   onClick: (p: Player) => void;
   captainId?: string | null;
   viceId?: string | null;
   fixtureText?: string;
+  isBench?: boolean;
 }) {
+
   const badge =
     captainId === player.id
       ? { label: "C", cls: "bg-amber-400 text-black" }
@@ -256,20 +268,26 @@ function PitchPlayerCard({
           </div>
 
           <div className="mt-2 bg-white text-black px-2 py-2">
-            <div className="text-[12px] font-extrabold leading-tight truncate text-center">
-              {(player.webName ?? player.name) || "—"}
+  {isBench ? (
+    <div className="text-[10px] font-extrabold tracking-wide text-black/70 text-center">
+      {posShort(player.position)}
+    </div>
+  ) : null}
 
-            </div>
-            <div className="text-[11px] font-semibold text-black/70 text-center">
-              {fixtureText ?? player.teamShort ?? player.teamName ?? "—"}
-            </div>
-          </div>
+  <div className="text-[12px] font-extrabold leading-tight truncate text-center">
+    {player.name}
+  </div>
+
+  <div className="text-[11px] font-semibold text-black/70 text-center">
+    {fixtureText ?? "—"}
+  </div>
+</div>
         </div>
-      </div>
+        </div>
     </button>
-  );
-}
+  );}
 
+  
 function BenchStrip({
   bench,
   onPick,
