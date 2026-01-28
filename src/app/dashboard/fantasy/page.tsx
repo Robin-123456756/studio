@@ -21,7 +21,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 
 type Player = {
   id: string;
-  name: string;
+  name: string;              // full name
+  webName?: string | null;   // short display name
   position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward" | string;
   price: number;
   points: number;
@@ -29,9 +30,10 @@ type Player = {
   isLady?: boolean;
   teamShort?: string | null;
   teamName?: string | null;
+  didPlay?: boolean;
+};
 
-
-
+type FantasyTeam = {
   // ✅ needed for autosubs
   didPlay?: boolean; // or minutes?: number
 };
@@ -255,7 +257,8 @@ function PitchPlayerCard({
 
           <div className="mt-2 bg-white text-black px-2 py-2">
             <div className="text-[12px] font-extrabold leading-tight truncate text-center">
-              {player.name}
+              {(player.webName ?? player.name) || "—"}
+
             </div>
             <div className="text-[11px] font-semibold text-black/70 text-center">
               {fixtureText ?? player.teamShort ?? player.teamName ?? "—"}
@@ -826,9 +829,8 @@ export default function FantasyPage() {
 
         const all: Player[] = (json.players as ApiPlayer[]).map((p) => ({
   id: p.id,
-  // ✅ Use webName on pitch, fallback to name
-  name: (p.webName ?? p.name ?? "—").trim(),
-
+  name: (p.name ?? "—").trim(),               // ✅ keep full name
+  webName: (p.webName ?? null)?.trim() ?? null, // ✅ store short name
   position: normalizePosition(p.position),
   price: Number(p.price ?? 0),
   points: Number(p.points ?? 0),
@@ -837,6 +839,7 @@ export default function FantasyPage() {
   teamShort: p.teamShort ?? null,
   teamName: p.teamName ?? null,
 }));
+
 
 
         const byId = new Map(all.map((p) => [p.id, p]));
