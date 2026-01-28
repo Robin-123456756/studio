@@ -27,11 +27,15 @@ type Player = {
   points: number;
   avatarUrl?: string | null;
   isLady?: boolean;
+  teamShort?: string | null;
+  teamName?: string | null;
 
-  // labels from teams table
-  teamShort?: string | null; // "CEN"
-  teamName?: string | null; // "Centurions"
+
+
+  // ✅ needed for autosubs
+  didPlay?: boolean; // or minutes?: number
 };
+
 
 type ApiPlayer = {
   id: string;
@@ -65,11 +69,7 @@ function normalizePosition(pos?: string | null): Player["position"] {
   return pos ?? "Midfielder";
 }
 
-type ApiGameweek = {
-  id: number;
-  name: string | null;
-  deadline_time: string;
-};
+
 
 const LS_PICKS = "tbl_picked_player_ids";
 
@@ -121,18 +121,9 @@ function sortBench(players: Player[]) {
   });
 }
 
-function splitStartingAndBench(players: Player[]) {
-  const g = groupByPosition(players);
-  const starting = [
-    ...g.Goalkeepers.slice(0, 1),
-    ...g.Defenders.slice(0, 4),
-    ...g.Midfielders.slice(0, 4),
-    ...g.Forwards.slice(0, 3),
-  ];
-
-  const startingIds = new Set(starting.map((p) => p.id));
-  const bench = players.filter((p) => !startingIds.has(p.id));
-  return { starting, bench };
+ function splitStartingAndBench(players: Player[]) {
+  const { onField, bench } = pickMatchDay10(players);
+  return { starting: onField, bench };
 }
 
 function swapPlayersInArray(players: Player[], aId: string, bId: string) {
@@ -304,7 +295,6 @@ function BenchStrip({
     </div>
   );
 }
-
 
 function PitchView({
   players,
@@ -817,7 +807,6 @@ export default function FantasyPage() {
         const raw = window.localStorage.getItem(LS_PICKS);
         const pickedIds: string[] = raw ? JSON.parse(raw) : [];
 
-        // if no picks yet, just show empty squad (or show demo if you want)
         if (!Array.isArray(pickedIds) || pickedIds.length === 0) {
           setSquadPlayers([]);
           return;
@@ -837,6 +826,8 @@ export default function FantasyPage() {
           isLady: Boolean(p.isLady),
           teamShort: p.teamShort ?? null,
           teamName: p.teamName ?? null,
+          // didPlay will come later when you add match stats:
+          didPlay: (p as any).didPlay,
         }));
 
         const byId = new Map(all.map((p) => [p.id, p]));
@@ -845,7 +836,7 @@ export default function FantasyPage() {
         setSquadPlayers(picked);
       } catch (e: any) {
         setSquadError(e?.message || "Failed to load squad");
-        setSquadPlayers([]); // safe fallback
+        setSquadPlayers([]);
       }
     })();
   }, []);
@@ -922,6 +913,47 @@ export default function FantasyPage() {
     })();
   }, []);
 
+  // Autosubs helper (after match finalized)
+  function applyAutosubsAfterMatch(players: Player[]) {
+    const { starting, bench } = splitStartingAndBench(players);
+    if (!starting.length || !bench.length) return players;
+
+    const benchPool = sortBench(bench); // better than [...bench]
+    const replacedPairs: Array<{ outId: string; inId: string }> = [];
+
+    for (const starter of starting) {
+      if (starter.didPlay !== false) continue; // only replace if explicitly false
+
+      const idx = benchPool.findIndex(
+        (b) => normalizePosition(b.position) === normalizePosition(starter.position)
+      );
+      if (idx === -1) continue;
+
+      const sub = benchPool.splice(idx, 1)[0];
+      replacedPairs.push({ outId: starter.id, inId: sub.id });
+    }
+
+    if (!replacedPairs.length) return players;
+
+    let next = [...players];
+    for (const { outId, inId } of replacedPairs) {
+      next = swapPlayersInArray(next, outId, inId);
+    }
+    return next;
+  }
+
+  // Autosub effect (runs once per finalized GW)
+  React.useEffect(() => {
+    if (!currentGW?.id) return;
+    if (!currentGW.finalized) return;
+
+    const key = `tbl_autosubs_applied_gw_${currentGW.id}`;
+    if (window.localStorage.getItem(key) === "1") return;
+
+    setSquadPlayers((prev) => applyAutosubsAfterMatch(prev));
+    window.localStorage.setItem(key, "1");
+  }, [currentGW?.id, currentGW?.finalized]);
+
   const average = 29;
   const pointsThisGW = 34;
   const highest = 104;
@@ -963,7 +995,9 @@ export default function FantasyPage() {
               <div className="text-sm text-white/80">Average</div>
             </div>
             <div>
-              <div className="text-5xl font-extrabold tabular-nums leading-none">{pointsThisGW}</div>
+              <div className="text-5xl font-extrabold tabular-nums leading-none">
+                {pointsThisGW}
+              </div>
               <div className="text-sm text-white/80">Points</div>
             </div>
             <div>
@@ -980,9 +1014,7 @@ export default function FantasyPage() {
             <div className="text-lg font-bold">
               {gwLoading
                 ? "Deadline: ..."
-                : nextGW?.deadline_time
-                ? `Deadline: ${formatDeadlineUG(nextGW.deadline_time)}`
-                : "Deadline: —"}
+                : `Deadline: ${formatDeadlineUG(nextGW?.deadline_time ?? null)}`}
             </div>
 
             {gwError ? <div className="mt-2 text-xs text-white/80">⚠ {gwError}</div> : null}
@@ -1048,9 +1080,19 @@ export default function FantasyPage() {
 
       {/* Main */}
       {tab === "pitch" ? (
-        <PitchView players={squadPlayers} onPickPlayer={openPlayer} captainId={captainId} viceId={viceId} />
+        <PitchView
+          players={squadPlayers}
+          onPickPlayer={openPlayer}
+          captainId={captainId}
+          viceId={viceId}
+        />
       ) : (
-        <ListView players={squadPlayers} onPickPlayer={openPlayer} captainId={captainId} viceId={viceId} />
+        <ListView
+          players={squadPlayers}
+          onPickPlayer={openPlayer}
+          captainId={captainId}
+          viceId={viceId}
+        />
       )}
 
       <MiniLeague />
@@ -1069,3 +1111,4 @@ export default function FantasyPage() {
     </div>
   );
 }
+f
