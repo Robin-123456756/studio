@@ -36,6 +36,12 @@ type Player = {
   didPlay?: boolean; // or minutes?: number
 };
 
+type ApiGameweek = {
+  id: number;
+  name?: string | null;
+  deadline_time?: string | null;
+  finalized?: boolean | null;
+};
 
 type ApiPlayer = {
   id: string;
@@ -73,7 +79,8 @@ function normalizePosition(pos?: string | null): Player["position"] {
 
 const LS_PICKS = "tbl_picked_player_ids";
 
-function formatDeadlineUG(iso: string) {
+function formatDeadlineUG(iso?: string | null) {
+  if (!iso) return "—";
   const d = new Date(iso);
 
   const s = new Intl.DateTimeFormat("en-GB", {
@@ -1012,10 +1019,9 @@ export default function FantasyPage() {
             </div>
 
             <div className="text-lg font-bold">
-              {gwLoading
-                ? "Deadline: ..."
-                : `Deadline: ${formatDeadlineUG(nextGW?.deadline_time ?? null)}`}
-            </div>
+  {gwLoading ? "Deadline: ..." : `Deadline: ${formatDeadlineUG(nextGW?.deadline_time)}`}
+</div>
+
 
             {gwError ? <div className="mt-2 text-xs text-white/80">⚠ {gwError}</div> : null}
           </div>
@@ -1111,4 +1117,3 @@ export default function FantasyPage() {
     </div>
   );
 }
-f
