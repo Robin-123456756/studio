@@ -6,9 +6,19 @@ import { cn } from "@/lib/utils";
 
 type Player = {
   id: string;
+
+  // ✅ full name (for list)
   name: string;
+
+  // ✅ short display name (for pitch)
+  webName?: string | null;
+
   position?: string | null;
-  team?: string | null;
+
+  // ✅ teams
+  teamName?: string | null;
+  teamShort?: string | null;
+
   avatarUrl?: string | null;
   isLady: boolean;
 };
@@ -36,6 +46,16 @@ function normalizePosition(pos?: string | null) {
   if (p === "mid" || p === "midfielder") return "Midfielder";
   if (p === "fwd" || p === "forward") return "Forward";
   return (pos ?? "Midfielder") as any;
+}
+
+// ✅ for pitch labels like FPL
+function shortPos(pos?: string | null) {
+  const p = normalizePosition(pos);
+  if (p === "Goalkeeper") return "GK";
+  if (p === "Defender") return "DEF";
+  if (p === "Midfielder") return "MID";
+  if (p === "Forward") return "FWD";
+  return "—";
 }
 
 function groupByPosition(players: Player[]) {
@@ -80,10 +100,25 @@ export default function PickTeamPage() {
         const res = await fetch("/api/players", { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load players");
+
         setPlayers(
-          (json.players ?? []).map((p: Player) => ({
-            ...p,
+          (json.players ?? []).map((p: any) => ({
+            id: String(p.id),
+
+            // ✅ keep full name for list
+            name: String(p.name ?? p.webName ?? p.web_name ?? "—"),
+
+            // ✅ web short name for pitch
+            webName: p.webName ?? p.web_name ?? null,
+
             position: normalizePosition(p.position),
+
+            // ✅ team short + full
+            teamShort: p.teamShort ?? p.team_short ?? null,
+            teamName: p.teamName ?? p.team_name ?? null,
+
+            avatarUrl: p.avatarUrl ?? p.avatar_url ?? null,
+            isLady: Boolean(p.isLady ?? p.is_lady),
           }))
         );
       } catch (e: any) {
@@ -185,7 +220,6 @@ export default function PickTeamPage() {
                     key={p.id}
                     player={p}
                     onClick={() => onToggleStarting(p.id)}
-                    label={p.team ?? "—"}
                   />
                 ))}
               </div>
@@ -196,7 +230,6 @@ export default function PickTeamPage() {
                     key={p.id}
                     player={p}
                     onClick={() => onToggleStarting(p.id)}
-                    label={p.team ?? "—"}
                   />
                 ))}
               </div>
@@ -207,7 +240,6 @@ export default function PickTeamPage() {
                     key={p.id}
                     player={p}
                     onClick={() => onToggleStarting(p.id)}
-                    label={p.team ?? "—"}
                   />
                 ))}
               </div>
@@ -218,7 +250,6 @@ export default function PickTeamPage() {
                     key={p.id}
                     player={p}
                     onClick={() => onToggleStarting(p.id)}
-                    label={p.team ?? "—"}
                   />
                 ))}
               </div>
@@ -236,11 +267,7 @@ export default function PickTeamPage() {
           <div className="flex gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
             {bench.map((p) => (
               <div key={p.id} className="shrink-0">
-                <PitchPlayerCard
-                  player={p}
-                  onClick={() => onToggleStarting(p.id)}
-                  label={p.team ?? "—"}
-                />
+                <PitchPlayerCard player={p} onClick={() => onToggleStarting(p.id)} />
               </div>
             ))}
           </div>
@@ -252,18 +279,19 @@ export default function PickTeamPage() {
   function PitchPlayerCard({
     player,
     onClick,
-    label,
   }: {
     player: Player;
     onClick: () => void;
-    label?: string;
   }) {
+    const displayName = (player.webName ?? player.name ?? "—").trim();
+    const teamLabel = (player.teamShort ?? player.teamName ?? "—").trim();
+
     return (
       <button
         type="button"
         onClick={onClick}
         className="relative w-[86px] active:scale-[0.98] transition"
-        aria-label={`Select ${player.name}`}
+        aria-label={`Select ${displayName}`}
       >
         <div className="rounded-2xl overflow-hidden shadow-md">
           <div className="bg-white/15 backdrop-blur border border-white/10">
@@ -272,7 +300,7 @@ export default function PickTeamPage() {
                 {player.avatarUrl ? (
                   <img
                     src={player.avatarUrl}
-                    alt={player.name}
+                    alt={displayName}
                     className="h-12 w-12 object-cover"
                     loading="lazy"
                     referrerPolicy="no-referrer"
@@ -282,11 +310,14 @@ export default function PickTeamPage() {
             </div>
 
             <div className="mt-2 bg-white text-black px-2 py-2">
+              {/* ✅ FPL-style: web_name */}
               <div className="text-[12px] font-extrabold leading-tight truncate text-center">
-                {player.name} {player.isLady ? "👩" : ""}
+                {displayName} {player.isLady ? "👩" : ""}
               </div>
+
+              {/* ✅ FPL-style: team short code + pos short */}
               <div className="text-[11px] font-semibold text-black/70 text-center">
-                {label ?? player.team ?? "—"}
+                {teamLabel} • {shortPos(player.position)}
               </div>
             </div>
           </div>
@@ -355,7 +386,26 @@ export default function PickTeamPage() {
           {tab === "pitch" ? (
             <PickPitch picked={picked} startingIds={startingIds} onToggleStarting={toggleStarting} />
           ) : (
-            <div className="text-sm text-muted-foreground">List view goes here (your existing list).</div>
+            <div className="divide-y rounded-2xl border">
+              {picked.map((p) => (
+                <div key={p.id} className="p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{p.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {p.teamName ?? p.teamShort ?? "—"} • {normalizePosition(p.position)}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant={startingIds.includes(p.id) ? "default" : "secondary"}
+                    className="rounded-xl"
+                    onClick={() => toggleStarting(p.id)}
+                  >
+                    {startingIds.includes(p.id) ? "Starting" : "Start"}
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -388,7 +438,7 @@ export default function PickTeamPage() {
                   >
                     <div className="h-10 w-10 rounded-full bg-muted overflow-hidden shrink-0">
                       {p.avatarUrl ? (
-                        <img src={p.avatarUrl} alt={p.name} className="h-10 w-10 object-cover" />
+                        <img src={p.avatarUrl} alt={p.webName ?? p.name} className="h-10 w-10 object-cover" />
                       ) : null}
                     </div>
                     <div className="min-w-0">
@@ -396,7 +446,7 @@ export default function PickTeamPage() {
                         {p.name} {p.isLady ? "👩" : ""}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {p.team ?? "—"} • {p.position ?? "—"}
+                        {(p.teamShort ?? p.teamName ?? "—")} • {normalizePosition(p.position)}
                       </div>
                     </div>
                   </button>

@@ -55,25 +55,20 @@ export async function GET(req: Request) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const players = (data ?? []).map((p: any) => ({
-    id: String(p.id),
+const players = (data ?? []).map((p: any) => ({
+  id: p.id,
 
-    // ✅ FULL NAME (what you asked for)
-    name: p.name ?? p.web_name ?? "—",
-    webName: p.web_name ?? null,
+  // ✅ full + short names
+  name: p.name ?? p.web_name ?? "—",     // full
+  webName: p.web_name ?? null,           // short display name
 
-    // ✅ FULL position text
-    position: positionFull(p.position),
+  position: p.position,
+  price: Number(p.now_cost ?? 0),
+  points: Number(p.total_points ?? 0),
+  avatarUrl: p.avatar_url,
+  isLady: !!p.is_lady,
 
-    price: Number(p.now_cost ?? 0),
-    points: Number(p.total_points ?? 0),
-    avatarUrl: p.avatar_url ?? null,
-    isLady: !!p.is_lady,
-
-    teamId: p.team_id,
-    teamName: p.teams?.name ?? "—",
-    teamShort: p.teams?.short_name ?? "—",
-  }));
-
-  return NextResponse.json({ players });
-}
+  teamId: p.team_id,
+  teamName: p.teams?.name ?? "—",
+  teamShort: p.teams?.short_name ?? "—",
+}))};

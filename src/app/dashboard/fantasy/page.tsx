@@ -46,6 +46,7 @@ type ApiGameweek = {
 type ApiPlayer = {
   id: string;
   name: string;
+  webName?: string | null;
   position?: string | null;
   price?: number | null;
   points?: number | null;
@@ -824,18 +825,19 @@ export default function FantasyPage() {
         if (!res.ok) throw new Error(json?.error || "Failed to load players");
 
         const all: Player[] = (json.players as ApiPlayer[]).map((p) => ({
-          id: p.id,
-          name: p.name,
-          position: normalizePosition(p.position),
-          price: Number(p.price ?? 0),
-          points: Number(p.points ?? 0),
-          avatarUrl: p.avatarUrl ?? null,
-          isLady: Boolean(p.isLady),
-          teamShort: p.teamShort ?? null,
-          teamName: p.teamName ?? null,
-          // didPlay will come later when you add match stats:
-          didPlay: (p as any).didPlay,
-        }));
+  id: p.id,
+  // ✅ Use webName on pitch, fallback to name
+  name: (p.webName ?? p.name ?? "—").trim(),
+
+  position: normalizePosition(p.position),
+  price: Number(p.price ?? 0),
+  points: Number(p.points ?? 0),
+  avatarUrl: p.avatarUrl ?? null,
+  isLady: Boolean(p.isLady),
+  teamShort: p.teamShort ?? null,
+  teamName: p.teamName ?? null,
+}));
+
 
         const byId = new Map(all.map((p) => [p.id, p]));
         const picked = pickedIds.map((id) => byId.get(id)).filter(Boolean) as Player[];
