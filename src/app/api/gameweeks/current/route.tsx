@@ -1,3 +1,4 @@
+// src/app/api/gameweeks/current/route.ts
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-server";
 
@@ -7,30 +8,29 @@ export const revalidate = 0;
 export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
-  // 1) Current gameweek (is_current = true)
-  const { data: current, error: currentErr } = await supabase
+  // 1) Current gameweek
+  const { data: current, error } = await supabase
     .from("gameweeks")
-    .select("id, name, deadline_time, finalized")
+    .select("id, name, deadline_time, finalized, is_current")
     .eq("is_current", true)
     .maybeSingle();
 
-  if (currentErr) {
-    return NextResponse.json({ error: currentErr.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // 2) Next gameweek: smallest id greater than current.id
-  // If no current is set, pick the smallest id as "next" fallback.
+  // 2) Next gameweek
   const currentId = current?.id ?? null;
 
-  const nextBase = supabase
+  const nextQuery = supabase
     .from("gameweeks")
-    .select("id, name, deadline_time, finalized")
+    .select("id, name, deadline_time, finalized, is_current")
     .order("id", { ascending: true })
     .limit(1);
 
   const { data: next, error: nextErr } = currentId
-    ? await nextBase.gt("id", currentId).maybeSingle()
-    : await nextBase.maybeSingle();
+    ? await nextQuery.gt("id", currentId).maybeSingle()
+    : await nextQuery.maybeSingle();
 
   if (nextErr) {
     return NextResponse.json({ error: nextErr.message }, { status: 500 });
