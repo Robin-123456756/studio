@@ -132,7 +132,6 @@ export default function DashboardPage() {
 
   const upcomingGames =
     schedule.filter((g) => new Date(g.date) >= new Date()).length;
-
   const table = computeTable(teams, recentScores);
   const visibleRows = expanded ? table : table.slice(0, 4);
 

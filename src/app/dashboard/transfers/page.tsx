@@ -193,8 +193,8 @@ export default function TransfersPage() {
     setSquadIds(Array.isArray(ids) ? ids : []);
   }, []);
 
-  const gwId = currentGW?.id ?? null;
-  const locked = isLocked(currentGW?.deadline_time);
+  const gwId = nextGW?.id ?? currentGW?.id ?? null;
+const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
 
   const freeTransfers = React.useMemo(() => (gwId ? getFreeTransfersForGW(gwId) : 1), [gwId]);
   const usedTransfers = React.useMemo(() => (gwId ? getTransfersUsedForGW(gwId) : 0), [gwId]);
