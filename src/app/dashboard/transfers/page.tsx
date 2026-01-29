@@ -736,3 +736,6 @@ export default function TransfersPage() {
     ) : null}
   </CardContent>
 </Card>
+     </div>
+  );
+}
