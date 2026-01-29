@@ -21,13 +21,14 @@ type ApiGameweek = {
 type Player = {
   id: string;
   name: string;
+  webName?: string | null;
   position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward" | string;
-  price: number;
   points: number;
+  price: number;          // ✅ add this
   avatarUrl?: string | null;
   isLady?: boolean;
-  teamShort?: string | null;
   teamName?: string | null;
+  teamShort?: string | null;
 };
 
 type ApiPlayer = {
@@ -363,10 +364,14 @@ const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="text-xs text-muted-foreground">Pts</div>
-                          <div className="font-mono font-bold tabular-nums">{p.points}</div>
+  <div className="text-xs text-muted-foreground">Price</div>
+  <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
+
+  <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
+  <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
+</div>
+
                         </div>
-                      </div>
                     </button>
                   );
                 })}
@@ -446,9 +451,12 @@ const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
                       </div>
 
                       <div className="text-right shrink-0">
-                        <div className="text-xs text-muted-foreground">Pts</div>
-                        <div className="font-mono font-bold tabular-nums">{p.points}</div>
-                      </div>
+  <div className="text-xs text-muted-foreground">Price</div>
+  <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
+
+  <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
+  <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
+</div>
                     </div>
                   </button>
                 );
