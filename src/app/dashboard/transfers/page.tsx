@@ -367,8 +367,8 @@ const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
   <div className="text-xs text-muted-foreground">Price</div>
   <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
 
-  <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
-  <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
+  {/*<div className="mt-1 text-[11px] text-muted-foreground">Pts</div>*/}
+  {/*<div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>*/}
 </div>
 
                         </div>
@@ -454,8 +454,8 @@ const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
   <div className="text-xs text-muted-foreground">Price</div>
   <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
 
-  <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
-  <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
+  {/*<div className="mt-1 text-[11px] text-muted-foreground">Pts</div>*/}
+  {/*<div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>*/}
 </div>
                     </div>
                   </button>
