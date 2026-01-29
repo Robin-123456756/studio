@@ -295,18 +295,22 @@ export default function TransfersPage() {
             </div>
           </div>
 
-          <div className="text-sm text-muted-foreground">
-            {gwLoading ? (
-              "Deadline: ..."
-            ) : currentGW?.deadline_time ? (
-              <>Deadline (UG): <span className="font-semibold">{formatDeadlineUG(currentGW.deadline_time)}</span></>
-            ) : (
-              "Deadline: —"
-            )}
-            {locked ? <span className="ml-2 text-red-600 font-semibold">• Locked</span> : null}
-          </div>
+         <div className="text-sm text-muted-foreground">
+  {gwLoading ? (
+    "Deadline: ..."
+  ) : nextGW?.deadline_time ? (
+    <>
+      Deadline (UG):{" "}
+      <span className="font-semibold">{formatDeadlineUG(nextGW.deadline_time)}</span>
+    </>
+  ) : (
+    "Deadline: —"
+  )}
+  {locked ? <span className="ml-2 text-red-600 font-semibold">• Locked</span> : null}
+</div>
 
-          {gwError ? <div className="text-xs text-red-600">⚠ {gwError}</div> : null}
+{gwError ? <div className="text-xs text-red-600">⚠ {gwError}</div> : null}
+
         </CardContent>
       </Card>
 
