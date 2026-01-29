@@ -46,6 +46,49 @@ type ApiPlayer = {
 // =====================
 // HELPERS
 // =====================
+
+const LS_TRANSFERS_LOG = "tbl_transfers_log";
+
+type TransferLogItem = {
+  gwId: number;
+  ts: string; // ISO timestamp
+  outId: string;
+  inId: string;
+
+  // snapshots (optional but very useful for UI)
+  outName?: string;
+  inName?: string;
+  outTeamShort?: string | null;
+  inTeamShort?: string | null;
+  outPos?: string | null;
+  inPos?: string | null;
+  outPrice?: number | null; // price at transfer time
+  inPrice?: number | null;
+};
+
+function loadTransfersLog(): TransferLogItem[] {
+  try {
+    const raw = window.localStorage.getItem(LS_TRANSFERS_LOG);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? (arr as TransferLogItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTransfersLog(items: TransferLogItem[]) {
+  window.localStorage.setItem(LS_TRANSFERS_LOG, JSON.stringify(items));
+}
+
+function appendTransferLog(item: TransferLogItem) {
+  const prev = loadTransfersLog();
+  saveTransfersLog([item, ...prev]); // newest first
+}
+
+function getTransfersForGW(gwId: number) {
+  return loadTransfersLog().filter((t) => t.gwId === gwId);
+}
+
 function normalizePosition(pos?: string | null): Player["position"] {
   const p = (pos ?? "").trim().toLowerCase();
   if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
@@ -75,6 +118,23 @@ function isLocked(deadlineIso?: string | null) {
   if (!deadlineIso) return false;
   return Date.now() >= new Date(deadlineIso).getTime();
 }
+
+import { ArrowLeftCircle, ArrowRightCircle } from "lucide-react";
+
+function TransferBadge({ kind }: { kind: "out" | "in" }) {
+  return kind === "out" ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs font-semibold">
+      <ArrowLeftCircle className="h-4 w-4" />
+      OUT
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-1 text-xs font-semibold">
+      <ArrowRightCircle className="h-4 w-4" />
+      IN
+    </span>
+  );
+}
+
 
 // =====================
 // LOCAL STORAGE KEYS
@@ -252,14 +312,69 @@ const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
   function confirmTransfer() {
   if (!canConfirm() || !gwId || !outId || !inId) return;
 
+  // 1) swap in squad ids
   const next = squadIds.map((id) => (id === outId ? inId : id));
   persistSquad(next);
 
+  // 2) count transfer usage
   const used = getTransfersUsedForGW(gwId);
   setTransfersUsedForGW(gwId, used + 1);
 
+  // 3) log the transfer (for fancy UI)
+  const outP = byId.get(outId);
+  const inP = byId.get(inId);
+
+  appendTransferLog({
+    gwId,
+    ts: new Date().toISOString(),
+    outId,
+    inId,
+
+    outName: outP?.name,
+    inName: inP?.name,
+    outTeamShort: outP?.teamShort ?? null,
+    inTeamShort: inP?.teamShort ?? null,
+    outPos: outP?.position ?? null,
+    inPos: inP?.position ?? null,
+
+    // prices AT TRANSFER TIME (optional)
+    outPrice: typeof outP?.price === "number" ? outP.price : null,
+    inPrice: typeof inP?.price === "number" ? inP.price : null,
+  });
+
   resetSelection();
 }
+ 
+const transfersThisGW = gwId ? getTransfersForGW(gwId) : [];
+
+{transfersThisGW.map((t) => {
+  const outNow = byId.get(t.outId);
+  const inNow = byId.get(t.inId);
+
+  return (
+    <div key={t.ts} className="rounded-2xl border p-3 space-y-2">
+      {/* OUT */}
+      <div className="flex items-center justify-between rounded-xl bg-red-50 border border-red-200 px-3 py-2">
+        <div className="text-sm font-semibold">
+          OUT • {outNow?.name ?? t.outName ?? t.outId} ({outNow?.teamShort ?? t.outTeamShort ?? "—"})
+        </div>
+        <div className="text-sm font-mono tabular-nums">
+          ${Number(outNow?.price ?? 0)}m
+        </div>
+      </div>
+
+      {/* IN */}
+      <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
+        <div className="text-sm font-semibold">
+          IN • {inNow?.name ?? t.inName ?? t.inId} ({inNow?.teamShort ?? t.inTeamShort ?? "—"})
+        </div>
+        <div className="text-sm font-mono tabular-nums">
+          ${Number(inNow?.price ?? 0)}m
+        </div>
+      </div>
+    </div>
+  );
+})}
 
 
   return (
@@ -367,8 +482,8 @@ const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
   <div className="text-xs text-muted-foreground">Price</div>
   <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
 
-  {/*<div className="mt-1 text-[11px] text-muted-foreground">Pts</div>*/}
-  {/*<div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>*/}
+  <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
+  <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
 </div>
 
                         </div>
@@ -454,8 +569,8 @@ const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
   <div className="text-xs text-muted-foreground">Price</div>
   <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
 
-  {/*<div className="mt-1 text-[11px] text-muted-foreground">Pts</div>*/}
-  {/*<div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>*/}
+  <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
+  <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
 </div>
                     </div>
                   </button>
