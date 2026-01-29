@@ -669,87 +669,70 @@ export default function TransfersPage() {
         </Card>
       </div>
 
-      {/* ✅ Confirm bar (fancy arrows) */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="grid gap-2">
-            {/* OUT row */}
-            <div className={cn("rounded-2xl border px-3 py-3", outId ? "bg-red-50 border-red-200" : "bg-card")}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <TransferBadge kind="out" />
-                    <div className="text-sm font-semibold truncate">
-                      {outId ? (outP?.name ?? outId) : "Pick OUT player from squad"}
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {outId ? `${outP?.teamShort ?? outP?.teamName ?? "—"} • ${outP?.position ?? "—"}` : "—"}
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <div className="text-xs text-muted-foreground">Price</div>
-                  <div className="font-mono font-bold tabular-nums">
-                    {outId ? `$${Number(outP?.price ?? 0)}m` : "—"}
-                  </div>
-                </div>
-              </div>
+      {/* Confirm bar */}
+<Card>
+  <CardContent className="p-4 space-y-3">
+    {/* OUT / IN summary */}
+    <div className="space-y-2">
+      {/* OUT row */}
+      <div className="flex items-center justify-between rounded-2xl border bg-card px-3 py-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <TransferBadge kind="out" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">
+              {outId ? (byId.get(outId)?.name ?? "Selected OUT player") : "Pick OUT player from squad"}
             </div>
-
-            {/* arrow bubble */}
-            <div className="flex items-center justify-center">
-              <div className="h-9 w-9 rounded-full bg-muted grid place-items-center">
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-
-            {/* IN row */}
-            <div className={cn("rounded-2xl border px-3 py-3", inId ? "bg-emerald-50 border-emerald-200" : "bg-card")}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <TransferBadge kind="in" />
-                    <div className="text-sm font-semibold truncate">
-                      {inId ? (inP?.name ?? inId) : "Pick IN player from pool"}
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {inId ? `${inP?.teamShort ?? inP?.teamName ?? "—"} • ${inP?.position ?? "—"}` : "—"}
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <div className="text-xs text-muted-foreground">Price</div>
-                  <div className="font-mono font-bold tabular-nums">
-                    {inId ? `$${Number(inP?.price ?? 0)}m` : "—"}
-                  </div>
-                </div>
-              </div>
+            <div className="text-xs text-muted-foreground truncate">
+              {outId ? `${byId.get(outId)?.teamShort ?? byId.get(outId)?.teamName ?? "—"} • ${byId.get(outId)?.position ?? "—"}` : "—"}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* actions */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs text-muted-foreground">
-              Tip: Pick an OUT player first, then go to <span className="font-semibold">IN</span> tab to select replacement.
+      {/* arrow divider */}
+      <div className="flex justify-center">
+        <div className="h-9 w-9 rounded-full bg-muted grid place-items-center">
+          <span className="text-muted-foreground">→</span>
+        </div>
+      </div>
+
+      {/* IN row */}
+      <div className="flex items-center justify-between rounded-2xl border bg-card px-3 py-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <TransferBadge kind="in" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">
+              {inId ? (byId.get(inId)?.name ?? "Selected IN player") : "Pick IN player from pool"}
             </div>
-
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" className="rounded-2xl" onClick={resetSelection}>
-                Reset
-              </Button>
-              <Button type="button" className="rounded-2xl" disabled={!canConfirm()} onClick={confirmTransfer}>
-                Confirm Transfer
-              </Button>
+            <div className="text-xs text-muted-foreground truncate">
+              {inId ? `${byId.get(inId)?.teamShort ?? byId.get(inId)?.teamName ?? "—"} • ${byId.get(inId)?.position ?? "—"}` : "—"}
             </div>
           </div>
-
-          {locked ? (
-            <div className="text-xs text-red-600">Transfers are locked because the deadline has passed.</div>
-          ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
-  );
-}
+
+    {/* actions */}
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="text-xs text-muted-foreground">
+        Tip: Pick an <span className="font-semibold">OUT</span> player first, then go to{" "}
+        <span className="font-semibold">IN</span> tab to select replacement.
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" className="rounded-2xl" onClick={resetSelection}>
+          Reset
+        </Button>
+        <Button type="button" className="rounded-2xl" disabled={!canConfirm()} onClick={confirmTransfer}>
+          Confirm Transfer
+        </Button>
+      </div>
+    </div>
+
+    {locked ? (
+      <div className="text-xs text-red-600">
+        Transfers are locked because the deadline has passed.
+      </div>
+    ) : null}
+  </CardContent>
+</Card>
