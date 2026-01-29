@@ -162,15 +162,15 @@ export default function PickTeamPage() {
     setMsg(null);
 
     if (!pickedIds.includes(id)) {
-      setMsg("Pick the player first, then add to starting 9.");
+      setMsg("Pick the player first, then add to starting 10.");
       return;
     }
 
     setStartingIds((prev) => {
       const has = prev.includes(id);
       if (has) return prev.filter((x) => x !== id);
-      if (prev.length >= 9) {
-        setMsg("Starting lineup is only 9 players.");
+      if (prev.length >= 10) {
+        setMsg("Starting lineup is only 10 players.");
         return prev;
       }
       return [...prev, id];
@@ -180,7 +180,7 @@ export default function PickTeamPage() {
   function save() {
     if (pickedIds.length !== 17) return setMsg("Squad must be exactly 17 players.");
     if (pickedLadies < 2) return setMsg("Squad must include at least 2 ladies.");
-    if (startingIds.length !== 9) return setMsg("Starting lineup must be exactly 9 players.");
+    if (startingIds.length !== 10) return setMsg("Starting lineup must be exactly 10 players.");
     if (startingLadies < 1) return setMsg("Starting lineup must include at least 1 lady.");
 
     // ✅ keep transfers + fantasy in sync
@@ -191,6 +191,7 @@ export default function PickTeamPage() {
     setMsg("Saved ✅ Go back to Fantasy to see your team.");
   }
 
+  
   function PickPitch({
     picked,
     startingIds,
@@ -331,7 +332,7 @@ export default function PickTeamPage() {
       <div className="rounded-2xl border p-4">
         <div className="text-lg font-semibold">Pick Team</div>
         <div className="text-sm text-muted-foreground">
-          Pick <b>17</b> players (min <b>2 ladies</b>). Starting lineup: <b>9</b> players (min <b>1 lady</b>).
+          Pick <b>17</b> players (min <b>2 ladies</b>). Starting lineup: <b>10</b> players (lady optional).
         </div>
 
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -344,7 +345,7 @@ export default function PickTeamPage() {
           <div className="rounded-xl bg-muted/40 p-3">
             <div className="text-sm font-semibold">Starting</div>
             <div className="text-sm">
-              {startingIds.length}/9 • Ladies: {startingLadies}
+              {startingIds.length}/10 • Ladies: {startingLadies}
             </div>
           </div>
         </div>
