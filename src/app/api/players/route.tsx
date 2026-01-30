@@ -30,8 +30,7 @@ export async function GET(req: Request) {
 
   let query = supabase
     .from("players")
-    .select(
-      `
+    .select(`
       id,
       name,
       web_name,
@@ -41,13 +40,12 @@ export async function GET(req: Request) {
       total_points,
       avatar_url,
       is_lady,
-      teams:team_id (
+      team:teams (
         id,
         name,
         short_name
       )
-    `
-    )
+    `)
     .order("web_name", { ascending: true });
 
   if (teamId !== null) query = query.eq("team_id", teamId);
@@ -58,11 +56,9 @@ export async function GET(req: Request) {
   const players = (data ?? []).map((p: any) => ({
     id: String(p.id),
 
-    // ✅ full name + web short name
     name: p.name ?? p.web_name ?? "—",
     webName: p.web_name ?? null,
 
-    // ✅ normalized position (optional but nice)
     position: positionFull(p.position),
 
     price: Number(p.now_cost ?? 0),
@@ -71,10 +67,9 @@ export async function GET(req: Request) {
     isLady: !!p.is_lady,
 
     teamId: p.team_id,
-    teamName: p.teams?.name ?? "—",
-    teamShort: p.teams?.short_name ?? "—",
+    teamName: p.team?.name ?? "—",
+    teamShort: p.team?.short_name ?? "—",
   }));
 
-  // ✅ IMPORTANT: return JSON
   return NextResponse.json({ players });
 }
