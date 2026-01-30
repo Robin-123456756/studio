@@ -28,22 +28,21 @@ export async function GET(req: Request) {
   let query = supabase
   .from("players")
   .select(`
-    id,
+  id,
+  name,
+  web_name,
+  position,
+  team_id,
+  now_cost,
+  total_points,
+  avatar_url,
+  is_lady,
+  teams:teams!players_team_id_fkey (
+    team_uuid,
     name,
-    web_name,
-    position,
-    team_id,
-    now_cost,
-    total_points,
-    avatar_url,
-    is_lady,
-    teams:team_id!players_team_uuid_fkey (
-      team_uuid,
-      name,
-      short_name
-    )
-  `)
-  .order("web_name", { ascending: true });
+    short_name
+  )
+`)
 
 
   if (teamUuid) query = query.eq("team_id", teamUuid);
