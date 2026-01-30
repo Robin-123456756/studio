@@ -61,8 +61,9 @@ export async function GET(req: Request) {
     isLady: !!p.is_lady,
 
     teamId: p.team_id,
-    teamName: p.teams?.name ?? "—",        // ✅ FIXED
-    teamShort: p.teams?.short_name ?? "—", // ✅ FIXED
+    teamName: p.teams?.name ?? "—",
+teamShort: p.teams?.short_name ?? "—",
+    teamUuid: p.teams?.team_uuid ?? null
   }));
 
   return NextResponse.json({ players });
