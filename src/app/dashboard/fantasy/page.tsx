@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { myFantasyTeam, fantasyStandings } from "@/lib/data";
 import { ArrowDown, ArrowUp, Minus, Shirt, ArrowLeftRight } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import AuthGate from "@/components/AuthGate";
 
 type Player = {
   id: string;
@@ -127,72 +129,12 @@ function MiniLeague() {
   );
 }
 
-export default function FantasyPage() {
-  const [squadPlayers, setSquadPlayers] = React.useState<Player[]>([]);
-  const [squadError, setSquadError] = React.useState<string | null>(null);
-
-  const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
-
+/** ✅ Your actual fantasy main UI (only shows Pick Team / Transfers) */
+function FantasyPage() {
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
   const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
   const [gwLoading, setGwLoading] = React.useState(true);
   const [gwError, setGwError] = React.useState<string | null>(null);
-
-  // Load squad from localStorage + api (kept, in case you still want to show squad errors / future use)
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setSquadError(null);
-
-        const raw = window.localStorage.getItem(LS_PICKS);
-        const pickedIds: string[] = raw ? JSON.parse(raw) : [];
-
-        if (!Array.isArray(pickedIds) || pickedIds.length === 0) {
-          setSquadPlayers([]);
-          return;
-        }
-
-        const res = await fetch("/api/players", { cache: "no-store" });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || "Failed to load players");
-
-        const all: Player[] = (json.players as ApiPlayer[]).map((p) => ({
-          id: p.id,
-          name: (p.name ?? "—").trim(),
-          webName: (p.webName ?? null)?.trim() ?? null,
-          position: normalizePosition(p.position),
-          price: Number(p.price ?? 0),
-          points: Number(p.points ?? 0),
-          avatarUrl: p.avatarUrl ?? null,
-          isLady: Boolean(p.isLady),
-          teamShort: p.teamShort ?? null,
-          teamName: p.teamName ?? null,
-        }));
-
-        const byId = new Map(all.map((p) => [p.id, p]));
-        const picked = pickedIds.map((id) => byId.get(id)).filter(Boolean) as Player[];
-        setSquadPlayers(picked);
-      } catch (e: any) {
-        setSquadError(e?.message || "Failed to load squad");
-        setSquadPlayers([]);
-      }
-    })();
-  }, []);
-
-  // Load saved team name
-  React.useEffect(() => {
-    const savedName = window.localStorage.getItem("tbl_team_name");
-    if (savedName && savedName.trim().length > 0) setTeamName(savedName);
-  }, []);
-
-  function editTeamName() {
-    const next = window.prompt("Enter your team name:", teamName);
-    if (!next) return;
-    const cleaned = next.trim().slice(0, 30);
-    if (!cleaned) return;
-    setTeamName(cleaned);
-    window.localStorage.setItem("tbl_team_name", cleaned);
-  }
 
   // Load gameweeks
   React.useEffect(() => {
@@ -215,6 +157,24 @@ export default function FantasyPage() {
     })();
   }, []);
 
+  // (Optional) You can later replace this with DB-loaded team name
+  const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
+
+  function editTeamName() {
+    const next = window.prompt("Enter your team name:", teamName);
+    if (!next) return;
+    const cleaned = next.trim().slice(0, 30);
+    if (!cleaned) return;
+    setTeamName(cleaned);
+    window.localStorage.setItem("tbl_team_name", cleaned);
+  }
+
+  React.useEffect(() => {
+    const savedName = window.localStorage.getItem("tbl_team_name");
+    if (savedName && savedName.trim().length > 0) setTeamName(savedName);
+  }, []);
+
+  // placeholders (your real numbers will later come from DB/views)
   const average = 29;
   const pointsThisGW = 34;
   const highest = 104;
@@ -256,7 +216,9 @@ export default function FantasyPage() {
               <div className="text-sm text-white/80">Average</div>
             </div>
             <div>
-              <div className="text-5xl font-extrabold tabular-nums leading-none">{pointsThisGW}</div>
+              <div className="text-5xl font-extrabold tabular-nums leading-none">
+                {pointsThisGW}
+              </div>
               <div className="text-sm text-white/80">Points</div>
             </div>
             <div>
@@ -305,15 +267,48 @@ export default function FantasyPage() {
         </div>
       </div>
 
-      {/* Optional: keep this as a small warning if the saved squad can’t load */}
-      {squadError ? (
-        <div className="text-sm text-muted-foreground">⚠ Squad load: {squadError}</div>
-      ) : null}
-
-      {/* Removed Pitch/List switch + removed PitchView/ListView rendering.
-          Users will only view their squad inside Pick Team page. */}
-
       <MiniLeague />
     </div>
   );
+}
+
+/** ✅ AUTH WRAPPER (this is what renders at /dashboard/fantasy) */
+export default function FantasyRoute() {
+  const [checking, setChecking] = React.useState(true);
+  const [authed, setAuthed] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setAuthed(!!data.session);
+      setChecking(false);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="mx-auto w-full max-w-md px-4 pt-10 text-sm text-muted-foreground">
+        Checking session...
+      </div>
+    );
+  }
+
+  if (!authed) {
+    // AuthGate should handle sign in + sign up then call onAuthed
+    return <AuthGate onAuthed={() => setAuthed(true)} />;
+  }
+
+  return <FantasyPage />;
 }
