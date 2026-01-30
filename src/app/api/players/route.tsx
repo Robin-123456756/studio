@@ -21,12 +21,9 @@ function positionFull(pos?: string | null) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const teamIdRaw = (searchParams.get("team_id") || "").trim();
 
-  const teamId = teamIdRaw ? Number(teamIdRaw) : null;
-  if (teamIdRaw && Number.isNaN(teamId)) {
-    return NextResponse.json({ error: "Invalid team_id" }, { status: 400 });
-  }
+  // team_id is UUID now
+  const teamUuid = (searchParams.get("team_id") || "").trim() || null;
 
   let query = supabase
     .from("players")
@@ -40,35 +37,32 @@ export async function GET(req: Request) {
       total_points,
       avatar_url,
       is_lady,
-      team:teams (
-        id,
+      teams:team_id (
+        team_uuid,
         name,
         short_name
       )
     `)
     .order("web_name", { ascending: true });
 
-  if (teamId !== null) query = query.eq("team_id", teamId);
+  if (teamUuid) query = query.eq("team_id", teamUuid);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const players = (data ?? []).map((p: any) => ({
     id: String(p.id),
-
     name: p.name ?? p.web_name ?? "—",
     webName: p.web_name ?? null,
-
     position: positionFull(p.position),
-
     price: Number(p.now_cost ?? 0),
     points: Number(p.total_points ?? 0),
     avatarUrl: p.avatar_url ?? null,
     isLady: !!p.is_lady,
 
     teamId: p.team_id,
-    teamName: p.team?.name ?? "—",
-    teamShort: p.team?.short_name ?? "—",
+    teamName: p.teams?.name ?? "—",        // ✅ FIXED
+    teamShort: p.teams?.short_name ?? "—", // ✅ FIXED
   }));
 
   return NextResponse.json({ players });
