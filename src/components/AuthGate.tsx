@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 
 type Mode = "signin" | "signup";
 
+const REDIRECT_TO = "https://studio1-hazel.vercel.app/dashboard/fantasy";
+
 export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
   const [mode, setMode] = React.useState<Mode>("signin");
   const [email, setEmail] = React.useState("");
@@ -15,199 +17,105 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
   const [msg, setMsg] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
-  // Optional: if auth state changes (login/logout) update UI / redirect
+  // Optional: auto-continue when auth state becomes signed in
   React.useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) onAuthed();
     });
-    return () => data.subscription.unsubscribe();
+    return () => sub.subscription.unsubscribe();
   }, [onAuthed]);
 
   const canSubmit = email.trim().length > 3 && password.length >= 6;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
+
     setLoading(true);
     setMsg(null);
 
     try {
+      const e1 = email.trim();
+
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: e1,
           password,
+          options: {
+            emailRedirectTo: REDIRECT_TO,
+          },
         });
         if (error) throw error;
 
-        // If email confirmation is ON, session will be null until confirmed
-        const needsConfirm = !data?.session;
+        // If email confirmation is ON, session is null until they confirm
+        const needsConfirm = !data.session;
 
         setMsg(
           needsConfirm
-            ? "Account created ✅ Check your email to confirm, then sign in."
+            ? "Account created ✅ Check your email to confirm, then come back and sign in."
             : "Account created ✅ You're signed in."
         );
 
         if (!needsConfirm) onAuthed();
         else setMode("signin");
+        return;
+      }
+
+      // ✅ SIGN IN
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: e1,
+        password,
+      });
+      if (error) throw error;
+
+      if (data?.session?.user) {
+        setMsg(null);
+        onAuthed();
       } else {
-        const { data, error } = await supabase.auth.signUp({
-  email: email.trim(),
-  password,
-  options: {
-    emailRedirectTo: `${window.location.origin}/dashboard/fantasy`,
-  },
-});
-
-        if (error) throw error;
-
-        if (data?.session?.user) {
-          setMsg(null);
-          onAuthed();
-        } else {
-          setMsg("Signed in, but no session found. Try again.");
-        }
+        setMsg("Signed in, but no session found. Try again.");
       }
     } catch (err: any) {
-      // Supabase common message: "Email not confirmed"
       const m = err?.message ?? "Auth failed";
-      setMsg(m);
-    } finally {
-      setLoading(false);
+
+      // Friendly message for common Supabase case
+      if (m.toLowerCase().includes("email not confirmed")) {
+        setMsg("Email not confirmed. Tap 'Resend confirmation email' then confirm and sign in.");
+      } else {
+        setMsg(m);
+      }} finally {
+        setLoading(false);
+      }
     }
-  }
-
-  async function resendConfirmation() {
-    setLoading(true);
-    setMsg(null);
-    try {
-     const { error } = await supabase.auth.resend({
-  type: "signup",
-  email: email.trim(),
-  options: {
-    emailRedirectTo: `${window.location.origin}/dashboard/fantasy`,
-  },
-});
-
-      if (error) throw error;
-
-      setMsg("Confirmation email resent ✅ Check spam/promotions too.");
-    } catch (err: any) {
-      setMsg(err?.message ?? "Failed to resend confirmation email");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function signOut() {
-    setLoading(true);
-    setMsg(null);
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setMsg("Signed out.");
-    } catch (err: any) {
-      setMsg(err?.message ?? "Failed to sign out");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const showResend =
-    mode === "signin" &&
-    !!email.trim() &&
-    (msg?.toLowerCase().includes("not confirmed") ||
-      msg?.toLowerCase().includes("confirm") ||
-      msg?.toLowerCase().includes("verification"));
-
-  return (
-    <div className="mx-auto w-full max-w-md px-4 pt-10 space-y-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-extrabold">Budo League Fantasy</h1>
-        <p className="text-sm text-muted-foreground">
-          Sign in to pick your team, make transfers, and compete on the leaderboard.
-        </p>
-      </div>
-
-      <Card className="overflow-hidden">
-        <CardContent className="p-4 space-y-4">
-          <div className="rounded-2xl bg-muted p-1 inline-flex">
-            <button
-              type="button"
-              onClick={() => setMode("signin")}
-              className={cn(
-                "px-4 py-2 rounded-2xl text-sm font-semibold transition",
-                mode === "signin" ? "bg-background shadow" : "text-muted-foreground"
-              )}
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("signup")}
-              className={cn(
-                "px-4 py-2 rounded-2xl text-sm font-semibold transition",
-                mode === "signup" ? "bg-background shadow" : "text-muted-foreground"
-              )}
-            >
-              Sign up
-            </button>
-          </div>
-
-          <form onSubmit={onSubmit} className="space-y-3">
-            <input
-              className="w-full border rounded-xl px-3 py-2 bg-background"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              autoComplete="email"
-              required
-            />
-
-            <input
-              className="w-full border rounded-xl px-3 py-2 bg-background"
-              placeholder="Password (min 6 characters)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              required
-            />
-
-            <Button className="w-full rounded-2xl" disabled={loading || !canSubmit} type="submit">
-              {loading ? "..." : mode === "signup" ? "Create account" : "Sign in"}
-            </Button>
-
-            {showResend ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full rounded-2xl"
-                onClick={resendConfirmation}
-                disabled={loading || !email.trim()}
-              >
-                Resend confirmation email
-              </Button>
-            ) : null}
-          </form>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              {msg ? <p className="text-sm text-muted-foreground">{msg}</p> : null}
+    return (
+      <Card className ={cn('w-full max-w-sm mx-auto')}>
+        <CardContent className="p-6">
+          {msg && <p className="text-sm text-red-500 mb-4">{msg}</p>}
+          <form onSubmit={onSubmit}>
+            <div className="mb-4">
+              <label htmlFor="email" className="block text-sm font-medium mb-1">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+              />
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-2xl"
-              onClick={signOut}
-              disabled={loading}
-            >
-              Sign out
+            <div className="mb-4">
+              <label htmlFor="password" className="block text-sm font-medium mb-1">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
+            <Button type="submit" disabled={loading || !canSubmit} className="w-full">
+              {loading ? "Loading..." : mode === "signin" ? "Sign In" : "Sign Up"}
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
-    </div>
-  );
-}
+    );
+  }
