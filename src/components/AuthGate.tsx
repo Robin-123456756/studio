@@ -50,10 +50,14 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
         if (!needsConfirm) onAuthed();
         else setMode("signin");
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+        const { data, error } = await supabase.auth.signUp({
+  email: email.trim(),
+  password,
+  options: {
+    emailRedirectTo: `${window.location.origin}/dashboard/fantasy`,
+  },
+});
+
         if (error) throw error;
 
         if (data?.session?.user) {
@@ -76,10 +80,14 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
     setLoading(true);
     setMsg(null);
     try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: email.trim(),
-      });
+     const { error } = await supabase.auth.resend({
+  type: "signup",
+  email: email.trim(),
+  options: {
+    emailRedirectTo: `${window.location.origin}/dashboard/fantasy`,
+  },
+});
+
       if (error) throw error;
 
       setMsg("Confirmation email resent ✅ Check spam/promotions too.");
