@@ -2,12 +2,8 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 type Mode = "signin" | "signup";
-
 const REDIRECT_TO = "https://studio1-hazel.vercel.app/dashboard/fantasy";
 
 export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
@@ -17,12 +13,11 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
   const [msg, setMsg] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
-  // Optional: auto-continue when auth state becomes signed in
   React.useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) onAuthed();
     });
-    return () => sub.subscription.unsubscribe();
+    return () => data.subscription.unsubscribe();
   }, [onAuthed]);
 
   const canSubmit = email.trim().length > 3 && password.length >= 6;
@@ -41,18 +36,14 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
         const { data, error } = await supabase.auth.signUp({
           email: e1,
           password,
-          options: {
-            emailRedirectTo: REDIRECT_TO,
-          },
+          options: { emailRedirectTo: REDIRECT_TO },
         });
         if (error) throw error;
 
-        // If email confirmation is ON, session is null until they confirm
         const needsConfirm = !data.session;
-
         setMsg(
           needsConfirm
-            ? "Account created ✅ Check your email to confirm, then come back and sign in."
+            ? "Account created ✅ Check your email to confirm, then sign in."
             : "Account created ✅ You're signed in."
         );
 
@@ -61,61 +52,159 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
         return;
       }
 
-      // ✅ SIGN IN
+      // ✅ SIGN IN (NOT signUp)
       const { data, error } = await supabase.auth.signInWithPassword({
         email: e1,
         password,
       });
       if (error) throw error;
 
-      if (data?.session?.user) {
-        setMsg(null);
-        onAuthed();
-      } else {
-        setMsg("Signed in, but no session found. Try again.");
-      }
+      if (data.session?.user) onAuthed();
     } catch (err: any) {
       const m = err?.message ?? "Auth failed";
-
-      // Friendly message for common Supabase case
-      if (m.toLowerCase().includes("email not confirmed")) {
-        setMsg("Email not confirmed. Tap 'Resend confirmation email' then confirm and sign in.");
-      } else {
-        setMsg(m);
-      }} finally {
-        setLoading(false);
-      }
+      setMsg(m);
+    } finally {
+      setLoading(false);
     }
-    return (
-      <Card className ={cn('w-full max-w-sm mx-auto')}>
-        <CardContent className="p-6">
-          {msg && <p className="text-sm text-red-500 mb-4">{msg}</p>}
-          <form onSubmit={onSubmit}>
-            <div className="mb-4">
-              <label htmlFor="email" className="block text-sm font-medium mb-1">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="password" className="block text-sm font-medium mb-1">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
-            <Button type="submit" disabled={loading || !canSubmit} className="w-full">
-              {loading ? "Loading..." : mode === "signin" ? "Sign In" : "Sign Up"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    );
   }
+
+  async function resendConfirmation() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+        options: { emailRedirectTo: REDIRECT_TO },
+      });
+      if (error) throw error;
+      setMsg("Confirmation email resent ✅ Check spam/promotions too.");
+    } catch (err: any) {
+      setMsg(err?.message ?? "Failed to resend confirmation email");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const showResend =
+    mode === "signin" &&
+    !!email.trim() &&
+    (msg?.toLowerCase().includes("not confirmed") ||
+      msg?.toLowerCase().includes("confirm") ||
+      msg?.toLowerCase().includes("verification"));
+
+  return (
+    <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800 }}>Budo League Fantasy</h1>
+      <p style={{ opacity: 0.7, marginTop: 6 }}>
+        Sign in to pick your team, make transfers, and compete on the leaderboard.
+      </p>
+
+      {/* ✅ THIS is the missing part if you only see Sign In */}
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <button
+          type="button"
+          onClick={() => setMode("signin")}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid #ddd",
+            background: mode === "signin" ? "#111" : "#fff",
+            color: mode === "signin" ? "#fff" : "#111",
+            fontWeight: 700,
+          }}
+        >
+          Sign in
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("signup")}
+          style={{
+            flex: 1,
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid #ddd",
+            background: mode === "signup" ? "#111" : "#fff",
+            color: mode === "signup" ? "#fff" : "#111",
+            fontWeight: 700,
+          }}
+        >
+          Sign up
+        </button>
+      </div>
+
+      <form onSubmit={onSubmit} style={{ marginTop: 14, display: "grid", gap: 10 }}>
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Email</div>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            required
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid #ddd",
+            }}
+          />
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Password</div>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            required
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid #ddd",
+            }}
+          />
+        </div>
+
+        <button
+          disabled={loading || !canSubmit}
+          type="submit"
+          style={{
+            width: "100%",
+            padding: "12px 12px",
+            borderRadius: 12,
+            border: "none",
+            background: "#2563eb",
+            color: "white",
+            fontWeight: 800,
+            opacity: loading || !canSubmit ? 0.6 : 1,
+          }}
+        >
+          {loading ? "..." : mode === "signup" ? "Create account" : "Sign in"}
+        </button>
+
+        {showResend ? (
+          <button
+            type="button"
+            onClick={resendConfirmation}
+            disabled={loading || !email.trim()}
+            style={{
+              width: "100%",
+              padding: "12px 12px",
+              borderRadius: 12,
+              border: "1px solid #ddd",
+              background: "white",
+              fontWeight: 800,
+              opacity: loading || !email.trim() ? 0.6 : 1,
+            }}
+          >
+            Resend confirmation email
+          </button>
+        ) : null}
+      </form>
+
+      {msg ? <p style={{ marginTop: 12, opacity: 0.75 }}>{msg}</p> : null}
+    </div>
+  );
+}
