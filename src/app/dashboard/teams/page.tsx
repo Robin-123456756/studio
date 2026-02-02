@@ -3,63 +3,69 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useParams } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-type ApiPlayer = {
-  id: string;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type TeamRow = {
+  id: string; // uuid
   name: string;
-  position: string;
-  price: number | null;
-  points: number | null;
-  avatarUrl: string | null;
-  isLady: boolean | null;
-  teamId: string;
-  teamName: string;
-  teamShort: string;
+  logo_url: string | null;
+  wins?: number;
+  draws?: number;
+  losses?: number;
 };
 
-export default function TeamDetailPage() {
-  const params = useParams();
-  const teamId = (params?.teamId as string) ?? "";
+type PlayerRow = {
+  team_id: string | null;
+};
 
-  const [players, setPlayers] = React.useState<ApiPlayer[]>([]);
-  const [teamName, setTeamName] = React.useState<string>("Team");
-  const [logoUrl, setLogoUrl] = React.useState<string | null>(null);
+export default function TeamsPage() {
+  const [teams, setTeams] = React.useState<TeamRow[]>([]);
+  const [counts, setCounts] = React.useState<Record<string, number>>({});
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      if (!teamId) return;
-
       try {
         setLoading(true);
 
-        const res = await fetch(`/api/players?team_id=${teamId}`, { cache: "no-store" });
-        const json = await res.json();
+        const { data: teamsData, error: teamsErr } = await supabase
+          .from("teams")
+          .select("id,name,logo_url,wins,draws,losses")
+          .order("name");
 
-        if (!res.ok) throw new Error(json?.error || "Failed to load players");
+        if (teamsErr) throw teamsErr;
 
-        const list = (json.players ?? []) as ApiPlayer[];
+        const { data: playersData, error: playersErr } = await supabase
+          .from("players")
+          .select("team_id");
+
+        if (playersErr) throw playersErr;
+
+        const map: Record<string, number> = {};
+        for (const row of (playersData as PlayerRow[]) ?? []) {
+          if (!row.team_id) continue;
+          map[row.team_id] = (map[row.team_id] ?? 0) + 1;
+        }
 
         if (!cancelled) {
-          setPlayers(list);
-
-          // Derive team display info from first player (join gives teamName/teamShort)
-          if (list.length > 0) {
-            setTeamName(list[0].teamName || "Team");
-          } else {
-            setTeamName("Team");
-          }
+          setTeams(teamsData ?? []);
+          setCounts(map);
         }
       } catch (e) {
-        console.log("TeamDetailPage error:", e);
+        console.log("TeamsPage error:", e);
         if (!cancelled) {
-          setPlayers([]);
-          setTeamName("Team");
+          setTeams([]);
+          setCounts({});
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -69,83 +75,67 @@ export default function TeamDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [teamId]);
+  }, []);
 
   return (
-    <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
-      <Link
-        href="/dashboard/teams"
-        className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back
-      </Link>
+    <div className="space-y-6 animate-in fade-in-50">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-headline font-semibold">Clubs</h2>
+        <Button type="button">
+          <PlusCircle className="mr-2 h-4 w-4" /> Add New Club
+        </Button>
+      </div>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="flex flex-row items-center gap-3">
-          <Image
-            src={logoUrl ?? "/placeholder.png"}
-            alt={teamName}
-            width={44}
-            height={44}
-            className="rounded-2xl bg-white p-1"
-          />
-          <div>
-            <CardTitle className="text-xl">{teamName}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {loading ? "Loading..." : `${players.length} players`}
-            </p>
-          </div>
-        </CardHeader>
-      </Card>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {teams.map((team) => {
+          const playerCount = counts[team.id] ?? 0;
 
-      <div className="space-y-2">
-        {players.map((p) => (
-          <Card key={p.id} className="overflow-hidden">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-11 w-11 rounded-full overflow-hidden bg-muted shrink-0">
-                    <img
-                      src={p.avatarUrl ?? "/placeholder-player.png"}
-                      alt={p.name}
-                      className="h-11 w-11 object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-
+          return (
+            <Card
+              key={team.id}
+              className="flex flex-col transition-transform transform-gpu hover:-translate-y-1 hover:shadow-xl overflow-hidden"
+            >
+              <Link
+                href={`/dashboard/teams/${team.id}`}   // ✅ uuid
+                className="block focus:outline-none"
+                aria-label={`Open ${team.name} squad`}
+              >
+                <CardHeader className="flex-row items-center gap-4">
+                  <Image
+                    src={team.logo_url ?? "/placeholder.png"}
+                    alt={`${team.name} logo`}
+                    width={64}
+                    height={64}
+                    className="rounded-lg bg-white p-1"
+                  />
                   <div className="min-w-0">
-                    <div className="font-semibold truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {p.position}
-                    </div>
+                    <CardTitle className="text-lg font-headline truncate">
+                      {team.name}
+                    </CardTitle>
                   </div>
+                </CardHeader>
+
+                <CardContent className="flex-grow">
+                  <p className="text-sm text-muted-foreground">
+                    {loading ? "Loading..." : `${playerCount} players`}
+                  </p>
+                </CardContent>
+              </Link>
+
+              <CardFooter className="flex justify-between items-center">
+                <div className="text-sm font-mono">
+                  <span className="font-semibold text-green-400">{team.wins ?? 0}W</span>-
+                  <span className="font-semibold text-gray-400">{team.draws ?? 0}D</span>-
+                  <span className="font-semibold text-red-400">{team.losses ?? 0}L</span>
                 </div>
 
-                <div className="text-right shrink-0">
-                  <div className="text-xs text-muted-foreground">Price</div>
-                  <div className="font-mono font-semibold tabular-nums">
-                    ${p.price ?? 0}m
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <div className="text-xs text-muted-foreground">Pts</div>
-                  <div className="font-mono font-extrabold tabular-nums">
-                    {p.points ?? 0}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {!loading && players.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No players for this team yet.
-          </p>
-        ) : null}
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/dashboard/teams/${team.id}`}>View Squad</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

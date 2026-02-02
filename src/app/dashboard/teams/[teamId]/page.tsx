@@ -6,37 +6,34 @@ import Image from "next/image";
 import { useParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-type DbTeam = {
-  id: string; // uuid
+type ApiTeam = {
+  id: string;
   name: string;
-  logo_url: string | null;
+  short_name?: string | null;
+  logo_url?: string | null;
+  wins?: number | null;
+  draws?: number | null;
+  losses?: number | null;
 };
 
-type DbPlayer = {
+type ApiPlayer = {
   id: string;
   name: string;
   position: string;
-  team_id: string | null;        // uuid
-  avatar_url: string | null;     // ✅ use your real DB column name
   price: number | null;
   points: number | null;
+  avatarUrl: string | null;
+  isLady: boolean | null;
+  teamId: string;
 };
 
 export default function TeamDetailPage() {
   const params = useParams();
-
-  // ✅ matches folder name [teamId]
   const teamId = (params?.teamId as string) ?? "";
 
-  const [team, setTeam] = React.useState<DbTeam | null>(null);
-  const [teamPlayers, setTeamPlayers] = React.useState<DbPlayer[]>([]);
+  const [team, setTeam] = React.useState<ApiTeam | null>(null);
+  const [players, setPlayers] = React.useState<ApiPlayer[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -48,33 +45,26 @@ export default function TeamDetailPage() {
       try {
         setLoading(true);
 
-        // 1) Load team details
-        const { data: teamData, error: teamErr } = await supabase
-          .from("teams")
-          .select("id,name,logo_url")
-          .eq("id", teamId)
-          .single();
+        const [teamRes, playersRes] = await Promise.all([
+          fetch(`/api/teams/${teamId}`, { cache: "no-store" }),
+          fetch(`/api/players?team_id=${teamId}`, { cache: "no-store" }),
+        ]);
 
-        if (teamErr) throw teamErr;
+        const teamJson = await teamRes.json();
+        const playersJson = await playersRes.json();
 
-        // 2) Load players for this team
-        const { data: playersData, error: playersErr } = await supabase
-          .from("players")
-          .select("id,name,position,team_id,avatar_url,price,points")
-          .eq("team_id", teamId)
-          .order("name");
-
-        if (playersErr) throw playersErr;
+        if (!teamRes.ok) throw new Error(teamJson?.error || "Failed to load team");
+        if (!playersRes.ok) throw new Error(playersJson?.error || "Failed to load players");
 
         if (!cancelled) {
-          setTeam(teamData);
-          setTeamPlayers(playersData ?? []);
+          setTeam(teamJson.team ?? null);
+          setPlayers(playersJson.players ?? []);
         }
       } catch (e) {
         console.log("TeamDetailPage error:", e);
         if (!cancelled) {
           setTeam(null);
-          setTeamPlayers([]);
+          setPlayers([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -127,24 +117,26 @@ export default function TeamDetailPage() {
             height={44}
             className="rounded-2xl bg-white p-1"
           />
-          <div>
-            <CardTitle className="text-xl">{team?.name ?? "Loading..."}</CardTitle>
+          <div className="min-w-0">
+            <CardTitle className="text-xl truncate">
+              {loading ? "Loading..." : (team?.name ?? "Team")}
+            </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {loading ? "Loading..." : `${teamPlayers.length} players`}
+              {loading ? "Loading..." : `${players.length} players`}
             </p>
           </div>
         </CardHeader>
       </Card>
 
       <div className="space-y-2">
-        {teamPlayers.map((p) => (
+        {players.map((p) => (
           <Card key={p.id} className="overflow-hidden">
             <CardContent className="p-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-11 w-11 rounded-full overflow-hidden bg-muted shrink-0">
                     <img
-                      src={p.avatar_url ?? "/placeholder-player.png"}
+                      src={p.avatarUrl ?? "/placeholder-player.png"}
                       alt={p.name}
                       className="h-11 w-11 object-cover"
                       loading="lazy"
@@ -176,7 +168,7 @@ export default function TeamDetailPage() {
           </Card>
         ))}
 
-        {!loading && teamPlayers.length === 0 ? (
+        {!loading && players.length === 0 ? (
           <p className="text-sm text-muted-foreground">No players for this team yet.</p>
         ) : null}
       </div>
