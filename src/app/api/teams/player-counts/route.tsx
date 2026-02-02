@@ -8,10 +8,10 @@ export const revalidate = 0;
 export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
-  // Count players per team_id
+  // Count players per team_uuid
   const { data, error } = await supabase
     .from("players")
-    .select("team_id");
+    .select("team_uuid");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
