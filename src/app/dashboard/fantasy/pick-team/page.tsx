@@ -1,4 +1,4 @@
-"use client";
+I can't see the save() function area but here is my pick team page code"use client";
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -81,10 +81,6 @@ function splitStartingAndBench(players: Player[], startingIds: string[]) {
 
 export default function PickTeamPage() {
   const [authed, setAuthed] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
-  const [showAuth, setShowAuth] = React.useState(false);
-  const [pendingDbSave, setPendingDbSave] = React.useState(false);
-
 
   const [players, setPlayers] = React.useState<Player[]>([]);
   const [pickedIds, setPickedIds] = React.useState<string[]>([]);
@@ -216,37 +212,6 @@ export default function PickTeamPage() {
     })();
   }, [authed, gwId, dbLoaded]);
 
-  React.useEffect(() => {
-  if (!authed) return;
-  if (!gwId) return;
-  if (!pendingDbSave) return;
-
-  (async () => {
-    setSaving(true);
-    try {
-      const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
-      await upsertTeamName(teamName);
-
-      await saveRosterToDb({
-        gameweekId: gwId,
-        squadIds: pickedIds,
-        startingIds,
-        captainId: null,
-        viceId: null,
-      });
-
-      setMsg("Signed in ✅ Saved to database.");
-      setPendingDbSave(false);
-      setShowAuth(false);
-    } catch (e: any) {
-      setMsg(`Signed in ✅ but DB save failed: ${e?.message ?? "Unknown error"}`);
-    } finally {
-      setSaving(false);
-    }
-  })();
-}, [authed, gwId, pendingDbSave]); // keep deps minimal
-
-
   // derived
   const picked = React.useMemo(
     () => players.filter((p) => pickedIds.includes(p.id)),
@@ -313,55 +278,41 @@ export default function PickTeamPage() {
     });
   }
 
- async function save() {
-  setMsg(null);
+  async function save() {
+    setMsg(null);
 
-  // ✅ rules
-  if (pickedIds.length !== 17) return setMsg("Squad must be exactly 17 players.");
-  if (pickedLadies < 2) return setMsg("Squad must include at least 2 ladies.");
-  if (startingIds.length !== 10) return setMsg("Starting lineup must be exactly 10 players.");
+    // ✅ rules
+    if (pickedIds.length !== 17) return setMsg("Squad must be exactly 17 players.");
+    if (pickedLadies < 2) return setMsg("Squad must include at least 2 ladies.");
+    if (startingIds.length !== 10) return setMsg("Starting lineup must be exactly 10 players.");
+    // starting lady OPTIONAL
 
-  // ✅ always save locally first (works without login)
-  localStorage.setItem(LS_PICKS, JSON.stringify(pickedIds));
-  localStorage.setItem(LS_SQUAD, JSON.stringify(pickedIds));
-  localStorage.setItem(LS_STARTING, JSON.stringify(startingIds));
+    // local cache
+    localStorage.setItem(LS_PICKS, JSON.stringify(pickedIds));
+    localStorage.setItem(LS_SQUAD, JSON.stringify(pickedIds));
+    localStorage.setItem(LS_STARTING, JSON.stringify(startingIds));
 
-  // If not signed in, open AuthGate and mark that we want to DB-save after login
-  if (!authed) {
-    setPendingDbSave(true);
-    setShowAuth(true);
-    setMsg("Saved locally ✅ Sign in to save to database.");
-    return;
+    // DB save
+    if (!authed) return setMsg("Saved locally ✅ Sign in to save to database.");
+    if (!gwId) return setMsg("Saved locally ✅ (No gameweek yet, DB save skipped).");
+
+    try {
+      const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
+      await upsertTeamName(teamName);
+
+      await saveRosterToDb({
+        gameweekId: gwId,
+        squadIds: pickedIds,
+        startingIds,
+        captainId: null,
+        viceId: null,
+      });
+
+      setMsg("Saved ✅ (Database + Local).");
+    } catch (e: any) {
+      setMsg(`Saved locally ✅ but DB failed: ${e?.message ?? "Unknown error"}`);
+    }
   }
-
-  // If no gwId, skip DB save
-  if (!gwId) {
-    setMsg("Saved locally ✅ (No gameweek yet, DB save skipped).");
-    return;
-  }
-
-  // ✅ DB save now
-  setSaving(true);
-  try {
-    const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
-    await upsertTeamName(teamName);
-
-    await saveRosterToDb({
-      gameweekId: gwId,
-      squadIds: pickedIds,
-      startingIds,
-      captainId: null,
-      viceId: null,
-    });
-
-    setMsg("Saved ✅ (Database + Local).");
-    setPendingDbSave(false);
-  } catch (e: any) {
-    setMsg(`Saved locally ✅ but DB failed: ${e?.message ?? "Unknown error"}`);
-  } finally {
-    setSaving(false);
-  }
-}
 
   // ----------------------------
   // UI components
@@ -479,7 +430,9 @@ export default function PickTeamPage() {
   // ----------------------------
   // auth gate
   // ----------------------------
- 
+  if (!authed) {
+    return <AuthGate onAuthed={() => setAuthed(true)} />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
@@ -514,9 +467,9 @@ export default function PickTeamPage() {
         {msg ? <div className="mt-3 text-sm">{msg}</div> : null}
 
         <div className="mt-3 flex items-center gap-2">
-          <Button className="rounded-2xl" onClick={save} disabled={loading || saving}>
-  {saving ? "Saving..." : loading ? "Loading..." : "Save Team"}
-</Button>
+          <Button className="rounded-2xl" onClick={save} disabled={loading}>
+            {loading ? "Loading..." : "Save Team"}
+          </Button>
 
           <div className="ml-auto flex items-center justify-center">
             <div className="rounded-2xl bg-muted p-1 inline-flex">
@@ -714,34 +667,6 @@ export default function PickTeamPage() {
                       disabled ? "opacity-60" : ""
                     )}
                   >
-                    {showAuth ? (
-  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-    <div className="w-full max-w-md">
-      <div className="rounded-2xl border bg-background shadow-xl overflow-hidden">
-        <div className="p-3 flex items-center justify-between border-b">
-          <div className="text-sm font-semibold">Sign in to save to database</div>
-          <button
-            type="button"
-            className="text-sm px-3 py-1 rounded-xl border"
-            onClick={() => setShowAuth(false)}
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="p-2">
-          <AuthGate
-            onAuthed={() => {
-              setAuthed(true);
-              // don't close here; the effect will save to DB then close
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-) : null}
-
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
