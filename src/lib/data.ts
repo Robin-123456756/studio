@@ -3,7 +3,7 @@
 // =====================
 export type Team = {
   id: string;        // route slug "t-bifa"
-  dbId: number;      // supabase teams.id (int4)
+  dbId: string;      // supabase teams.id (int4)
   name: string;      // full name "BIFA"
   shortName: string; // ✅ "BIF"
   players: Player[];
@@ -271,27 +271,27 @@ const allPlayers: Player[] = [
 // TEAMS + LOGOS (make sure logos are in public/logos)
 // =====================
 const teamDefs = [
-  { id: "t-accumulators", name: "Accumulators", shortName: "ACC", dbId: 1, logoUrl: "/logos/t-accumulators.png" },
-  { id: "t-basunzi", name: "Basunzi", shortName: "BAS", dbId: 2, logoUrl: "/logos/t-basunzi.png" },
-  { id: "t-bifa", name: "BIFA", shortName: "BIF", dbId: 3, logoUrl: "/logos/t-bifa.png" },
+  { id: "t-accumulators", name: "Accumulators", shortName: "ACC", dbId: "070f07c8-c8c1-4a43-9503-350f98bc2fe4" , logoUrl: "/logos/t-accumulators.png" },
+  { id: "t-basunzi", name: "Basunzi", shortName: "BAS", dbId: "79db061d-0130-4a1b-a115-abd6b17c7857", logoUrl: "/logos/t-basunzi.png" },
+  { id: "t-bifa", name: "BIFA", shortName: "BIF", dbId: "6b4c6306-4e96-449b-9103-01ef39cd7c21", logoUrl: "/logos/t-bifa.png" },
 
-  { id: "t-trotballo", name: "Trotballo", shortName: "TRO", dbId: 4, logoUrl: "/logos/t-trotballo.png" },
-  { id: "t-dujay", name: "Dujay", shortName: "DUJ", dbId: 5, logoUrl: "/logos/t-dujay.png" },
-  { id: "t-night-prep", name: "Night prep", shortName: "NIG", dbId: 6, logoUrl: "/logos/t-night-prep.png" },
+  { id: "t-trotballo", name: "Trotballo", shortName: "TRO", dbId: "692cd38f-516d-4e05-95ee-fd5d0e986c19", logoUrl: "/logos/t-trotballo.png" },
+  { id: "t-dujay", name: "Dujay", shortName: "DUJ", dbId: "0276c44a-b612-472a-94c2-6751cd543b94", logoUrl: "/logos/t-dujay.png" },
+  { id: "t-night-prep", name: "Night prep", shortName: "NIG", dbId: "4a4ad9ec-b96b-4326-8c7e-a70a32cb979b", logoUrl: "/logos/t-night-prep.png" },
 
-  { id: "t-peaky-blinders", name: "Peaky blinders", shortName: "PEA", dbId: 7, logoUrl: "/logos/t-peaky-blinders.png" },
-  { id: "t-komunoballo", name: "Komunoballo", shortName: "KOM", dbId: 8, logoUrl: "/logos/t-komunoballo.png" },
-  { id: "t-masappe", name: "Masappe", shortName: "MAS", dbId: 9, logoUrl: "/logos/t-masappe.png" },
+  { id: "t-peaky-blinders", name: "Peaky blinders", shortName: "PEA", dbId: "9cfb61bb-4af9-475d-87fe-d9251280abd6", logoUrl: "/logos/t-peaky-blinders.png" },
+  { id: "t-komunoballo", name: "Komunoballo", shortName: "KOM", dbId: "e57b846b-5ff0-4a91-a895-d5ce9be8c26c", logoUrl: "/logos/t-komunoballo.png" },
+  { id: "t-masappe", name: "Masappe", shortName: "MAS", dbId: "a4cb90ce-9d8e-44e4-867b-3fa113ac5e95", logoUrl: "/logos/t-masappe.png" },
 
-  { id: "t-midnight-express", name: "Midnight Express", shortName: "MID", dbId: 10, logoUrl: "/logos/t-midnight-express.png" },
-  { id: "t-centurions", name: "Centurions", shortName: "CEN", dbId: 11, logoUrl: "/logos/t-centurions.png" },
-  { id: "t-jubilewos", name: "Jubilewos", shortName: "JUB", dbId: 12, logoUrl: "/logos/t-jubilewos.png" },
+  { id: "t-midnight-express", name: "Midnight Express", shortName: "MID", dbId: "cc1bb524-93a1-4433-8af3-71124544faaf", logoUrl: "/logos/t-midnight-express.png" },
+  { id: "t-centurions", name: "Centurions", shortName: "CEN", dbId: "846ab602-c8f9-4b97-b4fc-7541b5a7d841", logoUrl: "/logos/t-centurions.png" },
+  { id: "t-jubilewos", name: "Jubilewos", shortName: "JUB", dbId: "36d62ea2-47b6-44f3-bd3d-7c7fa627992e", logoUrl: "/logos/t-jubilewos.png" },
 
-  { id: "t-endgame", name: "Endgame", shortName: "END", dbId: 13, logoUrl: "/logos/t-endgame.png" },
-  { id: "t-abacuba", name: "Abacuba", shortName: "ABA", dbId: 14, logoUrl: "/logos/t-abacuba.png" },
-  { id: "t-thazoballo", name: "Thazoballo", shortName: "THA", dbId: 15, logoUrl: "/logos/t-thazoballo.png" },
+  { id: "t-endgame", name: "Endgame", shortName: "END", dbId: "9ccc3f8d-d9a1-4f26-ad59-a6ada4af8ba6", logoUrl: "/logos/t-endgame.png" },
+  { id: "t-abacuba", name: "Abacuba", shortName: "ABA", dbId: "5c5c8d3f-d293-497d-9c97-814368021972", logoUrl: "/logos/t-abacuba.png" },
+  { id: "t-thazoballo", name: "Thazoballo", shortName: "THA", dbId: "2a3b1a03-6b2a-450c-84a4-641e17bb5b0c", logoUrl: "/logos/t-thazoballo.png" },
 
-  { id: "t-quadballo", name: "Quadballo", shortName: "QUA", dbId: 16, logoUrl: "/logos/t-quadballo.png" },
+  { id: "t-quadballo", name: "Quadballo", shortName: "QUA", dbId: "8283b272-4205-4e1e-b80c-562a290d9808", logoUrl: "/logos/t-quadballo.png" },
 ] as const;
 
 const playersByTeam = groupPlayersByTeam(allPlayers);
