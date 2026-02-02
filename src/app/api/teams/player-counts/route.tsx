@@ -20,7 +20,7 @@ export async function GET() {
   // Build counts: { "3": 9, "11": 7, ... }
   const counts: Record<string, number> = {};
   for (const row of data ?? []) {
-    const key = String((row as any).team_id);
+    const key = String((row as any).team_uuid);
     counts[key] = (counts[key] ?? 0) + 1;
   }
 
