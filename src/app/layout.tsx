@@ -14,7 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="<html lang=en" suppressHydrationWarning>
+
       <head>
         {/* 👇 This is what makes Android see your PWA manifest */}
         <link rel="manifest" href="/manifest.json" />
