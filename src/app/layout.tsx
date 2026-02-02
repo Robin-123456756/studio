@@ -1,10 +1,11 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "The Budo League",
-  description: "The Budo League fantasy & fixtures app"
+  description: "The Budo League fantasy & fixtures app",
 };
 
 export default function RootLayout({
@@ -20,7 +21,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#0f172a" />
       </head>
       <body className="bg-background text-foreground">
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
