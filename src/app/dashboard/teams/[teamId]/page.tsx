@@ -137,8 +137,8 @@ export default function TeamDetailPage() {
         {players.map((p) => (
           <Card key={p.id} className="overflow-hidden">
             <CardContent className="p-3">
-              <div className="grid grid-cols-[1fr_84px_64px] items-center gap-3">
-                {/* Left: Player */}
+              <div className="grid grid-cols-[minmax(0,1fr)_56px_44px] items-center gap-1">
+                {/* Player (takes the remaining space) */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-11 w-11 rounded-full overflow-hidden bg-muted shrink-0">
                     <img
@@ -151,26 +151,26 @@ export default function TeamDetailPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">
+                    <div className="text-sm font-semibold leading-tight break-words">
                       {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="text-xs text-muted-foreground">
                       {normalize(p.position)}
                     </div>
                   </div>
                 </div>
 
-                {/* Middle: Price */}
-                <div className="text-right">
-                  <div className="text-[11px] text-muted-foreground">Price</div>
+                {/* Price */}
+                <div className="text-right border-l pl-1">
+                  <div className="text-[11px] text-muted-foreground leading-none">Price</div>
                   <div className="text-sm font-mono font-semibold tabular-nums">
                     ${p.price ?? 0}m
                   </div>
                 </div>
 
-                {/* Right: Points */}
-                <div className="text-right">
-                  <div className="text-[11px] text-muted-foreground">Pts</div>
+                {/* Points */}
+                <div className="text-right border-l pl-1">
+                  <div className="text-[11px] text-muted-foreground leading-none">Pts</div>
                   <div className="text-sm font-mono font-extrabold tabular-nums">
                     {p.points ?? 0}
                   </div>
