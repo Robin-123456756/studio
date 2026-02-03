@@ -4,13 +4,16 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Next.js 15 safe context type
-type RouteContext = { params: { teamId: string } };
-
-export async function GET(_req: Request, ctx: RouteContext) {
+export async function GET(req: Request) {
   const supabase = getSupabaseServerOrThrow();
 
-  const teamUuid = ctx.params.teamId;
+  const url = new URL(req.url);
+  const parts = url.pathname.split("/");
+  const teamUuid = parts[parts.length - 1];
+
+  if (!teamUuid) {
+    return NextResponse.json({ error: "Missing teamId" }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("teams")

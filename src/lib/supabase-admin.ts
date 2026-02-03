@@ -1,18 +1,15 @@
-// src/lib/supabase-admin.ts
 import { createClient } from "@supabase/supabase-js";
 
 export function getSupabaseServerOrThrow() {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
   if (!url || !/^https?:\/\//i.test(url)) {
-    throw new Error("Missing/invalid SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL).");
+    throw new Error("Invalid NEXT_PUBLIC_SUPABASE_URL. Must be http(s)://...");
   }
-  if (!serviceKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY.");
+  if (!key) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  return createClient(url, serviceKey, {
-    auth: { persistSession: false },
-  });
+  return createClient(url, key, { auth: { persistSession: false } });
 }
