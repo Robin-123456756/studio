@@ -116,8 +116,8 @@ export default function TeamDetailPage() {
           </div>
 
           <div>
-            <CardTitle className="text-xl">{teamName}</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <CardTitle className="text-lg font-semibold">{teamName}</CardTitle>
+            <p className="text-xs text-muted-foreground">
               {loading ? "Loading..." : `${players.length} players`}
             </p>
           </div>
@@ -127,8 +127,8 @@ export default function TeamDetailPage() {
       <div className="space-y-2">
         {players.map((p) => (
           <Card key={p.id} className="overflow-hidden">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between gap-3">
+            <CardContent className="p-2">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-11 w-11 rounded-full overflow-hidden bg-muted shrink-0">
                     <img
@@ -141,23 +141,23 @@ export default function TeamDetailPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="font-semibold truncate">
+                    <div className="text-[13px] font-semibold truncate leading-tight">
                       {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {p.teamName ?? p.teamShort ?? "—"} • {p.position}
-                    </div>
+                    {p.teamName ?? p.teamShort ?? "—"} • {p.position}
                   </div>
                 </div>
-
                 <div className="text-right shrink-0">
-                  <div className="text-xs text-muted-foreground">Price</div>
-                  <div className="font-mono font-semibold tabular-nums">${p.price ?? 0}m</div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">Price</div>
+                  <div className="text-[13px] font-mono font-semibold tabular-nums leading-tight">
+                    ${p.price ?? 0}m
+                  </div>
                 </div>
-
                 <div className="text-right shrink-0">
-                  <div className="text-xs text-muted-foreground">Pts</div>
-                  <div className="font-mono font-extrabold tabular-nums">{p.points ?? 0}</div>
+                  <div className="text-[10px] text-muted-foreground leading-tight">Pts</div>
+                  <div className="text-[13px] font-mono font-extrabold tabular-nums leading-tight">
+                    {p.points ?? 0}
+                  </div>
                 </div>
               </div>
             </CardContent>
