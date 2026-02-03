@@ -27,15 +27,38 @@ function uniq(ids: string[]) {
   return Array.from(new Set(clean));
 }
 
-export async function saveRosterToDb(opts: {
+export async function saveRosterToDb(payload: {
   gameweekId: number;
-  squadIds: string[];      // all picked players (17)
-  startingIds: string[];   // starting 9 ids
-  captainId?: string | null;
-  viceId?: string | null;
+  squadIds: string[];
+  startingIds: string[];
+  captainId: string | null;
+  viceId: string | null;
 }) {
-  const uid = await requireUserId();
-  const { gameweekId } = opts;
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
+  if (!userId) throw new Error("Not signed in");
+
+  const res = await fetch("/api/rosters/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, ...payload }),
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error || "Failed to save roster");
+
+  return json;
+}
+
+export async function updateRosterInDb(opts: {
+  userId: string;
+  gameweekId: number;
+  squadIds: string[];
+  startingIds: string[];
+  captainId: string | null;
+  viceId: string | null;
+}) {
+  const { userId: uid, gameweekId } = opts;
 
   // 1) sanitize + enforce uniqueness
   const squadIds = uniq(opts.squadIds);
@@ -88,35 +111,22 @@ export async function saveRosterToDb(opts: {
   if (error) throw error;
 }
 
-export async function loadRosterFromDb(gameweekId: number) {
-  const uid = await requireUserId();
+export async function loadRosterFromDb(gwId: number) {
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
+  if (!userId) throw new Error("Not signed in");
 
-  const [{ data: team, error: teamErr }, { data: roster, error: rosterErr }] =
-    await Promise.all([
-      supabase.from("fantasy_teams").select("name").eq("user_id", uid).maybeSingle(),
-      supabase
-        .from("user_rosters")
-        .select("player_id, is_starting_9, is_captain, is_vice_captain")
-        .eq("user_id", uid)
-        .eq("gameweek_id", gameweekId),
-    ]);
-
-  if (teamErr) throw teamErr;
-  if (rosterErr) throw rosterErr;
-
-  const squadIds = (roster ?? []).map((r) => String(r.player_id));
-  const startingIds = (roster ?? [])
-    .filter((r) => r.is_starting_9)
-    .map((r) => String(r.player_id));
-
-  const capRow = (roster ?? []).find((r) => r.is_captain);
-  const viceRow = (roster ?? []).find((r) => r.is_vice_captain);
+  const res = await fetch(`/api/rosters/current?user_id=${userId}&gw_id=${gwId}`, {
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error || "Failed to load roster");
 
   return {
-    teamName: team?.name ?? "My Team",
-    squadIds,
-    startingIds,
-    captainId: capRow ? String(capRow.player_id) : null,
-    viceId: viceRow ? String(viceRow.player_id) : null,
+    squadIds: json.squadIds ?? [],
+    startingIds: json.startingIds ?? [],
+    captainId: json.captainId ?? null,
+    viceId: json.viceId ?? null,
+    teamName: null,
   };
 }

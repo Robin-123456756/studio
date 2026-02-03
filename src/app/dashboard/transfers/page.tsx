@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { saveSquadIds } from "@/lib/fantasyStorage";
-import {
-  ArrowLeftCircle,
-  ArrowRightCircle,
-  ArrowRight,
-  Clock3,
-} from "lucide-react";
+import { PlayerCard, type Player } from "./player-card";
+import { TransferBadge } from "./transfer-badge";
+import { TransferLogItemComponent, type TransferLogItem } from "./transfer-log-item";
+import { useTransfers } from "./use-transfers";
+import { ArrowRight, Clock3 } from "lucide-react";
 
 // =====================
 // TYPES
@@ -22,19 +21,6 @@ type ApiGameweek = {
   deadline_time: string | null;
   finalized?: boolean | null;
   is_current?: boolean | null;
-};
-
-type Player = {
-  id: string;
-  name: string;
-  webName?: string | null;
-  position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward" | string;
-  points: number;
-  price: number;
-  avatarUrl?: string | null;
-  isLady?: boolean;
-  teamName?: string | null;
-  teamShort?: string | null;
 };
 
 type ApiPlayer = {
@@ -53,45 +39,6 @@ type ApiPlayer = {
 // HELPERS
 // =====================
 const LS_TRANSFERS_LOG = "tbl_transfers_log";
-
-type TransferLogItem = {
-  gwId: number;
-  ts: string; // ISO timestamp
-  outId: string;
-  inId: string;
-
-  outName?: string;
-  inName?: string;
-  outTeamShort?: string | null;
-  inTeamShort?: string | null;
-  outPos?: string | null;
-  inPos?: string | null;
-  outPrice?: number | null;
-  inPrice?: number | null;
-};
-
-function loadTransfersLog(): TransferLogItem[] {
-  try {
-    const raw = window.localStorage.getItem(LS_TRANSFERS_LOG);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? (arr as TransferLogItem[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveTransfersLog(items: TransferLogItem[]) {
-  window.localStorage.setItem(LS_TRANSFERS_LOG, JSON.stringify(items));
-}
-
-function appendTransferLog(item: TransferLogItem) {
-  const prev = loadTransfersLog();
-  saveTransfersLog([item, ...prev]); // newest first
-}
-
-function getTransfersForGW(gwId: number) {
-  return loadTransfersLog().filter((t) => t.gwId === gwId);
-}
 
 function normalizePosition(pos?: string | null): Player["position"] {
   const p = (pos ?? "").trim().toLowerCase();
@@ -123,20 +70,6 @@ function isLocked(deadlineIso?: string | null) {
   return Date.now() >= new Date(deadlineIso).getTime();
 }
 
-function TransferBadge({ kind }: { kind: "out" | "in" }) {
-  return kind === "out" ? (
-    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs font-semibold">
-      <ArrowLeftCircle className="h-4 w-4" />
-      OUT
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-1 text-xs font-semibold">
-      <ArrowRightCircle className="h-4 w-4" />
-      IN
-    </span>
-  );
-}
-
 function formatTimeUG(iso: string) {
   const d = new Date(iso);
   return new Intl.DateTimeFormat("en-GB", {
@@ -154,32 +87,6 @@ function formatTimeUG(iso: string) {
 // LOCAL STORAGE KEYS
 // =====================
 const LS_SQUAD = "tbl_squad_player_ids";
-const LS_FT_BY_GW = (gwId: number) => `tbl_free_transfers_gw_${gwId}`;
-const LS_USED_BY_GW = (gwId: number) => `tbl_transfers_used_gw_${gwId}`;
-
-function getFreeTransfersForGW(gwId: number) {
-  const raw = window.localStorage.getItem(LS_FT_BY_GW(gwId));
-  const n = raw ? Number(raw) : NaN;
-  if (Number.isFinite(n)) return Math.max(1, Math.min(2, n));
-  return 1;
-}
-function setFreeTransfersForGW(gwId: number, value: number) {
-  const v = Math.max(1, Math.min(2, value));
-  window.localStorage.setItem(LS_FT_BY_GW(gwId), String(v));
-}
-function getTransfersUsedForGW(gwId: number) {
-  const raw = window.localStorage.getItem(LS_USED_BY_GW(gwId));
-  const n = raw ? Number(raw) : NaN;
-  return Number.isFinite(n) ? Math.max(0, n) : 0;
-}
-function setTransfersUsedForGW(gwId: number, value: number) {
-  const v = Math.max(0, value);
-  window.localStorage.setItem(LS_USED_BY_GW(gwId), String(v));
-}
-function calcTransferCost(used: number, free: number) {
-  const paid = Math.max(0, used - free);
-  return paid * 4;
-}
 
 // =====================
 // PAGE
@@ -203,11 +110,11 @@ export default function TransfersPage() {
   const [outId, setOutId] = React.useState<string | null>(null);
   const [inId, setInId] = React.useState<string | null>(null);
 
-  // ✅ tabs above pool: IN (pool) vs Transfers (history)
   const [rightTab, setRightTab] = React.useState<"IN" | "TRANSFERS">("IN");
 
-  // ✅ force refresh transfers list after confirm
-  const [transfersLogVersion, setTransfersLogVersion] = React.useState(0);
+  // ✅ Use the transfers hook
+  const gwId = nextGW?.id ?? currentGW?.id ?? null;
+  const { transfersThisGW, freeTransfers, usedTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
 
   // Load gameweeks
   React.useEffect(() => {
@@ -269,12 +176,7 @@ export default function TransfersPage() {
     setSquadIds(Array.isArray(ids) ? ids : []);
   }, []);
 
-  const gwId = nextGW?.id ?? currentGW?.id ?? null;
   const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
-
-  const freeTransfers = React.useMemo(() => (gwId ? getFreeTransfersForGW(gwId) : 1), [gwId]);
-  const usedTransfers = React.useMemo(() => (gwId ? getTransfersUsedForGW(gwId) : 0), [gwId]);
-  const cost = React.useMemo(() => calcTransferCost(usedTransfers, freeTransfers), [usedTransfers, freeTransfers]);
 
   const byId = React.useMemo(() => new Map(allPlayers.map((p) => [p.id, p])), [allPlayers]);
 
@@ -293,11 +195,6 @@ export default function TransfersPage() {
       .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
       .sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
   }, [allPlayers, squadIds, query, posFilter]);
-
-  const transfersThisGW = React.useMemo(() => {
-    if (!gwId) return [];
-    return getTransfersForGW(gwId);
-  }, [gwId, transfersLogVersion]);
 
   function persistSquad(ids: string[]) {
     setSquadIds(ids);
@@ -338,14 +235,13 @@ export default function TransfersPage() {
     persistSquad(next);
 
     // 2) count transfer usage
-    const used = getTransfersUsedForGW(gwId);
-    setTransfersUsedForGW(gwId, used + 1);
+    incrementUsedTransfers();
 
     // 3) log the transfer
     const outP = byId.get(outId);
     const inP = byId.get(inId);
 
-    appendTransferLog({
+    recordTransfer({
       gwId,
       ts: new Date().toISOString(),
       outId,
@@ -360,7 +256,6 @@ export default function TransfersPage() {
       inPrice: typeof inP?.price === "number" ? inP.price : null,
     });
 
-    setTransfersLogVersion((v) => v + 1); // ✅ refresh history list
     resetSelection();
     setRightTab("TRANSFERS"); // ✅ show the transfer you just made
   }
@@ -437,45 +332,16 @@ export default function TransfersPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {squad.map((p) => {
-                  const active = outId === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => pickOut(p.id)}
-                      disabled={locked}
-                      className={cn(
-                        "w-full rounded-2xl border px-3 py-3 text-left transition",
-                        active ? "border-red-500 bg-red-50" : "bg-card hover:bg-accent/10"
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                            {p.avatarUrl ? <img src={p.avatarUrl} alt={p.name} className="h-10 w-10 object-cover" /> : null}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold truncate">
-                              {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {p.teamName ?? p.teamShort ?? "—"} • {p.position}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <div className="text-xs text-muted-foreground">Price</div>
-                          <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
-
-                          <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
-                          <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                {squad.map((p) => (
+                  <PlayerCard
+                    key={p.id}
+                    player={p}
+                    variant="out"
+                    active={outId === p.id}
+                    disabled={locked}
+                    onClick={() => pickOut(p.id)}
+                  />
+                ))}
               </div>
             )}
           </CardContent>
@@ -553,45 +419,17 @@ export default function TransfersPage() {
 
                 <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
                   {pool.map((p) => {
-                    const active = inId === p.id;
                     const disabled = locked || !outId;
 
                     return (
-                      <button
+                      <PlayerCard
                         key={p.id}
-                        type="button"
-                        onClick={() => pickIn(p.id)}
+                        player={p}
+                        variant="in"
+                        active={inId === p.id}
                         disabled={disabled}
-                        className={cn(
-                          "w-full rounded-2xl border px-3 py-3 text-left transition",
-                          active ? "border-emerald-600 bg-emerald-50" : "bg-card hover:bg-accent/10",
-                          disabled ? "opacity-60" : ""
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                              {p.avatarUrl ? <img src={p.avatarUrl} alt={p.name} className="h-10 w-10 object-cover" /> : null}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold truncate">
-                                {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {p.teamName ?? p.teamShort ?? "—"} • {p.position}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <div className="text-xs text-muted-foreground">Price</div>
-                            <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
-
-                            <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
-                            <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
-                          </div>
-                        </div>
-                      </button>
+                        onClick={() => pickIn(p.id)}
+                      />
                     );
                   })}
                 </div>
@@ -604,64 +442,15 @@ export default function TransfersPage() {
                     No transfers logged for this gameweek yet.
                   </div>
                 ) : (
-                  transfersThisGW.map((t) => {
-                    const outNow = byId.get(t.outId);
-                    const inNow = byId.get(t.inId);
-
-                    return (
-                      <div key={t.ts} className="rounded-2xl border bg-card p-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock3 className="h-4 w-4" /> {formatTimeUG(t.ts)}
-                          </span>
-                          <span className="font-mono">GW {t.gwId}</span>
-                        </div>
-
-                        {/* OUT */}
-                        <div className="flex items-center justify-between rounded-xl bg-red-50 border border-red-200 px-3 py-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <TransferBadge kind="out" />
-                              <div className="text-sm font-semibold truncate">
-                                {outNow?.name ?? t.outName ?? t.outId}
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {(outNow?.teamShort ?? t.outTeamShort ?? "—")} • {(outNow?.position ?? t.outPos ?? "—")}
-                            </div>
-                          </div>
-                          <div className="text-sm font-mono font-bold tabular-nums">
-                            ${Number(outNow?.price ?? 0)}m
-                          </div>
-                        </div>
-
-                        {/* Arrow */}
-                        <div className="flex items-center justify-center">
-                          <div className="h-8 w-8 rounded-full bg-muted grid place-items-center">
-                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-
-                        {/* IN */}
-                        <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <TransferBadge kind="in" />
-                              <div className="text-sm font-semibold truncate">
-                                {inNow?.name ?? t.inName ?? t.inId}
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {(inNow?.teamShort ?? t.inTeamShort ?? "—")} • {(inNow?.position ?? t.inPos ?? "—")}
-                            </div>
-                          </div>
-                          <div className="text-sm font-mono font-bold tabular-nums">
-                            ${Number(inNow?.price ?? 0)}m
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
+                  transfersThisGW.map((t) => (
+                    <TransferLogItemComponent
+                      key={t.ts}
+                      transfer={t}
+                      outPlayer={byId.get(t.outId)}
+                      inPlayer={byId.get(t.inId)}
+                      formatTime={formatTimeUG}
+                    />
+                  ))
                 )}
               </div>
             )}

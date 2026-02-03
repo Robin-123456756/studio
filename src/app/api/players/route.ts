@@ -12,6 +12,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const teamId = url.searchParams.get("team_id"); // team_uuid
+    const idsParam = url.searchParams.get("ids");   // NEW
 
     let query = supabase
       .from("players")
@@ -32,8 +33,14 @@ export async function GET(req: Request) {
       `)
       .order("name", { ascending: true });
 
-    if (teamId) query = query.eq("team_id", teamId);
+      if (idsParam) {
+    const ids = idsParam.split(",").map(s => s.trim()).filter(Boolean);
+    if (ids.length > 0) query = query.in("id", ids);
+  }
 
+
+    if (teamId) query = query.eq("team_id", teamId);
+    query = query.order("name", { ascending: true });
     const { data, error } = await query;
 
     if (error) {

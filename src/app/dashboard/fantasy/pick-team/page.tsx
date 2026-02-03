@@ -158,10 +158,6 @@ React.useEffect(() => {
   return gw.next ?? null;
 }, [gw]);
 
-<p className="text-sm text-muted-foreground">
-  Saving for: {savingFor ? savingFor.name : "—"}
-</p>
-
   // ----------------------------
   // load local cache + all players
   // ----------------------------
