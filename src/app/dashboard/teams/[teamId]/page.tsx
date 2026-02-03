@@ -20,15 +20,6 @@ type ApiPlayer = {
   teamShort: string;
 };
 
-function normalizePosition(pos?: string | null) {
-  const p = (pos ?? "").trim().toLowerCase();
-  if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
-  if (p === "def" || p === "df" || p === "defender") return "Defender";
-  if (p === "mid" || p === "mf" || p === "midfielder") return "Midfielder";
-  if (p === "fwd" || p === "fw" || p === "forward" || p === "striker") return "Forward";
-  return pos ?? "Midfielder";
-}
-
 export default function TeamDetailPage() {
   const params = useParams();
   const teamId = (params?.teamId as string) ?? ""; // this is team_uuid
@@ -155,7 +146,7 @@ export default function TeamDetailPage() {
                   </div>
 
                   <div className="text-xs text-muted-foreground truncate">
-                    {normalizePosition(p.position)}
+                    {p.position}
                     </div>
                   </div>
                                 <div className="text-right shrink-0">
