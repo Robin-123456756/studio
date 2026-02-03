@@ -138,7 +138,7 @@ export default function TeamDetailPage() {
           <Card key={p.id} className="overflow-hidden">
             <CardContent className="p-3">
               <div className="grid grid-cols-[minmax(0,1fr)_56px_44px] items-center gap-1">
-                {/* Player */}
+                {/* Player (takes the remaining space) */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-11 w-11 rounded-full overflow-hidden bg-muted shrink-0">
                     <img
@@ -151,10 +151,11 @@ export default function TeamDetailPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">
-                      {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
+                    <div className="text-sm font-semibold leading-tight break-words">
+                      {p.name} {p.isLady ? <span className="text-pink-600">
+                        • Lady</span> : null}
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="text-xs text-muted-foreground">
                       {normalize(p.position)}
                     </div>
                   </div>
