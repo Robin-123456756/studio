@@ -1,22 +1,34 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function getSupabaseAdmin() {
+  // ✅ Use the URL env you already use across the app
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  if (!key) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+
+  return createClient(url, key, {
+    auth: { persistSession: false },
+  });
+}
 
 export async function GET(req: Request) {
   try {
+    const supabase = getSupabaseAdmin(); // ✅ created at request-time
+
     const url = new URL(req.url);
-    const teamId = url.searchParams.get("team_id"); // team_uuid
-    const idsParam = url.searchParams.get("ids");   // NEW
+    const teamId = url.searchParams.get("team_id");
+    const idsParam = url.searchParams.get("ids");
 
     let query = supabase
       .from("players")
-      .select(`
+      .select(
+        `
         id,
         name,
         web_name,
@@ -24,23 +36,27 @@ export async function GET(req: Request) {
         now_cost,
         total_points,
         avatar_url,
+        is_lady,
         team_id,
         teams:teams!players_team_id_fkey (
           name,
           short_name,
           team_uuid
         )
-      `)
+      `
+      )
       .order("name", { ascending: true });
 
-      if (idsParam) {
-    const ids = idsParam.split(",").map(s => s.trim()).filter(Boolean);
-    if (ids.length > 0) query = query.in("id", ids);
-  }
-
+    if (idsParam) {
+      const ids = idsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (ids.length > 0) query = query.in("id", ids);
+    }
 
     if (teamId) query = query.eq("team_id", teamId);
-    query = query.order("name", { ascending: true });
+
     const { data, error } = await query;
 
     if (error) {
@@ -53,8 +69,8 @@ export async function GET(req: Request) {
 
     const players = (data ?? []).map((p: any) => ({
       id: p.id,
-      name: p.name ?? p.web_name ?? "—", // full name first
-      webName: p.web_name ?? null, // optional: keep we name if you ever want it
+      name: p.name ?? p.web_name ?? "—", // ✅ full name first
+      webName: p.web_name ?? null,
       position: p.position,
       price: p.now_cost ?? null,
       points: p.total_points ?? null,
