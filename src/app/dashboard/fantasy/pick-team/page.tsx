@@ -101,6 +101,7 @@ export default function PickTeamPage() {
   const [gwLoading, setGwLoading] = React.useState(true);
 
   const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
+  
 
   // ----------------------------
   // auth state
@@ -118,6 +119,17 @@ export default function PickTeamPage() {
   // ----------------------------
   // load gameweeks
   // ----------------------------
+
+  const [gw, setGw] = React.useState<{ current: any; next: any } | null>(null);
+
+React.useEffect(() => {
+  (async () => {
+    const res = await fetch("/api/gameweeks/current", { cache: "no-store" });
+    const json = await res.json();
+    setGw(json);
+  })();
+}, []);
+
   React.useEffect(() => {
     (async () => {
       try {
@@ -135,6 +147,20 @@ export default function PickTeamPage() {
       }
     })();
   }, []);
+
+  const savingFor = React.useMemo(() => {
+  if (!gw) return null;
+
+  // if current is not finalized, save to current
+  if (gw.current && gw.current.finalized === false) return gw.current;
+
+  // otherwise save to next
+  return gw.next ?? null;
+}, [gw]);
+
+<p className="text-sm text-muted-foreground">
+  Saving for: {savingFor ? savingFor.name : "—"}
+</p>
 
   // ----------------------------
   // load local cache + all players

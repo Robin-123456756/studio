@@ -1,22 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+export async function supabaseServer() {
+  const cookieStore = await cookies(); // ✅ Next 15: cookies() is async
 
-export function getSupabaseServerOrThrow() {
-  console.log("DEBUG_ENV_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-  if (!supabaseUrl || !/^https?:\/\//i.test(supabaseUrl)) {
-    throw new Error("Invalid NEXT_PUBLIC_SUPABASE_URL. Must be http(s)://...");
-  }
-  if (!serviceRoleKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false },
-  });
-  
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
 }
-
-// ✅ this is what your route expects
-export const supabaseServer = getSupabaseServerOrThrow();

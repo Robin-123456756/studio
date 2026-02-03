@@ -7,16 +7,6 @@ import { useParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-type ApiTeam = {
-  id: string;
-  name: string;
-  short_name?: string | null;
-  logo_url?: string | null;
-  wins?: number | null;
-  draws?: number | null;
-  losses?: number | null;
-};
-
 type ApiPlayer = {
   id: string;
   name: string;
@@ -26,15 +16,19 @@ type ApiPlayer = {
   avatarUrl: string | null;
   isLady: boolean | null;
   teamId: string;
+  teamName: string;
+  teamShort: string;
 };
 
 export default function TeamDetailPage() {
   const params = useParams();
-  const teamId = (params?.teamId as string) ?? "";
+  const teamId = (params?.teamId as string) ?? ""; // this is team_uuid
 
-  const [team, setTeam] = React.useState<ApiTeam | null>(null);
   const [players, setPlayers] = React.useState<ApiPlayer[]>([]);
+  const [teamName, setTeamName] = React.useState("Team");
+  const [logoUrl, setLogoUrl] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -44,27 +38,43 @@ export default function TeamDetailPage() {
 
       try {
         setLoading(true);
+        setErrorMsg(null);
 
-        const [teamRes, playersRes] = await Promise.all([
-          fetch(`/api/teams/${teamId}`, { cache: "no-store" }),
-          fetch(`/api/players?team_id=${teamId}`, { cache: "no-store" }),
-        ]);
+        const res = await fetch(`/api/players?team_id=${teamId}`, { cache: "no-store" });
+        const json = await res.json();
 
-        const teamJson = await teamRes.json();
-        const playersJson = await playersRes.json();
+        if (!res.ok) throw new Error(json?.error || "Failed to load players");
 
-        if (!teamRes.ok) throw new Error(teamJson?.error || "Failed to load team");
-        if (!playersRes.ok) throw new Error(playersJson?.error || "Failed to load players");
+        const list = (json.players ?? []) as ApiPlayer[];
 
         if (!cancelled) {
-          setTeam(teamJson.team ?? null);
-          setPlayers(playersJson.players ?? []);
+          setPlayers(list);
+
+          // derive team info from first player if available
+          if (list.length > 0) {
+            setTeamName(list[0].teamName || "Team");
+          } else {
+            setTeamName("Team");
+          }
         }
-      } catch (e) {
+
+        // optional: fetch team info (name/logo) from /api/teams and find this team
+        const teamRes = await fetch("/api/teams", { cache: "no-store" });
+        const teamJson = await teamRes.json();
+        if (teamRes.ok) {
+          const t = (teamJson.teams ?? []).find((x: any) => x.team_uuid === teamId);
+          if (t && !cancelled) {
+            setTeamName(t.name ?? teamName);
+            setLogoUrl(t.logo_url ?? null);
+          }
+        }
+      } catch (e: any) {
         console.log("TeamDetailPage error:", e);
         if (!cancelled) {
-          setTeam(null);
           setPlayers([]);
+          setTeamName("Team");
+          setLogoUrl(null);
+          setErrorMsg(e?.message ?? "Unknown error");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -76,28 +86,6 @@ export default function TeamDetailPage() {
     };
   }, [teamId]);
 
-  if (!teamId) {
-    return (
-      <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28">
-        <p className="text-sm text-muted-foreground">Missing team id.</p>
-        <Link href="/dashboard/teams" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold">
-          <ChevronLeft className="h-4 w-4" /> Back to Teams
-        </Link>
-      </div>
-    );
-  }
-
-  if (!loading && !team) {
-    return (
-      <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28">
-        <p className="text-sm text-muted-foreground">Team not found.</p>
-        <Link href="/dashboard/teams" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold">
-          <ChevronLeft className="h-4 w-4" /> Back to Teams
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
       <Link
@@ -108,19 +96,27 @@ export default function TeamDetailPage() {
         Back
       </Link>
 
+      {errorMsg ? (
+        <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+          {errorMsg}
+        </div>
+      ) : null}
+
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center gap-3">
-          <Image
-            src={team?.logo_url ?? "/placeholder.png"}
-            alt={team?.name ?? "Team"}
-            width={44}
-            height={44}
-            className="rounded-2xl bg-white p-1"
-          />
-          <div className="min-w-0">
-            <CardTitle className="text-xl truncate">
-              {loading ? "Loading..." : (team?.name ?? "Team")}
-            </CardTitle>
+          {/* using <img> avoids next/image remote config issues while testing */}
+          <div className="h-11 w-11 rounded-2xl bg-white p-1 overflow-hidden">
+            <img
+              src={logoUrl ?? "/placeholder.png"}
+              alt={teamName}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
+          <div>
+            <CardTitle className="text-xl">{teamName}</CardTitle>
             <p className="text-sm text-muted-foreground">
               {loading ? "Loading..." : `${players.length} players`}
             </p>
@@ -145,23 +141,23 @@ export default function TeamDetailPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="font-semibold truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{p.position}</div>
+                    <div className="font-semibold truncate">
+                      {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {p.teamName ?? p.teamShort ?? "—"} • {p.position}
+                    </div>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
                   <div className="text-xs text-muted-foreground">Price</div>
-                  <div className="font-mono font-semibold tabular-nums">
-                    ${p.price ?? 0}m
-                  </div>
+                  <div className="font-mono font-semibold tabular-nums">${p.price ?? 0}m</div>
                 </div>
 
                 <div className="text-right shrink-0">
                   <div className="text-xs text-muted-foreground">Pts</div>
-                  <div className="font-mono font-extrabold tabular-nums">
-                    {p.points ?? 0}
-                  </div>
+                  <div className="font-mono font-extrabold tabular-nums">{p.points ?? 0}</div>
                 </div>
               </div>
             </CardContent>
