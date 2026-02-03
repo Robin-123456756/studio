@@ -1,24 +1,25 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { teamId: string } }
-) {
-  const teamUuid = params.teamId;
+// Next.js 15 safe context type
+type RouteContext = { params: { teamId: string } };
+
+export async function GET(_req: Request, ctx: RouteContext) {
+  const supabase = getSupabaseServerOrThrow();
+
+  const teamUuid = ctx.params.teamId;
 
   const { data, error } = await supabase
     .from("teams")
     .select("id,team_uuid,name,short_name,logo_url")
     .eq("team_uuid", teamUuid)
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Team not found" }, { status: 404 });
 
   return NextResponse.json({ team: data });
 }
