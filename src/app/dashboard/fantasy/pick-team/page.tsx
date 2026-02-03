@@ -639,34 +639,33 @@ React.useEffect(() => {
         </div>
 
         {/* PLAYER POOL */}
-        <div className="rounded-2xl border bg-card">
-          <div className="p-4 space-y-3">
-            <div className="flex items-center gap 2">
-              <div className="text-base font-semibold">Player Pool</div>
-              <div className="text-xs text-muted-foreground">
-                {loading ? "Loading..." : `${pool.length} available`}
-              </div>
-            </div>
+        <div className="flex items-center justify-between gap-2">
+  <div className="text-base font-semibold">Player Pool</div>
 
-            <div className="flex gap-2">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search players..."
-                className="w-full flex-1 rounded-xl border bg-background px-3 py-2 text-sm"
-              />
-              <select
-                value={posFilter}
-                onChange={(e) => setPosFilter(e.target.value as any)}
-                className="w-24 shrink-0 rounded-xl border bg-background px-3 py-2 text-sm"
-              >
-                <option value="ALL">All</option>
-                <option value="Goalkeeper">GK</option>
-                <option value="Defender">DEF</option>
-                <option value="Midfielder">MID</option>
-                <option value="Forward">FWD</option>
-              </select>
-            </div>
+  <div className="text-xs text-muted-foreground whitespace-nowrap rounded-full border px-2 py-0.5">
+    {loading ? "Loading..." : `${pool.length} available`}
+  </div>
+</div>
+<div className="grid gap-2 sm:grid-cols-[1fr,120px]">
+  <input
+    value={query}
+    onChange={(e) => setQuery(e.target.value)}
+    placeholder="Search players..."
+    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+  />
+
+  <select
+    value={posFilter}
+    onChange={(e) => setPosFilter(e.target.value as any)}
+    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+  >
+    <option value="ALL">All</option>
+    <option value="Goalkeeper">GK</option>
+    <option value="Defender">DEF</option>
+    <option value="Midfielder">MID</option>
+    <option value="Forward">FWD</option>
+  </select>
+</div>
 
             {pickedIds.length >= 17 ? (
               <div className="text-sm text-muted-foreground">
@@ -689,37 +688,30 @@ React.useEffect(() => {
                       disabled ? "opacity-60" : ""
                     )}
                   >
-                    <div className="flex w-fullitems-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0">
-                          {p.avatarUrl ? (
-                            <img src={p.avatarUrl} alt={p.name} className="h-10 w-10 object-cover" />
-                          ) : null}
-                        </div>
+                    <div className="flex items-center gap-3">
+  {/* left avatar */}
+  <div className="h-10 w-10 rounded-full overflow-hidden bg-muted shrink-0" />
 
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold truncate">
-                            {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
-                          </div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {p.teamName ?? p.teamShort ?? "—"} • {normalizePosition(p.position)}
-                          </div>
-                        </div>
-                      </div>
+  {/* middle text */}
+  <div className="min-w-0 flex-1">
+    <div className="text-sm font-semibold truncate">
+      {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
+    </div>
+    <div className="text-xs text-muted-foreground truncate">
+      {normalizePosition(p.position)}
+    </div>
+  </div>
 
-                      <div className="shrink-0">
-                        <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold">
-                          Pick
-                        </span>
-                      </div>
-                    </div>
+  {/* right action */}
+  <span className="shrink-0 inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold">
+    Pick
+  </span>
+</div>
                   </button>
                 );
               })}
             </div>
           </div>
         </div>
-      </div>
-    </div>
   );
 }
