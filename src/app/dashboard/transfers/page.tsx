@@ -137,6 +137,31 @@ export default function TransfersPage() {
     })();
   }, []);
 
+  const savingGw = React.useMemo(() => {
+  // If current isn't finalized, transfers apply to current. Else apply to next.
+  if (currentGW && currentGW.finalized === false) return currentGW;
+  return nextGW ?? currentGW ?? null;
+}, [currentGW, nextGW]);
+
+const gwIdForRoster = savingGw?.id ?? null;
+
+React.useEffect(() => {
+  if (!gwIdForRoster) return;
+
+  (async () => {
+    const res = await fetch(`/api/rosters?gw_id=${gwIdForRoster}`, { cache: "no-store" });
+    const json = await res.json();
+
+    if (!res.ok) {
+      // If not signed in or no roster yet, keep empty.
+      setSquadIds([]);
+      return;
+    }
+
+    setSquadIds(Array.isArray(json.squadIds) ? json.squadIds : []);
+  })();
+}, [gwIdForRoster]);
+
   // Load all players (pool)
   React.useEffect(() => {
     (async () => {
@@ -169,12 +194,21 @@ export default function TransfersPage() {
     })();
   }, []);
 
-  // Load squad from localStorage
   React.useEffect(() => {
-    const raw = window.localStorage.getItem(LS_SQUAD);
-    const ids: string[] = raw ? JSON.parse(raw) : [];
-    setSquadIds(Array.isArray(ids) ? ids : []);
-  }, []);
+    if (!gwId) return;
+
+    (async () => {
+      const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setSquadIds([]);
+        return;
+      }
+
+      setSquadIds(Array.isArray(json.squadIds) ? json.squadIds : []);
+    })();
+  }, [gwId]);
 
   const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
 
@@ -227,12 +261,12 @@ export default function TransfersPage() {
     return true;
   }
 
-  function confirmTransfer() {
+  async function confirmTransfer() {
     if (!canConfirm() || !gwId || !outId || !inId) return;
 
     // 1) swap in squad ids
     const next = squadIds.map((id) => (id === outId ? inId : id));
-    persistSquad(next);
+    await persistSquad(next);
 
     // 2) count transfer usage
     incrementUsedTransfers();
@@ -326,11 +360,10 @@ export default function TransfersPage() {
             </div>
 
             {squad.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No squad saved yet. Save your squad IDs in localStorage key:{" "}
-                <span className="font-mono">{LS_SQUAD}</span>
-              </div>
-            ) : (
+  <div className="text-sm text-muted-foreground">
+    No squad saved for this gameweek yet. Go to <b>Pick Team</b> and press <b>Save Team</b>.
+  </div>
+) : (
               <div className="space-y-2">
                 {squad.map((p) => (
                   <PlayerCard

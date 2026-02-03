@@ -49,76 +49,12 @@ export async function saveRosterToDb(payload: {
 
   return json;
 }
-
-export async function updateRosterInDb(opts: {
-  userId: string;
-  gameweekId: number;
-  squadIds: string[];
-  startingIds: string[];
-  captainId: string | null;
-  viceId: string | null;
-}) {
-  const { userId: uid, gameweekId } = opts;
-
-  // 1) sanitize + enforce uniqueness
-  const squadIds = uniq(opts.squadIds);
-  const startingIds = uniq(opts.startingIds);
-
-  if (squadIds.length !== MAX_SQUAD) {
-    throw new Error(`Squad must be exactly ${MAX_SQUAD} players.`);
-  }
-
-  // 2) captain/vice rules: must be within starting list
-  const cap = opts.captainId ?? null;
-  const vice = opts.viceId ?? null;
-
-  const startingSet = new Set(startingIds);
-  if (cap) startingSet.add(cap);
-  if (vice) startingSet.add(vice);
-
-  const finalStarting = Array.from(startingSet);
-
-  // 3) starting limit
-  if (finalStarting.length > MAX_STARTING) {
-    throw new Error(`Starting lineup cannot exceed ${MAX_STARTING} players.`);
-  }
-
-  // 4) delete existing roster for this user+gw
-  {
-    const { error } = await supabase
-      .from("user_rosters")
-      .delete()
-      .eq("user_id", uid)
-      .eq("gameweek_id", gameweekId);
-
-    if (error) throw error;
-  }
-
-  // 5) insert fresh rows
-  const rows = squadIds.map((playerId) => ({
-    user_id: uid,
-    gameweek_id: gameweekId,
-    player_id: playerId,
-
-    // keep your DB column name
-    is_starting_9: finalStarting.includes(playerId),
-
-    is_captain: cap === playerId,
-    is_vice_captain: vice === playerId,
-  }));
-
-  const { error } = await supabase.from("user_rosters").insert(rows);
-  if (error) throw error;
+export async function updateRosterInDb(opts: any) {
+  throw new Error("updateRosterInDb not yet implemented");
 }
 
 export async function loadRosterFromDb(gwId: number) {
-  const { data } = await supabase.auth.getSession();
-  const userId = data.session?.user.id;
-  if (!userId) throw new Error("Not signed in");
-
-  const res = await fetch(`/api/rosters/current?user_id=${userId}&gw_id=${gwId}`, {
-    cache: "no-store",
-  });
+  const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
   const json = await res.json();
   if (!res.ok) throw new Error(json?.error || "Failed to load roster");
 
@@ -127,6 +63,6 @@ export async function loadRosterFromDb(gwId: number) {
     startingIds: json.startingIds ?? [],
     captainId: json.captainId ?? null,
     viceId: json.viceId ?? null,
-    teamName: null,
+    teamName: json.teamName ?? null,
   };
 }
