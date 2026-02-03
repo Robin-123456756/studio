@@ -140,13 +140,10 @@ export default function TeamDetailPage() {
                     />
                   </div>
 
-                  <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">
-                    {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground truncate">
-                    {p.position}
+                   <div className="min-w-0">
+                    <div className="font-semibold truncate">{p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {p.position}
                     </div>
                   </div>
                                 <div className="text-right shrink-0">
