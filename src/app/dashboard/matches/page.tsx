@@ -153,8 +153,8 @@ function MatchRow({ g }: { g: UiGame }) {
   const showScore = g.status === "completed";
 
   return (
-    <div className="py-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_28px_72px_28px_minmax(0,1fr)] items-center gap-x-3">
+    <div className="py-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_24px_56px_24px_minmax(0,1fr)] items-center gap-x-3">
         {/* left team */}
         <div className="min-w-0 text-right">
           <div className="truncate text-[14px] font-semibold leading-none">
@@ -163,13 +163,13 @@ function MatchRow({ g }: { g: UiGame }) {
         </div>
 
         {/* left logo */}
-        <div className="h-7 w-7 justify-self-end rounded-full bg-muted overflow-hidden">
+        <div className="h-6 w-6 justify-self-end rounded-full bg-muted overflow-hidden">
           <Image
             src={g.team1.logoUrl}
             alt={g.team1.name}
-            width={28}
-            height={28}
-            className="h-7 w-7 object-cover"
+            width={24}
+            height={24}
+            className="h-6 w-6 object-cover"
           />
         </div>
 
@@ -177,7 +177,7 @@ function MatchRow({ g }: { g: UiGame }) {
         <div className="text-center">
           {showScore ? (
             <>
-              <div className="font-mono text-[16px] font-extrabold tabular-nums">
+              <div className="font-mono text-[15px] font-extrabold tabular-nums">
                 {g.score1 ?? 0} - {g.score2 ?? 0}
               </div>
               <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
@@ -185,26 +185,26 @@ function MatchRow({ g }: { g: UiGame }) {
               </div>
             </>
           ) : (
-            <div className="text-[16px] font-extrabold tabular-nums">
+            <div className="text-[14px] font-extrabold tabular-nums">
               {g.time}
             </div>
           )}
         </div>
 
         {/* right logo */}
-        <div className="h-7 w-7 justify-self-start rounded-full bg-muted overflow-hidden">
+        <div className="h-6 w-6 justify-self-start rounded-full bg-muted overflow-hidden">
           <Image
             src={g.team2.logoUrl}
             alt={g.team2.name}
-            width={28}
-            height={28}
-            className="h-7 w-7 object-cover"
+            width={24}
+            height={24}
+            className="h-6 w-6 object-cover"
           />
         </div>
 
         {/* right team */}
         <div className="min-w-0">
-          <div className="truncate text-[14px] font-semibold leading-none">
+          <div className="truncate text-sm font-semibold leading-none">
             {g.team2.name}
           </div>
         </div>
@@ -319,7 +319,7 @@ return (
 
     {/* ✅ Main card with tabs like FPL */}
     <Card className="rounded-3xl">
-      <CardContent className="p-4">
+      <CardContent className="px-6 py-4">
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
           <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
             <TabsTrigger
@@ -415,7 +415,7 @@ return (
                       {formatDateHeading(date)}
                     </div>
 
-                    <div className="mt-2 rounded-2xl border bg-card px-3 divide-y divide-border/40">
+                    <div className="mt-2 rounded-2xl border bg-card px-6 divide-y divide-border/40">
                       {list.map((g) => (
                         <MatchRow key={g.id} g={g} />
                       ))}
