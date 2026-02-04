@@ -365,55 +365,43 @@ return (
 
           {/* MATCHES TAB */}
           <TabsContent value="matches" className="mt-4 space-y-3">
-            {/* ✅ Gameweek label (FULL FORM) under tabs */}
-            <div className="flex items-center justify-between gap-3">
-              <div>
+            {/* ✅ Matchday selector with arrows */}
+            <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
+              {/* Left arrow */}
+              <button
+                type="button"
+                onClick={() => setGwId((x) => (x ? Math.max(1, x - 1) : x))}
+                disabled={!canPrev}
+                className={cn(
+                  "grid h-11 w-11 place-items-center rounded-full border bg-background",
+                  !canPrev && "opacity-40"
+                )}
+                aria-label="Previous matchday"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+
+              {/* Center title */}
+              <div className="text-center min-w-0">
+                <div className="text-lg font-extrabold truncate">
+                  {activeName ?? (gwId ? `Match day ${gwId}` : "Match day —")}
                 </div>
-                <div>
-                <div className="text-lg font-extrabold">
-                 {activeName ?? (gwId ? `Match day ${gwId}` : "Match day —")}
-                </div>
-                </div>
-
-
-              {/* Matchday centered between arrows */}
-<div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
-  {/* Left arrow */}
-  <button
-    type="button"
-    onClick={() => setGwId((x) => (x ? Math.max(1, x - 1) : x))}
-    disabled={!canPrev}
-    className={cn(
-      "grid h-11 w-11 place-items-center rounded-full border bg-background",
-      !canPrev && "opacity-40"
-    )}
-    aria-label="Previous matchday"
-  >
-    <ChevronLeft className="h-5 w-5" />
-  </button>
-
-  {/* Center title */}
-  <div className="text-center min-w-0">
-    <div className="text-lg font-extrabold truncate">
-      {activeName ?? (gwId ? `Match day ${gwId}` : "Match day —")}
-    </div>
-  </div>
-
-  {/* Right arrow */}
-  <button
-    type="button"
-    onClick={() => setGwId((x) => (x ? x + 1 : x))}
-    disabled={!canNext}
-    className={cn(
-      "grid h-11 w-11 place-items-center rounded-full border bg-background",
-      !canNext && "opacity-40"
-    )}
-    aria-label="Next matchday"
-  >
-    <ChevronRight className="h-5 w-5" />
-  </button>
-</div>
               </div>
+
+              {/* Right arrow */}
+              <button
+                type="button"
+                onClick={() => setGwId((x) => (x ? x + 1 : x))}
+                disabled={!canNext}
+                className={cn(
+                  "grid h-11 w-11 place-items-center rounded-full border bg-background",
+                  !canNext && "opacity-40"
+                )}
+                aria-label="Next matchday"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
 
             {/* Fixtures / Results toggle */}
             <div className="rounded-2xl bg-muted p-1 inline-flex">
