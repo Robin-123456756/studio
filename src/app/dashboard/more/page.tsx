@@ -9,7 +9,7 @@ const items = [
   { href: "/dashboard/teams", label: "Teams", Icon: Users },
   { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
   { href: "/dashboard/transfers", label: "Transfers", Icon: ArrowLeftRight },
-  { href: "/dashboard/results", label: "Results", Icon: Medal },
+  { href: "/dashboard/matches?tab=results", label: "Results", Icon: Medal },
   { href: "/dashboard/reviews", label: "Reviews", Icon: Star },
 ] as const;
 

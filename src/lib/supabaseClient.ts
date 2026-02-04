@@ -7,3 +7,4 @@ console.log("SUPABASE URL:", url);
 console.log("SUPABASE ANON:", anon ? "SET" : "MISSING");
 
 export const supabase = createClient(url, anon);
+

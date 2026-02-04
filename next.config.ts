@@ -12,11 +12,11 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "pczlfvvrnmocgygnvxiq.supabase.co",
-        pathname: "/storage/v1/object/public/**",
+        hostname: "*.supabase.co",
       },
     ],
   },
 };
 
 module.exports = withPWA(nextConfig);
+
