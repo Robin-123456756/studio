@@ -67,6 +67,17 @@ const seasons: Season[] = [
   { code: "TBL3" },
 ];
 
+function formatDateHeading(yyyyMmDd: string) {
+  // yyyy-mm-dd -> "Sun 11 Jan"
+  const d = new Date(`${yyyyMmDd}T00:00:00`);
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    timeZone: "Africa/Kampala",
+  }).format(d);
+}
+
 function toUgTime(iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
     hour: "numeric",
@@ -79,6 +90,17 @@ function toUgTime(iso: string) {
     .replace(/\bpm\b/i, "PM");
 }
 
+function groupByDate(games: UiGame[]) {
+  const map = new Map<string, UiGame[]>();
+  for (const g of games) {
+    const arr = map.get(g.date) ?? [];
+    arr.push(g);
+    map.set(g.date, arr);
+  }
+  return Array.from(map.entries()).sort(
+    (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
+  );
+}
 function toUgDateKey(iso: string) {
   const d = new Date(iso);
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -94,24 +116,7 @@ function toUgDateKey(iso: string) {
   return `${y}-${m}-${da}`;
 }
 
-function labelDate(yyyyMmDd: string) {
-  const d = new Date(yyyyMmDd);
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  }).format(d);
-}
 
-function groupByDate(games: UiGame[]) {
-  const map = new Map<string, UiGame[]>();
-  for (const g of games) {
-    const key = g.date;
-    map.set(key, [...(map.get(key) ?? []), g]);
-  }
-  // already in order from API kickoff_time, but keep dates sorted
-  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-}
 
 function mapApiMatchToUi(m: ApiMatch): UiGame {
   const homeName = m.home_team?.name ?? "Home";
@@ -144,58 +149,64 @@ function mapApiMatchToUi(m: ApiMatch): UiGame {
 
 /* ---------------- FPL-ish list row ---------------- */
 
-function MatchListRow({
-  g,
-  mode,
-}: {
-  g: UiGame;
-  mode: "fixtures" | "results";
-}) {
+function MatchRow({ g, mode }: { g: UiGame; mode: "fixtures" | "results" }) {
   const showScore = mode === "results" && g.status === "completed";
 
   return (
     <div className="py-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_84px_minmax(0,1fr)] items-center gap-3">
-        {/* home */}
-        <div className="flex items-center justify-end gap-2 min-w-0">
-          <div className="truncate text-sm font-semibold">{g.team1.name}</div>
+      <div className="grid grid-cols-[minmax(0,1fr)_28px_72px_28px_minmax(0,1fr)] items-center gap-x-3">
+        {/* left team */}
+        <div className="min-w-0 text-right">
+          <div className="truncate text-[14px] font-semibold leading-none">
+            {g.team1.name}
+          </div>
+        </div>
+
+        {/* left logo */}
+        <div className="h-7 w-7 justify-self-end rounded-full bg-muted overflow-hidden">
           <Image
             src={g.team1.logoUrl}
             alt={g.team1.name}
-            width={22}
-            height={22}
-            className="h-5 w-5 rounded-full object-cover"
+            width={28}
+            height={28}
+            className="h-7 w-7 object-cover"
           />
         </div>
 
-        {/* center */}
+        {/* center time / score */}
         <div className="text-center">
           {showScore ? (
-            <div className="text-sm font-extrabold tabular-nums">
-              {g.score1 ?? 0} - {g.score2 ?? 0}
-            </div>
+            <>
+              <div className="font-mono text-[16px] font-extrabold tabular-nums">
+                {g.score1 ?? 0} - {g.score2 ?? 0}
+              </div>
+              <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
+                {g.isFinal ? "FT" : "Played"}
+              </div>
+            </>
           ) : (
-            <div className="text-sm font-bold tabular-nums text-muted-foreground">
+            <div className="text-[16px] font-extrabold tabular-nums">
               {g.time}
             </div>
           )}
-          {mode === "results" && showScore ? (
-            <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
-              {g.isFinal ? "FT" : "Played"}
-            </div>
-          ) : null}
         </div>
 
-        {/* away */}
-        <div className="flex items-center justify-start gap-2 min-w-0">
+        {/* right logo */}
+        <div className="h-7 w-7 justify-self-start rounded-full bg-muted overflow-hidden">
           <Image
             src={g.team2.logoUrl}
             alt={g.team2.name}
-            width={22}
-            height={22}
-            className="h-5 w-5 rounded-full object-cover"
+            width={28}
+            height={28}
+            className="h-7 w-7 object-cover"
           />
-          <div className="truncate text-sm font-semibold">{g.team2.name}</div>
+        </div>
+
+        {/* right team */}
+        <div className="min-w-0">
+          <div className="truncate text-[14px] font-semibold leading-none">
+            {g.team2.name}
+          </div>
         </div>
       </div>
     </div>
@@ -296,232 +307,181 @@ export default function MatchesPage() {
   const canPrev = Boolean(gwId && gwId > 1);
   const canNext = Boolean(gwId); // you can tighten this later
 
-  return (
-    <div className="animate-in fade-in-50 space-y-4">
-      {/* ✅ Season hero card (matches page only) */}
-      <div
-        className="rounded-3xl p-5 text-white shadow-sm ring-1 ring-black/5"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(99,102,241,1) 0%, rgba(168,85,247,1) 45%, rgba(34,211,238,1) 100%)",
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xl font-extrabold tracking-tight">Season</div>
-            <div className="mt-1 text-base font-semibold text-white/95">
-              {season.code}
-            </div>
+ // inside MatchesPage() return...
+
+return (
+  <div className="animate-in fade-in-50 space-y-4">
+    {/* ✅ Season card ONLY on matches page */}
+    <Card className="rounded-3xl overflow-hidden border-none">
+      <CardContent className="p-0">
+        <div className="p-5 text-white bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-400">
+          <div className="text-sm/none opacity-90">Season</div>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="text-2xl font-extrabold tracking-tight">TBL8</div>
+            <button
+              type="button"
+              className="ml-auto grid h-10 w-10 place-items-center rounded-full bg-black/20"
+              aria-label="Change season"
+            >
+              <span className="text-xl">⌄</span>
+            </button>
           </div>
-
-          <button
-            type="button"
-            className="grid h-10 w-10 place-items-center rounded-full bg-black/20 hover:bg-black/30 transition"
-            onClick={() => setOpenSeason((v) => !v)}
-            aria-label="Change season"
-          >
-            <ChevronDown className="h-5 w-5" />
-          </button>
         </div>
+      </CardContent>
+    </Card>
 
-        {openSeason ? (
-          <div className="mt-4 rounded-2xl bg-white/10 backdrop-blur p-2">
-            <div className="grid gap-1">
-              {seasons.map((s) => (
+    {/* ✅ Main card with tabs like FPL */}
+    <Card className="rounded-3xl">
+      <CardContent className="p-4">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+          <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
+            <TabsTrigger
+              value="matches"
+              className={cn(
+                "rounded-none px-0 pb-2 text-base font-semibold",
+                "data-[state=active]:shadow-none",
+                "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
+              )}
+            >
+              Matches
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="table"
+              className={cn(
+                "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
+                "data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
+              )}
+            >
+              Table
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="stats"
+              className={cn(
+                "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
+                "data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
+              )}
+            >
+              Stats
+            </TabsTrigger>
+          </TabsList>
+
+          {/* MATCHES TAB */}
+          <TabsContent value="matches" className="mt-4 space-y-3">
+            {/* ✅ Gameweek label (FULL FORM) under tabs */}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-extrabold">
+                  {gwId ? `Gameweek ${gwId}` : "Gameweek —"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {activeName ?? ""}
+                </div>
+              </div>
+
+              {/* ✅ simple GW toggle (current <-> next) */}
+              <div className="flex items-center gap-2">
                 <button
-                  key={s.code}
                   type="button"
-                  onClick={() => {
-                    setSeason(s);
-                    setOpenSeason(false);
-                  }}
-                  className={cn(
-                    "text-left rounded-xl px-3 py-2 text-sm font-semibold transition",
-                    season.code === s.code ? "bg-white/20" : "hover:bg-white/10"
-                  )}
+                  onClick={() => setGwId(gw?.current?.id ?? null)}
+                  className="grid h-9 w-9 place-items-center rounded-full border bg-background"
+                  aria-label="Current gameweek"
                 >
-                  {s.code}
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
 
-      {/* Main card container */}
-      <div className="rounded-3xl border bg-card p-4 shadow-sm">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-2xl font-extrabold tracking-tight">Matches</div>
-            <div className="text-sm text-muted-foreground">
-              {gwLoading
-                ? "Loading gameweek..."
-                : gwId
-                ? `GW ${gwId} • ${activeName ?? "—"}`
-                : "No gameweek"}
-            </div>
-          </div>
-
-
-        {gwError ? (
-          <div className="mt-3 text-sm text-red-600">⚠ {gwError}</div>
-        ) : null}
-
-        {/* Tabs */}
-        <div className="mt-4">
-          <Tabs
-            value={tab}
-            onValueChange={(v) => setTab(v as any)}
-            className="w-full"
-          >
-            {/* nicer FPL-ish tabs */}
-            <TabsList className="w-full justify-start gap-8 bg-transparent p-0">
-              {(["matches", "table", "stats"] as const).map((k) => (
-                <TabsTrigger
-                  key={k}
-                  value={k}
+                <button
+                  type="button"
+                  onClick={() => (mode === "results" ? null : setGwId(gw?.next?.id ?? gwId))}
                   className={cn(
-                    "rounded-none px-0 pb-2 text-base font-semibold",
-                    "data-[state=active]:shadow-none",
-                    "data-[state=active]:border-b-2 data-[state=active]:border-foreground",
-                    "data-[state=inactive]:text-muted-foreground"
+                    "grid h-9 w-9 place-items-center rounded-full border bg-background",
+                    mode === "results" && "opacity-40"
                   )}
+                  aria-label="Next gameweek"
+                  disabled={mode === "results"}
                 >
-                  {k === "matches" ? "Matches" : k === "table" ? "Table" : "Stats"}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {/* MATCHES TAB */}
-            <TabsContent value="matches" className="mt-4">
-              {/* Fixtures/Results + GW selector */}
-              <div className="flex items-center justify-between gap-3">
-                <div className="rounded-2xl bg-muted p-1 inline-flex">
-                  <button
-                    type="button"
-                    onClick={() => setMode("fixtures")}
-                    className={cn(
-                      "px-5 py-2 rounded-2xl text-sm font-semibold transition",
-                      mode === "fixtures"
-                        ? "bg-background shadow"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    Fixtures
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("results")}
-                    className={cn(
-                      "px-5 py-2 rounded-2xl text-sm font-semibold transition",
-                      mode === "results"
-                        ? "bg-background shadow"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    Results
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setGwId((x) => (x ? Math.max(1, x - 1) : x))}
-                    disabled={!canPrev}
-                    className={cn(
-                      "grid h-9 w-9 place-items-center rounded-full border bg-background",
-                      !canPrev && "opacity-40"
-                    )}
-                    aria-label="Previous gameweek"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-
-                  <div className="text-center">
-                    <div className="text-sm font-bold">
-                      {gwId ? `GW ${gwId}` : "—"}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground truncate max-w-[160px]">
-                      {activeName ?? ""}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setGwId((x) => (x ? x + 1 : x))}
-                    disabled={!canNext}
-                    className={cn(
-                      "grid h-9 w-9 place-items-center rounded-full border bg-background",
-                      !canNext && "opacity-40"
-                    )}
-                    aria-label="Next gameweek"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </div>
+                  <ChevronRight className="h-5 w-5" />
+                </button>
               </div>
+            </div>
 
-              {/* Content */}
-              <div className="mt-4 space-y-4">
-                {error ? (
-                  <div className="text-sm text-red-600">⚠ {error}</div>
-                ) : null}
-
-                {loading ? (
-                  <Card>
-                    <CardContent className="p-4 text-sm text-muted-foreground">
-                      Loading matches...
-                    </CardContent>
-                  </Card>
-                ) : games.length === 0 ? (
-                  <Card>
-                    <CardContent className="p-4 text-sm text-muted-foreground">
-                      {mode === "results"
-                        ? "No results yet for this gameweek."
-                        : "No fixtures found for this gameweek."}
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-5">
-                    {groupByDate(games).map(([date, items]) => (
-                      <div key={date}>
-                        <div className="mb-2 text-sm font-extrabold">
-                          {date === "0000-00-00" ? "TBD" : labelDate(date)}
-                        </div>
-
-                        <div className="rounded-2xl border bg-card px-4 divide-y divide-border/40">
-                          {items.map((g) => (
-                            <MatchListRow key={g.id} g={g} mode={mode} />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* Fixtures / Results toggle */}
+            <div className="rounded-2xl bg-muted p-1 inline-flex">
+              <button
+                type="button"
+                onClick={() => setMode("fixtures")}
+                className={cn(
+                  "px-5 py-2 rounded-2xl text-sm font-semibold transition",
+                  mode === "fixtures" ? "bg-background shadow" : "text-muted-foreground"
                 )}
-              </div>
-            </TabsContent>
+              >
+                Fixtures
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("results")}
+                className={cn(
+                  "px-5 py-2 rounded-2xl text-sm font-semibold transition",
+                  mode === "results" ? "bg-background shadow" : "text-muted-foreground"
+                )}
+              >
+                Results
+              </button>
+            </div>
 
-            {/* TABLE TAB */}
-            <TabsContent value="table" className="mt-4">
-              <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
-                Table will be connected next (standings computed from matches).
-              </div>
-            </TabsContent>
+            {/* Content */}
+            {error ? <div className="text-sm text-red-600">⚠ {error}</div> : null}
 
-            {/* STATS TAB */}
-            <TabsContent value="stats" className="mt-4">
-              <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
-                Stats coming next (goals, assists, clean sheets).
+            {loading ? (
+              <div className="text-sm text-muted-foreground py-6 text-center">
+                Loading matches...
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+            ) : games.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-6 text-center">
+                {mode === "results"
+                  ? "No results yet for this gameweek."
+                  : "No fixtures found for this gameweek."}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {groupByDate(games).map(([date, list]) => (
+                  <div key={date}>
+                    <div className="px-1 text-sm font-semibold text-muted-foreground">
+                      {formatDateHeading(date)}
+                    </div>
 
-      {/* Space so bottom nav never covers content */}
-      <div className="h-24 md:hidden" />
-    </div>
-    </div>
-  );
+                    <div className="mt-2 rounded-2xl border bg-card px-3 divide-y divide-border/40">
+                      {list.map((g) => (
+                        <MatchRow key={g.id} g={g} mode={mode} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* TABLE TAB */}
+          <TabsContent value="table" className="mt-4">
+            <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
+              Table will be connected next (standings computed from matches).
+            </div>
+          </TabsContent>
+
+          {/* STATS TAB */}
+          <TabsContent value="stats" className="mt-4">
+            <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
+              Stats coming next (goals, assists, clean sheets).
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+
+    <div className="h-24 md:hidden" />
+  </div>
+);
 }
