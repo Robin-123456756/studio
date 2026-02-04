@@ -149,8 +149,8 @@ function mapApiMatchToUi(m: ApiMatch): UiGame {
 
 /* ---------------- FPL-ish list row ---------------- */
 
-function MatchRow({ g, mode }: { g: UiGame; mode: "fixtures" | "results" }) {
-  const showScore = mode === "results" && g.status === "completed";
+function MatchRow({ g }: { g: UiGame }) {
+  const showScore = g.status === "completed";
 
   return (
     <div className="py-4">
@@ -219,20 +219,9 @@ export default function MatchesPage() {
   // Top-level page tabs
   const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
 
-  // Fixtures/Results mode
-  const [mode, setMode] = React.useState<"fixtures" | "results">("fixtures");
-
   // Season hero (matches only)
   const [season, setSeason] = React.useState<Season>(seasons[0]);
   const [openSeason, setOpenSeason] = React.useState(false);
-
-  // If visiting from “More -> Results”: /dashboard/matches?tab=results
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get("tab");
-    if (t === "results") setMode("results");
-    if (t === "fixtures") setMode("fixtures");
-  }, []);
 
   const [gw, setGw] = React.useState<{
     current: ApiGameweek | null;
@@ -270,16 +259,20 @@ export default function MatchesPage() {
     })();
   }, []);
 
-  // Fetch matches for gwId + mode
+  // Fetch matches for gwId (auto-detect mode based on whether GW is finalized)
   React.useEffect(() => {
-    if (!gwId) return;
+    if (!gwId || !gw) return;
 
     (async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const played = mode === "results" ? "1" : "0";
+        // Auto-detect: if current GW is finalized, show results; otherwise show fixtures
+        const gwData = gw.current?.id === gwId ? gw.current : gw.next?.id === gwId ? gw.next : null;
+        const isFinalized = gwData?.finalized ?? false;
+        const played = isFinalized ? "1" : "0";
+
         const res = await fetch(`/api/matches?gw_id=${gwId}&played=${played}`, {
           cache: "no-store",
         });
@@ -295,7 +288,7 @@ export default function MatchesPage() {
         setLoading(false);
       }
     })();
-  }, [gwId, mode]);
+  }, [gwId, gw]);
 
   const activeName =
     gw?.current?.id === gwId
@@ -403,30 +396,6 @@ return (
               </button>
             </div>
 
-            {/* Fixtures / Results toggle */}
-            <div className="rounded-2xl bg-muted p-1 inline-flex">
-              <button
-                type="button"
-                onClick={() => setMode("fixtures")}
-                className={cn(
-                  "px-5 py-2 rounded-2xl text-sm font-semibold transition",
-                  mode === "fixtures" ? "bg-background shadow" : "text-muted-foreground"
-                )}
-              >
-                Fixtures
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("results")}
-                className={cn(
-                  "px-5 py-2 rounded-2xl text-sm font-semibold transition",
-                  mode === "results" ? "bg-background shadow" : "text-muted-foreground"
-                )}
-              >
-                Results
-              </button>
-            </div>
-
             {/* Content */}
             {error ? <div className="text-sm text-red-600">⚠ {error}</div> : null}
 
@@ -436,9 +405,7 @@ return (
               </div>
             ) : games.length === 0 ? (
               <div className="text-sm text-muted-foreground py-6 text-center">
-                {mode === "results"
-                  ? "No results yet for this gameweek."
-                  : "No fixtures found for this gameweek."}
+                No matches found for this matchday.
               </div>
             ) : (
               <div className="space-y-4">
@@ -450,7 +417,7 @@ return (
 
                     <div className="mt-2 rounded-2xl border bg-card px-3 divide-y divide-border/40">
                       {list.map((g) => (
-                        <MatchRow key={g.id} g={g} mode={mode} />
+                        <MatchRow key={g.id} g={g} />
                       ))}
                     </div>
                   </div>
