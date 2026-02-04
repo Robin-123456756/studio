@@ -376,31 +376,44 @@ return (
                 </div>
 
 
-              {/* ✅ simple GW toggle (current <-> next) */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setGwId(gw?.current?.id ?? null)}
-                  className="grid h-9 w-9 place-items-center rounded-full border bg-background"
-                  aria-label="Current gameweek"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
+              {/* Matchday centered between arrows */}
+<div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
+  {/* Left arrow */}
+  <button
+    type="button"
+    onClick={() => setGwId((x) => (x ? Math.max(1, x - 1) : x))}
+    disabled={!canPrev}
+    className={cn(
+      "grid h-11 w-11 place-items-center rounded-full border bg-background",
+      !canPrev && "opacity-40"
+    )}
+    aria-label="Previous matchday"
+  >
+    <ChevronLeft className="h-5 w-5" />
+  </button>
 
-                <button
-                  type="button"
-                  onClick={() => (mode === "results" ? null : setGwId(gw?.next?.id ?? gwId))}
-                  className={cn(
-                    "grid h-9 w-9 place-items-center rounded-full border bg-background",
-                    mode === "results" && "opacity-40"
-                  )}
-                  aria-label="Next gameweek"
-                  disabled={mode === "results"}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
+  {/* Center title */}
+  <div className="text-center min-w-0">
+    <div className="text-lg font-extrabold truncate">
+      {activeName ?? (gwId ? `Match day ${gwId}` : "Match day —")}
+    </div>
+  </div>
+
+  {/* Right arrow */}
+  <button
+    type="button"
+    onClick={() => setGwId((x) => (x ? x + 1 : x))}
+    disabled={!canNext}
+    className={cn(
+      "grid h-11 w-11 place-items-center rounded-full border bg-background",
+      !canNext && "opacity-40"
+    )}
+    aria-label="Next matchday"
+  >
+    <ChevronRight className="h-5 w-5" />
+  </button>
+</div>
               </div>
-            </div>
 
             {/* Fixtures / Results toggle */}
             <div className="rounded-2xl bg-muted p-1 inline-flex">
