@@ -154,10 +154,10 @@ function MatchRow({ g }: { g: UiGame }) {
 
   return (
     <div className="py-3">
-      <div className="grid grid-cols-[minmax(0,1fr)_24px_56px_24px_minmax(0,1fr)] items-center gap-x-3">
+      <div className="grid grid-cols-[minmax(0,1.2fr)_24px_56px_24px_minmax(0,1fr)] items-center gap-x-3">
         {/* left team */}
         <div className="min-w-0 text-right">
-          <div className="truncate text-[14px] font-semibold leading-none">
+          <div className="text-[14px] font-semibold leading-none whitespace-normal break-words">
             {g.team1.name}
           </div>
         </div>
@@ -204,7 +204,7 @@ function MatchRow({ g }: { g: UiGame }) {
 
         {/* right team */}
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold leading-none">
+          <div className="text-sm font-semibold leading-none whitespace-normal break-words">
             {g.team2.name}
           </div>
         </div>
