@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search, Bell } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function getPageTitle(pathname: string) {
   if (!pathname || pathname === "/") return "Home";
@@ -20,9 +21,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
       <div className="px-4 pt-3 pb-4 space-y-3 md:space-y-0 md:flex md:h-16 md:items-center md:gap-4 md:px-6 lg:px-8">
-        {/* ✅ Mobile top row: logo + bell (balanced) */}
+        {/* ✅ Mobile top row: logo + bell */}
         <div className="flex items-center justify-between md:hidden">
-          {/* If you truly don't want sidebar on mobile, keep it hidden */}
           <div className="hidden">
             <SidebarTrigger />
           </div>
@@ -48,6 +48,22 @@ export default function Header() {
           </button>
         </div>
 
+        {/* ✅ Mobile search bar (NEW) */}
+        <div className="md:hidden">
+          <div
+            className={cn(
+              "flex items-center gap-3 rounded-2xl border bg-background/95",
+              "px-4 py-3 shadow-sm"
+            )}
+          >
+            <Search className="h-5 w-5 text-muted-foreground" />
+            <input
+              placeholder="Search matches, teams or players"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+
         {/* ✅ Desktop left */}
         <div className="hidden md:flex items-center gap-3">
           <Link
@@ -67,7 +83,29 @@ export default function Header() {
             <div className="text-sm font-semibold">{title}</div>
           </div>
         </div>
+
+        {/* (Optional) Desktop search bar too */}
+        <div className="hidden md:flex flex-1 justify-center">
+          <div className="w-full max-w-xl flex items-center gap-3 rounded-2xl border bg-background/95 px-4 py-2 shadow-sm">
+            <Search className="h-5 w-5 text-muted-foreground" />
+            <input
+              placeholder="Search matches, teams or players"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+
+        {/* (Optional) Desktop bell */}
+        <div className="hidden md:flex items-center justify-end">
+          <button
+            className="grid h-10 w-10 place-items-center rounded-full border bg-background shadow-sm"
+            aria-label="Notifications"
+            type="button"
+          >
+            <Bell className="h-5 w-5" />
+          </button>
+        </div>
       </div>
-  </header>
+    </header>
   );
 }
