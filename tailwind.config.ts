@@ -35,8 +35,8 @@ const config: Config = {
         appWide: "32rem",
       },
       fontFamily: {
-        body: ["Inter", "sans-serif"],
-        headline: ["Space Grotesk", "sans-serif"],
+        body: ["Manrope", "ui-sans-serif", "system-ui", "sans-serif"],
+        headline: ["Fraunces", "ui-serif", "Georgia", "serif"],
         code: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
       },
       colors: {

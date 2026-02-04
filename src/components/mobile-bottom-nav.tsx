@@ -28,7 +28,7 @@ export default function MobileBottomNav() {
       className={cn(
         "md:hidden fixed bottom-0 left-0 right-0 z-40",
         "border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70",
-        "pb-[env(safe-area-inset-bottom)]"
+        "pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.08)]"
       )}
     >
       <div className="mx-auto w-full max-w-app px-2 py-2">
@@ -45,14 +45,14 @@ export default function MobileBottomNav() {
                   "flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2",
                   "transition active:scale-[0.98]",
                   active
-                    ? "text-foreground"
+                    ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <div
                   className={cn(
                     "grid h-10 w-10 place-items-center rounded-2xl",
-                    active ? "bg-muted shadow-sm" : "bg-transparent"
+                    active ? "bg-primary/10 shadow-sm" : "bg-transparent"
                   )}
                 >
                   <Icon className="h-5 w-5" />

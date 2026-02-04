@@ -5,39 +5,38 @@ import Link from "next/link";
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
-      <div className="px-4 py-3 md:h-16 md:flex md:items-center md:justify-between md:px-6 lg:px-8">
-        {/* Mobile: logo only */}
-        <div className="flex items-center justify-between md:hidden">
+    <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <div className="mx-auto w-full max-w-5xl px-4 py-3 md:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4">
           <Link
             href="/dashboard"
-            className="rounded-2xl bg-white px-3 py-2 ring-1 ring-border shadow-sm overflow-hidden"
+            className="group flex items-center gap-3 rounded-2xl p-2 -ml-2 hover:bg-muted/60 transition-colors"
           >
-            <img
-              src="/icon.png"
-              alt="Budo League"
-              className="h-8 w-auto object-contain scale-[1.6]"
-              style={{ transformOrigin: "center" }}
-            />
+            <div className="h-11 w-11 rounded-2xl bg-white ring-1 ring-border shadow-sm overflow-hidden grid place-items-center">
+              <img
+                src="/icon.png"
+                alt="Budo League"
+                className="h-8 w-auto object-contain scale-[1.4]"
+                style={{ transformOrigin: "center" }}
+              />
+            </div>
+
+            <div className="min-w-0">
+              <div className="text-base font-semibold tracking-tight font-headline">
+                The Budo League
+              </div>
+              <div className="text-xs text-muted-foreground">Sunday League</div>
+            </div>
           </Link>
 
-          {/* optional right icon area (empty for now) */}
-          <div className="h-10 w-10" />
-        </div>
-
-        {/* Desktop: logo only */}
-        <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="rounded-2xl bg-white px-4 py-2 ring-1 ring-border shadow-sm overflow-hidden"
-          >
-            <img
-              src="/icon.png"
-              alt="Budo League"
-              className="h-10 w-auto object-contain scale-[1.4]"
-              style={{ transformOrigin: "center" }}
-            />
-          </Link>
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="rounded-full border bg-card px-3 py-1 text-xs font-semibold text-foreground">
+              Season TBL8
+            </div>
+            <div className="rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
+              60 min matches
+            </div>
+          </div>
         </div>
       </div>
     </header>
