@@ -318,13 +318,7 @@ return (
           <div className="text-sm/none opacity-90">Season</div>
           <div className="mt-2 flex items-center gap-2">
             <div className="text-2xl font-extrabold tracking-tight">TBL8</div>
-            <button
-              type="button"
-              className="ml-auto grid h-10 w-10 place-items-center rounded-full bg-black/20"
-              aria-label="Change season"
-            >
-              <span className="text-xl">⌄</span>
-            </button>
+            
           </div>
         </div>
       </CardContent>
