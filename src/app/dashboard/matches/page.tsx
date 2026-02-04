@@ -522,5 +522,6 @@ export default function MatchesPage() {
       {/* Space so bottom nav never covers content */}
       <div className="h-24 md:hidden" />
     </div>
+    </div>
   );
 }
