@@ -1,122 +1,145 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Star, ThumbsUp, ThumbsDown } from "lucide-react";
-
-const reviews = [
-  {
-    id: 1,
-    name: "Alex Johnson",
-    avatar: "https://picsum.photos/seed/review1/100/100",
-    rating: 5,
-    title: "Best League App Ever!",
-    comment: "This app is amazing. It's so easy to keep track of schedules, scores, and my fantasy team. The interface is clean and intuitive. Highly recommended for any league manager!",
-    likes: 12,
-    dislikes: 0,
-  },
-  {
-    id: 2,
-    name: "Samantha Lee",
-    avatar: "https://picsum.photos/seed/review2/100/100",
-    rating: 4,
-    title: "Almost Perfect",
-    comment: "I really like this app. It has all the features I need. The only thing I wish it had was a way to chat with other team coaches directly. Other than that, it's fantastic.",
-    likes: 8,
-    dislikes: 1,
-  },
-  {
-    id: 3,
-    name: "Michael Chen",
-    avatar: "https://picsum.photos/seed/review3/100/100",
-    rating: 3,
-    title: "Good, but could use improvements",
-    comment: "A solid app for league management. However, it can be a bit slow to load sometimes, especially on the fantasy page. Also, more customization options for the dashboard would be great.",
-    likes: 3,
-    dislikes: 2,
-  },
-];
-
-const StarRating = ({ rating }: { rating: number }) => (
-  <div className="flex items-center">
-    {[...Array(5)].map((_, i) => (
-      <Star
-        key={i}
-        className={`h-5 w-5 ${i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground/50'}`}
-      />
-    ))}
-  </div>
-);
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function ReviewsPage() {
+  const [message, setMessage] = React.useState("");
+  const [rating, setRating] = React.useState<number | null>(null);
+  const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const [msg, setMsg] = React.useState<string | null>(null);
+
+  const [userId, setUserId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // if logged in, attach userId (optional)
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user?.id ?? null);
+    });
+  }, []);
+
+  async function submit() {
+    setMsg(null);
+
+    const text = message.trim();
+    if (text.length < 5) return setMsg("Please write a bit more feedback.");
+
+    try {
+      setSending(true);
+
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          rating,
+          name: name.trim() || null,
+          email: email.trim() || null,
+          userId,
+          page: "More > Reviews",
+          device: typeof window !== "undefined" && window.innerWidth < 768 ? "mobile" : "desktop",
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Failed to send");
+
+      setMessage("");
+      setRating(null);
+      setName("");
+      setEmail("");
+      setMsg("Thanks ✅ Your feedback was sent.");
+    } catch (e: any) {
+      setMsg(e?.message ?? "Failed to send feedback");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <div className="space-y-8 animate-in fade-in-50">
+    <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-headline font-bold tracking-tight">User Reviews</h2>
-          <p className="text-muted-foreground">See what others are saying about the Budo League app.</p>
+          <div className="text-2xl font-extrabold tracking-tight">Reviews</div>
+          <div className="text-sm text-muted-foreground">
+            Send your opinion / feedback to the admin.
+          </div>
         </div>
+
+        <Button asChild variant="outline" className="rounded-2xl">
+          <Link href="/dashboard/more">Back</Link>
+        </Button>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <h3 className="text-xl font-semibold">Latest Feedback</h3>
-          {reviews.map((review) => (
-            <Card key={review.id}>
-              <CardHeader className="flex flex-row items-start gap-4">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={review.avatar} alt={review.name} data-ai-hint="person avatar" />
-                  <AvatarFallback>{review.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">{review.name}</h4>
-                    <StarRating rating={review.rating} />
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground">{review.title}</p>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-foreground/80">{review.comment}</p>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-4">
-                <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                  <ThumbsUp className="h-4 w-4" />
-                  <span>{review.likes}</span>
-                </Button>
-                <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                  <ThumbsDown className="h-4 w-4" />
-                  <span>{review.dislikes}</span>
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle>Leave a Review</CardTitle>
-              <CardDescription>Share your thoughts about the app.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div>
-                    <p className="text-sm font-medium mb-2">Your Rating</p>
-                    <div className="flex items-center space-x-1">
-                        {[...Array(5)].map((_, i) => (
-                            <Button key={i} variant="ghost" size="icon">
-                                <Star className="h-6 w-6 text-muted-foreground/50" />
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-                <Textarea placeholder="Tell us what you think..." rows={5} />
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full">Submit Review</Button>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
+      <Card className="rounded-2xl">
+        <CardContent className="p-4 space-y-3">
+          {!userId ? (
+            <div className="text-xs text-muted-foreground">
+              Optional: add your name/email so admin can reply.
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              Signed in ✅ (feedback will include your user id)
+            </div>
+          )}
+
+          {!userId ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              />
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email (optional)"
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">Rating (optional)</div>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRating(n)}
+                  className={cn(
+                    "h-9 w-9 rounded-full border text-sm font-bold",
+                    rating === n ? "bg-foreground text-background" : "bg-background"
+                  )}
+                  aria-label={`Rate ${n}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Write your feedback…"
+            className="min-h-[140px] w-full rounded-2xl border bg-background px-3 py-3 text-sm"
+          />
+
+          {msg ? <div className="text-sm">{msg}</div> : null}
+
+          <Button className="w-full rounded-2xl" onClick={submit} disabled={sending}>
+            {sending ? "Sending..." : "Send Feedback"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

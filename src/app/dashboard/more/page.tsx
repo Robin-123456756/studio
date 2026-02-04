@@ -10,7 +10,7 @@ const items = [
   { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
   { href: "/dashboard/transfers", label: "Transfers", Icon: ArrowLeftRight },
   { href: "/dashboard/matches?tab=results", label: "Results", Icon: Medal },
-  { href: "/dashboard/reviews", label: "Reviews", Icon: Star },
+  { href: "/dashboard/matches?tab=results", label: "Reviews", Icon: Star },
 ] as const;
 
 export default function MorePage() {
