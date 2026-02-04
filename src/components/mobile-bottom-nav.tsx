@@ -4,13 +4,14 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Trophy, CalendarDays, MoreHorizontal } from "lucide-react";
+import { Home, Trophy, CalendarDays, Search, MoreHorizontal } from "lucide-react";
 
 const tabs = [
   { href: "/dashboard", label: "Latest", Icon: Home },
   { href: "/dashboard/matches", label: "Matches", Icon: CalendarDays },
   { href: "/dashboard/fantasy", label: "Fantasy", Icon: Trophy },
-  { href: "/dashboard/more", label: "More", Icon: MoreHorizontal }, // ✅ now its own page
+  { href: "/dashboard/explore", label: "Explore", Icon: Search }, // ✅ NEW
+  { href: "/dashboard/more", label: "More", Icon: MoreHorizontal },
 ] as const;
 
 function isActiveRoute(pathname: string, href: string) {
@@ -31,7 +32,8 @@ export default function MobileBottomNav() {
       )}
     >
       <div className="mx-auto w-full max-w-app px-2 py-2">
-        <div className="grid grid-cols-4 gap-1">
+        {/* ✅ changed to 5 columns */}
+        <div className="grid grid-cols-5 gap-1">
           {tabs.map(({ href, label, Icon }) => {
             const active = isActiveRoute(pathname, href);
 
@@ -55,6 +57,7 @@ export default function MobileBottomNav() {
                 >
                   <Icon className="h-5 w-5" />
                 </div>
+
                 <span
                   className={cn(
                     "text-[11px] leading-none",
