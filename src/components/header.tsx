@@ -67,20 +67,7 @@ export default function Header() {
             <div className="text-sm font-semibold">{title}</div>
           </div>
         </div>
-
-        {/* ✅ Search row (mobile + desktop) */}
-        <div className="md:flex-1 md:flex md:justify-center">
-          <div className="w-full md:max-w-xl">
-            <div className="flex items-center gap-2 rounded-full border bg-background px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <input
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                placeholder="Search matches, teams or players"
-              />
-            </div>
-          </div>
-        </div>
       </div>
-    </header>
+  </header>
   );
 }

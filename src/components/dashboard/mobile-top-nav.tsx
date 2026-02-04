@@ -1,0 +1,72 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Home, Trophy, CalendarDays, MoreHorizontal } from "lucide-react";
+
+const tabs = [
+  { href: "/dashboard", label: "Latest", Icon: Home },
+  { href: "/dashboard/matches", label: "Matches", Icon: CalendarDays },
+  { href: "/dashboard/fantasy", label: "Fantasy", Icon: Trophy },
+  { href: "/dashboard/more", label: "More", Icon: MoreHorizontal },
+] as const;
+
+function isActiveRoute(pathname: string, href: string) {
+  if (href === "/dashboard") return pathname === "/dashboard";
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+export default function MobileTopNav() {
+  const pathname = usePathname();
+
+  return (
+    <div className="md:hidden sticky top-0 z-40">
+      <div
+        className={cn(
+          "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70"
+        )}
+      >
+        <div className="mx-auto w-full max-w-5xl px-2 py-2">
+          <div className="grid grid-cols-4 gap-1">
+            {tabs.map(({ href, label, Icon }) => {
+              const active = isActiveRoute(pathname, href);
+
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2",
+                    "transition active:scale-[0.98]",
+                    active
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "grid h-9 w-9 place-items-center rounded-2xl",
+                      active ? "bg-muted shadow-sm" : "bg-transparent"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[11px] leading-none",
+                      active ? "font-semibold" : "font-medium"
+                    )}
+                  >
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
