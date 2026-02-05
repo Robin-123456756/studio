@@ -5,15 +5,27 @@ import { createRequire } from "node:module";
 
 const root = process.cwd();
 const inputIcon = resolve(root, "public/icon.png");
+const blankSplashSource = resolve(root, "public/pwa/splash-source.png");
 const outputDir = resolve(root, "public/pwa");
 const manifestPath = resolve(root, "public/manifest.json");
 const htmlOut = resolve(root, "public/pwa/splash.html");
 const startupLinksFile = resolve(root, "src/app/pwa-startup-images.tsx");
 
 const splashPadding = "24%";
+const transparentPngBase64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAF9p0WQAAAAASUVORK5CYII=";
+
+if (!existsSync(blankSplashSource)) {
+  writeFileSync(
+    blankSplashSource,
+    Buffer.from(transparentPngBase64, "base64")
+  );
+}
+
+const splashSource = existsSync(blankSplashSource) ? blankSplashSource : inputIcon;
 
 const args = [
-  inputIcon,
+  splashSource,
   outputDir,
   "--manifest",
   manifestPath,
