@@ -43,7 +43,7 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-foreground">
         <ThemeProvider>
-          <LaunchGate minDurationMs={8000} message="Loading your season...">
+          <LaunchGate minDurationMs={4000} message="Loading your season...">
             {children}
           </LaunchGate>
         </ThemeProvider>
