@@ -1,8 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
 
-const MAX_SQUAD = 17;
-const MAX_STARTING = 9;
-
 export async function requireUserId(): Promise<string> {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
@@ -20,11 +17,6 @@ export async function upsertTeamName(teamName: string) {
     .upsert({ user_id: uid, name }, { onConflict: "user_id" });
 
   if (error) throw error;
-}
-
-function uniq(ids: string[]) {
-  const clean = ids.map(String);
-  return Array.from(new Set(clean));
 }
 
 export async function saveRosterToDb(payload: {
@@ -49,7 +41,7 @@ export async function saveRosterToDb(payload: {
 
   return json;
 }
-export async function updateRosterInDb(opts: any) {
+export async function updateRosterInDb() {
   throw new Error("updateRosterInDb not yet implemented");
 }
 

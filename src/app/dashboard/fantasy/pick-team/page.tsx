@@ -184,7 +184,6 @@ export default function PickTeamPage() {
   const [gwLoading, setGwLoading] = React.useState(true);
 
   const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
-  
 
   // ----------------------------
   // auth state
@@ -202,17 +201,6 @@ export default function PickTeamPage() {
   // ----------------------------
   // load gameweeks
   // ----------------------------
-
-  const [gw, setGw] = React.useState<{ current: any; next: any } | null>(null);
-
-React.useEffect(() => {
-  (async () => {
-    const res = await fetch("/api/gameweeks/current", { cache: "no-store" });
-    const json = await res.json();
-    setGw(json);
-  })();
-}, []);
-
   React.useEffect(() => {
     (async () => {
       try {

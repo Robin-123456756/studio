@@ -19,20 +19,6 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
 
-type Player = {
-  id: string;
-  name: string; // full name
-  webName?: string | null; // short display name
-  position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward" | string;
-  price: number;
-  points: number;
-  avatarUrl?: string | null;
-  isLady?: boolean;
-  teamShort?: string | null;
-  teamName?: string | null;
-  didPlay?: boolean;
-};
-
 type ApiGameweek = {
   id: number;
   name?: string | null;
