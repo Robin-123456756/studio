@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import AuthGate from "@/components/AuthGate";
@@ -9,6 +10,7 @@ import {
   Sparkles,
   TrendingUp,
   ArrowUpDown,
+  ArrowLeft,
   Users,
   Zap,
   X,
@@ -151,6 +153,29 @@ function formatNumber(value?: number | null) {
 function formatForm(value?: string | null) {
   if (!value) return "--";
   return value;
+}
+
+function formatOwnership(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "--";
+  return `${value}%`;
+}
+
+function formatDeadlineUG(iso?: string | null) {
+  if (!iso) return "--";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "--";
+
+  const formatted = new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Africa/Kampala",
+  }).format(d);
+
+  return formatted.replace(/\./g, "");
 }
 
 function getTeamLogo(teamName?: string | null, teamShort?: string | null) {
@@ -735,6 +760,13 @@ export default function PickTeamPage() {
     [players, startingIds]
   );
 
+  const bench = React.useMemo(
+    () => picked.filter((p) => !startingIds.includes(p.id)),
+    [picked, startingIds]
+  );
+
+  const startingByPos = React.useMemo(() => groupByPosition(starting), [starting]);
+
   const pickedLadyForwards = picked.filter(
     (p) => p.isLady && normalizePosition(p.position) === "Forward"
   );
@@ -761,6 +793,22 @@ export default function PickTeamPage() {
     viceId && playerById.get(viceId)
       ? shortName(playerById.get(viceId)?.name, playerById.get(viceId)?.webName)
       : "--";
+
+  const deadlineLabel = formatDeadlineUG(nextGW?.deadline_time ?? currentGW?.deadline_time);
+  const currentGwLabel = gwId ? `Gameweek ${gwId}` : "Gameweek --";
+  const chips = [
+    { label: "Bench Boost", icon: ArrowUpDown },
+    { label: "Triple Captain", icon: Sparkles },
+    { label: "Wildcard", icon: TrendingUp },
+    { label: "Free Hit", icon: Zap },
+  ];
+
+  const listSections = [
+    { title: "Goalkeepers", players: startingByPos.Goalkeepers },
+    { title: "Defenders", players: startingByPos.Defenders },
+    { title: "Midfielders", players: startingByPos.Midfielders },
+    { title: "Forwards", players: startingByPos.Forwards },
+  ];
 
   React.useEffect(() => {
     if (captainId && !startingIds.includes(captainId)) setCaptainId(null);
@@ -1161,23 +1209,20 @@ export default function PickTeamPage() {
     showLeadership?: boolean;
   }) {
     const displayName = shortName(player.name, player.webName);
-    const pointsValue =
-      player.gwPoints !== null && player.gwPoints !== undefined
-        ? player.gwPoints
-        : player.points ?? null;
+    const fixture = player.nextOpponent ?? player.teamShort ?? "--";
 
-    // Get position color for jersey
+    // Subtle jersey color by position for fallback avatars
     const posColorMap: Record<string, string> = {
       Goalkeeper: "from-amber-500 to-amber-600",
-      Defender: "from-blue-500 to-blue-600",
-      Midfielder: "from-emerald-500 to-emerald-600",
+      Defender: "from-blue-600 to-blue-700",
+      Midfielder: "from-emerald-600 to-emerald-700",
       Forward: "from-rose-600 to-red-700",
     };
     const normalizedPos = normalizePosition(player.position);
-    const posColor = posColorMap[normalizedPos] ?? "from-gray-500 to-gray-600";
+    const posColor = posColorMap[normalizedPos] ?? "from-gray-600 to-gray-700";
 
     return (
-      <div className="relative w-[88px]">
+      <div className="relative w-[86px]">
         {/* Info button */}
         <button
           type="button"
@@ -1185,82 +1230,15 @@ export default function PickTeamPage() {
             e.stopPropagation();
             onInfo();
           }}
-          className="absolute -top-1 -left-1 z-10 h-5 w-5 rounded-full bg-white shadow-md grid place-items-center hover:bg-gray-100"
+          className="absolute -top-1 -left-1 z-10 h-5 w-5 rounded-full bg-white/90 shadow-md grid place-items-center hover:bg-white"
           aria-label={`View ${displayName} details`}
         >
           <Info className="h-3 w-3 text-gray-600" />
         </button>
 
-        <button
-          type="button"
-          onClick={onToggle}
-          className="w-full active:scale-[0.96] transition-transform duration-150"
-          aria-label={`Select ${displayName}`}
-        >
-          <div className="rounded-2xl overflow-hidden shadow-xl">
-            {/* Jersey/Avatar section */}
-            <div className={cn("relative bg-gradient-to-b", posColor, "pt-1 pb-2")}>
-              {/* Team badge */}
-              <div className="absolute top-1 left-1">
-                <TeamBadge teamName={player.teamName} teamShort={player.teamShort} size="sm" />
-              </div>
-
-              {/* Lady badge + Price change */}
-              <div className="absolute top-1 right-1 flex items-center gap-0.5">
-                {player.priceChange !== 0 && player.priceChange && (
-                  <div className={cn(
-                    "text-[8px] font-bold px-1 rounded",
-                    player.priceChange > 0 ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
-                  )}>
-                    {player.priceChange > 0 ? "↑" : "↓"}
-                  </div>
-                )}
-                {player.isLady && (
-                  <div className="bg-pink-500 text-white text-[8px] font-bold px-1 rounded">
-                    F
-                  </div>
-                )}
-              </div>
-
-              {/* Avatar */}
-              <div className="flex items-center justify-center pt-3">
-                <div className="h-11 w-11 rounded-full bg-white/20 border-2 border-white/40 grid place-items-center overflow-hidden shadow-inner">
-                  {player.avatarUrl ? (
-                    <img
-                      src={player.avatarUrl}
-                      alt={displayName}
-                      className="h-11 w-11 object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="text-white/80 text-lg font-bold">
-                      {displayName.charAt(0)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Info section - Budo League themed */}
-            <div className="bg-gradient-to-b from-zinc-900 to-black text-white px-1.5 py-1.5">
-              <div className="text-[11px] font-bold leading-tight truncate text-center">
-                {displayName}
-              </div>
-              <div className="text-[9px] text-white/70 text-center truncate">
-                {player.teamShort ?? "--"}
-              </div>
-              <div className="mt-1 flex items-center justify-between text-[9px]">
-                <span className="text-emerald-400 font-semibold">{formatNumber(pointsValue)} pts</span>
-                <span className="text-white/60">{formatUGX(player.price).replace("UGX ", "")}</span>
-              </div>
-            </div>
-          </div>
-        </button>
-
-        {/* Captain/Vice buttons */}
+        {/* Captain/Vice badges */}
         {showLeadership ? (
-          <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5">
+          <div className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5">
             <button
               type="button"
               onClick={(e) => {
@@ -1268,10 +1246,8 @@ export default function PickTeamPage() {
                 onCaptain();
               }}
               className={cn(
-                "h-5 w-5 rounded-full text-[9px] font-bold shadow-lg transition-all",
-                isCaptain
-                  ? "bg-gradient-to-br from-amber-400 to-amber-500 text-black ring-2 ring-amber-300"
-                  : "bg-white/90 text-black/60 hover:bg-white"
+                "h-5 w-5 rounded-full text-[9px] font-bold shadow-md",
+                isCaptain ? "bg-amber-400 text-black" : "bg-white/90 text-black/70"
               )}
             >
               C
@@ -1283,10 +1259,8 @@ export default function PickTeamPage() {
                 onVice();
               }}
               className={cn(
-                "h-5 w-5 rounded-full text-[9px] font-bold shadow-lg transition-all",
-                isVice
-                  ? "bg-gradient-to-br from-sky-400 to-sky-500 text-black ring-2 ring-sky-300"
-                  : "bg-white/80 text-black/50 hover:bg-white"
+                "h-5 w-5 rounded-full text-[9px] font-bold shadow-md",
+                isVice ? "bg-sky-300 text-black" : "bg-white/80 text-black/60"
               )}
             >
               V
@@ -1294,17 +1268,54 @@ export default function PickTeamPage() {
           </div>
         ) : null}
 
-        {/* Captain/Vice label */}
-        {showLeadership && isCaptain ? (
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2 py-0.5 text-[8px] font-bold text-black shadow-lg">
-            CAPTAIN
+        <button
+          type="button"
+          onClick={onToggle}
+          className="w-full active:scale-[0.96] transition-transform duration-150"
+          aria-label={`Select ${displayName}`}
+        >
+          <div className="rounded-2xl overflow-hidden shadow-xl bg-white/95">
+            {/* Avatar/kit */}
+            <div className={cn("relative pt-2 pb-1", "bg-gradient-to-b", posColor)}>
+              <div className="absolute top-1 left-1">
+                <TeamBadge teamName={player.teamName} teamShort={player.teamShort} size="sm" />
+              </div>
+              {player.isLady ? (
+                <div className="absolute top-1 right-1 rounded-full bg-pink-500 text-white text-[8px] font-bold px-1">
+                  F
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-center pt-1">
+                <div className="h-11 w-11 rounded-full bg-white/15 border border-white/40 grid place-items-center overflow-hidden shadow-inner">
+                  {player.avatarUrl ? (
+                    <img
+                      src={player.avatarUrl}
+                      alt={displayName}
+                      className="h-11 w-11 object-cover"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="text-white/90 text-lg font-bold">
+                      {displayName.charAt(0)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Name + fixture */}
+            <div className="bg-white text-zinc-900 px-1.5 py-1">
+              <div className="text-[11px] font-semibold leading-tight truncate text-center">
+                {displayName}
+              </div>
+              <div className="mt-0.5 rounded-md bg-zinc-100 text-[10px] text-zinc-700 text-center py-0.5">
+                {fixture}
+              </div>
+            </div>
           </div>
-        ) : null}
-        {showLeadership && isVice ? (
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-sky-400 to-sky-500 px-2 py-0.5 text-[8px] font-bold text-black shadow-lg">
-            VICE
-          </div>
-        ) : null}
+        </button>
       </div>
     );
   }
@@ -1345,38 +1356,37 @@ export default function PickTeamPage() {
 
     return (
       <div className="space-y-3">
-        {/* Pitch - Budo League themed */}
+        {/* Pitch */}
         <div
           className={cn(
-            "relative rounded-3xl overflow-hidden border-2 border-primary/30",
-            "bg-gradient-to-b from-emerald-800 via-emerald-700 to-emerald-800",
-            "shadow-[inset_0_0_100px_rgba(0,0,0,0.3)]"
+            "relative rounded-3xl overflow-hidden border",
+            "bg-emerald-700",
+            "shadow-[inset_0_0_120px_rgba(0,0,0,0.35)]"
           )}
           style={{
             backgroundImage: `
-              repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 80px),
-              linear-gradient(180deg, #166534 0%, #15803d 50%, #166534 100%)
-            `
+              repeating-linear-gradient(0deg, rgba(255,255,255,0.04), rgba(255,255,255,0.04) 28px, transparent 28px, transparent 56px),
+              linear-gradient(180deg, #0e7a34 0%, #0f8a3c 50%, #0e7a34 100%)
+            `,
           }}
         >
           {/* Field markings */}
           <div className="absolute inset-4 rounded-2xl border-2 border-white/30" />
-          <div className="absolute left-1/2 top-4 bottom-4 w-0.5 bg-white/20" />
+          <div className="absolute left-1/2 top-4 bottom-4 w-0.5 bg-white/25" />
           <div className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/30" />
           <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/50" />
-          <div className="absolute left-1/2 top-6 h-24 w-48 -translate-x-1/2 rounded-b-3xl border-2 border-white/30" />
-          <div className="absolute left-1/2 bottom-6 h-24 w-48 -translate-x-1/2 rounded-t-3xl border-2 border-white/30" />
-          {/* Goal areas */}
-          <div className="absolute left-1/2 top-6 h-10 w-20 -translate-x-1/2 rounded-b-xl border-2 border-white/25" />
-          <div className="absolute left-1/2 bottom-6 h-10 w-20 -translate-x-1/2 rounded-t-xl border-2 border-white/25" />
+          <div className="absolute left-1/2 top-6 h-24 w-52 -translate-x-1/2 rounded-b-3xl border-2 border-white/30" />
+          <div className="absolute left-1/2 bottom-6 h-24 w-52 -translate-x-1/2 rounded-t-3xl border-2 border-white/30" />
+          <div className="absolute left-1/2 top-6 h-10 w-24 -translate-x-1/2 rounded-b-xl border-2 border-white/25" />
+          <div className="absolute left-1/2 bottom-6 h-10 w-24 -translate-x-1/2 rounded-t-xl border-2 border-white/25" />
 
-          <div className="relative px-3 pt-4 pb-6">
-            <div className="mb-2 flex items-center justify-between text-xs text-white/70">
+          <div className="relative px-3 pt-5 pb-6">
+            <div className="mb-3 flex items-center justify-between text-xs text-white/80">
               <span>Formation {formation}</span>
-              <span className="uppercase tracking-widest">Starting 10</span>
+              <span className="uppercase tracking-widest">Pitch</span>
             </div>
 
-            <div className="flex flex-col gap-6 py-3">
+            <div className="flex flex-col gap-6">
               <div className="flex justify-center">
                 {g.Goalkeepers.slice(0, 1).map((p) => (
                   <PitchPlayerCard
@@ -1441,29 +1451,33 @@ export default function PickTeamPage() {
         </div>
 
         {/* Bench */}
-        <div className="rounded-2xl border bg-card/60 backdrop-blur px-3 py-3">
+        <div className="rounded-2xl border bg-card/70 px-3 py-3">
           <div className="flex items-center justify-between pb-2">
             <div className="text-sm font-semibold">Bench</div>
-            <div className="text-xs text-muted-foreground">Tap to add/remove starting</div>
+            <div className="text-xs text-muted-foreground">Order matters</div>
           </div>
 
           <div className="flex gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
             {bench.map((p, index) => (
-              <div key={p.id} className="shrink-0 relative">
-                {/* Bench order number */}
-                <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-800 text-white text-[10px] font-bold grid place-items-center shadow">
-                  {index + 1}
+              <div key={p.id} className="shrink-0">
+                <div className="text-[10px] text-muted-foreground text-center mb-1">
+                  {shortPos(p.position)}
                 </div>
-                <PitchPlayerCard
-                  player={p}
-                  onToggle={() => onToggleStarting(p.id)}
-                  onCaptain={() => onCaptain(p.id)}
-                  onVice={() => onVice(p.id)}
-                  onInfo={() => onInfo(p)}
-                  isCaptain={captainId === p.id}
-                  isVice={viceId === p.id}
-                  showLeadership={false}
-                />
+                <div className="relative">
+                  <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
+                    {index + 1}
+                  </div>
+                  <PitchPlayerCard
+                    player={p}
+                    onToggle={() => onToggleStarting(p.id)}
+                    onCaptain={() => onCaptain(p.id)}
+                    onVice={() => onVice(p.id)}
+                    onInfo={() => onInfo(p)}
+                    isCaptain={captainId === p.id}
+                    isVice={viceId === p.id}
+                    showLeadership={false}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -1482,20 +1496,40 @@ export default function PickTeamPage() {
   return (
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
       <div className="rounded-2xl border bg-card/70 p-4 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="text-xl font-bold text-foreground">Pick Your Squad</div>
-            <div className="text-sm text-muted-foreground mt-1">
-              Build a 17-player squad with 2 GKs and 2 lady forwards. Start 10: 1 GK, 9 males + 1 lady forward.
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 font-medium">
-                {gwLoading ? "Loading..." : gwId ? `GW ${gwId}` : "No gameweek"}
-              </span>
-            </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Link
+              href="/dashboard/fantasy"
+              className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
+              aria-label="Back to Fantasy"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div className="text-base font-semibold">Pick Team</div>
+            <div className="h-9 w-9" />
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="text-sm text-muted-foreground text-center">
+            {gwLoading ? "Loading..." : `${currentGwLabel} - Deadline: ${deadlineLabel}`}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {chips.map(({ label, icon: Icon }) => (
+              <div key={label} className="rounded-2xl border bg-card px-2 py-2 text-center">
+                <div className="mx-auto h-8 w-8 rounded-xl bg-primary/10 text-primary grid place-items-center">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="mt-1 text-[11px] font-semibold">{label}</div>
+                <div className="text-[10px] text-muted-foreground">Available</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-xs text-muted-foreground text-center">
+            Squad rules: 17 players, 2 GKs, 2 lady forwards. Starting 10: 1 GK, 9 male + 1 lady forward.
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
               variant="outline"
               className="rounded-2xl gap-2"
@@ -1651,101 +1685,172 @@ export default function PickTeamPage() {
               onInfo={setSelectedPlayer}
             />
           ) : (
-            <div className="divide-y rounded-2xl border">
+            <div className="rounded-2xl border bg-card">
+              <div className="px-4 py-3 border-b text-[11px] font-semibold text-muted-foreground grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2">
+                <div>Player</div>
+                <div className="text-right">Form</div>
+                <div className="text-right">Current Price</div>
+                <div className="text-right">Selected</div>
+              </div>
+
               {picked.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">Pick players from Player Pool below.</div>
+                <div className="p-4 text-sm text-muted-foreground">Pick players from Player Pool below.</div>
               ) : (
-                picked.map((p) => {
-                  const isStarting = startingIds.includes(p.id);
-                  const isCaptain = captainId === p.id;
-                  const isVice = viceId === p.id;
-                  const displayName = shortName(p.name, p.webName);
-                  const pointsLabel = p.gwPoints !== null && p.gwPoints !== undefined ? "GW" : "Total";
-                  const pointsValue =
-                    p.gwPoints !== null && p.gwPoints !== undefined ? p.gwPoints : p.points ?? null;
+                <div className="divide-y">
+                  {listSections.map((section) => (
+                    <div key={section.title}>
+                      <div className="px-4 py-2 text-sm font-semibold">{section.title}</div>
+                      {section.players.length === 0 ? (
+                        <div className="px-4 pb-3 text-xs text-muted-foreground">No players selected.</div>
+                      ) : (
+                        <div className="divide-y">
+                          {section.players.map((p) => {
+                            const isStarting = startingIds.includes(p.id);
+                            const isCaptain = captainId === p.id;
+                            const isVice = viceId === p.id;
+                            const displayName = shortName(p.name, p.webName);
 
-                  return (
-                    <div key={p.id} className="p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-12 w-12 rounded-2xl overflow-hidden bg-muted shrink-0">
-                          {p.avatarUrl ? (
-                            <img src={p.avatarUrl} alt={displayName} className="h-12 w-12 object-cover" />
-                          ) : null}
+                            return (
+                              <div
+                                key={p.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => toggleStarting(p.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    toggleStarting(p.id);
+                                  }
+                                }}
+                                className={cn(
+                                  "px-4 py-2 grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2 items-center",
+                                  isStarting ? "bg-emerald-50/60" : "hover:bg-muted/40"
+                                )}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedPlayer(p);
+                                    }}
+                                    className="h-6 w-6 rounded-full border bg-background grid place-items-center"
+                                    aria-label={`View ${displayName} details`}
+                                  >
+                                    <Info className="h-3 w-3" />
+                                  </button>
+                                  <div className="h-9 w-9 rounded-full overflow-hidden bg-muted shrink-0">
+                                    {p.avatarUrl ? (
+                                      <img src={p.avatarUrl} alt={displayName} className="h-9 w-9 object-cover" />
+                                    ) : (
+                                      <div className="h-full w-full grid place-items-center text-sm font-semibold text-muted-foreground">
+                                        {displayName.charAt(0)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1">
+                                      <div className="text-sm font-semibold truncate">{displayName}</div>
+                                      {p.isLady ? (
+                                        <span className="text-[10px] font-semibold text-pink-600">Lady</span>
+                                      ) : null}
+                                      {isCaptain ? (
+                                        <span className="text-[10px] font-semibold text-amber-600">C</span>
+                                      ) : null}
+                                      {isVice ? (
+                                        <span className="text-[10px] font-semibold text-sky-600">VC</span>
+                                      ) : null}
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground truncate">
+                                      {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right text-xs tabular-nums">{formatForm(p.formLast5)}</div>
+                                <div className="text-right text-xs tabular-nums">{formatUGX(p.price)}</div>
+                                <div className="text-right text-xs tabular-nums">{formatOwnership(p.ownership)}</div>
+                              </div>
+                            );
+                          })}
                         </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <div className="font-semibold truncate">{displayName}</div>
-                            {p.isLady ? (
-                              <span className="text-[10px] font-semibold text-pink-600">Lady</span>
-                            ) : null}
-                            {isCaptain ? (
-                              <span className="text-[10px] font-semibold text-amber-600">C</span>
-                            ) : null}
-                            {isVice ? <span className="text-[10px] font-semibold text-sky-600">VC</span> : null}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <TeamBadge teamName={p.teamName} teamShort={p.teamShort} size="sm" />
-                            <span className="truncate">
-                              {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            Price {formatUGX(p.price)} - {pointsLabel} {formatNumber(pointsValue)} - Form{" "}
-                            {formatForm(p.formLast5)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant={isStarting ? "default" : "secondary"}
-                          className="rounded-xl"
-                          onClick={() => toggleStarting(p.id)}
-                        >
-                          {isStarting ? "Starting" : "Start"}
-                        </Button>
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="rounded-xl"
-                          onClick={() => removeFromSquad(p.id)}
-                        >
-                          Remove
-                        </Button>
-
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-8 w-8 rounded-xl p-0 text-xs",
-                              isCaptain ? "bg-amber-400 text-black border-amber-400" : ""
-                            )}
-                            onClick={() => setCaptain(p.id)}
-                            disabled={!isStarting}
-                          >
-                            C
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-8 w-8 rounded-xl p-0 text-xs",
-                              isVice ? "bg-sky-300 text-black border-sky-300" : ""
-                            )}
-                            onClick={() => setVice(p.id)}
-                            disabled={!isStarting}
-                          >
-                            VC
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  );
-                })
+                  ))}
+
+                  <div>
+                    <div className="px-4 py-2 text-sm font-semibold">Substitutes</div>
+                    {bench.length === 0 ? (
+                      <div className="px-4 pb-3 text-xs text-muted-foreground">No substitutes selected.</div>
+                    ) : (
+                      <div className="divide-y">
+                        {bench.map((p) => {
+                          const isCaptain = captainId === p.id;
+                          const isVice = viceId === p.id;
+                          const displayName = shortName(p.name, p.webName);
+
+                          return (
+                            <div
+                              key={p.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => toggleStarting(p.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  toggleStarting(p.id);
+                                }
+                              }}
+                              className="px-4 py-2 grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2 items-center hover:bg-muted/40"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedPlayer(p);
+                                  }}
+                                  className="h-6 w-6 rounded-full border bg-background grid place-items-center"
+                                  aria-label={`View ${displayName} details`}
+                                >
+                                  <Info className="h-3 w-3" />
+                                </button>
+                                <div className="h-9 w-9 rounded-full overflow-hidden bg-muted shrink-0">
+                                  {p.avatarUrl ? (
+                                    <img src={p.avatarUrl} alt={displayName} className="h-9 w-9 object-cover" />
+                                  ) : (
+                                    <div className="h-full w-full grid place-items-center text-sm font-semibold text-muted-foreground">
+                                      {displayName.charAt(0)}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1">
+                                    <div className="text-sm font-semibold truncate">{displayName}</div>
+                                    {p.isLady ? (
+                                      <span className="text-[10px] font-semibold text-pink-600">Lady</span>
+                                    ) : null}
+                                    {isCaptain ? (
+                                      <span className="text-[10px] font-semibold text-amber-600">C</span>
+                                    ) : null}
+                                    {isVice ? (
+                                      <span className="text-[10px] font-semibold text-sky-600">VC</span>
+                                    ) : null}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground truncate">
+                                    {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right text-xs tabular-nums">{formatForm(p.formLast5)}</div>
+                              <div className="text-right text-xs tabular-nums">{formatUGX(p.price)}</div>
+                              <div className="text-right text-xs tabular-nums">{formatOwnership(p.ownership)}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           )}
