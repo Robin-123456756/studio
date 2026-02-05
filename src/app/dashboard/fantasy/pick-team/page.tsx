@@ -22,8 +22,6 @@ import {
 // DB helpers (Step 3)
 import { loadRosterFromDb, saveRosterToDb, upsertTeamName } from "@/lib/fantasyDb";
 
-type SortKey = "name" | "price" | "points" | "form";
-
 type Player = {
   id: string;
   name: string; // full name
@@ -255,23 +253,6 @@ function PriceChangeIndicator({ change }: { change?: number | null }) {
   );
 }
 
-// Ownership badge
-function OwnershipBadge({ ownership }: { ownership?: number | null }) {
-  if (!ownership) return null;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-        ownership > 50 ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"
-      )}
-      title={`${ownership}% of managers own this player`}
-    >
-      <Users className="h-2.5 w-2.5" />
-      {ownership}%
-    </span>
-  );
-}
 
 // Player Detail Modal
 function PlayerDetailModal({
@@ -572,15 +553,6 @@ export default function PickTeamPage() {
   const [msg, setMsg] = React.useState<string | null>(null);
   const [tab, setTab] = React.useState<TabKey>("pitch");
 
-  // Pool filters
-  const [query, setQuery] = React.useState("");
-  const [posFilter, setPosFilter] = React.useState<
-    "ALL" | "Goalkeeper" | "Defender" | "Midfielder" | "Forward"
-  >("ALL");
-  const [sortKey, setSortKey] = React.useState<SortKey>("price");
-  const [sortAsc, setSortAsc] = React.useState(false);
-  const [teamFilter, setTeamFilter] = React.useState<string>("ALL");
-
   // Player detail modal
   const [selectedPlayer, setSelectedPlayer] = React.useState<Player | null>(null);
 
@@ -814,41 +786,6 @@ export default function PickTeamPage() {
     if (captainId && !startingIds.includes(captainId)) setCaptainId(null);
     if (viceId && !startingIds.includes(viceId)) setViceId(null);
   }, [startingIds, captainId, viceId]);
-
-  // Get unique teams for filter
-  const allTeams = React.useMemo(() => {
-    const teams = new Set<string>();
-    players.forEach((p) => {
-      if (p.teamShort) teams.add(p.teamShort);
-    });
-    return Array.from(teams).sort();
-  }, [players]);
-
-  const pool = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const pickedSet = new Set(pickedIds);
-
-    return players
-      .filter((p) => !pickedSet.has(p.id))
-      .filter((p) => (posFilter === "ALL" ? true : normalizePosition(p.position) === posFilter))
-      .filter((p) => (teamFilter === "ALL" ? true : p.teamShort === teamFilter))
-      .filter((p) => (q ? (p.name ?? "").toLowerCase().includes(q) || (p.webName ?? "").toLowerCase().includes(q) : true))
-      .sort((a, b) => {
-        let cmp = 0;
-        if (sortKey === "name") {
-          cmp = (a.webName ?? a.name).localeCompare(b.webName ?? b.name);
-        } else if (sortKey === "price") {
-          cmp = (b.price ?? 0) - (a.price ?? 0);
-        } else if (sortKey === "points") {
-          cmp = (b.points ?? 0) - (a.points ?? 0);
-        } else if (sortKey === "form") {
-          const af = parseFloat(a.formLast5 ?? "0") || 0;
-          const bf = parseFloat(b.formLast5 ?? "0") || 0;
-          cmp = bf - af;
-        }
-        return sortAsc ? -cmp : cmp;
-      });
-  }, [players, pickedIds, query, posFilter, teamFilter, sortKey, sortAsc]);
 
   // ----------------------------
   // actions
@@ -1925,8 +1862,8 @@ export default function PickTeamPage() {
         </div>
       </div>
 
-      {/* Squad + Player Pool (FPL style) */}
-      <div className="mx-auto w-full max-w-md grid gap-4 md:max-w-5xl md:grid-cols-2">
+      {/* Squad */}
+      <div className="mx-auto w-full max-w-lg">
         {/* SQUAD */}
         <div className="rounded-2xl border bg-card">
           <div className="p-4 space-y-3">
@@ -1941,7 +1878,7 @@ export default function PickTeamPage() {
 
             {picked.length === 0 ? (
               <div className="text-sm text-muted-foreground">
-                No players yet. Use the Player Pool to pick your 17.
+                No players yet. Go to <Link href="/dashboard/transfers" className="text-primary font-semibold hover:underline">Transfers</Link> to pick your squad.
               </div>
             ) : (
               <div className="space-y-2">
@@ -2049,174 +1986,6 @@ export default function PickTeamPage() {
           </div>
         </div>
 
-        {/* PLAYER POOL */}
-        <div className="rounded-2xl border bg-card">
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-base font-semibold">Player Pool</div>
-
-              <div className="text-xs text-muted-foreground whitespace-nowrap rounded-full border px-2 py-0.5">
-                {loading ? "Loading..." : `${pool.length} available`}
-              </div>
-            </div>
-
-            {/* Search */}
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search players..."
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-            />
-
-            {/* Filters */}
-            <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-              <select
-                value={posFilter}
-                onChange={(e) => setPosFilter(e.target.value as any)}
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-              >
-                <option value="ALL">All Positions</option>
-                <option value="Goalkeeper">Goalkeeper</option>
-                <option value="Defender">Defender</option>
-                <option value="Midfielder">Midfielder</option>
-                <option value="Forward">Forward</option>
-              </select>
-
-              <select
-                value={teamFilter}
-                onChange={(e) => setTeamFilter(e.target.value)}
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-              >
-                <option value="ALL">All Teams</option>
-                {allTeams.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-
-              <select
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-              >
-                <option value="price">Sort: Price</option>
-                <option value="points">Sort: Points</option>
-                <option value="form">Sort: Form</option>
-                <option value="name">Sort: Name</option>
-              </select>
-
-              <button
-                type="button"
-                onClick={() => setSortAsc(!sortAsc)}
-                className="flex items-center justify-center gap-1 rounded-xl border bg-background px-3 py-2 text-sm hover:bg-accent"
-              >
-                <ArrowUpDown className="h-4 w-4" />
-                {sortAsc ? "Asc" : "Desc"}
-              </button>
-            </div>
-
-            {pickedIds.length >= 17 ? (
-              <div className="text-sm text-muted-foreground">
-                Squad full. Remove someone to pick another player.
-              </div>
-            ) : null}
-
-            <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-              {pool.map((p) => {
-                const disabled = pickedIds.length >= 17;
-                const displayName = shortName(p.name, p.webName);
-                const pointsValue = p.points ?? 0;
-
-                return (
-                  <div key={p.id} className="relative">
-                    {/* Info button */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPlayer(p)}
-                      className="absolute top-2 right-2 z-10 h-6 w-6 rounded-full bg-muted grid place-items-center hover:bg-muted/80"
-                      aria-label="View details"
-                    >
-                      <Info className="h-3 w-3" />
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => addToSquad(p.id)}
-                      className={cn(
-                        "w-full rounded-2xl border px-3 py-3 text-left transition",
-                        "bg-card hover:bg-accent/10 active:bg-accent/20",
-                        disabled ? "opacity-60" : ""
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Avatar with position color */}
-                        <div className="relative">
-                          <div className="h-12 w-12 rounded-2xl overflow-hidden bg-muted shrink-0">
-                            {p.avatarUrl ? (
-                              <img src={p.avatarUrl} alt={displayName} className="h-12 w-12 object-cover" />
-                            ) : (
-                              <div className="h-full w-full grid place-items-center text-lg font-bold text-muted-foreground">
-                                {displayName.charAt(0)}
-                              </div>
-                            )}
-                          </div>
-                          {/* Position indicator */}
-                          <div className={cn(
-                            "absolute -bottom-1 -right-1 h-5 w-5 rounded-full grid place-items-center text-[9px] font-bold text-white",
-                            normalizePosition(p.position) === "Goalkeeper" && "bg-amber-500",
-                            normalizePosition(p.position) === "Defender" && "bg-blue-500",
-                            normalizePosition(p.position) === "Midfielder" && "bg-emerald-500",
-                            normalizePosition(p.position) === "Forward" && "bg-rose-500"
-                          )}>
-                            {shortPos(p.position)}
-                          </div>
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-semibold truncate">{displayName}</div>
-                            {p.isLady && (
-                              <span className="text-[10px] font-semibold text-pink-600">Lady</span>
-                            )}
-                            <PriceChangeIndicator change={p.priceChange} />
-                          </div>
-
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                            <TeamBadge teamName={p.teamName} teamShort={p.teamShort} size="sm" />
-                            <span className="truncate">{p.teamShort ?? "--"}</span>
-                            {p.nextOpponent && (
-                              <>
-                                <span className="text-muted-foreground/50">vs</span>
-                                <span className="font-medium">{p.nextOpponent}</span>
-                              </>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[11px] font-semibold text-primary">
-                              {formatUGX(p.price)}
-                            </span>
-                            <span className="text-[11px] text-emerald-600 font-medium">
-                              {formatNumber(pointsValue)} pts
-                            </span>
-                            <OwnershipBadge ownership={p.ownership} />
-                          </div>
-                        </div>
-
-                        <div className="shrink-0 flex flex-col items-end gap-1">
-                          <FormSparkline history={p.pointsHistory} size="sm" />
-                          <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-1 text-xs font-semibold">
-                            Pick
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Player Detail Modal */}

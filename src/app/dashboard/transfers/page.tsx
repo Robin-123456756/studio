@@ -98,6 +98,9 @@ export default function TransfersPage() {
   const [posFilter, setPosFilter] = React.useState<
     "ALL" | "Goalkeeper" | "Defender" | "Midfielder" | "Forward"
   >("ALL");
+  const [teamFilter, setTeamFilter] = React.useState<string>("ALL");
+  const [sortKey, setSortKey] = React.useState<"price" | "points" | "name">("points");
+  const [sortAsc, setSortAsc] = React.useState(false);
 
   const [outId, setOutId] = React.useState<string | null>(null);
   const [inId, setInId] = React.useState<string | null>(null);
@@ -211,6 +214,15 @@ React.useEffect(() => {
     [squadIds, byId]
   );
 
+  // Get unique teams for filter
+  const allTeams = React.useMemo(() => {
+    const teams = new Set<string>();
+    allPlayers.forEach((p) => {
+      if (p.teamShort) teams.add(p.teamShort);
+    });
+    return Array.from(teams).sort();
+  }, [allPlayers]);
+
   const pool = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     const squadSet = new Set(squadIds);
@@ -218,9 +230,20 @@ React.useEffect(() => {
     return allPlayers
       .filter((p) => !squadSet.has(p.id))
       .filter((p) => (posFilter === "ALL" ? true : p.position === posFilter))
+      .filter((p) => (teamFilter === "ALL" ? true : p.teamShort === teamFilter))
       .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
-      .sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
-  }, [allPlayers, squadIds, query, posFilter]);
+      .sort((a, b) => {
+        let cmp = 0;
+        if (sortKey === "name") {
+          cmp = a.name.localeCompare(b.name);
+        } else if (sortKey === "price") {
+          cmp = (b.price ?? 0) - (a.price ?? 0);
+        } else if (sortKey === "points") {
+          cmp = (b.points ?? 0) - (a.points ?? 0);
+        }
+        return sortAsc ? -cmp : cmp;
+      });
+  }, [allPlayers, squadIds, query, posFilter, teamFilter, sortKey, sortAsc]);
 
   function persistSquad(ids: string[]) {
     setSquadIds(ids);
@@ -413,24 +436,56 @@ React.useEffect(() => {
 
             {rightTab === "IN" ? (
               <>
-                <div className="flex gap-2">
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search players..."
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                  />
+                {/* Search */}
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search players..."
+                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                />
+
+                {/* Filters */}
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                   <select
                     value={posFilter}
                     onChange={(e) => setPosFilter(e.target.value as any)}
                     className="rounded-xl border bg-background px-3 py-2 text-sm"
                   >
-                    <option value="ALL">All</option>
-                    <option value="Goalkeeper">GK</option>
-                    <option value="Defender">DEF</option>
-                    <option value="Midfielder">MID</option>
-                    <option value="Forward">FWD</option>
+                    <option value="ALL">All Positions</option>
+                    <option value="Goalkeeper">Goalkeeper</option>
+                    <option value="Defender">Defender</option>
+                    <option value="Midfielder">Midfielder</option>
+                    <option value="Forward">Forward</option>
                   </select>
+
+                  <select
+                    value={teamFilter}
+                    onChange={(e) => setTeamFilter(e.target.value)}
+                    className="rounded-xl border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="ALL">All Teams</option>
+                    {allTeams.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={sortKey}
+                    onChange={(e) => setSortKey(e.target.value as any)}
+                    className="rounded-xl border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="points">Sort: Points</option>
+                    <option value="price">Sort: Price</option>
+                    <option value="name">Sort: Name</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => setSortAsc(!sortAsc)}
+                    className="flex items-center justify-center gap-1 rounded-xl border bg-background px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    {sortAsc ? "↑ Asc" : "↓ Desc"}
+                  </button>
                 </div>
 
                 {!outId ? (
