@@ -110,7 +110,7 @@ function loadIds(key: string) {
   }
 }
 
-type TabKey = "pitch" | "list";
+type TabKey = "pitch" | "list" | "squad";
 
 function normalizePosition(pos?: string | null) {
   const p = (pos ?? "").trim().toLowerCase();
@@ -1708,15 +1708,25 @@ export default function PickTeamPage() {
             >
               List
             </button>
+            <button
+              type="button"
+              onClick={() => setTab("squad")}
+              className={cn(
+                "px-6 py-2 rounded-2xl text-sm font-semibold transition",
+                tab === "squad" ? "bg-background shadow" : "text-muted-foreground"
+              )}
+            >
+              Squad
+            </button>
           </div>
           <div className="ml-auto text-xs text-muted-foreground">
             Tap a player to toggle starting. Captain and vice are from the starting 10.
           </div>
         </div>
 
-        {/* Pitch/List view for starting lineup */}
+        {/* Pitch/List/Squad view */}
         <div className="mt-4">
-          {tab === "pitch" ? (
+          {tab === "pitch" && (
             <PickPitch
               picked={picked}
               startingIds={startingIds}
@@ -1727,7 +1737,9 @@ export default function PickTeamPage() {
               onVice={setVice}
               onInfo={setSelectedPlayer}
             />
-          ) : (
+          )}
+
+          {tab === "list" && (
             <div className="rounded-2xl border bg-card">
               <div className="px-4 py-3 border-b text-[11px] font-semibold text-muted-foreground grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2">
                 <div>Player</div>
@@ -1897,133 +1909,130 @@ export default function PickTeamPage() {
               )}
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Squad */}
-      <div className="mx-auto w-full max-w-lg">
-        {/* SQUAD */}
-        <div className="rounded-2xl border bg-card">
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-base font-semibold">Your Squad</div>
-              <div className="text-xs text-muted-foreground">{picked.length} picked</div>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              GKs {pickedGoalkeepers.length}/2 - Lady forwards {pickedLadyForwards.length}/2 - Starting{" "}
-              {startingIds.length}/10
-            </div>
+          {tab === "squad" && (
+            <div className="rounded-2xl border bg-card">
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-base font-semibold">Your Squad</div>
+                  <div className="text-xs text-muted-foreground">{picked.length} picked</div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  GKs {pickedGoalkeepers.length}/2 - Lady forwards {pickedLadyForwards.length}/2 - Starting{" "}
+                  {startingIds.length}/10
+                </div>
 
-            {picked.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No players yet. Go to <Link href="/dashboard/transfers" className="text-primary font-semibold hover:underline">Transfers</Link> to pick your squad.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {picked.map((p) => {
-                  const isStarting = startingIds.includes(p.id);
-                  const isCaptain = captainId === p.id;
-                  const isVice = viceId === p.id;
-                  const displayName = shortName(p.name, p.webName);
-                  const pointsLabel = p.gwPoints !== null && p.gwPoints !== undefined ? "GW" : "Total";
-                  const pointsValue =
-                    p.gwPoints !== null && p.gwPoints !== undefined ? p.gwPoints : p.points ?? null;
+                {picked.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    No players yet. Go to <Link href="/dashboard/transfers" className="text-primary font-semibold hover:underline">Transfers</Link> to pick your squad.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {picked.map((p) => {
+                      const isStarting = startingIds.includes(p.id);
+                      const isCaptain = captainId === p.id;
+                      const isVice = viceId === p.id;
+                      const displayName = shortName(p.name, p.webName);
+                      const pointsLabel = p.gwPoints !== null && p.gwPoints !== undefined ? "GW" : "Total";
+                      const pointsValue =
+                        p.gwPoints !== null && p.gwPoints !== undefined ? p.gwPoints : p.points ?? null;
 
-                  return (
-                    <div
-                      key={p.id}
-                      className={cn(
-                        "w-full rounded-2xl border px-3 py-3",
-                        isStarting ? "border-emerald-400 bg-emerald-50/60" : "bg-card"
-                      )}
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-12 w-12 rounded-2xl overflow-hidden bg-muted shrink-0">
-                            {p.avatarUrl ? (
-                              <img src={p.avatarUrl} alt={displayName} className="h-12 w-12 object-cover" />
-                            ) : null}
-                          </div>
+                      return (
+                        <div
+                          key={p.id}
+                          className={cn(
+                            "w-full rounded-2xl border px-3 py-3",
+                            isStarting ? "border-emerald-400 bg-emerald-50/60" : "bg-card"
+                          )}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-12 w-12 rounded-2xl overflow-hidden bg-muted shrink-0">
+                                {p.avatarUrl ? (
+                                  <img src={p.avatarUrl} alt={displayName} className="h-12 w-12 object-cover" />
+                                ) : null}
+                              </div>
 
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm font-semibold truncate">{displayName}</div>
-                              {p.isLady ? (
-                                <span className="text-[10px] font-semibold text-pink-600">Lady</span>
-                              ) : null}
-                              {isCaptain ? (
-                                <span className="text-[10px] font-semibold text-amber-600">C</span>
-                              ) : null}
-                              {isVice ? (
-                                <span className="text-[10px] font-semibold text-sky-600">VC</span>
-                              ) : null}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-semibold truncate">{displayName}</div>
+                                  {p.isLady ? (
+                                    <span className="text-[10px] font-semibold text-pink-600">Lady</span>
+                                  ) : null}
+                                  {isCaptain ? (
+                                    <span className="text-[10px] font-semibold text-amber-600">C</span>
+                                  ) : null}
+                                  {isVice ? (
+                                    <span className="text-[10px] font-semibold text-sky-600">VC</span>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <TeamBadge teamName={p.teamName} teamShort={p.teamShort} size="sm" />
+                                  <span className="truncate">
+                                    {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  Price {formatUGX(p.price)} - {pointsLabel} {formatNumber(pointsValue)} - Form{" "}
+                                  {formatForm(p.formLast5)}
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <TeamBadge teamName={p.teamName} teamShort={p.teamShort} size="sm" />
-                              <span className="truncate">
-                                {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-muted-foreground">
-                              Price {formatUGX(p.price)} - {pointsLabel} {formatNumber(pointsValue)} - Form{" "}
-                              {formatForm(p.formLast5)}
+
+                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                              <Button
+                                type="button"
+                                variant={isStarting ? "default" : "secondary"}
+                                className="rounded-xl"
+                                onClick={() => toggleStarting(p.id)}
+                              >
+                                {isStarting ? "Starting" : "Start"}
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-xl"
+                                onClick={() => removeFromSquad(p.id)}
+                              >
+                                Remove
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn(
+                                  "h-8 w-8 rounded-xl p-0 text-xs",
+                                  isCaptain ? "bg-amber-400 text-black border-amber-400" : ""
+                                )}
+                                onClick={() => setCaptain(p.id)}
+                                disabled={!isStarting}
+                              >
+                                C
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn(
+                                  "h-8 w-8 rounded-xl p-0 text-xs",
+                                  isVice ? "bg-sky-300 text-black border-sky-300" : ""
+                                )}
+                                onClick={() => setVice(p.id)}
+                                disabled={!isStarting}
+                              >
+                                VC
+                              </Button>
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex flex-wrap items-center gap-2 shrink-0">
-                          <Button
-                            type="button"
-                            variant={isStarting ? "default" : "secondary"}
-                            className="rounded-xl"
-                            onClick={() => toggleStarting(p.id)}
-                          >
-                            {isStarting ? "Starting" : "Start"}
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="rounded-xl"
-                            onClick={() => removeFromSquad(p.id)}
-                          >
-                            Remove
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-8 w-8 rounded-xl p-0 text-xs",
-                              isCaptain ? "bg-amber-400 text-black border-amber-400" : ""
-                            )}
-                            onClick={() => setCaptain(p.id)}
-                            disabled={!isStarting}
-                          >
-                            C
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-8 w-8 rounded-xl p-0 text-xs",
-                              isVice ? "bg-sky-300 text-black border-sky-300" : ""
-                            )}
-                            onClick={() => setVice(p.id)}
-                            disabled={!isStarting}
-                          >
-                            VC
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
       </div>
 
       {/* Player Detail Modal */}
