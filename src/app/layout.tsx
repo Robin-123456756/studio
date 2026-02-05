@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PwaStartupImages } from "@/app/pwa-startup-images";
+import { LaunchGate } from "@/components/launch-gate";
 
 export const metadata: Metadata = {
   title: "The Budo League",
@@ -37,12 +38,15 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="The Budo League" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <link rel="apple-touch-icon" href="/icon.png" />
-        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-icon-180.png" />
         <PwaStartupImages />
       </head>
       <body className="bg-background text-foreground">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <LaunchGate minDurationMs={8000} message="Loading your season...">
+            {children}
+          </LaunchGate>
+        </ThemeProvider>
       </body>
     </html>
   );

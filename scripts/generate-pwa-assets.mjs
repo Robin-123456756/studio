@@ -5,34 +5,41 @@ import { createRequire } from "node:module";
 
 const root = process.cwd();
 const inputIcon = resolve(root, "public/icon.png");
-const blankSplashSource = resolve(root, "public/pwa/splash-source.png");
-const outputDir = resolve(root, "public/pwa");
+const iconOutputDir = resolve(root, "public/icons");
+const splashOutputDir = resolve(root, "public/pwa");
 const manifestPath = resolve(root, "public/manifest.json");
 const htmlOut = resolve(root, "public/pwa/splash.html");
 const startupLinksFile = resolve(root, "src/app/pwa-startup-images.tsx");
 
 const splashPadding = "24%";
-const transparentPngBase64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAF9p0WQAAAAASUVORK5CYII=";
+const iconPadding = "10%";
+const splashBackground = "#ffffff";
+const iconBackground = "#ffffff";
 
-if (!existsSync(blankSplashSource)) {
-  writeFileSync(
-    blankSplashSource,
-    Buffer.from(transparentPngBase64, "base64")
-  );
-}
+const iconArgs = [
+  inputIcon,
+  iconOutputDir,
+  "--manifest",
+  manifestPath,
+  "--background",
+  iconBackground,
+  "--padding",
+  iconPadding,
+  "--icon-only",
+  "--opaque",
+  "--path-override",
+  "/icons",
+];
 
-const splashSource = existsSync(blankSplashSource) ? blankSplashSource : inputIcon;
-
-const args = [
-  splashSource,
-  outputDir,
+const splashArgs = [
+  inputIcon,
+  splashOutputDir,
   "--manifest",
   manifestPath,
   "--index",
   htmlOut,
   "--background",
-  "#fbfaf9",
+  splashBackground,
   "--theme-color",
   "#a63038",
   "--padding",
@@ -49,8 +56,8 @@ const binPath =
     ? resolve(dirname(pkgPath), pkg.bin)
     : resolve(dirname(pkgPath), pkg.bin["pwa-asset-generator"]);
 
-if (!existsSync(outputDir)) {
-  mkdirSync(outputDir, { recursive: true });
+if (!existsSync(splashOutputDir)) {
+  mkdirSync(splashOutputDir, { recursive: true });
 }
 
 if (!existsSync(htmlOut)) {
@@ -61,16 +68,25 @@ if (!existsSync(htmlOut)) {
   );
 }
 
-const result = spawnSync(process.execPath, [binPath, ...args], {
-  stdio: "inherit",
-});
-if (result.error) {
-  console.error(result.error);
-  process.exit(1);
+const runGenerator = (args) => {
+  const result = spawnSync(process.execPath, [binPath, ...args], {
+    stdio: "inherit",
+  });
+  if (result.error) {
+    console.error(result.error);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+};
+
+if (!existsSync(iconOutputDir)) {
+  mkdirSync(iconOutputDir, { recursive: true });
 }
-if (result.status !== 0) {
-  process.exit(result.status ?? 1);
-}
+
+runGenerator(iconArgs);
+runGenerator(splashArgs);
 
 if (!existsSync(htmlOut)) {
   console.warn("No splash HTML generated. Skipping startup image links update.");

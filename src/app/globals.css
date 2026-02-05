@@ -199,3 +199,31 @@
     animation-delay: 0.2s;
   }
 }
+
+@layer utilities {
+  .launch-loader {
+    display: none;
+  }
+
+  .launch-content {
+    display: block;
+  }
+
+  @media (display-mode: standalone) {
+    .launch-loader {
+      display: flex;
+    }
+
+    .launch-content {
+      display: none;
+    }
+
+    .launch-loader.is-ready {
+      display: none;
+    }
+
+    .launch-content.is-ready {
+      display: block;
+    }
+  }
+}
