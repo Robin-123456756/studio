@@ -169,7 +169,7 @@ function MiniLeague() {
     <Card className="overflow-hidden border-border/60">
       <CardContent className="p-0">
         <div className="px-4 pt-4 pb-2">
-          <div className="text-base font-semibold">Mini-League</div>
+          <div className="text-base font-semibold">Budo league</div>
           <div className="text-sm text-muted-foreground">Your rank among rivals.</div>
         </div>
 
