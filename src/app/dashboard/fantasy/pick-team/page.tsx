@@ -1355,129 +1355,197 @@ export default function PickTeamPage() {
       : "--";
 
     return (
-      <div className="space-y-3">
-        {/* Pitch */}
+      <div className="space-y-0 rounded-2xl overflow-hidden">
+        {/* Pitch View */}
         <div
-          className={cn(
-            "relative rounded-3xl overflow-hidden border",
-            "bg-emerald-700",
-            "shadow-[inset_0_0_120px_rgba(0,0,0,0.35)]"
-          )}
           style={{
-            backgroundImage: `
-              repeating-linear-gradient(0deg, rgba(255,255,255,0.04), rgba(255,255,255,0.04) 28px, transparent 28px, transparent 56px),
-              linear-gradient(180deg, #0e7a34 0%, #0f8a3c 50%, #0e7a34 100%)
-            `,
+            background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 8%, #2d8b4e 8%, #37a35c 16%, #2d8b4e 16%, #37a35c 24%, #2d8b4e 24%, #37a35c 32%, #2d8b4e 32%, #37a35c 40%, #2d8b4e 40%, #37a35c 48%, #2d8b4e 48%, #37a35c 56%, #2d8b4e 56%, #37a35c 64%, #2d8b4e 64%, #37a35c 72%, #2d8b4e 72%, #37a35c 80%, #2d8b4e 80%, #37a35c 88%, #2d8b4e 88%, #37a35c 96%, #2d8b4e 96%, #37a35c 100%)",
+            position: "relative",
+            padding: "8px 0 16px",
+            overflow: "hidden",
           }}
         >
-          {/* Field markings */}
-          <div className="absolute inset-4 rounded-2xl border-2 border-white/30" />
-          <div className="absolute left-1/2 top-4 bottom-4 w-0.5 bg-white/25" />
-          <div className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/30" />
-          <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/50" />
-          <div className="absolute left-1/2 top-6 h-24 w-52 -translate-x-1/2 rounded-b-3xl border-2 border-white/30" />
-          <div className="absolute left-1/2 bottom-6 h-24 w-52 -translate-x-1/2 rounded-t-3xl border-2 border-white/30" />
-          <div className="absolute left-1/2 top-6 h-10 w-24 -translate-x-1/2 rounded-b-xl border-2 border-white/25" />
-          <div className="absolute left-1/2 bottom-6 h-10 w-24 -translate-x-1/2 rounded-t-xl border-2 border-white/25" />
-
-          <div className="relative px-3 pt-5 pb-6">
-            <div className="mb-3 flex items-center justify-between text-xs text-white/80">
-              <span>Formation {formation}</span>
-              <span className="uppercase tracking-widest">Pitch</span>
+          {/* Budo League Branding bar */}
+          <div style={{ display: "flex", height: 28, marginBottom: 4 }}>
+            <div
+              style={{
+                flex: 1,
+                background: "linear-gradient(90deg, #a63038, #d4545c)",
+                display: "flex",
+                alignItems: "center",
+                paddingLeft: 12,
+                fontSize: 11,
+                fontWeight: 800,
+                color: "#fff",
+              }}
+            >
+              ⚽ Budo League
             </div>
-
-            <div className="flex flex-col gap-6">
-              <div className="flex justify-center">
-                {g.Goalkeepers.slice(0, 1).map((p) => (
-                  <PitchPlayerCard
-                    key={p.id}
-                    player={p}
-                    onToggle={() => onToggleStarting(p.id)}
-                    onCaptain={() => onCaptain(p.id)}
-                    onVice={() => onVice(p.id)}
-                    onInfo={() => onInfo(p)}
-                    isCaptain={captainId === p.id}
-                    isVice={viceId === p.id}
-                  />
-                ))}
-              </div>
-
-              <div className="flex justify-center gap-3 flex-wrap">
-                {g.Defenders.map((p) => (
-                  <PitchPlayerCard
-                    key={p.id}
-                    player={p}
-                    onToggle={() => onToggleStarting(p.id)}
-                    onCaptain={() => onCaptain(p.id)}
-                    onVice={() => onVice(p.id)}
-                    onInfo={() => onInfo(p)}
-                    isCaptain={captainId === p.id}
-                    isVice={viceId === p.id}
-                  />
-                ))}
-              </div>
-
-              <div className="flex justify-center gap-3 flex-wrap">
-                {g.Midfielders.map((p) => (
-                  <PitchPlayerCard
-                    key={p.id}
-                    player={p}
-                    onToggle={() => onToggleStarting(p.id)}
-                    onCaptain={() => onCaptain(p.id)}
-                    onVice={() => onVice(p.id)}
-                    onInfo={() => onInfo(p)}
-                    isCaptain={captainId === p.id}
-                    isVice={viceId === p.id}
-                  />
-                ))}
-              </div>
-
-              <div className="flex justify-center gap-3 flex-wrap">
-                {g.Forwards.map((p) => (
-                  <PitchPlayerCard
-                    key={p.id}
-                    player={p}
-                    onToggle={() => onToggleStarting(p.id)}
-                    onCaptain={() => onCaptain(p.id)}
-                    onVice={() => onVice(p.id)}
-                    onInfo={() => onInfo(p)}
-                    isCaptain={captainId === p.id}
-                    isVice={viceId === p.id}
-                  />
-                ))}
-              </div>
+            <div
+              style={{
+                flex: 1,
+                background: "linear-gradient(90deg, #d4545c, #a63038)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                paddingRight: 12,
+                fontSize: 11,
+                fontWeight: 800,
+                color: "#fff",
+              }}
+            >
+              {formation} ⚽
             </div>
+          </div>
+
+          {/* Pitch markings - center circle */}
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 100,
+              height: 100,
+              borderRadius: "50%",
+              border: "1.5px solid rgba(255,255,255,0.15)",
+            }}
+          />
+          {/* Halfway line */}
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: 0,
+              right: 0,
+              height: 1.5,
+              background: "rgba(255,255,255,0.12)",
+            }}
+          />
+          {/* Penalty area top */}
+          <div
+            style={{
+              position: "absolute",
+              top: 32,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 180,
+              height: 60,
+              borderBottom: "1.5px solid rgba(255,255,255,0.12)",
+              borderLeft: "1.5px solid rgba(255,255,255,0.12)",
+              borderRight: "1.5px solid rgba(255,255,255,0.12)",
+            }}
+          />
+          {/* Penalty area bottom */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 16,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 180,
+              height: 60,
+              borderTop: "1.5px solid rgba(255,255,255,0.12)",
+              borderLeft: "1.5px solid rgba(255,255,255,0.12)",
+              borderRight: "1.5px solid rgba(255,255,255,0.12)",
+            }}
+          />
+
+          {/* GK Row */}
+          <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 16px", position: "relative", zIndex: 1 }}>
+            {g.Goalkeepers.slice(0, 1).map((p) => (
+              <PitchPlayerCard
+                key={p.id}
+                player={p}
+                onToggle={() => onToggleStarting(p.id)}
+                onCaptain={() => onCaptain(p.id)}
+                onVice={() => onVice(p.id)}
+                onInfo={() => onInfo(p)}
+                isCaptain={captainId === p.id}
+                isVice={viceId === p.id}
+              />
+            ))}
+          </div>
+
+          {/* DEF Row */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
+            {g.Defenders.map((p) => (
+              <PitchPlayerCard
+                key={p.id}
+                player={p}
+                onToggle={() => onToggleStarting(p.id)}
+                onCaptain={() => onCaptain(p.id)}
+                onVice={() => onVice(p.id)}
+                onInfo={() => onInfo(p)}
+                isCaptain={captainId === p.id}
+                isVice={viceId === p.id}
+              />
+            ))}
+          </div>
+
+          {/* MID Row */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
+            {g.Midfielders.map((p) => (
+              <PitchPlayerCard
+                key={p.id}
+                player={p}
+                onToggle={() => onToggleStarting(p.id)}
+                onCaptain={() => onCaptain(p.id)}
+                onVice={() => onVice(p.id)}
+                onInfo={() => onInfo(p)}
+                isCaptain={captainId === p.id}
+                isVice={viceId === p.id}
+              />
+            ))}
+          </div>
+
+          {/* FWD Row */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 24, padding: "12px 0 8px", position: "relative", zIndex: 1 }}>
+            {g.Forwards.map((p) => (
+              <PitchPlayerCard
+                key={p.id}
+                player={p}
+                onToggle={() => onToggleStarting(p.id)}
+                onCaptain={() => onCaptain(p.id)}
+                onVice={() => onVice(p.id)}
+                onInfo={() => onInfo(p)}
+                isCaptain={captainId === p.id}
+                isVice={viceId === p.id}
+              />
+            ))}
           </div>
         </div>
 
         {/* Bench */}
-        <div className="rounded-2xl border bg-card/70 px-3 py-3">
-          <div className="flex items-center justify-between pb-2">
-            <div className="text-sm font-semibold">Bench</div>
-            <div className="text-xs text-muted-foreground">Order matters</div>
+        <div
+          style={{
+            background: "linear-gradient(180deg, #e0f7f0, #c8ece0)",
+            padding: "12px 8px 20px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 8 }}>
+            {bench.map((p) => (
+              <span key={p.id} style={{ fontSize: 11, fontWeight: 800, color: "#37003C", width: 80, textAlign: "center" }}>
+                {shortPos(p.position)}
+              </span>
+            ))}
           </div>
-
-          <div className="flex gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
+          <div style={{ display: "flex", justifyContent: "space-around" }}>
             {bench.map((p, index) => (
-              <div key={p.id} className="shrink-0">
-                <div className="text-[10px] text-muted-foreground text-center mb-1">
-                  {shortPos(p.position)}
+              <div key={p.id} className="relative">
+                <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
+                  {index + 1}
                 </div>
-                <div className="relative">
-                  <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
-                    {index + 1}
-                  </div>
-                  <PitchPlayerCard
-                    player={p}
-                    onToggle={() => onToggleStarting(p.id)}
-                    onCaptain={() => onCaptain(p.id)}
-                    onVice={() => onVice(p.id)}
-                    onInfo={() => onInfo(p)}
-                    isCaptain={captainId === p.id}
-                    isVice={viceId === p.id}
-                    showLeadership={false}
-                  />
-                </div>
+                <PitchPlayerCard
+                  player={p}
+                  onToggle={() => onToggleStarting(p.id)}
+                  onCaptain={() => onCaptain(p.id)}
+                  onVice={() => onVice(p.id)}
+                  onInfo={() => onInfo(p)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                  showLeadership={false}
+                />
               </div>
             ))}
           </div>
