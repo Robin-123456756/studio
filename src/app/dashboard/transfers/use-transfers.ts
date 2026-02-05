@@ -81,6 +81,7 @@ export function useTransfers(gwId: number | null): UseTransfersResult {
 
   const transfersThisGW = React.useMemo(() => {
     if (!gwId) return [];
+    void transfersLogVersion;
     return loadTransfersLog().filter((t) => t.gwId === gwId);
   }, [gwId, transfersLogVersion]);
 

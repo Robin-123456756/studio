@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,7 +77,7 @@ export default function TeamDetailPage() {
         if (teamRes.ok) {
           const t = (teamJson.teams ?? []).find((x: any) => x.team_uuid === teamId);
           if (t && !cancelled) {
-            setTeamName(t.name ?? teamName);
+            setTeamName((prev) => t.name ?? prev);
             setLogoUrl(t.logo_url ?? null);
           }
         }

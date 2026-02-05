@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,17 +55,6 @@ type UiGame = {
 };
 
 /* ---------------- helpers ---------------- */
-
-type Season = { code: string };
-const seasons: Season[] = [
-  { code: "TBL9" },
-  { code: "TBL8" },
-  { code: "TBL7" },
-  { code: "TBL6" },
-  { code: "TBL5" },
-  { code: "TBL4" },
-  { code: "TBL3" },
-];
 
 function formatDateHeading(yyyyMmDd: string) {
   // yyyy-mm-dd -> "Sun 11 Jan"
@@ -219,18 +208,6 @@ export default function MatchesPage() {
   // Top-level page tabs
   const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
 
-  // Season hero (matches only)
-  const [season, setSeason] = React.useState<Season>(seasons[0]);
-  const [openSeason, setOpenSeason] = React.useState(false);
-
-  // If visiting from “More -> Results”: /dashboard/matches?tab=results
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get("tab");
-    if (t === "results") setMode("results");
-    if (t === "fixtures") setMode("fixtures");
-  }, []);
-
   const [gw, setGw] = React.useState<{
     current: ApiGameweek | null;
     next: ApiGameweek | null;
@@ -240,16 +217,11 @@ export default function MatchesPage() {
   const [games, setGames] = React.useState<UiGame[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [gwLoading, setGwLoading] = React.useState(true);
-  const [gwError, setGwError] = React.useState<string | null>(null);
 
   // Load current/next gameweek
   React.useEffect(() => {
     (async () => {
       try {
-        setGwLoading(true);
-        setGwError(null);
-
         const res = await fetch("/api/gameweeks/current", { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load gameweeks");
@@ -260,9 +232,7 @@ export default function MatchesPage() {
         setGw({ current, next });
         setGwId(current?.id ?? next?.id ?? null);
       } catch (e: any) {
-        setGwError(e?.message ?? "Failed to load gameweeks");
-      } finally {
-        setGwLoading(false);
+        setError(e?.message ?? "Failed to load gameweeks");
       }
     })();
   }, []);
@@ -454,8 +424,5 @@ return (
     <div className="h-24 md:hidden" />
   </div>
 );
-}
-function setMode(arg0: string) {
-  throw new Error("Function not implemented.");
 }
 

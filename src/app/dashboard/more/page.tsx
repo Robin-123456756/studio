@@ -21,7 +21,7 @@ export default function MorePage() {
 
       {/* List */}
       <div className="mt-4">
-        {items.map(({ href, label, Icon }, idx) => (
+        {items.map(({ href, label, Icon }) => (
           <Link
             key={href}
             href={href}

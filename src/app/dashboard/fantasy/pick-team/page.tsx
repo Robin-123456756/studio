@@ -231,16 +231,6 @@ React.useEffect(() => {
     })();
   }, []);
 
-  const savingFor = React.useMemo(() => {
-  if (!gw) return null;
-
-  // if current is not finalized, save to current
-  if (gw.current && gw.current.finalized === false) return gw.current;
-
-  // otherwise save to next
-  return gw.next ?? null;
-}, [gw]);
-
   // ----------------------------
   // load local cache + all players
   // ----------------------------

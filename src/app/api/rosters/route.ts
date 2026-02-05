@@ -5,11 +5,6 @@ import { createServerClient } from "@supabase/ssr";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function getSupabase() {
-  // IMPORTANT in Next 15: cookies() can be async in your setup, so we await where used.
-  // Here we return a function that builds client inside each handler.
-}
-
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const gwId = Number(url.searchParams.get("gw_id") ?? "");

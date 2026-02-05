@@ -8,7 +8,7 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "pwa:assets": "node scripts/generate-pwa-assets.mjs"
   },
@@ -65,14 +65,15 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@next/codemod": "^16.1.6",
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tailwindcss/typography": "^0.5.14",
     "@types/node": "^20.19.27",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.1",
     "autoprefixer": "^10.4.23",
-    "eslint": "^9.39.2",
-    "eslint-config-next": "^16.1.6",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.9",
     "genkit-cli": "^1.20.0",
     "postcss": "^8.5.6",
     "pwa-asset-generator": "^8.1.2",

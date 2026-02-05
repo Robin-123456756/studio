@@ -203,7 +203,7 @@ export default function NotificationSender() {
         <CardHeader>
           <CardTitle>2. AI Relevance Check</CardTitle>
           <CardDescription>
-            The AI's decision on whether to send the notification to the selected role.
+            The AI decision on whether to send the notification to the selected role.
           </CardDescription>
         </CardHeader>
 

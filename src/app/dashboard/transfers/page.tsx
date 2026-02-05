@@ -8,9 +8,8 @@ import { cn } from "@/lib/utils";
 import { saveSquadIds } from "@/lib/fantasyStorage";
 import { PlayerCard, type Player } from "./player-card";
 import { TransferBadge } from "./transfer-badge";
-import { TransferLogItemComponent, type TransferLogItem } from "./transfer-log-item";
+import { TransferLogItemComponent } from "./transfer-log-item";
 import { useTransfers } from "./use-transfers";
-import { ArrowRight, Clock3 } from "lucide-react";
 
 // =====================
 // TYPES
@@ -38,8 +37,6 @@ type ApiPlayer = {
 // =====================
 // HELPERS
 // =====================
-const LS_TRANSFERS_LOG = "tbl_transfers_log";
-
 function normalizePosition(pos?: string | null): Player["position"] {
   const p = (pos ?? "").trim().toLowerCase();
   if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
@@ -82,11 +79,6 @@ function formatTimeUG(iso: string) {
     .replace(/\bam\b/i, "AM")
     .replace(/\bpm\b/i, "PM");
 }
-
-// =====================
-// LOCAL STORAGE KEYS
-// =====================
-const LS_SQUAD = "tbl_squad_player_ids";
 
 // =====================
 // PAGE
@@ -293,9 +285,6 @@ React.useEffect(() => {
     resetSelection();
     setRightTab("TRANSFERS"); // show the transfer you just made
   }
-
-  const outP = outId ? byId.get(outId) : null;
-  const inP = inId ? byId.get(inId) : null;
 
   return (
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">

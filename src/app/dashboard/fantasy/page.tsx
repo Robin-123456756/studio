@@ -53,8 +53,6 @@ type ApiPlayer = {
   teamName?: string | null;
 };
 
-const LS_PICKS = "tbl_picked_player_ids";
-
 function formatDeadlineUG(iso?: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -75,15 +73,6 @@ function formatDeadlineUG(iso?: string | null) {
     .replace(/\bpm\b/i, "PM")
     .replace(/\ba\.m\.\b/i, "AM")
     .replace(/\bp\.m\.\b/i, "PM");
-}
-
-function normalizePosition(pos?: string | null): Player["position"] {
-  const p = (pos ?? "").trim().toLowerCase();
-  if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
-  if (p === "def" || p === "df" || p === "defender") return "Defender";
-  if (p === "mid" || p === "mf" || p === "midfielder") return "Midfielder";
-  if (p === "fwd" || p === "fw" || p === "forward" || p === "striker") return "Forward";
-  return pos ?? "Midfielder";
 }
 
 function getInitials(value: string) {
