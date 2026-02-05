@@ -36,7 +36,7 @@ const config: Config = {
       },
       fontFamily: {
         body: ["Manrope", "ui-sans-serif", "system-ui", "sans-serif"],
-        headline: ["Fraunces", "ui-serif", "Georgia", "serif"],
+        headline: ["Sora", "ui-sans-serif", "system-ui", "sans-serif"],
         code: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
       },
       colors: {
