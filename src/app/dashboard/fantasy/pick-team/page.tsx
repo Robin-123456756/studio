@@ -1358,12 +1358,16 @@ export default function PickTeamPage() {
       <div className="space-y-3">
         {/* Pitch */}
         <div
-          className="rounded-3xl border shadow-[inset_0_0_120px_rgba(0,0,0,0.35)]"
+          className={cn(
+            "relative rounded-3xl overflow-hidden border",
+            "bg-emerald-700",
+            "shadow-[inset_0_0_120px_rgba(0,0,0,0.35)]"
+          )}
           style={{
-            background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 8%, #2d8b4e 8%, #37a35c 16%, #2d8b4e 16%, #37a35c 24%, #2d8b4e 24%, #37a35c 32%, #2d8b4e 32%, #37a35c 40%, #2d8b4e 40%, #37a35c 48%, #2d8b4e 48%, #37a35c 56%, #2d8b4e 56%, #37a35c 64%, #2d8b4e 64%, #37a35c 72%, #2d8b4e 72%, #37a35c 80%, #2d8b4e 80%, #37a35c 88%, #2d8b4e 88%, #37a35c 96%, #2d8b4e 96%, #37a35c 100%)",
-            position: "relative",
-            padding: "8px 0 16px",
-            overflow: "hidden",
+            backgroundImage: `
+              repeating-linear-gradient(0deg, rgba(255,255,255,0.04), rgba(255,255,255,0.04) 28px, transparent 28px, transparent 56px),
+              linear-gradient(180deg, #0e7a34 0%, #0f8a3c 50%, #0e7a34 100%)
+            `,
           }}
         >
           {/* Field markings */}
