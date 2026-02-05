@@ -1568,10 +1568,6 @@ export default function PickTeamPage() {
             ))}
           </div>
 
-          <div className="text-xs text-muted-foreground text-center">
-            Squad rules: 17 players, 2 GKs, 2 lady forwards. Starting 10: 1 GK, 9 male + 1 lady forward.
-          </div>
-
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
               variant="outline"
@@ -1598,66 +1594,6 @@ export default function PickTeamPage() {
             >
               {loading ? "Loading..." : "Save Team"}
             </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          {/* Budget Card */}
-          <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-4">
-            <div className="flex items-center gap-2 text-xs font-medium text-primary uppercase tracking-wider">
-              <TrendingUp className="h-3.5 w-3.5" />
-              Budget
-            </div>
-            <div className="mt-2 text-2xl font-bold">{formatUGX(budgetRemaining)}</div>
-            <div className="text-xs text-muted-foreground">
-              {formatUGX(budgetUsed)} spent of {formatUGX(BUDGET_TOTAL)}
-            </div>
-            <div className="mt-2 h-2 w-full rounded-full bg-primary/20 overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500",
-                  budgetPercent > 90 ? "bg-rose-500" : budgetPercent > 75 ? "bg-amber-500" : "bg-primary"
-                )}
-                style={{ width: `${budgetPercent}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Squad Card */}
-          <div className="rounded-2xl bg-gradient-to-br from-zinc-900 to-black text-white p-4">
-            <div className="flex items-center gap-2 text-xs font-medium text-white/70 uppercase tracking-wider">
-              <Users className="h-3.5 w-3.5" />
-              Squad
-            </div>
-            <div className="mt-2 text-2xl font-bold">{pickedIds.length}<span className="text-white/50">/17</span></div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              <span className={cn("text-xs px-2 py-0.5 rounded-full", pickedGoalkeepers.length === 2 ? "bg-emerald-500/30 text-emerald-300" : "bg-white/10 text-white/70")}>
-                GK {pickedGoalkeepers.length}/2
-              </span>
-              <span className={cn("text-xs px-2 py-0.5 rounded-full", pickedLadyForwards.length === 2 ? "bg-pink-500/30 text-pink-300" : "bg-white/10 text-white/70")}>
-                Lady FWD {pickedLadyForwards.length}/2
-              </span>
-            </div>
-          </div>
-
-          {/* Starting 10 Card */}
-          <div className="rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white p-4">
-            <div className="flex items-center gap-2 text-xs font-medium text-white/80 uppercase tracking-wider">
-              <Zap className="h-3.5 w-3.5" />
-              Starting 10
-            </div>
-            <div className="mt-2 text-2xl font-bold">{startingIds.length}<span className="text-white/50">/10</span></div>
-            <div className="mt-1 flex flex-wrap gap-1 text-xs">
-              <span className={cn("px-2 py-0.5 rounded-full", startingGoalkeepers === 1 ? "bg-white/30" : "bg-white/10 text-white/60")}>
-                GK {startingGoalkeepers}/1
-              </span>
-              <span className={cn("px-2 py-0.5 rounded-full", startingMales === 9 ? "bg-white/30" : "bg-white/10 text-white/60")}>
-                Male {startingMales}/9
-              </span>
-              <span className={cn("px-2 py-0.5 rounded-full", startingLadyForwards === 1 ? "bg-white/30" : "bg-white/10 text-white/60")}>
-                Lady {startingLadyForwards}/1
-              </span>
-            </div>
           </div>
         </div>
 
