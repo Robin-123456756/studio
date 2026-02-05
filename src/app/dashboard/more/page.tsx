@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Settings, Users, UserCircle2, ArrowLeftRight, Medal, Star } from "lucide-react";
+import { ChevronRight, Settings, Users, UserCircle2, ArrowLeftRight, Medal, Star, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
+  { href: "/dashboard/more/tbl-rules", label: "TBL Rules", Icon: BookOpen },
   { href: "/dashboard/settings", label: "myTBL Settings", Icon: Settings },
   { href: "/dashboard/teams", label: "Teams", Icon: Users },
   { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
