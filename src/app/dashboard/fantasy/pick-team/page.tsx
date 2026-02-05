@@ -5,7 +5,17 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import AuthGate from "@/components/AuthGate";
 import { supabase } from "@/lib/supabaseClient";
-import { Sparkles, TrendingUp, ArrowUpDown, Users, Zap } from "lucide-react";
+import {
+  Sparkles,
+  TrendingUp,
+  ArrowUpDown,
+  Users,
+  Zap,
+  X,
+  TrendingDown,
+  Info,
+  Scale,
+} from "lucide-react";
 
 // DB helpers (Step 3)
 import { loadRosterFromDb, saveRosterToDb, upsertTeamName } from "@/lib/fantasyDb";
@@ -27,6 +37,12 @@ type Player = {
   gwPoints?: number | null;
   formLast5?: string | null;
   isLady: boolean;
+
+  // New FPL-inspired fields
+  ownership?: number | null; // percentage of managers who own this player
+  priceChange?: number | null; // positive = rising, negative = falling
+  pointsHistory?: number[] | null; // last 5 GW points for sparkline
+  nextOpponent?: string | null; // next fixture opponent short name
 };
 
 type ApiGameweek = {
@@ -163,6 +179,362 @@ function splitStartingAndBench(players: Player[], startingIds: string[]) {
   return { starting, bench };
 }
 
+// ============================================
+// FPL-INSPIRED COMPONENTS
+// ============================================
+
+// Mini sparkline chart for last 5 GW points
+function FormSparkline({ history, size = "sm" }: { history?: number[] | null; size?: "sm" | "md" }) {
+  const data = history ?? [0, 0, 0, 0, 0];
+  const max = Math.max(...data, 1);
+  const h = size === "sm" ? 16 : 24;
+  const w = size === "sm" ? 40 : 60;
+  const barW = (w - (data.length - 1) * 2) / data.length;
+
+  return (
+    <div className="flex items-end gap-0.5" style={{ height: h, width: w }}>
+      {data.map((val, i) => {
+        const barH = Math.max(2, (val / max) * h);
+        const isLast = i === data.length - 1;
+        return (
+          <div
+            key={i}
+            className={cn(
+              "rounded-sm transition-all",
+              isLast ? "bg-primary" : "bg-primary/40"
+            )}
+            style={{ height: barH, width: barW }}
+            title={`GW${i + 1}: ${val} pts`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// Price change indicator (arrow up/down/neutral)
+function PriceChangeIndicator({ change }: { change?: number | null }) {
+  if (!change || change === 0) return null;
+
+  const isRising = change > 0;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 text-[10px] font-semibold",
+        isRising ? "text-emerald-500" : "text-rose-500"
+      )}
+    >
+      {isRising ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+      {isRising ? "+" : ""}{change.toFixed(1)}
+    </span>
+  );
+}
+
+// Ownership badge
+function OwnershipBadge({ ownership }: { ownership?: number | null }) {
+  if (!ownership) return null;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+        ownership > 50 ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"
+      )}
+      title={`${ownership}% of managers own this player`}
+    >
+      <Users className="h-2.5 w-2.5" />
+      {ownership}%
+    </span>
+  );
+}
+
+// Player Detail Modal
+function PlayerDetailModal({
+  player,
+  onClose,
+  isPicked,
+  isStarting,
+  isCaptain,
+  isVice,
+  onPick,
+  onRemove,
+  onToggleStarting,
+  onSetCaptain,
+  onSetVice,
+  onCompare,
+}: {
+  player: Player;
+  onClose: () => void;
+  isPicked: boolean;
+  isStarting: boolean;
+  isCaptain: boolean;
+  isVice: boolean;
+  onPick: () => void;
+  onRemove: () => void;
+  onToggleStarting: () => void;
+  onSetCaptain: () => void;
+  onSetVice: () => void;
+  onCompare: () => void;
+}) {
+  const displayName = shortName(player.name, player.webName);
+  const logo = getTeamLogo(player.teamName, player.teamShort);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-md bg-card rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+        {/* Header with gradient */}
+        <div className="relative bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white p-4">
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/20 grid place-items-center hover:bg-white/30"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <div className="h-20 w-20 rounded-2xl bg-white/20 border-2 border-white/40 overflow-hidden shrink-0">
+              {player.avatarUrl ? (
+                <img src={player.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full grid place-items-center text-2xl font-bold text-white/80">
+                  {displayName.charAt(0)}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold truncate">{player.name}</h2>
+                {player.isLady && (
+                  <span className="shrink-0 bg-pink-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    Lady
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 mt-1">
+                {logo && (
+                  <img src={logo} alt="" className="h-5 w-5 rounded-full bg-white/90 object-contain" />
+                )}
+                <span className="text-white/90">{player.teamName ?? player.teamShort}</span>
+                <span className="text-white/60">•</span>
+                <span className="text-white/90">{shortPos(player.position)}</span>
+              </div>
+
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-lg font-bold">{formatUGX(player.price)}</span>
+                <PriceChangeIndicator change={player.priceChange} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-muted/50 p-3 text-center">
+              <div className="text-2xl font-bold text-primary">{formatNumber(player.points)}</div>
+              <div className="text-xs text-muted-foreground">Total Pts</div>
+            </div>
+            <div className="rounded-xl bg-muted/50 p-3 text-center">
+              <div className="text-2xl font-bold">{formatNumber(player.gwPoints)}</div>
+              <div className="text-xs text-muted-foreground">GW Pts</div>
+            </div>
+            <div className="rounded-xl bg-muted/50 p-3 text-center">
+              <div className="text-2xl font-bold">{player.ownership ?? "--"}%</div>
+              <div className="text-xs text-muted-foreground">Owned By</div>
+            </div>
+          </div>
+
+          {/* Form section */}
+          <div className="rounded-xl border p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Form (Last 5 GWs)</span>
+              <span className="text-sm font-bold text-primary">{formatForm(player.formLast5)}</span>
+            </div>
+            <FormSparkline history={player.pointsHistory} size="md" />
+          </div>
+
+          {/* Next fixture */}
+          {player.nextOpponent && (
+            <div className="rounded-xl border p-3 flex items-center justify-between">
+              <span className="text-sm font-medium">Next Fixture</span>
+              <div className="flex items-center gap-2">
+                {TEAM_SHORT_LOGOS[player.nextOpponent] && (
+                  <img
+                    src={TEAM_SHORT_LOGOS[player.nextOpponent]}
+                    alt=""
+                    className="h-6 w-6 rounded-full bg-white object-contain border"
+                  />
+                )}
+                <span className="font-semibold">{player.nextOpponent}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="space-y-2 pt-2">
+            {!isPicked ? (
+              <Button onClick={onPick} className="w-full rounded-xl bg-primary">
+                Add to Squad
+              </Button>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={onToggleStarting}
+                    variant={isStarting ? "default" : "outline"}
+                    className="rounded-xl"
+                  >
+                    {isStarting ? "In Starting XI" : "Add to Starting"}
+                  </Button>
+                  <Button onClick={onRemove} variant="outline" className="rounded-xl text-destructive">
+                    Remove
+                  </Button>
+                </div>
+
+                {isStarting && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={onSetCaptain}
+                      variant={isCaptain ? "default" : "outline"}
+                      className={cn("rounded-xl", isCaptain && "bg-amber-500 hover:bg-amber-600")}
+                    >
+                      {isCaptain ? "Captain" : "Make Captain"}
+                    </Button>
+                    <Button
+                      onClick={onSetVice}
+                      variant={isVice ? "default" : "outline"}
+                      className={cn("rounded-xl", isVice && "bg-sky-500 hover:bg-sky-600")}
+                    >
+                      {isVice ? "Vice-Captain" : "Make Vice"}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+
+            <Button onClick={onCompare} variant="outline" className="w-full rounded-xl gap-2">
+              <Scale className="h-4 w-4" />
+              Compare with another player
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Compare Players Modal
+function ComparePlayersModal({
+  players,
+  onClose,
+}: {
+  players: Player[];
+  onClose: () => void;
+}) {
+  if (players.length < 2) return null;
+
+  const [p1, p2] = players;
+
+  const stats = [
+    { label: "Total Points", key: "points" },
+    { label: "GW Points", key: "gwPoints" },
+    { label: "Price", key: "price", format: (v: number) => formatUGX(v) },
+    { label: "Ownership", key: "ownership", format: (v: number) => `${v}%` },
+    { label: "Form", key: "formLast5" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative w-full max-w-lg bg-card rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="p-4 border-b flex items-center justify-between">
+          <h2 className="text-lg font-bold">Compare Players</h2>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-full bg-muted grid place-items-center hover:bg-muted/80"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4">
+          {/* Player headers */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="col-span-1" />
+            {[p1, p2].map((p) => (
+              <div key={p.id} className="text-center">
+                <div className="h-14 w-14 mx-auto rounded-xl bg-muted overflow-hidden mb-2">
+                  {p.avatarUrl ? (
+                    <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full grid place-items-center font-bold">
+                      {shortName(p.name, p.webName).charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <div className="text-sm font-semibold truncate">{shortName(p.name, p.webName)}</div>
+                <div className="text-xs text-muted-foreground">{p.teamShort}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Stats comparison */}
+          <div className="space-y-2">
+            {stats.map(({ label, key, format }) => {
+              const v1 = (p1 as any)[key];
+              const v2 = (p2 as any)[key];
+              const n1 = typeof v1 === "number" ? v1 : parseFloat(v1) || 0;
+              const n2 = typeof v2 === "number" ? v2 : parseFloat(v2) || 0;
+              const winner = n1 > n2 ? 1 : n2 > n1 ? 2 : 0;
+
+              return (
+                <div key={key} className="grid grid-cols-3 gap-2 items-center py-2 border-b border-border/50">
+                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <div
+                    className={cn(
+                      "text-center font-semibold",
+                      winner === 1 && "text-emerald-600"
+                    )}
+                  >
+                    {format ? format(v1) : formatNumber(v1)}
+                  </div>
+                  <div
+                    className={cn(
+                      "text-center font-semibold",
+                      winner === 2 && "text-emerald-600"
+                    )}
+                  >
+                    {format ? format(v2) : formatNumber(v2)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Form sparklines */}
+          <div className="grid grid-cols-3 gap-2 items-center py-3 mt-2">
+            <div className="text-xs text-muted-foreground">Form Chart</div>
+            <div className="flex justify-center">
+              <FormSparkline history={p1.pointsHistory} size="md" />
+            </div>
+            <div className="flex justify-center">
+              <FormSparkline history={p2.pointsHistory} size="md" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PickTeamPage() {
   const [authed, setAuthed] = React.useState(false);
 
@@ -183,6 +555,13 @@ export default function PickTeamPage() {
   const [sortKey, setSortKey] = React.useState<SortKey>("price");
   const [sortAsc, setSortAsc] = React.useState(false);
   const [teamFilter, setTeamFilter] = React.useState<string>("ALL");
+
+  // Player detail modal
+  const [selectedPlayer, setSelectedPlayer] = React.useState<Player | null>(null);
+
+  // Compare players
+  const [compareMode, setCompareMode] = React.useState(false);
+  const [comparePlayerIds, setComparePlayerIds] = React.useState<string[]>([]);
 
   // gameweeks (so we save roster per GW)
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
@@ -251,23 +630,46 @@ export default function PickTeamPage() {
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load players");
 
+        // Generate mock data for FPL-inspired features if not from API
+        const allTeamShorts = ["ACC", "BAS", "BIF", "TRO", "DUJ", "NIG", "PEA", "KOM", "MAS", "MID", "CEN", "JUB", "END", "ABA", "THA", "QUA"];
+
         setPlayers(
-          (json.players ?? []).map((p: any) => ({
-            id: String(p.id),
-            name: String(p.name ?? p.webName ?? p.web_name ?? "--"),
-            webName: p.webName ?? p.web_name ?? null,
-            position: normalizePosition(p.position),
+          (json.players ?? []).map((p: any) => {
+            const pts = Number(p.points ?? p.total_points ?? 0);
+            // Generate mock ownership based on points (higher points = higher ownership)
+            const mockOwnership = p.ownership ?? Math.min(95, Math.max(1, Math.round(pts * 0.8 + Math.random() * 20)));
+            // Generate mock price change (-0.2 to +0.2)
+            const mockPriceChange = p.priceChange ?? p.price_change ?? (Math.random() > 0.7 ? (Math.random() - 0.5) * 0.4 : 0);
+            // Generate mock points history (last 5 GWs)
+            const mockHistory = p.pointsHistory ?? p.points_history ?? Array.from({ length: 5 }, () => Math.floor(Math.random() * 15));
+            // Generate mock next opponent
+            const playerTeam = (p.teamShort ?? p.team_short ?? "").toUpperCase();
+            const opponents = allTeamShorts.filter(t => t !== playerTeam);
+            const mockNextOpp = p.nextOpponent ?? p.next_opponent ?? opponents[Math.floor(Math.random() * opponents.length)];
 
-            teamShort: p.teamShort ?? p.team_short ?? null,
-            teamName: p.teamName ?? p.team_name ?? null,
+            return {
+              id: String(p.id),
+              name: String(p.name ?? p.webName ?? p.web_name ?? "--"),
+              webName: p.webName ?? p.web_name ?? null,
+              position: normalizePosition(p.position),
 
-            avatarUrl: p.avatarUrl ?? p.avatar_url ?? null,
-            price: Number(p.price ?? p.now_cost ?? NaN),
-            points: Number(p.points ?? p.total_points ?? NaN),
-            gwPoints: p.gw_points ?? p.points_this_gw ?? null,
-            formLast5: p.form_last5 ?? p.form_last_5 ?? null,
-            isLady: Boolean(p.isLady ?? p.is_lady),
-          }))
+              teamShort: p.teamShort ?? p.team_short ?? null,
+              teamName: p.teamName ?? p.team_name ?? null,
+
+              avatarUrl: p.avatarUrl ?? p.avatar_url ?? null,
+              price: Number(p.price ?? p.now_cost ?? NaN),
+              points: Number(p.points ?? p.total_points ?? NaN),
+              gwPoints: p.gw_points ?? p.points_this_gw ?? null,
+              formLast5: p.form_last5 ?? p.form_last_5 ?? null,
+              isLady: Boolean(p.isLady ?? p.is_lady),
+
+              // FPL-inspired fields
+              ownership: mockOwnership,
+              priceChange: Math.round(mockPriceChange * 10) / 10,
+              pointsHistory: mockHistory,
+              nextOpponent: mockNextOpp,
+            };
+          })
         );
       } catch (e: any) {
         setMsg(e?.message || "Failed to load players");
@@ -744,6 +1146,7 @@ export default function PickTeamPage() {
     onToggle,
     onCaptain,
     onVice,
+    onInfo,
     isCaptain,
     isVice,
     showLeadership = true,
@@ -752,6 +1155,7 @@ export default function PickTeamPage() {
     onToggle: () => void;
     onCaptain: () => void;
     onVice: () => void;
+    onInfo: () => void;
     isCaptain: boolean;
     isVice: boolean;
     showLeadership?: boolean;
@@ -774,6 +1178,19 @@ export default function PickTeamPage() {
 
     return (
       <div className="relative w-[88px]">
+        {/* Info button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onInfo();
+          }}
+          className="absolute -top-1 -left-1 z-10 h-5 w-5 rounded-full bg-white shadow-md grid place-items-center hover:bg-gray-100"
+          aria-label={`View ${displayName} details`}
+        >
+          <Info className="h-3 w-3 text-gray-600" />
+        </button>
+
         <button
           type="button"
           onClick={onToggle}
@@ -788,12 +1205,22 @@ export default function PickTeamPage() {
                 <TeamBadge teamName={player.teamName} teamShort={player.teamShort} size="sm" />
               </div>
 
-              {/* Lady badge */}
-              {player.isLady && (
-                <div className="absolute top-1 right-1 bg-pink-500 text-white text-[8px] font-bold px-1 rounded">
-                  F
-                </div>
-              )}
+              {/* Lady badge + Price change */}
+              <div className="absolute top-1 right-1 flex items-center gap-0.5">
+                {player.priceChange !== 0 && player.priceChange && (
+                  <div className={cn(
+                    "text-[8px] font-bold px-1 rounded",
+                    player.priceChange > 0 ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
+                  )}>
+                    {player.priceChange > 0 ? "↑" : "↓"}
+                  </div>
+                )}
+                {player.isLady && (
+                  <div className="bg-pink-500 text-white text-[8px] font-bold px-1 rounded">
+                    F
+                  </div>
+                )}
+              </div>
 
               {/* Avatar */}
               <div className="flex items-center justify-center pt-3">
@@ -890,6 +1317,7 @@ export default function PickTeamPage() {
     viceId,
     onCaptain,
     onVice,
+    onInfo,
   }: {
     picked: Player[];
     startingIds: string[];
@@ -898,6 +1326,7 @@ export default function PickTeamPage() {
     viceId: string | null;
     onCaptain: (id: string) => void;
     onVice: (id: string) => void;
+    onInfo: (player: Player) => void;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
     const g = groupByPosition(starting);
@@ -956,6 +1385,7 @@ export default function PickTeamPage() {
                     onToggle={() => onToggleStarting(p.id)}
                     onCaptain={() => onCaptain(p.id)}
                     onVice={() => onVice(p.id)}
+                    onInfo={() => onInfo(p)}
                     isCaptain={captainId === p.id}
                     isVice={viceId === p.id}
                   />
@@ -970,6 +1400,7 @@ export default function PickTeamPage() {
                     onToggle={() => onToggleStarting(p.id)}
                     onCaptain={() => onCaptain(p.id)}
                     onVice={() => onVice(p.id)}
+                    onInfo={() => onInfo(p)}
                     isCaptain={captainId === p.id}
                     isVice={viceId === p.id}
                   />
@@ -984,6 +1415,7 @@ export default function PickTeamPage() {
                     onToggle={() => onToggleStarting(p.id)}
                     onCaptain={() => onCaptain(p.id)}
                     onVice={() => onVice(p.id)}
+                    onInfo={() => onInfo(p)}
                     isCaptain={captainId === p.id}
                     isVice={viceId === p.id}
                   />
@@ -998,6 +1430,7 @@ export default function PickTeamPage() {
                     onToggle={() => onToggleStarting(p.id)}
                     onCaptain={() => onCaptain(p.id)}
                     onVice={() => onVice(p.id)}
+                    onInfo={() => onInfo(p)}
                     isCaptain={captainId === p.id}
                     isVice={viceId === p.id}
                   />
@@ -1015,13 +1448,18 @@ export default function PickTeamPage() {
           </div>
 
           <div className="flex gap-3 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
-            {bench.map((p) => (
-              <div key={p.id} className="shrink-0">
+            {bench.map((p, index) => (
+              <div key={p.id} className="shrink-0 relative">
+                {/* Bench order number */}
+                <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-800 text-white text-[10px] font-bold grid place-items-center shadow">
+                  {index + 1}
+                </div>
                 <PitchPlayerCard
                   player={p}
                   onToggle={() => onToggleStarting(p.id)}
                   onCaptain={() => onCaptain(p.id)}
                   onVice={() => onVice(p.id)}
+                  onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
                   showLeadership={false}
@@ -1210,6 +1648,7 @@ export default function PickTeamPage() {
               viceId={viceId}
               onCaptain={setCaptain}
               onVice={setVice}
+              onInfo={setSelectedPlayer}
             />
           ) : (
             <div className="divide-y rounded-2xl border">
@@ -1512,53 +1951,94 @@ export default function PickTeamPage() {
               {pool.map((p) => {
                 const disabled = pickedIds.length >= 17;
                 const displayName = shortName(p.name, p.webName);
-                const pointsLabel = p.gwPoints !== null && p.gwPoints !== undefined ? "GW" : "Total";
-                const pointsValue =
-                  p.gwPoints !== null && p.gwPoints !== undefined ? p.gwPoints : p.points ?? null;
+                const pointsValue = p.points ?? 0;
 
                 return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => addToSquad(p.id)}
-                    className={cn(
-                      "w-full rounded-2xl border px-3 py-3 text-left transition",
-                      "bg-card hover:bg-accent/10 active:bg-accent/20",
-                      disabled ? "opacity-60" : ""
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-2xl overflow-hidden bg-muted shrink-0">
-                        {p.avatarUrl ? (
-                          <img src={p.avatarUrl} alt={displayName} className="h-10 w-10 object-cover" />
-                        ) : null}
-                      </div>
+                  <div key={p.id} className="relative">
+                    {/* Info button */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlayer(p)}
+                      className="absolute top-2 right-2 z-10 h-6 w-6 rounded-full bg-muted grid place-items-center hover:bg-muted/80"
+                      aria-label="View details"
+                    >
+                      <Info className="h-3 w-3" />
+                    </button>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="text-sm font-semibold truncate">{displayName}</div>
-                          {p.isLady ? (
-                            <span className="text-[10px] font-semibold text-pink-600">Lady</span>
-                          ) : null}
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => addToSquad(p.id)}
+                      className={cn(
+                        "w-full rounded-2xl border px-3 py-3 text-left transition",
+                        "bg-card hover:bg-accent/10 active:bg-accent/20",
+                        disabled ? "opacity-60" : ""
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Avatar with position color */}
+                        <div className="relative">
+                          <div className="h-12 w-12 rounded-2xl overflow-hidden bg-muted shrink-0">
+                            {p.avatarUrl ? (
+                              <img src={p.avatarUrl} alt={displayName} className="h-12 w-12 object-cover" />
+                            ) : (
+                              <div className="h-full w-full grid place-items-center text-lg font-bold text-muted-foreground">
+                                {displayName.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          {/* Position indicator */}
+                          <div className={cn(
+                            "absolute -bottom-1 -right-1 h-5 w-5 rounded-full grid place-items-center text-[9px] font-bold text-white",
+                            normalizePosition(p.position) === "Goalkeeper" && "bg-amber-500",
+                            normalizePosition(p.position) === "Defender" && "bg-blue-500",
+                            normalizePosition(p.position) === "Midfielder" && "bg-emerald-500",
+                            normalizePosition(p.position) === "Forward" && "bg-rose-500"
+                          )}>
+                            {shortPos(p.position)}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <TeamBadge teamName={p.teamName} teamShort={p.teamShort} size="sm" />
-                          <span className="truncate">
-                            {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-semibold truncate">{displayName}</div>
+                            {p.isLady && (
+                              <span className="text-[10px] font-semibold text-pink-600">Lady</span>
+                            )}
+                            <PriceChangeIndicator change={p.priceChange} />
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            <TeamBadge teamName={p.teamName} teamShort={p.teamShort} size="sm" />
+                            <span className="truncate">{p.teamShort ?? "--"}</span>
+                            {p.nextOpponent && (
+                              <>
+                                <span className="text-muted-foreground/50">vs</span>
+                                <span className="font-medium">{p.nextOpponent}</span>
+                              </>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[11px] font-semibold text-primary">
+                              {formatUGX(p.price)}
+                            </span>
+                            <span className="text-[11px] text-emerald-600 font-medium">
+                              {formatNumber(pointsValue)} pts
+                            </span>
+                            <OwnershipBadge ownership={p.ownership} />
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          <FormSparkline history={p.pointsHistory} size="sm" />
+                          <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-1 text-xs font-semibold">
+                            Pick
                           </span>
                         </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          Price {formatUGX(p.price)} - {pointsLabel} {formatNumber(pointsValue)} - Form{" "}
-                          {formatForm(p.formLast5)}
-                        </div>
                       </div>
-
-                      <span className="shrink-0 inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold">
-                        Pick
-                      </span>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -1566,7 +2046,98 @@ export default function PickTeamPage() {
         </div>
       </div>
 
-    </div>
+      {/* Player Detail Modal */}
+      {selectedPlayer && (
+        <PlayerDetailModal
+          player={selectedPlayer}
+          onClose={() => setSelectedPlayer(null)}
+          isPicked={pickedIds.includes(selectedPlayer.id)}
+          isStarting={startingIds.includes(selectedPlayer.id)}
+          isCaptain={captainId === selectedPlayer.id}
+          isVice={viceId === selectedPlayer.id}
+          onPick={() => {
+            addToSquad(selectedPlayer.id);
+            setSelectedPlayer(null);
+          }}
+          onRemove={() => {
+            removeFromSquad(selectedPlayer.id);
+            setSelectedPlayer(null);
+          }}
+          onToggleStarting={() => toggleStarting(selectedPlayer.id)}
+          onSetCaptain={() => setCaptain(selectedPlayer.id)}
+          onSetVice={() => setVice(selectedPlayer.id)}
+          onCompare={() => {
+            setComparePlayerIds([selectedPlayer.id]);
+            setCompareMode(true);
+            setSelectedPlayer(null);
+          }}
+        />
+      )}
 
+      {/* Compare Players Modal */}
+      {compareMode && comparePlayerIds.length >= 1 && (
+        comparePlayerIds.length === 2 ? (
+          <ComparePlayersModal
+            players={comparePlayerIds.map((id) => playerById.get(id)!).filter(Boolean)}
+            onClose={() => {
+              setCompareMode(false);
+              setComparePlayerIds([]);
+            }}
+          />
+        ) : (
+          // Player selection for comparison
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {
+              setCompareMode(false);
+              setComparePlayerIds([]);
+            }} />
+            <div className="relative w-full max-w-md bg-card rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[80vh]">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h2 className="text-lg font-bold">Select player to compare</h2>
+                <button
+                  onClick={() => {
+                    setCompareMode(false);
+                    setComparePlayerIds([]);
+                  }}
+                  className="h-8 w-8 rounded-full bg-muted grid place-items-center"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-4 space-y-2 overflow-y-auto max-h-[60vh]">
+                {players
+                  .filter((p) => !comparePlayerIds.includes(p.id))
+                  .slice(0, 50)
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setComparePlayerIds([...comparePlayerIds, p.id]);
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border hover:bg-accent/10"
+                    >
+                      <div className="h-10 w-10 rounded-xl bg-muted overflow-hidden">
+                        {p.avatarUrl ? (
+                          <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full grid place-items-center font-bold">
+                            {shortName(p.name, p.webName).charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold">{shortName(p.name, p.webName)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {p.teamShort} • {shortPos(p.position)} • {formatNumber(p.points)} pts
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )
+      )}
+    </div>
   );
 }
