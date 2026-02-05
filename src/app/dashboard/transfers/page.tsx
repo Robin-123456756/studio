@@ -112,7 +112,7 @@ export default function TransfersPage() {
 
   const [rightTab, setRightTab] = React.useState<"IN" | "TRANSFERS">("IN");
 
-  // ✅ Use the transfers hook
+  // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
   const { transfersThisGW, freeTransfers, usedTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
 
@@ -291,7 +291,7 @@ React.useEffect(() => {
     });
 
     resetSelection();
-    setRightTab("TRANSFERS"); // ✅ show the transfer you just made
+    setRightTab("TRANSFERS"); // show the transfer you just made
   }
 
   const outP = outId ? byId.get(outId) : null;
@@ -303,7 +303,7 @@ React.useEffect(() => {
         <div>
           <div className="text-2xl font-extrabold tracking-tight">Transfers</div>
           <div className="text-sm text-muted-foreground">
-            {gwLoading ? "Loading gameweek..." : `GW ${currentGW?.id ?? "—"} • ${currentGW?.name ?? "—"}`}
+            {gwLoading ? "Loading gameweek..." : `GW ${currentGW?.id ?? "--"} - ${currentGW?.name ?? "--"}`}
           </div>
         </div>
 
@@ -338,16 +338,16 @@ React.useEffect(() => {
                 <span className="font-semibold">{formatDeadlineUG(nextGW.deadline_time)}</span>
               </>
             ) : (
-              "Deadline: —"
+              "Deadline: --"
             )}
-            {locked ? <span className="ml-2 text-red-600 font-semibold">• Locked</span> : null}
+            {locked ? <span className="ml-2 text-red-600 font-semibold">- Locked</span> : null}
           </div>
 
-          {gwError ? <div className="text-xs text-red-600">⚠ {gwError}</div> : null}
+          {gwError ? <div className="text-xs text-red-600">Warning: {gwError}</div> : null}
         </CardContent>
       </Card>
 
-      {playersError ? <div className="text-sm text-red-600">⚠ {playersError}</div> : null}
+      {playersError ? <div className="text-sm text-red-600">Warning: {playersError}</div> : null}
 
       {/* Squad + Pool */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -396,7 +396,7 @@ React.useEffect(() => {
               </div>
             </div>
 
-            {/* ✅ Tabs above pool */}
+            {/* Tabs above pool */}
             <div className="flex items-center justify-center">
               <div className="rounded-2xl bg-muted p-1 inline-flex">
                 <button
@@ -468,7 +468,7 @@ React.useEffect(() => {
                 </div>
               </>
             ) : (
-              // ✅ Transfers list form: OUT row + IN row (fancy)
+              // Transfers list form: OUT row + IN row
               <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
                 {transfersThisGW.length === 0 ? (
                   <div className="text-sm text-muted-foreground">
@@ -505,7 +505,7 @@ React.useEffect(() => {
               {outId ? (byId.get(outId)?.name ?? "Selected OUT player") : "Pick OUT player from squad"}
             </div>
             <div className="text-xs text-muted-foreground truncate">
-              {outId ? `${byId.get(outId)?.teamShort ?? byId.get(outId)?.teamName ?? "—"} • ${byId.get(outId)?.position ?? "—"}` : "—"}
+              {outId ? `${byId.get(outId)?.teamShort ?? byId.get(outId)?.teamName ?? "--"} - ${byId.get(outId)?.position ?? "--"}` : "--"}
             </div>
           </div>
         </div>
@@ -514,7 +514,7 @@ React.useEffect(() => {
       {/* arrow divider */}
       <div className="flex justify-center">
         <div className="h-9 w-9 rounded-full bg-muted grid place-items-center">
-          <span className="text-muted-foreground">→</span>
+          <span className="text-muted-foreground">-&gt;</span>
         </div>
       </div>
 
@@ -527,7 +527,7 @@ React.useEffect(() => {
               {inId ? (byId.get(inId)?.name ?? "Selected IN player") : "Pick IN player from pool"}
             </div>
             <div className="text-xs text-muted-foreground truncate">
-              {inId ? `${byId.get(inId)?.teamShort ?? byId.get(inId)?.teamName ?? "—"} • ${byId.get(inId)?.position ?? "—"}` : "—"}
+              {inId ? `${byId.get(inId)?.teamShort ?? byId.get(inId)?.teamName ?? "--"} - ${byId.get(inId)?.position ?? "--"}` : "--"}
             </div>
           </div>
         </div>

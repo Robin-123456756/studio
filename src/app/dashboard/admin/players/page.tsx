@@ -14,7 +14,7 @@ type DbPlayer = {
 
   team_id: number | string | null;
 
-  // ✅ add these two (from API)
+  // add these two (from API)
   teamName?: string | null;
   teamShort?: string | null;
 
@@ -30,7 +30,12 @@ function positionFull(pos?: string | null) {
   if (p === "mid" || p === "midfielder" || p === "mf") return "Midfielder";
   if (p === "fwd" || p === "forward" || p === "fw" || p === "striker") return "Forward";
   // if your DB already stores "Goalkeeper" etc, this keeps it
-  return pos ?? "—";
+  return pos ?? "--";
+}
+
+function formatUGX(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "UGX --";
+  return `UGX ${value.toFixed(1)}m`;
 }
 
 export default function PlayersPage() {
@@ -79,17 +84,17 @@ export default function PlayersPage() {
               {players.map((p) => (
                 <div key={p.id} className="p-4 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    {/* ✅ full name */}
+                    {/* full name */}
                     <div className="font-semibold truncate">{p.name}</div>
 
-                    {/* ✅ full position + full team name */}
+                    {/* full position + full team name */}
                     <div className="text-xs text-muted-foreground truncate">
-                      {positionFull(p.position)} • {p.teamName ?? p.teamShort ?? `Team #${p.team_id ?? "—"}`}
+                      {positionFull(p.position)} - {p.teamName ?? p.teamShort ?? `Team #${p.team_id ?? "--"}`}
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-mono tabular-nums">${Number(p.price ?? 0)}m</div>
+                    <div className="text-sm font-mono tabular-nums">{formatUGX(p.price)}</div>
                     <div className="text-sm font-extrabold font-mono tabular-nums">{Number(p.points ?? 0)}</div>
                   </div>
                 </div>

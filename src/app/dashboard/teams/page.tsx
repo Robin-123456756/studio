@@ -119,7 +119,7 @@ export default function TeamsPage() {
               </Link>
 
               <CardFooter className="flex justify-between items-center">
-                <div className="text-sm font-mono text-muted-foreground">—</div>
+                <div className="text-sm font-mono text-muted-foreground">--</div>
                 <Button asChild variant="outline" size="sm">
                   <Link href={`/dashboard/teams/${team.team_uuid}`}>View Squad</Link>
                 </Button>

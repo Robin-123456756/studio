@@ -43,3 +43,10 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# Windows reserved names (auto-generated, do not commit)
+nul
+NUL
+
+# Claude Code local settings
+.claude/

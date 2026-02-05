@@ -13,6 +13,11 @@ export type Player = {
   teamShort?: string | null;
 };
 
+function formatUGX(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "UGX --";
+  return `UGX ${value.toFixed(1)}m`;
+}
+
 interface PlayerCardProps {
   player: Player;
   active?: boolean;
@@ -54,17 +59,17 @@ export function PlayerCard({
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate">
-              {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
+              {p.name} {p.isLady ? <span className="text-pink-600">Lady</span> : null}
             </div>
             <div className="text-xs text-muted-foreground truncate">
-              {p.teamName ?? p.teamShort ?? "—"} • {p.position}
+              {p.teamName ?? p.teamShort ?? "--"} - {p.position}
             </div>
           </div>
         </div>
 
         <div className="text-right shrink-0">
           <div className="text-xs text-muted-foreground">Price</div>
-          <div className="font-mono font-bold tabular-nums">${Number(p.price ?? 0)}m</div>
+          <div className="font-mono font-bold tabular-nums">{formatUGX(p.price)}</div>
 
           <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
           <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>

@@ -7,16 +7,21 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type UiPlayer = {
   id: string;
-  name: string;          // ✅ full name
-  position: string;      // ✅ Goalkeeper / Defender / Midfielder / Forward
+  name: string;          // full name
+  position: string;      // Goalkeeper / Defender / Midfielder / Forward
   teamId: number | string;
-  teamName: string;      // ✅ full team name
+  teamName: string;      // full team name
   teamShort?: string | null;
   price: number;
   points: number;
   avatarUrl?: string | null;
   isLady?: boolean;
 };
+
+function formatUGX(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "UGX --";
+  return `UGX ${value.toFixed(1)}m`;
+}
 
 export default function PlayersPage() {
   const [players, setPlayers] = React.useState<UiPlayer[]>([]);
@@ -67,15 +72,15 @@ export default function PlayersPage() {
                 <div key={p.id} className="p-4 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-semibold truncate">
-                      {p.name} {p.isLady ? "👩" : ""}
+                      {p.name} {p.isLady ? <span className="text-pink-600">Lady</span> : null}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {p.position} • {p.teamName}
+                      {p.position} - {p.teamName}
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-mono tabular-nums">${p.price}m</div>
+                    <div className="text-sm font-mono tabular-nums">{formatUGX(p.price)}</div>
                     <div className="text-sm font-extrabold font-mono tabular-nums">{p.points}</div>
                   </div>
                 </div>

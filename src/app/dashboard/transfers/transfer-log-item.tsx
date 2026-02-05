@@ -36,6 +36,11 @@ type Player = {
   price: number;
 };
 
+function formatUGX(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "UGX --";
+  return `UGX ${value.toFixed(1)}m`;
+}
+
 interface TransferLogItemProps {
   transfer: TransferLogItem;
   outPlayer?: Player | null;
@@ -68,11 +73,11 @@ export function TransferLogItemComponent({
             </div>
           </div>
           <div className="text-xs text-muted-foreground truncate">
-            {outNow?.teamShort ?? t.outTeamShort ?? "—"} • {outNow?.position ?? t.outPos ?? "—"}
+            {outNow?.teamShort ?? t.outTeamShort ?? "--"} - {outNow?.position ?? t.outPos ?? "--"}
           </div>
         </div>
         <div className="text-sm font-mono font-bold tabular-nums">
-          ${Number(outNow?.price ?? 0)}m
+          {formatUGX(outNow?.price ?? null)}
         </div>
       </div>
 
@@ -93,11 +98,11 @@ export function TransferLogItemComponent({
             </div>
           </div>
           <div className="text-xs text-muted-foreground truncate">
-            {inNow?.teamShort ?? t.inTeamShort ?? "—"} • {inNow?.position ?? t.inPos ?? "—"}
+            {inNow?.teamShort ?? t.inTeamShort ?? "--"} - {inNow?.position ?? t.inPos ?? "--"}
           </div>
         </div>
         <div className="text-sm font-mono font-bold tabular-nums">
-          ${Number(inNow?.price ?? 0)}m
+          {formatUGX(inNow?.price ?? null)}
         </div>
       </div>
     </div>

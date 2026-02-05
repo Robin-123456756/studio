@@ -29,6 +29,11 @@ function normalize(position?: string | null): string {
   return position ?? "Midfielder";
 }
 
+function formatUGX(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "UGX --";
+  return `UGX ${value.toFixed(1)}m`;
+}
+
 export default function TeamDetailPage() {
   const params = useParams();
   const teamId = (params?.teamId as string) ?? ""; // this is team_uuid
@@ -152,8 +157,7 @@ export default function TeamDetailPage() {
 
                   <div className="min-w-0">
                     <div className="text-sm font-semibold leading-tight break-words">
-                      {p.name} {p.isLady ? <span className="text-pink-600">
-                        • Lady</span> : null}
+                      {p.name} {p.isLady ? <span className="text-pink-600">Lady</span> : null}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {normalize(p.position)}
@@ -165,7 +169,7 @@ export default function TeamDetailPage() {
                 <div className="text-right border-l pl-1">
                   <div className="text-[11px] text-muted-foreground leading-none">Price</div>
                   <div className="text-sm font-mono font-semibold tabular-nums">
-                    ${p.price ?? 0}m
+                    {formatUGX(p.price)}
                   </div>
                 </div>
 

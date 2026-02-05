@@ -44,7 +44,7 @@ export async function GET(req: Request) {
   // Return roster player ids for this GW
   const { data, error } = await supabase
     .from("user_rosters")
-    .select("player_id, is_starting_9")
+    .select("player_id, is_starting_9, is_captain, is_vice_captain")
     .eq("user_id", auth.user.id)
     .eq("gameweek_id", gwId);
 
@@ -55,7 +55,16 @@ export async function GET(req: Request) {
     .filter((r) => r.is_starting_9)
     .map((r) => String(r.player_id));
 
-  return NextResponse.json({ gwId, squadIds, startingIds });
+  const captainId =
+    (data ?? []).find((r) => r.is_captain)?.player_id !== undefined
+      ? String((data ?? []).find((r) => r.is_captain)?.player_id)
+      : null;
+  const viceId =
+    (data ?? []).find((r) => r.is_vice_captain)?.player_id !== undefined
+      ? String((data ?? []).find((r) => r.is_vice_captain)?.player_id)
+      : null;
+
+  return NextResponse.json({ gwId, squadIds, startingIds, captainId, viceId });
 }
 
 export async function POST(req: Request) {
