@@ -769,10 +769,10 @@ export default function PickTeamPage() {
   const deadlineLabel = formatDeadlineUG(nextGW?.deadline_time ?? currentGW?.deadline_time);
   const currentGwLabel = gwId ? `Gameweek ${gwId}` : "Gameweek --";
   const chips = [
-    { label: "Bench Boost", icon: ArrowUpDown },
-    { label: "Triple Captain", icon: Sparkles },
-    { label: "Wildcard", icon: TrendingUp },
-    { label: "Free Hit", icon: Zap },
+    { name: "Bench Boost", icon: "🔄", status: "Available" },
+    { name: "Triple Captain", icon: "👑", status: "Available" },
+    { name: "Wildcard", icon: "🃏", status: "Available" },
+    { name: "Free Hit", icon: "⚡", status: "Available" },
   ];
 
   const listSections = [
@@ -1518,15 +1518,53 @@ export default function PickTeamPage() {
             {gwLoading ? "Loading..." : `${currentGwLabel} - Deadline: ${deadlineLabel}`}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {chips.map(({ label, icon: Icon }) => (
-              <div key={label} className="rounded-2xl border bg-card px-2 py-2 text-center">
-                <div className="mx-auto h-8 w-8 rounded-xl bg-primary/10 text-primary grid place-items-center">
-                  <Icon className="h-4 w-4" />
+          {/* Chips */}
+          <div style={{ display: "flex", gap: 8, padding: "4px 12px 12px", justifyContent: "center" }}>
+            {chips.map((chip) => (
+              <button
+                key={chip.name}
+                style={{
+                  flex: 1,
+                  background: "#f8f8f8",
+                  border: "1.5px solid #e0e0e0",
+                  borderRadius: 10,
+                  padding: "8px 4px 6px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 2,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, #04F5FF, #00FF87)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 14,
+                  }}
+                >
+                  {chip.icon}
                 </div>
-                <div className="mt-1 text-[11px] font-semibold">{label}</div>
-                <div className="text-[10px] text-muted-foreground">Available</div>
-              </div>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#37003C" }}>{chip.name}</span>
+                <span
+                  style={{
+                    fontSize: 8,
+                    color: "#37003C",
+                    border: "1px solid #ccc",
+                    borderRadius: 8,
+                    padding: "1px 6px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {chip.status}
+                </span>
+              </button>
             ))}
           </div>
 
