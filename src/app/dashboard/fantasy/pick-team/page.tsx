@@ -1277,6 +1277,7 @@ export default function PickTeamPage() {
     onInfo,
     isCaptain,
     isVice,
+    isStarting = false,
     showLeadership = true,
   }: {
     player: Player;
@@ -1286,6 +1287,7 @@ export default function PickTeamPage() {
     onInfo: () => void;
     isCaptain: boolean;
     isVice: boolean;
+    isStarting?: boolean;
     showLeadership?: boolean;
   }) {
     const displayName = shortName(player.name, player.webName);
@@ -1302,7 +1304,7 @@ export default function PickTeamPage() {
     const posColor = posColorMap[normalizedPos] ?? "from-gray-600 to-gray-700";
 
     return (
-      <div className="relative w-[86px]">
+      <div className={cn("relative w-[86px]", isStarting && "ring-2 ring-emerald-400 rounded-xl")}>
         {/* Info button */}
         <button
           type="button"
@@ -1420,19 +1422,28 @@ export default function PickTeamPage() {
     onInfo: (player: Player) => void;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
-    const g = groupByPosition(starting);
     const startingMales = starting.filter((p) => !p.isLady).length;
     const startingLadyForwards = starting.filter(
       (p) => p.isLady && normalizePosition(p.position) === "Forward"
     ).length;
-    const formationReady =
+    const startingGKs = starting.filter(
+      (p) => normalizePosition(p.position) === "Goalkeeper"
+    ).length;
+
+    // Check if starting 10 is complete and valid
+    const isStartingComplete =
       starting.length === 10 &&
       startingMales === 9 &&
       startingLadyForwards === 1 &&
-      startingGoalkeepers === 1;
-    const formation = formationReady
+      startingGKs === 1;
+
+    // When starting is complete, show starting 10 on pitch; otherwise show all picked
+    const playersOnPitch = isStartingComplete ? starting : picked;
+    const g = groupByPosition(playersOnPitch);
+
+    const formation = isStartingComplete
       ? `${g.Defenders.length}-${g.Midfielders.length}-${g.Forwards.length}`
-      : "--";
+      : `${picked.length}/17`;
 
     return (
       <div className="space-y-0 rounded-2xl overflow-hidden">
@@ -1534,7 +1545,7 @@ export default function PickTeamPage() {
           {/* GK Row */}
           <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 16px", position: "relative", zIndex: 1 }}>
             {g.Goalkeepers.length > 0 ? (
-              g.Goalkeepers.slice(0, 1).map((p) => (
+              g.Goalkeepers.map((p) => (
                 <PitchPlayerCard
                   key={p.id}
                   player={p}
@@ -1544,6 +1555,7 @@ export default function PickTeamPage() {
                   onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
+                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
                 />
               ))
             ) : (
@@ -1564,6 +1576,7 @@ export default function PickTeamPage() {
                   onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
+                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
                 />
               ))
             ) : (
@@ -1586,6 +1599,7 @@ export default function PickTeamPage() {
                   onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
+                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
                 />
               ))
             ) : (
@@ -1608,6 +1622,7 @@ export default function PickTeamPage() {
                   onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
+                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
                 />
               ))
             ) : (
@@ -1618,31 +1633,19 @@ export default function PickTeamPage() {
           </div>
         </div>
 
-        {/* Bench */}
-        <div
-          style={{
-            background: "linear-gradient(180deg, #e0f7f0, #c8ece0)",
-            padding: "12px 8px 20px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 8 }}>
-            {bench.length > 0 ? (
-              bench.map((p) => (
-                <span key={p.id} style={{ fontSize: 11, fontWeight: 800, color: "#37003C", width: 80, textAlign: "center" }}>
-                  {shortPos(p.position)}
-                </span>
-              ))
-            ) : (
-              Array.from({ length: 7 }).map((_, i) => (
-                <span key={`bench-label-${i}`} style={{ fontSize: 11, fontWeight: 800, color: "#37003C", width: 80, textAlign: "center" }}>
-                  SUB
-                </span>
-              ))
-            )}
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-around" }}>
-            {bench.length > 0 ? (
-              bench.map((p, index) => (
+        {/* Bench - Only show when starting 10 is complete */}
+        {isStartingComplete ? (
+          <div
+            style={{
+              background: "linear-gradient(180deg, #e0f7f0, #c8ece0)",
+              padding: "12px 8px 20px",
+            }}
+          >
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: "#37003C" }}>SUBSTITUTES</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-around" }}>
+              {bench.map((p, index) => (
                 <div key={p.id} className="relative">
                   <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
                     {index + 1}
@@ -1658,19 +1661,31 @@ export default function PickTeamPage() {
                     showLeadership={false}
                   />
                 </div>
-              ))
-            ) : (
-              Array.from({ length: 7 }).map((_, i) => (
-                <div key={`bench-empty-${i}`} className="relative">
-                  <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
-                    {i + 1}
-                  </div>
-                  <EmptySlot position="SUB" />
-                </div>
-              ))
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              background: "linear-gradient(180deg, #e0f7f0, #c8ece0)",
+              padding: "12px 16px",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
+              {picked.length === 0
+                ? "Pick 17 players from Transfers to build your squad"
+                : picked.length < 17
+                ? `${picked.length}/17 players picked • Select ${17 - picked.length} more`
+                : "Tap players to select your starting 10 (9 males + 1 lady forward + 1 GK)"}
+            </div>
+            {picked.length === 17 && starting.length > 0 && starting.length < 10 && (
+              <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+                {starting.length}/10 starting • Need {10 - starting.length} more
+              </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     );
   }
