@@ -8,8 +8,8 @@ export const revalidate = 0;
 export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
-  // 1) Current gameweek
-  const { data: current, error } = await supabase
+  // 1) Current gameweek (admin flag)
+  const { data: flaggedCurrent, error } = await supabase
     .from("gameweeks")
     .select("id, name, deadline_time, finalized, is_current")
     .eq("is_current", true)
@@ -19,7 +19,28 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // 2) Next gameweek
+  // 2) Earliest open gameweek (not finalized)
+  const { data: earliestOpen, error: openErr } = await supabase
+    .from("gameweeks")
+    .select("id, name, deadline_time, finalized, is_current")
+    .or("finalized.is.false,finalized.is.null")
+    .order("id", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (openErr) {
+    return NextResponse.json({ error: openErr.message }, { status: 500 });
+  }
+
+  // Prefer the earliest open gameweek if it's ahead of or missing from the flag
+  let current = flaggedCurrent ?? null;
+  if (earliestOpen) {
+    if (!current) current = earliestOpen;
+    else if (current.finalized) current = earliestOpen;
+    else if (earliestOpen.id < current.id) current = earliestOpen;
+  }
+
+  // 3) Next gameweek
   const currentId = current?.id ?? null;
 
   const nextQuery = supabase
