@@ -378,7 +378,7 @@ function FantasyPage() {
     }}>
       {/* ═══ HERO SECTION ═══ */}
       <div style={{
-        background: "linear-gradient(135deg, #8B2FC9 0%, #37003C 25%, #2D8B6E 60%, #04F5FF 85%, #00FF87 100%)",
+        background: "linear-gradient(135deg, #DC143C 0%, #8B0000 20%, #1a0a0a 45%, #2a1a00 70%, #D4A843 90%, #FFD700 100%)",
         padding: "0 0 24px",
         position: "relative",
         overflow: "hidden",
@@ -387,7 +387,7 @@ function FantasyPage() {
         <div style={{
           position: "absolute", top: -40, right: -60,
           width: 280, height: 380,
-          background: "linear-gradient(160deg, transparent 20%, rgba(0,255,135,0.15) 40%, rgba(4,245,255,0.2) 60%, rgba(0,255,135,0.12) 80%)",
+          background: "linear-gradient(160deg, transparent 20%, rgba(255,215,0,0.12) 40%, rgba(212,168,67,0.18) 60%, rgba(255,215,0,0.08) 80%)",
           borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%",
           transform: "rotate(-15deg)",
           pointerEvents: "none",
@@ -395,7 +395,7 @@ function FantasyPage() {
         <div style={{
           position: "absolute", top: 80, right: -30,
           width: 200, height: 300,
-          background: "linear-gradient(180deg, rgba(4,245,255,0.08), rgba(0,255,135,0.15))",
+          background: "linear-gradient(180deg, rgba(255,215,0,0.06), rgba(212,168,67,0.12))",
           borderRadius: "60% 40% 30% 70% / 50% 60% 40% 50%",
           transform: "rotate(25deg)",
           pointerEvents: "none",
@@ -417,41 +417,10 @@ function FantasyPage() {
             textAlign: "left",
           }}
         >
-          {/* Team badge placeholder */}
-          <div style={{
-            width: 48, height: 48, borderRadius: 12,
-            background: "rgba(255,255,255,0.15)",
-            border: "1.5px solid rgba(255,255,255,0.25)",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" />
-              <path d="M12 8v4l3 3" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <span style={{ fontSize: 6, color: "rgba(255,255,255,0.5)", fontWeight: 600, marginTop: 1 }}>Generate</span>
-            <span style={{ fontSize: 5, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>team badge</span>
-          </div>
-
           <div style={{ flex: 1 }}>
-            <div style={{ color: "#fff", fontSize: 16, fontWeight: 800 }}>{teamName}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-              {/* Uganda flag */}
-              <div style={{
-                width: 18, height: 12, borderRadius: 2, overflow: "hidden",
-                display: "flex", flexDirection: "column",
-              }}>
-                <div style={{ flex: 1, background: "#000" }} />
-                <div style={{ flex: 1, background: "#FCDC04" }} />
-                <div style={{ flex: 1, background: "#D90000" }} />
-                <div style={{ flex: 1, background: "#000" }} />
-                <div style={{ flex: 1, background: "#FCDC04" }} />
-                <div style={{ flex: 1, background: "#D90000" }} />
-              </div>
-              <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 500 }}>
-                {myFantasyTeam.owner}
-              </span>
+            <div style={{ color: "#fff", fontSize: 18, fontWeight: 800 }}>{teamName}</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500, marginTop: 2 }}>
+              {myFantasyTeam.owner}
             </div>
           </div>
 
@@ -487,9 +456,9 @@ function FantasyPage() {
               {gwPointsValue}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 4 }}>
-              <span style={{ fontSize: 13, color: "#00FF87", fontWeight: 700 }}>Points</span>
+              <span style={{ fontSize: 13, color: "#FFD700", fontWeight: 700 }}>Points</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M9 6l6 6-6 6" stroke="#00FF87" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M9 6l6 6-6 6" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
           </div>
@@ -565,7 +534,7 @@ function FantasyPage() {
             href="/dashboard/fantasy/pick-team"
             style={{
               width: "100%", padding: "14px 0",
-              background: "linear-gradient(90deg, rgba(0,255,135,0.25), rgba(4,245,255,0.2))",
+              background: "linear-gradient(90deg, rgba(255,215,0,0.2), rgba(212,168,67,0.12))",
               border: "1.5px solid rgba(255,255,255,0.2)",
               borderRadius: 28, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
@@ -584,7 +553,7 @@ function FantasyPage() {
             href="/dashboard/transfers"
             style={{
               width: "100%", padding: "14px 0",
-              background: "linear-gradient(90deg, rgba(0,255,135,0.25), rgba(4,245,255,0.2))",
+              background: "linear-gradient(90deg, rgba(255,215,0,0.2), rgba(212,168,67,0.12))",
               border: "1.5px solid rgba(255,255,255,0.2)",
               borderRadius: 28, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
