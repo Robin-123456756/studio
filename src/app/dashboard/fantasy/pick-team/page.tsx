@@ -17,7 +17,15 @@ import {
   TrendingDown,
   Info,
   Scale,
+  MoreVertical,
+  RotateCcw,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // DB helpers (Step 3)
 import { loadRosterFromDb, saveRosterToDb, upsertTeamName } from "@/lib/fantasyDb";
@@ -1025,6 +1033,14 @@ export default function PickTeamPage() {
     setMsg("Auto-selected starting 10 based on points.");
   }
 
+  function resetTeam() {
+    setPickedIds([]);
+    setStartingIds([]);
+    setCaptainId(null);
+    setViceId(null);
+    setMsg("Team has been reset.");
+  }
+
   async function save() {
     setMsg(null);
 
@@ -1511,7 +1527,42 @@ export default function PickTeamPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="text-base font-semibold">Pick Team</div>
-            <div className="h-9 w-9" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
+                  aria-label="Team options"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  onClick={autoPick}
+                  disabled={loading || pickedIds.length >= 17}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Auto-Pick
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={autoSelectStarting}
+                  disabled={loading || pickedIds.length < 10}
+                  className="gap-2"
+                >
+                  <Zap className="h-4 w-4" />
+                  Auto-Start
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={resetTeam}
+                  disabled={loading || pickedIds.length === 0}
+                  className="gap-2 text-destructive focus:text-destructive"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="text-sm text-muted-foreground text-center">
@@ -1568,25 +1619,7 @@ export default function PickTeamPage() {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              className="rounded-2xl gap-2"
-              onClick={autoPick}
-              disabled={loading || pickedIds.length >= 17}
-            >
-              <Sparkles className="h-4 w-4" />
-              Auto-Pick
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-2xl gap-2"
-              onClick={autoSelectStarting}
-              disabled={loading || pickedIds.length < 10}
-            >
-              <Zap className="h-4 w-4" />
-              Auto-Start
-            </Button>
+          <div className="flex justify-center">
             <Button
               className="rounded-2xl bg-primary hover:bg-primary/90 gap-2"
               onClick={save}
