@@ -1676,29 +1676,6 @@ export default function PickTeamPage() {
           </div>
         </div>
 
-        {/* Leadership */}
-        <div className="flex items-center gap-4 p-3 rounded-2xl bg-muted/30 border">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 grid place-items-center text-black font-bold text-sm shadow">
-              C
-            </div>
-            <div>
-              <div className="text-[10px] text-muted-foreground uppercase">Captain</div>
-              <div className="text-sm font-semibold">{captainName}</div>
-            </div>
-          </div>
-          <div className="h-8 w-px bg-border" />
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-400 to-sky-500 grid place-items-center text-black font-bold text-sm shadow">
-              V
-            </div>
-            <div>
-              <div className="text-[10px] text-muted-foreground uppercase">Vice-Captain</div>
-              <div className="text-sm font-semibold">{viceName}</div>
-            </div>
-          </div>
-        </div>
-
         {msg ? <div className="text-sm">{msg}</div> : null}
 
         <div className="flex items-center gap-2">
