@@ -581,6 +581,9 @@ export default function PickTeamPage() {
   const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
   const [gwLoading, setGwLoading] = React.useState(true);
 
+  // Substitution mode - track player selected for swap
+  const [selectedForSwap, setSelectedForSwap] = React.useState<string | null>(null);
+
   const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
 
   // ----------------------------
@@ -1064,6 +1067,98 @@ export default function PickTeamPage() {
       }
       return [...prev, id];
     });
+  }
+
+  // Swap two players (one starting, one bench)
+  function swapPlayers(id1: string, id2: string) {
+    setMsg(null);
+
+    const player1 = playerById.get(id1);
+    const player2 = playerById.get(id2);
+    if (!player1 || !player2) return;
+
+    const isId1Starting = startingIds.includes(id1);
+    const isId2Starting = startingIds.includes(id2);
+
+    // If both are starting or both are bench, just swap their order in starting (or do nothing for bench)
+    if (isId1Starting === isId2Starting) {
+      // For now, if both are in same group, just toggle selection
+      setMsg("Select one starting player and one bench player to swap.");
+      return;
+    }
+
+    // One is starting, one is bench - swap them
+    const startingPlayer = isId1Starting ? player1 : player2;
+    const benchPlayer = isId1Starting ? player2 : player1;
+    const startingId = isId1Starting ? id1 : id2;
+    const benchId = isId1Starting ? id2 : id1;
+
+    // Check position limits for the bench player coming into starting
+    const pos = normalizePosition(benchPlayer.position);
+    const currentStartingByPos = {
+      Goalkeeper: startingIds.filter((id) => normalizePosition(playerById.get(id)?.position ?? "") === "Goalkeeper").length,
+      Defender: startingIds.filter((id) => normalizePosition(playerById.get(id)?.position ?? "") === "Defender").length,
+      Midfielder: startingIds.filter((id) => normalizePosition(playerById.get(id)?.position ?? "") === "Midfielder").length,
+      Forward: startingIds.filter((id) => normalizePosition(playerById.get(id)?.position ?? "") === "Forward").length,
+    };
+
+    // Subtract the player leaving
+    const leavingPos = normalizePosition(startingPlayer.position);
+    if (leavingPos === "Goalkeeper") currentStartingByPos.Goalkeeper -= 1;
+    if (leavingPos === "Defender") currentStartingByPos.Defender -= 1;
+    if (leavingPos === "Midfielder") currentStartingByPos.Midfielder -= 1;
+    if (leavingPos === "Forward") currentStartingByPos.Forward -= 1;
+
+    // Check limits for incoming player
+    if (pos === "Goalkeeper" && currentStartingByPos.Goalkeeper >= 1) {
+      setMsg("Only one goalkeeper can start. Swap with another goalkeeper.");
+      return;
+    }
+    if (pos === "Defender" && currentStartingByPos.Defender >= 3) {
+      setMsg("Defenders are limited to 3.");
+      return;
+    }
+    if (pos === "Midfielder" && currentStartingByPos.Midfielder >= 4) {
+      setMsg("Midfielders are limited to 4.");
+      return;
+    }
+    if (pos === "Forward" && currentStartingByPos.Forward >= 3) {
+      setMsg("Forwards are limited to 3.");
+      return;
+    }
+
+    // Lady player check
+    if (benchPlayer.isLady && pos !== "Forward") {
+      setMsg("Lady players can only start as forwards.");
+      return;
+    }
+    if (benchPlayer.isLady) {
+      const currentLadyForwards = startingIds.filter((id) => {
+        const p = playerById.get(id);
+        return p?.isLady && normalizePosition(p.position) === "Forward";
+      }).length;
+      const isLeavingLady = startingPlayer.isLady && leavingPos === "Forward";
+      if (currentLadyForwards - (isLeavingLady ? 1 : 0) >= 1) {
+        setMsg("Only one lady forward can start.");
+        return;
+      }
+    }
+
+    // Perform the swap
+    setStartingIds((prev) => {
+      const updated = prev.filter((id) => id !== startingId);
+      return [...updated, benchId];
+    });
+
+    // Update captain/vice if needed
+    if (captainId === startingId) {
+      setCaptainId(benchId);
+      localStorage.setItem(LS_CAPTAIN, benchId);
+    }
+    if (viceId === startingId) {
+      setViceId(benchId);
+      localStorage.setItem(LS_VICE, benchId);
+    }
   }
 
   function setCaptain(id: string) {
@@ -1630,58 +1725,39 @@ export default function PickTeamPage() {
   function PickPitch({
     picked,
     startingIds,
-    onToggleStarting,
+    onSwapPlayers,
     captainId,
     viceId,
+    selectedForSwap,
+    onSelectForSwap,
   }: {
     picked: Player[];
     startingIds: string[];
-    onToggleStarting: (id: string) => void;
+    onSwapPlayers: (id1: string, id2: string) => void;
     captainId: string | null;
     viceId: string | null;
+    selectedForSwap: string | null;
+    onSelectForSwap: (id: string | null) => void;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
-    const startingByPos = groupByPosition(starting);
-    const startingGKs = startingByPos.Goalkeepers.length;
-    const startingDefs = startingByPos.Defenders.length;
-    const startingMids = startingByPos.Midfielders.length;
-    const startingFwds = startingByPos.Forwards.length;
-    const startingLadyForwards = starting.filter(
-      (p) => p.isLady && normalizePosition(p.position) === "Forward"
-    ).length;
-    const startingLadyNonForwards = starting.filter(
-      (p) => p.isLady && normalizePosition(p.position) !== "Forward"
-    ).length;
+    const g = groupByPosition(starting);
 
-    // Check if starting 9 is complete and valid
-    const isStartingComplete =
-      starting.length === 9 &&
-      startingGKs === 1 &&
-      startingDefs >= 2 &&
-      startingDefs <= 3 &&
-      startingMids >= 3 &&
-      startingMids <= 4 &&
-      startingFwds >= 2 &&
-      startingFwds <= 3 &&
-      startingLadyForwards <= 1 &&
-      startingLadyNonForwards === 0;
-
-    // When starting is complete, show starting 9 on pitch; otherwise show all picked
-    const playersOnPitch = isStartingComplete ? starting : picked;
-    const g = groupByPosition(playersOnPitch);
-
-    const formation = isStartingComplete
-      ? `${g.Defenders.length}-${g.Midfielders.length}-${g.Forwards.length}`
-      : `${picked.length}/17`;
-
-    const slotsFor = (count: number, min: number, max: number) => {
-      if (count > max) return count;
-      return Math.max(count, min);
+    // Handle player tap for substitution
+    const handlePlayerTap = (playerId: string) => {
+      if (!selectedForSwap) {
+        // First tap - select this player
+        onSelectForSwap(playerId);
+      } else if (selectedForSwap === playerId) {
+        // Tapped same player - deselect
+        onSelectForSwap(null);
+      } else {
+        // Second tap - swap the two players
+        onSwapPlayers(selectedForSwap, playerId);
+        onSelectForSwap(null);
+      }
     };
 
-    const defSlots = slotsFor(g.Defenders.length, 2, 3);
-    const midSlots = slotsFor(g.Midfielders.length, 3, 4);
-    const fwdSlots = slotsFor(g.Forwards.length, 2, 3);
+    const isSelected = (id: string) => selectedForSwap === id;
 
     return (
       <div className="space-y-0 rounded-2xl overflow-hidden">
@@ -1870,90 +1946,108 @@ export default function PickTeamPage() {
           </div>
 
           {/* GK Row */}
-          <div style={{ position: "relative", padding: "8px 0 16px" }}>
-            {/* GK */}
+          <div style={{ position: "relative", padding: "4px 0 8px" }}>
             <div style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
               {g.Goalkeepers.length > 0 ? (
                 g.Goalkeepers.map((p) => (
-                  <PitchPlayerCard
-                    key={p.id}
-                    player={p}
-                    onToggle={() => onToggleStarting(p.id)}
-                    isCaptain={captainId === p.id}
-                    isVice={viceId === p.id}
-                    isStarting={!isStartingComplete && startingIds.includes(p.id)}
-                  />
+                  <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+                    <PitchPlayerCard
+                      player={p}
+                      onToggle={() => handlePlayerTap(p.id)}
+                      isCaptain={captainId === p.id}
+                      isVice={viceId === p.id}
+                      small
+                    />
+                  </div>
                 ))
               ) : (
-                <EmptySlot position="GK" />
+                <EmptySlot position="GK" small />
               )}
             </div>
           </div>
 
           {/* DEF Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
             {g.Defenders.map((p) => (
-              <PitchPlayerCard
-                key={p.id}
-                player={p}
-                onToggle={() => onToggleStarting(p.id)}
-                isCaptain={captainId === p.id}
-                isVice={viceId === p.id}
-                isStarting={!isStartingComplete && startingIds.includes(p.id)}
-              />
+              <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+                <PitchPlayerCard
+                  player={p}
+                  onToggle={() => handlePlayerTap(p.id)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                  small
+                />
+              </div>
             ))}
-            {Array.from({ length: Math.max(0, defSlots - g.Defenders.length) }).map((_, i) => (
-              <EmptySlot key={`def-${i}`} position="DEF" />
-            ))}
+            {g.Defenders.length === 0 && (
+              <>
+                <EmptySlot position="DEF" small />
+                <EmptySlot position="DEF" small />
+              </>
+            )}
           </div>
 
           {/* MID Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
             {g.Midfielders.map((p) => (
-              <PitchPlayerCard
-                key={p.id}
-                player={p}
-                onToggle={() => onToggleStarting(p.id)}
-                isCaptain={captainId === p.id}
-                isVice={viceId === p.id}
-                isStarting={!isStartingComplete && startingIds.includes(p.id)}
-              />
+              <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+                <PitchPlayerCard
+                  player={p}
+                  onToggle={() => handlePlayerTap(p.id)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                  small
+                />
+              </div>
             ))}
-            {Array.from({ length: Math.max(0, midSlots - g.Midfielders.length) }).map((_, i) => (
-              <EmptySlot key={`mid-${i}`} position="MID" />
-            ))}
+            {g.Midfielders.length === 0 && (
+              <>
+                <EmptySlot position="MID" small />
+                <EmptySlot position="MID" small />
+                <EmptySlot position="MID" small />
+              </>
+            )}
           </div>
 
           {/* FWD Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 24, padding: "12px 0 8px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 0 4px", position: "relative", zIndex: 1 }}>
             {g.Forwards.map((p) => (
-              <PitchPlayerCard
-                key={p.id}
-                player={p}
-                onToggle={() => onToggleStarting(p.id)}
-                isCaptain={captainId === p.id}
-                isVice={viceId === p.id}
-                isStarting={!isStartingComplete && startingIds.includes(p.id)}
-              />
+              <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+                <PitchPlayerCard
+                  player={p}
+                  onToggle={() => handlePlayerTap(p.id)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                  small
+                />
+              </div>
             ))}
-            {Array.from({ length: Math.max(0, fwdSlots - g.Forwards.length) }).map((_, i) => (
-              <EmptySlot key={`fwd-${i}`} position="FWD" />
-            ))}
+            {g.Forwards.length === 0 && (
+              <>
+                <EmptySlot position="FWD" small />
+                <EmptySlot position="FWD" small />
+              </>
+            )}
           </div>
         </div>
 
-        {/* Bench - Only show when starting 9 is complete */}
-        {isStartingComplete ? (
+        {/* Bench - Always show */}
+        {bench.length > 0 ? (
           <div
             style={{
               background: "linear-gradient(180deg, #e0f7f0, #c8ece0)",
-              padding: "12px 8px 20px",
+              padding: "12px 8px 16px",
             }}
           >
-            <div style={{ textAlign: "center", marginBottom: 12 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: "#37003C" }}>SUBSTITUTES</span>
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#37003C" }}>SUBSTITUTES</span>
+              {selectedForSwap && (
+                <span style={{ fontSize: 10, color: "#666", marginLeft: 8 }}>
+                  Tap a player to swap
+                </span>
+              )}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 12px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 8px" }}>
               {bench
                 .sort((a, b) => {
                   const posOrder: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
@@ -1965,30 +2059,31 @@ export default function PickTeamPage() {
                   const pos = normalizePosition(p.position);
                   const posShort = pos === "Goalkeeper" ? "GK" : pos === "Defender" ? "DEF" : pos === "Midfielder" ? "MID" : "FWD";
                   const kitColor = getKitColor(p.teamShort);
+                  const selected = isSelected(p.id);
                   return (
                     <button
                       key={p.id}
-                      onClick={() => onToggleStarting(p.id)}
+                      onClick={() => handlePlayerTap(p.id)}
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 10,
-                        background: "#fff",
-                        borderRadius: 8,
-                        padding: "8px 12px",
-                        border: "1px solid #e0e0e0",
+                        gap: 8,
+                        background: selected ? "#fef3c7" : "#fff",
+                        borderRadius: 6,
+                        padding: "6px 10px",
+                        border: selected ? "2px solid #f59e0b" : "1px solid #e0e0e0",
                         cursor: "pointer",
                         transition: "all 0.2s",
                       }}
                     >
                       <div
                         style={{
-                          width: 24,
-                          height: 24,
+                          width: 20,
+                          height: 20,
                           borderRadius: "50%",
                           background: "#37003C",
                           color: "#fff",
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: 700,
                           display: "flex",
                           alignItems: "center",
@@ -1997,14 +2092,14 @@ export default function PickTeamPage() {
                       >
                         {index + 1}
                       </div>
-                      <div style={{ width: 32, height: 32 }}>
-                        <Kit color={kitColor} isGK={pos === "Goalkeeper"} size={32} />
+                      <div style={{ width: 28, height: 28 }}>
+                        <Kit color={kitColor} isGK={pos === "Goalkeeper"} size={28} />
                       </div>
                       <div style={{ flex: 1, textAlign: "left" }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e" }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#1a1a2e" }}>
                           {shortName(p.name, p.webName)}
                         </div>
-                        <div style={{ fontSize: 10, color: "#666" }}>
+                        <div style={{ fontSize: 9, color: "#666" }}>
                           {p.teamShort} • {p.nextOpponent ?? "--"}
                         </div>
                       </div>
@@ -2012,10 +2107,10 @@ export default function PickTeamPage() {
                         style={{
                           background: posShort === "GK" ? "#f59e0b" : posShort === "DEF" ? "#3b82f6" : posShort === "MID" ? "#22c55e" : "#ef4444",
                           color: "#fff",
-                          fontSize: 9,
+                          fontSize: 8,
                           fontWeight: 700,
-                          padding: "3px 8px",
-                          borderRadius: 4,
+                          padding: "2px 6px",
+                          borderRadius: 3,
                         }}
                       >
                         {posShort}
@@ -2033,60 +2128,29 @@ export default function PickTeamPage() {
               textAlign: "center",
             }}
           >
-            {picked.length === 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
-                  Build your 17-player squad in Transfers first
-                </div>
-                <Link
-                  href="/dashboard/transfers"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    background: "linear-gradient(135deg, #C8102E, #8B0000)",
-                    color: "#fff",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: "10px 20px",
-                    borderRadius: 8,
-                    textDecoration: "none",
-                  }}
-                >
-                  <ArrowLeftRight size={16} />
-                  Go to Transfers
-                </Link>
-              </div>
-            ) : picked.length < 17 ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
-                  {picked.length}/17 players in squad
-                </div>
-                <Link
-                  href="/dashboard/transfers"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    color: "#C8102E",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    textDecoration: "underline",
-                  }}
-                >
-                  Complete your squad in Transfers
-                </Link>
-              </div>
-            ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
-                Tap players to select your starting 10 (9 males + 1 lady forward + 1 GK)
+                Build your 17-player squad in Transfers first
               </div>
-            )}
-            {picked.length === 17 && starting.length > 0 && starting.length < 10 && (
-              <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                {starting.length}/10 starting • Need {10 - starting.length} more
-              </div>
-            )}
+              <Link
+                href="/dashboard/transfers"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "linear-gradient(135deg, #C8102E, #8B0000)",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  textDecoration: "none",
+                }}
+              >
+                <ArrowLeftRight size={16} />
+                Go to Transfers
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -2273,9 +2337,11 @@ export default function PickTeamPage() {
           <PickPitch
             picked={picked}
             startingIds={startingIds}
-            onToggleStarting={toggleStarting}
+            onSwapPlayers={swapPlayers}
             captainId={captainId}
             viceId={viceId}
+            selectedForSwap={selectedForSwap}
+            onSelectForSwap={setSelectedForSwap}
           />
         </div>
       )}
