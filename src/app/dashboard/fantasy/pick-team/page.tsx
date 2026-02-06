@@ -1823,9 +1823,12 @@ export default function PickTeamPage() {
             ))}
           </div>
         </div>
+      </div>
 
-        {msg ? <div className="text-sm">{msg}</div> : null}
+      {msg ? <div className="text-sm text-center">{msg}</div> : null}
 
+      {/* Second card: Tabs and Pitch View */}
+      <div className="rounded-2xl border bg-card/70 p-4 space-y-4">
         <div className="flex items-center gap-2">
           <div className="rounded-2xl bg-muted p-1 inline-flex">
             <button
@@ -1858,9 +1861,6 @@ export default function PickTeamPage() {
             >
               Squad
             </button>
-          </div>
-          <div className="ml-auto text-xs text-muted-foreground">
-            Tap a player to toggle starting. Captain and vice are from the starting 10.
           </div>
         </div>
 
