@@ -696,10 +696,69 @@ export default function PickTeamPage() {
   // ----------------------------
   const [dbLoaded, setDbLoaded] = React.useState(false);
 
+  function buildAutoRoster(pool: Player[]) {
+    const byPoints = [...pool].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+    const squad: Player[] = [];
+
+    const isGK = (p: Player) => normalizePosition(p.position) === "Goalkeeper";
+    const isLadyFwd = (p: Player) =>
+      p.isLady && normalizePosition(p.position) === "Forward";
+    const addUnique = (p?: Player) => {
+      if (!p) return;
+      if (!squad.some((s) => s.id === p.id)) squad.push(p);
+    };
+
+    // Ensure required positions
+    for (const p of byPoints) {
+      if (isGK(p) && squad.filter(isGK).length < 2) addUnique(p);
+    }
+    for (const p of byPoints) {
+      if (isLadyFwd(p) && squad.filter(isLadyFwd).length < 2) addUnique(p);
+    }
+
+    // Fill remaining slots
+    for (const p of byPoints) {
+      if (squad.length >= 17) break;
+      addUnique(p);
+    }
+
+    const squadIds = squad.slice(0, 17).map((p) => p.id);
+
+    // Build starting 10: 1 GK + 1 lady FWD + 8 best males
+    const squadByPoints = [...squad].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+    const starting: Player[] = [];
+    const gk = squadByPoints.find(isGK);
+    if (gk) starting.push(gk);
+    const lady = squadByPoints.find((p) => isLadyFwd(p) && p.id !== gk?.id);
+    if (lady) starting.push(lady);
+
+    const males = squadByPoints.filter(
+      (p) => !p.isLady && !isGK(p) && !starting.some((s) => s.id === p.id)
+    );
+    for (const p of males) {
+      if (starting.length >= 10) break;
+      starting.push(p);
+    }
+
+    for (const p of squadByPoints) {
+      if (starting.length >= 10) break;
+      if (!starting.some((s) => s.id === p.id)) starting.push(p);
+    }
+
+    const startingIds = starting.slice(0, 10).map((p) => p.id);
+    const startingByPoints = [...starting].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+    const captainId = startingByPoints[0]?.id ?? null;
+    const viceId = startingByPoints[1]?.id ?? null;
+
+    return { squadIds, startingIds, captainId, viceId };
+  }
+
   React.useEffect(() => {
     if (!authed) return;
     if (!gwId) return;
     if (dbLoaded) return;
+    if (loading) return;
+    if (players.length === 0) return;
 
     (async () => {
       try {
@@ -731,11 +790,55 @@ export default function PickTeamPage() {
 
         if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
         setDbLoaded(true);
-      } catch {
-        setDbLoaded(true);
+        return;
       }
+
+      // No roster in DB - auto-build a full squad so pitch has no ghost slots
+      const auto = buildAutoRoster(players);
+      if (auto.squadIds.length > 0) {
+        setPickedIds(auto.squadIds);
+        setStartingIds(auto.startingIds);
+        setCaptainId(auto.captainId);
+        setViceId(auto.viceId);
+
+        setSavedPickedIds(auto.squadIds);
+        setSavedStartingIds(auto.startingIds);
+        setSavedCaptainId(auto.captainId);
+        setSavedViceId(auto.viceId);
+
+        localStorage.setItem(LS_PICKS, JSON.stringify(auto.squadIds));
+        localStorage.setItem(LS_SQUAD, JSON.stringify(auto.squadIds));
+        localStorage.setItem(LS_STARTING, JSON.stringify(auto.startingIds));
+        if (auto.captainId) localStorage.setItem(LS_CAPTAIN, auto.captainId);
+        if (auto.viceId) localStorage.setItem(LS_VICE, auto.viceId);
+      }
+
+      if (
+        auto.squadIds.length === 17 &&
+        auto.startingIds.length === 10 &&
+        auto.captainId &&
+        auto.viceId
+      ) {
+        const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
+        await upsertTeamName(teamName);
+        await saveRosterToDb({
+          gameweekId: gwId,
+          squadIds: auto.squadIds,
+          startingIds: auto.startingIds,
+          captainId: auto.captainId,
+          viceId: auto.viceId,
+        });
+        setMsg("Auto-picked your squad for this gameweek.");
+      } else {
+        setMsg("Auto-picked a starter squad. Please review and save.");
+      }
+
+      setDbLoaded(true);
+    } catch {
+      setDbLoaded(true);
+    }
     })();
-  }, [authed, gwId, dbLoaded]);
+  }, [authed, gwId, dbLoaded, loading, players]);
 
   const playerById = React.useMemo(() => {
     return new Map(players.map((p) => [p.id, p]));
@@ -1177,93 +1280,207 @@ export default function PickTeamPage() {
     );
   }
 
-  /* ── Ghost Kit (Empty Jersey) ── */
-  function GhostKit({ isGK = false }: { isGK?: boolean }) {
+  /* ── SVG Kit component ── */
+  function Kit({ color = "#EF0107", isGK = false, size = 56 }: { color?: string; isGK?: boolean; size?: number }) {
+    if (isGK) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 60 60">
+          <rect x="10" y="8" width="40" height="36" rx="4" fill={color} />
+          <rect x="4" y="8" width="12" height="20" rx="3" fill={color} />
+          <rect x="44" y="8" width="12" height="20" rx="3" fill={color} />
+          <rect x="18" y="40" width="24" height="16" rx="2" fill={color} opacity="0.8" />
+          <line x1="10" y1="20" x2="50" y2="20" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+          <rect x="22" y="12" width="16" height="6" rx="1" fill="rgba(255,255,255,0.3)" />
+        </svg>
+      );
+    }
     return (
-      <div
-        style={{
-          width: 50,
-          height: 50,
-          borderRadius: "50%",
-          background: isGK
-            ? "linear-gradient(135deg, rgba(180,150,50,0.3), rgba(200,170,80,0.2))"
-            : "linear-gradient(135deg, rgba(100,100,120,0.3), rgba(80,80,100,0.2))",
-          border: "2px dashed rgba(255,255,255,0.3)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 30,
-            height: 24,
-            background: isGK
-              ? "linear-gradient(180deg, rgba(200,180,80,0.4), rgba(180,150,50,0.3))"
-              : "linear-gradient(180deg, rgba(120,120,140,0.4), rgba(100,100,120,0.3))",
-            borderRadius: "4px 4px 8px 8px",
-            border: "1px dashed rgba(255,255,255,0.2)",
-          }}
-        />
-      </div>
+      <svg width={size} height={size} viewBox="0 0 60 60">
+        <rect x="12" y="10" width="36" height="30" rx="4" fill={color} />
+        <rect x="4" y="10" width="14" height="18" rx="3" fill={color} opacity="0.85" />
+        <rect x="42" y="10" width="14" height="18" rx="3" fill={color} opacity="0.85" />
+        <rect x="18" y="38" width="24" height="16" rx="2" fill="white" />
+        <line x1="12" y1="22" x2="48" y2="22" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" />
+      </svg>
     );
   }
 
-  /* ── Plus Icon for Empty Slot ── */
-  function PlusIcon() {
+  /* ── FPL Style Player Card ── */
+  function PlayerCard({ player, isGK = false, small = false }: {
+    player: { name: string; team: string; fixture: string; color: string; captain?: boolean; viceCaptain?: boolean; star?: boolean; warning?: boolean };
+    isGK?: boolean;
+    small?: boolean;
+  }) {
+    const sz = small ? 48 : 56;
     return (
-      <div
-        style={{
-          position: "absolute",
-          bottom: -4,
-          right: -4,
-          width: 20,
-          height: 20,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #00ff87, #04f5ff)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 2px 6px rgba(0,255,135,0.4)",
-        }}
-      >
-        <span style={{ color: "#000", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>+</span>
-      </div>
-    );
-  }
-
-  /* ── Empty Player Slot ── */
-  function EmptySlot({ position }: { position: string }) {
-    const isGK = position === "GK";
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          opacity: 0.7,
-        }}
-      >
-        <div style={{ position: "relative" }}>
-          <GhostKit isGK={isGK} />
-          <PlusIcon />
+      <div className="flex flex-col items-center" style={{ minWidth: small ? 64 : 72 }}>
+        <div className="relative">
+          {player.captain && (
+            <span
+              style={{
+                position: "absolute", top: -2, left: -2, zIndex: 2,
+                background: "#FFD700", color: "#000", fontSize: 9, fontWeight: 800,
+                width: 16, height: 16, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                border: "1.5px solid #333",
+              }}
+            >C</span>
+          )}
+          {player.viceCaptain && (
+            <span
+              style={{
+                position: "absolute", top: -2, left: -2, zIndex: 2,
+                background: "#fff", color: "#000", fontSize: 8, fontWeight: 800,
+                width: 16, height: 16, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                border: "1.5px solid #333",
+              }}
+            >V</span>
+          )}
+          {player.star && (
+            <span
+              style={{
+                position: "absolute", top: -2, right: -2, zIndex: 2,
+                background: "#37003C", color: "#fff", fontSize: 10,
+                width: 16, height: 16, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >★</span>
+          )}
+          {player.warning && (
+            <span
+              style={{
+                position: "absolute", top: -2, right: -2, zIndex: 2,
+                background: "#FFD700", color: "#000", fontSize: 10, fontWeight: 900,
+                width: 16, height: 16, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >!</span>
+          )}
+          <Kit color={player.color} isGK={isGK} size={sz} />
         </div>
         <div
           style={{
-            background: "rgba(5,20,50,0.85)",
-            color: "#fff",
-            fontSize: 11,
+            background: player.captain ? "#FFD700" : "white",
+            color: "#333",
+            fontSize: small ? 10 : 11,
             fontWeight: 700,
-            padding: "3px 14px",
-            borderRadius: 4,
-            marginTop: -6,
-            letterSpacing: 0.8,
-            border: "1px solid rgba(0,180,180,0.15)",
-            position: "relative",
-            zIndex: 2,
+            padding: "2px 8px",
+            borderRadius: "3px 3px 0 0",
+            marginTop: -4,
+            textAlign: "center",
+            minWidth: small ? 60 : 70,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: small ? 70 : 85,
+          }}
+        >
+          {player.name}
+        </div>
+        <div
+          style={{
+            background: player.captain ? "#e6c200" : "#e0e0e0",
+            color: "#555",
+            fontSize: small ? 9 : 10,
+            fontWeight: 600,
+            padding: "1px 8px",
+            borderRadius: "0 0 3px 3px",
+            textAlign: "center",
+            minWidth: small ? 60 : 70,
+          }}
+        >
+          {player.team} ({player.fixture})
+        </div>
+      </div>
+    );
+  }
+
+  // Team kit colors mapping
+  const TEAM_KIT_COLORS: Record<string, string> = {
+    ACC: "#EF0107", // Accumulators - Red
+    BAS: "#0033A0", // Basunzi - Blue
+    BIF: "#FF6B00", // Bifa - Orange
+    TRO: "#00A651", // Trotballo - Green
+    DUJ: "#6B3FA0", // Dujay - Purple
+    NIG: "#000000", // Night Prep - Black
+    PEA: "#1C1C1C", // Peaky Blinders - Dark
+    KOM: "#FFD700", // Komunoballo - Gold
+    MAS: "#DC143C", // Masappe - Crimson
+    MID: "#4169E1", // Midnight Express - Royal Blue
+    CEN: "#228B22", // Centurions - Forest Green
+    JUB: "#FF4500", // Jubilewos - Orange Red
+    END: "#8B0000", // Endgame - Dark Red
+    ABA: "#2E8B57", // Abachuba - Sea Green
+    THA: "#9932CC", // Thazobalo - Orchid
+    QUA: "#20B2AA", // Quadballo - Light Sea Green
+  };
+
+  function getKitColor(teamShort?: string | null): string {
+    if (!teamShort) return "#666666";
+    return TEAM_KIT_COLORS[teamShort.toUpperCase()] || "#666666";
+  }
+
+  /* ── Empty Player Slot (FPL Style) ── */
+  function EmptySlot({ position, small = false }: { position: string; small?: boolean }) {
+    const isGK = position === "GK";
+    const sz = small ? 48 : 56;
+    const ghostColor = isGK ? "#c9a227" : "#5a5a6e";
+
+    return (
+      <div className="flex flex-col items-center" style={{ minWidth: small ? 64 : 72, opacity: 0.7 }}>
+        <div className="relative">
+          <div style={{ opacity: 0.5 }}>
+            <Kit color={ghostColor} isGK={isGK} size={sz} />
+          </div>
+          {/* Plus icon */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 2,
+              right: -4,
+              width: 18,
+              height: 18,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #00ff87, #04f5ff)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 6px rgba(0,255,135,0.5)",
+              border: "2px solid #1a472a",
+            }}
+          >
+            <span style={{ color: "#000", fontSize: 14, fontWeight: 800, lineHeight: 1 }}>+</span>
+          </div>
+        </div>
+        <div
+          style={{
+            background: "white",
+            color: "#333",
+            fontSize: small ? 10 : 11,
+            fontWeight: 700,
+            padding: "2px 8px",
+            borderRadius: "3px 3px 0 0",
+            marginTop: -4,
+            textAlign: "center",
+            minWidth: small ? 60 : 70,
           }}
         >
           {position}
+        </div>
+        <div
+          style={{
+            background: "#e0e0e0",
+            color: "#555",
+            fontSize: small ? 9 : 10,
+            fontWeight: 600,
+            padding: "1px 8px",
+            borderRadius: "0 0 3px 3px",
+            textAlign: "center",
+            minWidth: small ? 60 : 70,
+          }}
+        >
+          ---
         </div>
       </div>
     );
@@ -1272,133 +1489,47 @@ export default function PickTeamPage() {
   function PitchPlayerCard({
     player,
     onToggle,
-    onCaptain,
-    onVice,
-    onInfo,
     isCaptain,
     isVice,
     isStarting = false,
-    showLeadership = true,
+    small = false,
   }: {
     player: Player;
     onToggle: () => void;
-    onCaptain: () => void;
-    onVice: () => void;
-    onInfo: () => void;
     isCaptain: boolean;
     isVice: boolean;
     isStarting?: boolean;
-    showLeadership?: boolean;
+    small?: boolean;
   }) {
     const displayName = shortName(player.name, player.webName);
-    const fixture = player.nextOpponent ?? player.teamShort ?? "--";
+    const fixture = player.nextOpponent ?? "--";
+    const teamShort = player.teamShort ?? "--";
+    const isGK = normalizePosition(player.position) === "Goalkeeper";
+    const kitColor = getKitColor(player.teamShort);
 
-    // Subtle jersey color by position for fallback avatars
-    const posColorMap: Record<string, string> = {
-      Goalkeeper: "from-amber-500 to-amber-600",
-      Defender: "from-blue-600 to-blue-700",
-      Midfielder: "from-emerald-600 to-emerald-700",
-      Forward: "from-rose-600 to-red-700",
+    // Transform to PlayerCard format
+    const cardPlayer = {
+      name: displayName,
+      team: teamShort,
+      fixture: fixture,
+      color: kitColor,
+      captain: isCaptain,
+      viceCaptain: isVice,
+      star: player.isLady, // Show star for lady players
     };
-    const normalizedPos = normalizePosition(player.position);
-    const posColor = posColorMap[normalizedPos] ?? "from-gray-600 to-gray-700";
 
     return (
-      <div className={cn("relative w-[86px]", isStarting && "ring-2 ring-emerald-400 rounded-xl")}>
-        {/* Info button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onInfo();
-          }}
-          className="absolute -top-1 -left-1 z-10 h-5 w-5 rounded-full bg-white/90 shadow-md grid place-items-center hover:bg-white"
-          aria-label={`View ${displayName} details`}
-        >
-          <Info className="h-3 w-3 text-gray-600" />
-        </button>
-
-        {/* Captain/Vice badges */}
-        {showLeadership ? (
-          <div className="absolute -top-1 -right-1 z-10 flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCaptain();
-              }}
-              className={cn(
-                "h-5 w-5 rounded-full text-[9px] font-bold shadow-md",
-                isCaptain ? "bg-amber-400 text-black" : "bg-white/90 text-black/70"
-              )}
-            >
-              C
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onVice();
-              }}
-              className={cn(
-                "h-5 w-5 rounded-full text-[9px] font-bold shadow-md",
-                isVice ? "bg-sky-300 text-black" : "bg-white/80 text-black/60"
-              )}
-            >
-              V
-            </button>
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={onToggle}
-          className="w-full active:scale-[0.96] transition-transform duration-150"
-          aria-label={`Select ${displayName}`}
-        >
-          <div className="rounded-2xl overflow-hidden shadow-xl bg-white/95">
-            {/* Avatar/kit */}
-            <div className={cn("relative pt-2 pb-1", "bg-gradient-to-b", posColor)}>
-              <div className="absolute top-1 left-1">
-                <TeamBadge teamName={player.teamName} teamShort={player.teamShort} size="sm" />
-              </div>
-              {player.isLady ? (
-                <div className="absolute top-1 right-1 rounded-full bg-pink-500 text-white text-[8px] font-bold px-1">
-                  F
-                </div>
-              ) : null}
-
-              <div className="flex items-center justify-center pt-1">
-                <div className="h-11 w-11 rounded-full bg-white/15 border border-white/40 grid place-items-center overflow-hidden shadow-inner">
-                  {player.avatarUrl ? (
-                    <img
-                      src={player.avatarUrl}
-                      alt={displayName}
-                      className="h-11 w-11 object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="text-white/90 text-lg font-bold">
-                      {displayName.charAt(0)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Name + fixture */}
-            <div className="bg-white text-zinc-900 px-1.5 py-1">
-              <div className="text-[11px] font-semibold leading-tight truncate text-center">
-                {displayName}
-              </div>
-              <div className="mt-0.5 rounded-md bg-zinc-100 text-[10px] text-zinc-700 text-center py-0.5">
-                {fixture}
-              </div>
-            </div>
-          </div>
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={cn(
+          "active:scale-[0.96] transition-transform duration-150",
+          isStarting && "ring-2 ring-emerald-400 rounded-lg"
+        )}
+        aria-label={`Select ${displayName}`}
+      >
+        <PlayerCard player={cardPlayer} isGK={isGK} small={small} />
+      </button>
     );
   }
 
@@ -1408,18 +1539,12 @@ export default function PickTeamPage() {
     onToggleStarting,
     captainId,
     viceId,
-    onCaptain,
-    onVice,
-    onInfo,
   }: {
     picked: Player[];
     startingIds: string[];
     onToggleStarting: (id: string) => void;
     captainId: string | null;
     viceId: string | null;
-    onCaptain: (id: string) => void;
-    onVice: (id: string) => void;
-    onInfo: (player: Player) => void;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
     const startingMales = starting.filter((p) => !p.isLady).length;
@@ -1456,39 +1581,6 @@ export default function PickTeamPage() {
             overflow: "hidden",
           }}
         >
-          {/* Budo League Branding bar */}
-          <div style={{ display: "flex", height: 28, marginBottom: 4 }}>
-            <div
-              style={{
-                flex: 1,
-                background: "linear-gradient(90deg, #a63038, #d4545c)",
-                display: "flex",
-                alignItems: "center",
-                paddingLeft: 12,
-                fontSize: 11,
-                fontWeight: 800,
-                color: "#fff",
-              }}
-            >
-              ⚽ Budo League
-            </div>
-            <div
-              style={{
-                flex: 1,
-                background: "linear-gradient(90deg, #d4545c, #a63038)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                paddingRight: 12,
-                fontSize: 11,
-                fontWeight: 800,
-                color: "#fff",
-              }}
-            >
-              {formation} ⚽
-            </div>
-          </div>
-
           {/* Pitch markings - center circle */}
           <div
             style={{
@@ -1550,9 +1642,6 @@ export default function PickTeamPage() {
                   key={p.id}
                   player={p}
                   onToggle={() => onToggleStarting(p.id)}
-                  onCaptain={() => onCaptain(p.id)}
-                  onVice={() => onVice(p.id)}
-                  onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
                   isStarting={!isStartingComplete && startingIds.includes(p.id)}
@@ -1571,9 +1660,6 @@ export default function PickTeamPage() {
                   key={p.id}
                   player={p}
                   onToggle={() => onToggleStarting(p.id)}
-                  onCaptain={() => onCaptain(p.id)}
-                  onVice={() => onVice(p.id)}
-                  onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
                   isStarting={!isStartingComplete && startingIds.includes(p.id)}
@@ -1594,9 +1680,6 @@ export default function PickTeamPage() {
                   key={p.id}
                   player={p}
                   onToggle={() => onToggleStarting(p.id)}
-                  onCaptain={() => onCaptain(p.id)}
-                  onVice={() => onVice(p.id)}
-                  onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
                   isStarting={!isStartingComplete && startingIds.includes(p.id)}
@@ -1617,9 +1700,6 @@ export default function PickTeamPage() {
                   key={p.id}
                   player={p}
                   onToggle={() => onToggleStarting(p.id)}
-                  onCaptain={() => onCaptain(p.id)}
-                  onVice={() => onVice(p.id)}
-                  onInfo={() => onInfo(p)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
                   isStarting={!isStartingComplete && startingIds.includes(p.id)}
@@ -1653,12 +1733,9 @@ export default function PickTeamPage() {
                   <PitchPlayerCard
                     player={p}
                     onToggle={() => onToggleStarting(p.id)}
-                    onCaptain={() => onCaptain(p.id)}
-                    onVice={() => onVice(p.id)}
-                    onInfo={() => onInfo(p)}
                     isCaptain={captainId === p.id}
                     isVice={viceId === p.id}
-                    showLeadership={false}
+                    small
                   />
                 </div>
               ))}
@@ -1772,85 +1849,86 @@ export default function PickTeamPage() {
           <div className="text-sm text-muted-foreground text-center">
             {gwLoading ? "Loading..." : `${currentGwLabel} - Deadline: ${deadlineLabel}`}
           </div>
-
-          {/* Chips */}
-          <div style={{ display: "flex", gap: 8, padding: "4px 12px 12px", justifyContent: "center" }}>
-            {chips.map((chip) => (
-              <button
-                key={chip.name}
-                style={{
-                  flex: 1,
-                  background: "#f8f8f8",
-                  border: "1.5px solid #e0e0e0",
-                  borderRadius: 10,
-                  padding: "8px 4px 6px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 2,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-              >
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #04F5FF, #00FF87)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 14,
-                  }}
-                >
-                  {chip.icon}
-                </div>
-                <span style={{ fontSize: 9, fontWeight: 700, color: "#37003C" }}>{chip.name}</span>
-                <span
-                  style={{
-                    fontSize: 8,
-                    color: "#37003C",
-                    border: "1px solid #ccc",
-                    borderRadius: 8,
-                    padding: "1px 6px",
-                    fontWeight: 600,
-                  }}
-                >
-                  {chip.status}
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
+      </div>
+
+      {/* Chips - separate small cards */}
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        {chips.map((chip) => (
+          <button
+            key={chip.name}
+            style={{
+              flex: 1,
+              background: "#f8f8f8",
+              border: "1.5px solid #e0e0e0",
+              borderRadius: 10,
+              padding: "8px 4px 6px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #04F5FF, #00FF87)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 14,
+              }}
+            >
+              {chip.icon}
+            </div>
+            <span style={{ fontSize: 9, fontWeight: 700, color: "#37003C" }}>{chip.name}</span>
+            <span
+              style={{
+                fontSize: 8,
+                color: "#37003C",
+                border: "1px solid #ccc",
+                borderRadius: 8,
+                padding: "1px 6px",
+                fontWeight: 600,
+              }}
+            >
+              {chip.status}
+            </span>
+          </button>
+        ))}
       </div>
 
       {msg ? <div className="text-sm text-center">{msg}</div> : null}
 
-      {/* Second card: Tabs and Pitch View */}
-      <div className="rounded-2xl border bg-card/70 p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="rounded-2xl bg-muted p-1 inline-flex">
-            <button
-              type="button"
-              onClick={() => setTab("pitch")}
-              className={cn(
-                "px-6 py-2 rounded-2xl text-sm font-semibold transition",
-                tab === "pitch" ? "bg-background shadow" : "text-muted-foreground"
-              )}
-            >
-              Pitch
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("list")}
-              className={cn(
-                "px-6 py-2 rounded-2xl text-sm font-semibold transition",
-                tab === "list" ? "bg-background shadow" : "text-muted-foreground"
-              )}
-            >
-              List
-            </button>
+      {/* Tabs - centered on surface */}
+      <div className="flex items-center justify-center">
+        <div className="rounded-2xl bg-muted p-1 inline-flex">
+          <button
+            type="button"
+            onClick={() => setTab("pitch")}
+            className={cn(
+              "px-6 py-2 rounded-2xl text-sm font-semibold transition",
+              tab === "pitch" ? "bg-background shadow" : "text-muted-foreground"
+            )}
+          >
+            Pitch
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("list")}
+            className={cn(
+              "px-6 py-2 rounded-2xl text-sm font-semibold transition",
+              tab === "list" ? "bg-background shadow" : "text-muted-foreground"
+            )}
+          >
+            List
+          </button>
+          {/* Squad tab hidden for now - kept for future use */}
+          {false && (
             <button
               type="button"
               onClick={() => setTab("squad")}
@@ -1861,26 +1939,26 @@ export default function PickTeamPage() {
             >
               Squad
             </button>
-          </div>
-        </div>
-
-        {/* Pitch/List/Squad view */}
-        <div className="mt-4">
-          {tab === "pitch" && (
-            <PickPitch
-              picked={picked}
-              startingIds={startingIds}
-              onToggleStarting={toggleStarting}
-              captainId={captainId}
-              viceId={viceId}
-              onCaptain={setCaptain}
-              onVice={setVice}
-              onInfo={setSelectedPlayer}
-            />
           )}
+        </div>
+      </div>
 
-          {tab === "list" && (
-            <div className="rounded-2xl border bg-card">
+      {/* Pitch view - full width edge to edge like FPL */}
+      {tab === "pitch" && (
+        <div className="-mx-4">
+          <PickPitch
+            picked={picked}
+            startingIds={startingIds}
+            onToggleStarting={toggleStarting}
+            captainId={captainId}
+            viceId={viceId}
+          />
+        </div>
+      )}
+
+      {/* List view - in a card */}
+      {tab === "list" && (
+        <div className="rounded-2xl border bg-card">
               <div className="px-4 py-3 border-b text-[11px] font-semibold text-muted-foreground grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2">
                 <div>Player</div>
                 <div className="text-right">Form</div>
@@ -2172,8 +2250,6 @@ export default function PickTeamPage() {
               </div>
             </div>
           )}
-        </div>
-      </div>
 
       {/* Player Detail Modal */}
       {selectedPlayer && (
