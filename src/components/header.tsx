@@ -2,8 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Header() {
+  const pathname = usePathname();
+  const isDashboardHome = pathname === "/dashboard";
+
   return (
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto w-full max-w-5xl px-4 py-3 md:px-6 lg:px-8">
@@ -21,12 +25,14 @@ export default function Header() {
               />
             </div>
 
-            <div className="min-w-0">
-              <div className="text-base font-semibold tracking-tight font-headline">
-                The Budo League
+            {isDashboardHome && (
+              <div className="min-w-0">
+                <div className="text-base font-semibold tracking-tight font-headline">
+                  The Budo League
+                </div>
+                <div className="text-xs text-muted-foreground">Sunday League</div>
               </div>
-              <div className="text-xs text-muted-foreground">Sunday League</div>
-            </div>
+            )}
           </Link>
 
           <div className="hidden sm:flex items-center gap-2">

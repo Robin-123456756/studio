@@ -1956,12 +1956,11 @@ export default function PickTeamPage() {
                       onToggle={() => handlePlayerTap(p.id)}
                       isCaptain={captainId === p.id}
                       isVice={viceId === p.id}
-                      small
                     />
                   </div>
                 ))
               ) : (
-                <EmptySlot position="GK" small />
+                <EmptySlot position="GK" />
               )}
             </div>
           </div>
@@ -1975,14 +1974,13 @@ export default function PickTeamPage() {
                   onToggle={() => handlePlayerTap(p.id)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
-                  small
                 />
               </div>
             ))}
             {g.Defenders.length === 0 && (
               <>
-                <EmptySlot position="DEF" small />
-                <EmptySlot position="DEF" small />
+                <EmptySlot position="DEF" />
+                <EmptySlot position="DEF" />
               </>
             )}
           </div>
@@ -1996,15 +1994,14 @@ export default function PickTeamPage() {
                   onToggle={() => handlePlayerTap(p.id)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
-                  small
                 />
               </div>
             ))}
             {g.Midfielders.length === 0 && (
               <>
-                <EmptySlot position="MID" small />
-                <EmptySlot position="MID" small />
-                <EmptySlot position="MID" small />
+                <EmptySlot position="MID" />
+                <EmptySlot position="MID" />
+                <EmptySlot position="MID" />
               </>
             )}
           </div>
@@ -2018,14 +2015,13 @@ export default function PickTeamPage() {
                   onToggle={() => handlePlayerTap(p.id)}
                   isCaptain={captainId === p.id}
                   isVice={viceId === p.id}
-                  small
                 />
               </div>
             ))}
             {g.Forwards.length === 0 && (
               <>
-                <EmptySlot position="FWD" small />
-                <EmptySlot position="FWD" small />
+                <EmptySlot position="FWD" />
+                <EmptySlot position="FWD" />
               </>
             )}
           </div>
