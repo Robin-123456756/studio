@@ -1177,6 +1177,98 @@ export default function PickTeamPage() {
     );
   }
 
+  /* ── Ghost Kit (Empty Jersey) ── */
+  function GhostKit({ isGK = false }: { isGK?: boolean }) {
+    return (
+      <div
+        style={{
+          width: 50,
+          height: 50,
+          borderRadius: "50%",
+          background: isGK
+            ? "linear-gradient(135deg, rgba(180,150,50,0.3), rgba(200,170,80,0.2))"
+            : "linear-gradient(135deg, rgba(100,100,120,0.3), rgba(80,80,100,0.2))",
+          border: "2px dashed rgba(255,255,255,0.3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 30,
+            height: 24,
+            background: isGK
+              ? "linear-gradient(180deg, rgba(200,180,80,0.4), rgba(180,150,50,0.3))"
+              : "linear-gradient(180deg, rgba(120,120,140,0.4), rgba(100,100,120,0.3))",
+            borderRadius: "4px 4px 8px 8px",
+            border: "1px dashed rgba(255,255,255,0.2)",
+          }}
+        />
+      </div>
+    );
+  }
+
+  /* ── Plus Icon for Empty Slot ── */
+  function PlusIcon() {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          bottom: -4,
+          right: -4,
+          width: 20,
+          height: 20,
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, #00ff87, #04f5ff)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 2px 6px rgba(0,255,135,0.4)",
+        }}
+      >
+        <span style={{ color: "#000", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>+</span>
+      </div>
+    );
+  }
+
+  /* ── Empty Player Slot ── */
+  function EmptySlot({ position }: { position: string }) {
+    const isGK = position === "GK";
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          opacity: 0.7,
+        }}
+      >
+        <div style={{ position: "relative" }}>
+          <GhostKit isGK={isGK} />
+          <PlusIcon />
+        </div>
+        <div
+          style={{
+            background: "rgba(5,20,50,0.85)",
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "3px 14px",
+            borderRadius: 4,
+            marginTop: -6,
+            letterSpacing: 0.8,
+            border: "1px solid rgba(0,180,180,0.15)",
+            position: "relative",
+            zIndex: 2,
+          }}
+        >
+          {position}
+        </div>
+      </div>
+    );
+  }
+
   function PitchPlayerCard({
     player,
     onToggle,
@@ -1441,66 +1533,88 @@ export default function PickTeamPage() {
 
           {/* GK Row */}
           <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 16px", position: "relative", zIndex: 1 }}>
-            {g.Goalkeepers.slice(0, 1).map((p) => (
-              <PitchPlayerCard
-                key={p.id}
-                player={p}
-                onToggle={() => onToggleStarting(p.id)}
-                onCaptain={() => onCaptain(p.id)}
-                onVice={() => onVice(p.id)}
-                onInfo={() => onInfo(p)}
-                isCaptain={captainId === p.id}
-                isVice={viceId === p.id}
-              />
-            ))}
+            {g.Goalkeepers.length > 0 ? (
+              g.Goalkeepers.slice(0, 1).map((p) => (
+                <PitchPlayerCard
+                  key={p.id}
+                  player={p}
+                  onToggle={() => onToggleStarting(p.id)}
+                  onCaptain={() => onCaptain(p.id)}
+                  onVice={() => onVice(p.id)}
+                  onInfo={() => onInfo(p)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                />
+              ))
+            ) : (
+              <EmptySlot position="GK" />
+            )}
           </div>
 
           {/* DEF Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
-            {g.Defenders.map((p) => (
-              <PitchPlayerCard
-                key={p.id}
-                player={p}
-                onToggle={() => onToggleStarting(p.id)}
-                onCaptain={() => onCaptain(p.id)}
-                onVice={() => onVice(p.id)}
-                onInfo={() => onInfo(p)}
-                isCaptain={captainId === p.id}
-                isVice={viceId === p.id}
-              />
-            ))}
+            {g.Defenders.length > 0 ? (
+              g.Defenders.map((p) => (
+                <PitchPlayerCard
+                  key={p.id}
+                  player={p}
+                  onToggle={() => onToggleStarting(p.id)}
+                  onCaptain={() => onCaptain(p.id)}
+                  onVice={() => onVice(p.id)}
+                  onInfo={() => onInfo(p)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                />
+              ))
+            ) : (
+              Array.from({ length: 4 }).map((_, i) => (
+                <EmptySlot key={`def-${i}`} position="DEF" />
+              ))
+            )}
           </div>
 
           {/* MID Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
-            {g.Midfielders.map((p) => (
-              <PitchPlayerCard
-                key={p.id}
-                player={p}
-                onToggle={() => onToggleStarting(p.id)}
-                onCaptain={() => onCaptain(p.id)}
-                onVice={() => onVice(p.id)}
-                onInfo={() => onInfo(p)}
-                isCaptain={captainId === p.id}
-                isVice={viceId === p.id}
-              />
-            ))}
+            {g.Midfielders.length > 0 ? (
+              g.Midfielders.map((p) => (
+                <PitchPlayerCard
+                  key={p.id}
+                  player={p}
+                  onToggle={() => onToggleStarting(p.id)}
+                  onCaptain={() => onCaptain(p.id)}
+                  onVice={() => onVice(p.id)}
+                  onInfo={() => onInfo(p)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                />
+              ))
+            ) : (
+              Array.from({ length: 4 }).map((_, i) => (
+                <EmptySlot key={`mid-${i}`} position="MID" />
+              ))
+            )}
           </div>
 
           {/* FWD Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 24, padding: "12px 0 8px", position: "relative", zIndex: 1 }}>
-            {g.Forwards.map((p) => (
-              <PitchPlayerCard
-                key={p.id}
-                player={p}
-                onToggle={() => onToggleStarting(p.id)}
-                onCaptain={() => onCaptain(p.id)}
-                onVice={() => onVice(p.id)}
-                onInfo={() => onInfo(p)}
-                isCaptain={captainId === p.id}
-                isVice={viceId === p.id}
-              />
-            ))}
+            {g.Forwards.length > 0 ? (
+              g.Forwards.map((p) => (
+                <PitchPlayerCard
+                  key={p.id}
+                  player={p}
+                  onToggle={() => onToggleStarting(p.id)}
+                  onCaptain={() => onCaptain(p.id)}
+                  onVice={() => onVice(p.id)}
+                  onInfo={() => onInfo(p)}
+                  isCaptain={captainId === p.id}
+                  isVice={viceId === p.id}
+                />
+              ))
+            ) : (
+              Array.from({ length: 2 }).map((_, i) => (
+                <EmptySlot key={`fwd-${i}`} position="FWD" />
+              ))
+            )}
           </div>
         </div>
 
@@ -1512,30 +1626,49 @@ export default function PickTeamPage() {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 8 }}>
-            {bench.map((p) => (
-              <span key={p.id} style={{ fontSize: 11, fontWeight: 800, color: "#37003C", width: 80, textAlign: "center" }}>
-                {shortPos(p.position)}
-              </span>
-            ))}
+            {bench.length > 0 ? (
+              bench.map((p) => (
+                <span key={p.id} style={{ fontSize: 11, fontWeight: 800, color: "#37003C", width: 80, textAlign: "center" }}>
+                  {shortPos(p.position)}
+                </span>
+              ))
+            ) : (
+              Array.from({ length: 7 }).map((_, i) => (
+                <span key={`bench-label-${i}`} style={{ fontSize: 11, fontWeight: 800, color: "#37003C", width: 80, textAlign: "center" }}>
+                  SUB
+                </span>
+              ))
+            )}
           </div>
           <div style={{ display: "flex", justifyContent: "space-around" }}>
-            {bench.map((p, index) => (
-              <div key={p.id} className="relative">
-                <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
-                  {index + 1}
+            {bench.length > 0 ? (
+              bench.map((p, index) => (
+                <div key={p.id} className="relative">
+                  <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
+                    {index + 1}
+                  </div>
+                  <PitchPlayerCard
+                    player={p}
+                    onToggle={() => onToggleStarting(p.id)}
+                    onCaptain={() => onCaptain(p.id)}
+                    onVice={() => onVice(p.id)}
+                    onInfo={() => onInfo(p)}
+                    isCaptain={captainId === p.id}
+                    isVice={viceId === p.id}
+                    showLeadership={false}
+                  />
                 </div>
-                <PitchPlayerCard
-                  player={p}
-                  onToggle={() => onToggleStarting(p.id)}
-                  onCaptain={() => onCaptain(p.id)}
-                  onVice={() => onVice(p.id)}
-                  onInfo={() => onInfo(p)}
-                  isCaptain={captainId === p.id}
-                  isVice={viceId === p.id}
-                  showLeadership={false}
-                />
-              </div>
-            ))}
+              ))
+            ) : (
+              Array.from({ length: 7 }).map((_, i) => (
+                <div key={`bench-empty-${i}`} className="relative">
+                  <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
+                    {i + 1}
+                  </div>
+                  <EmptySlot position="SUB" />
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
