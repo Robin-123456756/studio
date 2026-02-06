@@ -296,19 +296,19 @@ const allPlayers: Player[] = [
   { id: "p4", name: "Yuki Yamamoto", avatarUrl: "https://picsum.photos/seed/p4/100/100", position: "Midfielder", price: 10.1, points: 62, team: "Komunoballo", gender: "male" },
   { id: "p5", name: "Sora Kobayashi", avatarUrl: "https://picsum.photos/seed/p5/100/100", position: "Goalkeeper", price: 5.5, points: 35, team: "Komunoballo", gender: "male" },
   { id: "p6", name: "Asahi Watanabe", avatarUrl: "https://picsum.photos/seed/p6/100/100", position: "Forward", price: 9.5, points: 45, team: "Komunoballo", gender: "male" },
-  { id: "p14", name: "Joy Achieng", avatarUrl: "https://picsum.photos/seed/p14/100/100", position: "Midfielder", price: 6.8, points: 18, team: "Komunoballo", gender: "female" },
+  { id: "p14", name: "Joy Achieng", avatarUrl: "https://picsum.photos/seed/p14/100/100", position: "Forward", price: 6.8, points: 18, team: "Komunoballo", gender: "female" },
 
   // Accumulators
   { id: "p7", name: "Ren Mori", avatarUrl: "https://picsum.photos/seed/p7/100/100", position: "Forward", price: 9.2, points: 48, team: "Accumulators", gender: "male" },
   { id: "p8", name: "Kaito Abe", avatarUrl: "https://picsum.photos/seed/p8/100/100", position: "Defender", price: 5.1, points: 29, team: "Accumulators", gender: "male" },
   { id: "p9", name: "Itsuki Sasaki", avatarUrl: "https://picsum.photos/seed/p9/100/100", position: "Midfielder", price: 7.3, points: 33, team: "Accumulators", gender: "male" },
-  { id: "p15", name: "Sarah Atim", avatarUrl: "https://picsum.photos/seed/p15/1006666/100", position: "Defender", price: 5.9, points: 15, team: "Accumulators", gender: "female" },
+  { id: "p15", name: "Sarah Atim", avatarUrl: "https://picsum.photos/seed/p15/100/100", position: "Forward", price: 5.9, points: 15, team: "Accumulators", gender: "female" },
 
   // Masappe (✅ corrected spelling)
   { id: "p10", name: "Hinata Saito", avatarUrl: "https://picsum.photos/seed/p10/100/100", position: "Midfielder", price: 6.9, points: 25, team: "Masappe", gender: "male" },
   { id: "p11", name: "Eita Hashimoto", avatarUrl: "https://picsum.photos/seed/p11/100/100", position: "Forward", price: 8.1, points: 31, team: "Masappe", gender: "male" },
   { id: "p12", name: "Yuto Fujita", avatarUrl: "https://picsum.photos/seed/p12/100/100", position: "Defender", price: 4.8, points: 19, team: "Masappe", gender: "male" },
-  { id: "p16", name: "Blessing Namutebi", avatarUrl: "https://picsum.photos/seed/p16/100/100", position: "Goalkeeper", price: 5.0, points: 12, team: "Masappe", gender: "female" },
+  { id: "p16", name: "Blessing Namutebi", avatarUrl: "https://picsum.photos/seed/p16/100/100", position: "Forward", price: 5.0, points: 12, team: "Masappe", gender: "female" },
 ];
 
 // =====================
@@ -371,8 +371,16 @@ const game1Team2Squad: MatchDaySquad = { players: teams[1].players };
 
 schedule[0].squad1 = game1Team1Squad;
 schedule[0].squad2 = game1Team2Squad;
-schedule[0].onField1 = autoPickOnFieldLineup(teams[0], game1Team1Squad);
-schedule[0].onField2 = autoPickOnFieldLineup(teams[1], game1Team2Squad);
+function safeAutoPick(team: Team, squad: MatchDaySquad) {
+  if ((squad.players?.length ?? 0) < 9) return undefined;
+  try {
+    return autoPickOnFieldLineup(team, squad);
+  } catch {
+    return undefined;
+  }
+}
+schedule[0].onField1 = safeAutoPick(teams[0], game1Team1Squad);
+schedule[0].onField2 = safeAutoPick(teams[1], game1Team2Squad);
 
 // =====================
 // RECENT SCORES (sample)

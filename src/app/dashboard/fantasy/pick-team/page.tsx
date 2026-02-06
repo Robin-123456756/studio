@@ -1674,6 +1674,15 @@ export default function PickTeamPage() {
       ? `${g.Defenders.length}-${g.Midfielders.length}-${g.Forwards.length}`
       : `${picked.length}/17`;
 
+    const slotsFor = (count: number, min: number, max: number) => {
+      if (count > max) return count;
+      return Math.max(count, min);
+    };
+
+    const defSlots = slotsFor(g.Defenders.length, 2, 3);
+    const midSlots = slotsFor(g.Midfielders.length, 3, 4);
+    const fwdSlots = slotsFor(g.Forwards.length, 2, 3);
+
     return (
       <div className="space-y-0 rounded-2xl overflow-hidden">
         {/* Pitch View */}
@@ -1883,62 +1892,53 @@ export default function PickTeamPage() {
 
           {/* DEF Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
-            {g.Defenders.length > 0 ? (
-              g.Defenders.map((p) => (
-                <PitchPlayerCard
-                  key={p.id}
-                  player={p}
-                  onToggle={() => onToggleStarting(p.id)}
-                  isCaptain={captainId === p.id}
-                  isVice={viceId === p.id}
-                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
-                />
-              ))
-            ) : (
-              Array.from({ length: 4 }).map((_, i) => (
-                <EmptySlot key={`def-${i}`} position="DEF" />
-              ))
-            )}
+            {g.Defenders.map((p) => (
+              <PitchPlayerCard
+                key={p.id}
+                player={p}
+                onToggle={() => onToggleStarting(p.id)}
+                isCaptain={captainId === p.id}
+                isVice={viceId === p.id}
+                isStarting={!isStartingComplete && startingIds.includes(p.id)}
+              />
+            ))}
+            {Array.from({ length: Math.max(0, defSlots - g.Defenders.length) }).map((_, i) => (
+              <EmptySlot key={`def-${i}`} position="DEF" />
+            ))}
           </div>
 
           {/* MID Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "12px 0 16px", position: "relative", zIndex: 1 }}>
-            {g.Midfielders.length > 0 ? (
-              g.Midfielders.map((p) => (
-                <PitchPlayerCard
-                  key={p.id}
-                  player={p}
-                  onToggle={() => onToggleStarting(p.id)}
-                  isCaptain={captainId === p.id}
-                  isVice={viceId === p.id}
-                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
-                />
-              ))
-            ) : (
-              Array.from({ length: 4 }).map((_, i) => (
-                <EmptySlot key={`mid-${i}`} position="MID" />
-              ))
-            )}
+            {g.Midfielders.map((p) => (
+              <PitchPlayerCard
+                key={p.id}
+                player={p}
+                onToggle={() => onToggleStarting(p.id)}
+                isCaptain={captainId === p.id}
+                isVice={viceId === p.id}
+                isStarting={!isStartingComplete && startingIds.includes(p.id)}
+              />
+            ))}
+            {Array.from({ length: Math.max(0, midSlots - g.Midfielders.length) }).map((_, i) => (
+              <EmptySlot key={`mid-${i}`} position="MID" />
+            ))}
           </div>
 
           {/* FWD Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 24, padding: "12px 0 8px", position: "relative", zIndex: 1 }}>
-            {g.Forwards.length > 0 ? (
-              g.Forwards.map((p) => (
-                <PitchPlayerCard
-                  key={p.id}
-                  player={p}
-                  onToggle={() => onToggleStarting(p.id)}
-                  isCaptain={captainId === p.id}
-                  isVice={viceId === p.id}
-                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
-                />
-              ))
-            ) : (
-              Array.from({ length: 2 }).map((_, i) => (
-                <EmptySlot key={`fwd-${i}`} position="FWD" />
-              ))
-            )}
+            {g.Forwards.map((p) => (
+              <PitchPlayerCard
+                key={p.id}
+                player={p}
+                onToggle={() => onToggleStarting(p.id)}
+                isCaptain={captainId === p.id}
+                isVice={viceId === p.id}
+                isStarting={!isStartingComplete && startingIds.includes(p.id)}
+              />
+            ))}
+            {Array.from({ length: Math.max(0, fwdSlots - g.Forwards.length) }).map((_, i) => (
+              <EmptySlot key={`fwd-${i}`} position="FWD" />
+            ))}
           </div>
         </div>
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { saveSquadIds } from "@/lib/fantasyStorage";
+import { saveSquadIds, loadSquadIds } from "@/lib/fantasyStorage";
 import { PlayerCard, type Player } from "./player-card";
 import { TransferBadge } from "./transfer-badge";
 import { TransferLogItemComponent } from "./transfer-log-item";
@@ -141,19 +141,29 @@ export default function TransfersPage() {
 const gwIdForRoster = savingGw?.id ?? null;
 
 React.useEffect(() => {
-  if (!gwIdForRoster) return;
+  if (!gwIdForRoster) {
+    // No gameweek yet, try local storage
+    const local = loadSquadIds();
+    if (local.length > 0) setSquadIds(local);
+    return;
+  }
 
   (async () => {
     const res = await fetch(`/api/rosters?gw_id=${gwIdForRoster}`, { cache: "no-store" });
     const json = await res.json();
 
-    if (!res.ok) {
-      // If not signed in or no roster yet, keep empty.
+    if (!res.ok || !Array.isArray(json.squadIds) || json.squadIds.length === 0) {
+      // If not signed in or no roster in DB yet, try local storage
+      const local = loadSquadIds();
+      if (local.length > 0) {
+        setSquadIds(local);
+        return;
+      }
       setSquadIds([]);
       return;
     }
 
-    setSquadIds(Array.isArray(json.squadIds) ? json.squadIds : []);
+    setSquadIds(json.squadIds);
   })();
 }, [gwIdForRoster]);
 
@@ -190,18 +200,29 @@ React.useEffect(() => {
   }, []);
 
   React.useEffect(() => {
-    if (!gwId) return;
+    if (!gwId) {
+      // No gameweek, try local storage
+      const local = loadSquadIds();
+      if (local.length > 0) setSquadIds(local);
+      return;
+    }
 
     (async () => {
       const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
       const json = await res.json();
 
-      if (!res.ok) {
+      if (!res.ok || !Array.isArray(json.squadIds) || json.squadIds.length === 0) {
+        // Try local storage as fallback
+        const local = loadSquadIds();
+        if (local.length > 0) {
+          setSquadIds(local);
+          return;
+        }
         setSquadIds([]);
         return;
       }
 
-      setSquadIds(Array.isArray(json.squadIds) ? json.squadIds : []);
+      setSquadIds(json.squadIds);
     })();
   }, [gwId]);
 
@@ -264,12 +285,34 @@ React.useEffect(() => {
 
   function pickIn(id: string) {
     if (locked) return;
+    // If squad isn't full and no outId selected, add directly
+    if (squadIds.length < 17 && !outId) {
+      addPlayer(id);
+      return;
+    }
     setInId(id);
+  }
+
+  // Add player directly to squad (when building initial squad)
+  async function addPlayer(id: string) {
+    if (locked) return;
+    if (squadIds.length >= 17) return;
+    if (squadIds.includes(id)) return;
+
+    const next = [...squadIds, id];
+    persistSquad(next);
+  }
+
+  // Remove player from squad
+  function removePlayer(id: string) {
+    if (locked) return;
+    const next = squadIds.filter((sid) => sid !== id);
+    persistSquad(next);
+    resetSelection();
   }
 
   function canConfirm() {
     if (locked) return false;
-    if (!gwId) return false;
     if (!outId || !inId) return false;
     if (!squadIds.includes(outId)) return false;
     if (squadIds.includes(inId)) return false;
@@ -277,21 +320,26 @@ React.useEffect(() => {
   }
 
   async function confirmTransfer() {
-    if (!canConfirm() || !gwId || !outId || !inId) return;
+    if (!canConfirm() || !outId || !inId) return;
 
     // 1) swap in squad ids
     const next = squadIds.map((id) => (id === outId ? inId : id));
-    await persistSquad(next);
+    persistSquad(next);
 
     // 2) count transfer usage
     incrementUsedTransfers();
 
-    // 3) log the transfer
+    // 3) log the transfer (only if we have a gwId)
+    if (!gwId) {
+      resetSelection();
+      return;
+    }
+
     const outP = byId.get(outId);
     const inP = byId.get(inId);
 
     recordTransfer({
-      gwId,
+      gwId: gwId,
       ts: new Date().toISOString(),
       outId,
       inId,
@@ -372,21 +420,62 @@ React.useEffect(() => {
             </div>
 
             {squad.length === 0 ? (
-  <div className="text-sm text-muted-foreground">
-    No squad saved for this gameweek yet. Go to <b>Pick Team</b> and press <b>Save Team</b>.
+  <div className="text-sm text-muted-foreground text-center py-4">
+    <div className="mb-2">Start building your 17-player squad!</div>
+    <div className="text-xs">Select players from the <b>Player Pool</b> on the right to add them.</div>
+  </div>
+) : squad.length < 17 ? (
+  <div className="space-y-2">
+    <div className="text-xs text-amber-600 font-medium mb-2">
+      {squad.length}/17 players • Add {17 - squad.length} more
+    </div>
+    {squad.map((p) => (
+      <div key={p.id} className="flex items-center gap-2">
+        <div className="flex-1">
+          <PlayerCard
+            player={p}
+            variant="out"
+            active={outId === p.id}
+            disabled={locked}
+            onClick={() => pickOut(p.id)}
+          />
+        </div>
+        {!locked && (
+          <button
+            onClick={() => removePlayer(p.id)}
+            className="h-8 w-8 rounded-full bg-red-100 hover:bg-red-200 text-red-600 text-xs font-bold flex items-center justify-center"
+            title="Remove player"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    ))}
   </div>
 ) : (
-              <div className="space-y-2">
-                {squad.map((p) => (
-                  <PlayerCard
-                    key={p.id}
-                    player={p}
-                    variant="out"
-                    active={outId === p.id}
-                    disabled={locked}
-                    onClick={() => pickOut(p.id)}
-                  />
-                ))}
+              <div className="space-y-3">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
+                  <div className="text-sm font-semibold text-emerald-700">Squad Complete!</div>
+                  <div className="text-xs text-emerald-600 mt-1">17/17 players selected</div>
+                  <Link
+                    href="/dashboard/fantasy/pick-team"
+                    className="inline-flex items-center gap-2 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                  >
+                    Go to Pick Team →
+                  </Link>
+                </div>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {squad.map((p) => (
+                    <PlayerCard
+                      key={p.id}
+                      player={p}
+                      variant="out"
+                      active={outId === p.id}
+                      disabled={locked}
+                      onClick={() => pickOut(p.id)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
