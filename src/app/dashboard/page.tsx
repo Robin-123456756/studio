@@ -35,14 +35,25 @@ type Row = {
 };
 
 function hasLadyOnField(game: Game, teamName: string) {
-  // If you later set game.onField1/onField2 with gender info, LP will auto-work.
+  // Prefer onField detection; fall back to lady flags if present.
   const side1 =
     game.team1.name === teamName ? game.onField1?.players : undefined;
   const side2 =
     game.team2.name === teamName ? game.onField2?.players : undefined;
 
   const players = side1 ?? side2 ?? [];
-  return players.some((p) => p.gender === "female");
+  if (players.length > 0) {
+    return players.some((p) => p.gender === "female");
+  }
+
+  if (game.team1.name === teamName && typeof game.lady1 === "boolean") {
+    return game.lady1;
+  }
+  if (game.team2.name === teamName && typeof game.lady2 === "boolean") {
+    return game.lady2;
+  }
+
+  return false;
 }
 
 function computeTable(allTeams: Team[], games: Game[]): Row[] {
@@ -402,7 +413,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               <div>Rotational subs are allowed.</div>
               <div>Matches run for 60 minutes.</div>
-              <div>One lady can be fielded in the forward position.</div>
+              <div>Lady forward is optional; +1 LP if fielded.</div>
               <div>Only 3 of 8 matches are officially recorded each round.</div>
             </CardContent>
           </Card>

@@ -11,6 +11,7 @@ import {
   TrendingUp,
   ArrowUpDown,
   ArrowLeft,
+  ArrowLeftRight,
   Users,
   Zap,
   X,
@@ -618,21 +619,36 @@ export default function PickTeamPage() {
 
   // ----------------------------
   // load local cache + all players
+  // Squad comes from Transfers (LS_SQUAD), starting lineup is managed here
   // ----------------------------
   React.useEffect(() => {
-    const picks = loadIds(LS_PICKS);
+    // Primary source: LS_SQUAD from Transfers page
+    const squad = loadIds(LS_SQUAD);
+    // Fallback to legacy picks if squad is empty
+    const picks = squad.length > 0 ? squad : loadIds(LS_PICKS);
     const starting = loadIds(LS_STARTING);
+
     setPickedIds(picks);
     setStartingIds(starting);
+
+    // Also update saved state for change tracking
+    setSavedPickedIds(picks);
+    setSavedStartingIds(starting);
+
     const savedCaptain = localStorage.getItem(LS_CAPTAIN);
     const savedVice = localStorage.getItem(LS_VICE);
-    if (savedCaptain) setCaptainId(savedCaptain);
-    if (savedVice) setViceId(savedVice);
+    if (savedCaptain) {
+      setCaptainId(savedCaptain);
+      setSavedCaptainId(savedCaptain);
+    }
+    if (savedVice) {
+      setViceId(savedVice);
+      setSavedViceId(savedVice);
+    }
 
-    // sync transfers key
-    const squad = loadIds(LS_SQUAD);
-    if (squad.length === 0 && picks.length > 0) {
-      localStorage.setItem(LS_SQUAD, JSON.stringify(picks));
+    // Sync legacy key if needed
+    if (squad.length > 0 && picks !== squad) {
+      localStorage.setItem(LS_PICKS, JSON.stringify(squad));
     }
 
     (async () => {
@@ -696,6 +712,62 @@ export default function PickTeamPage() {
   // ----------------------------
   const [dbLoaded, setDbLoaded] = React.useState(false);
 
+  function buildStartingFromSquad(squad: Player[]) {
+    const points = (p: Player) => Number(p.points ?? 0);
+    const isGK = (p: Player) => normalizePosition(p.position) === "Goalkeeper";
+    const isDef = (p: Player) => normalizePosition(p.position) === "Defender";
+    const isMid = (p: Player) => normalizePosition(p.position) === "Midfielder";
+    const isFwd = (p: Player) => normalizePosition(p.position) === "Forward";
+
+    const gks = squad.filter(isGK).sort((a, b) => points(b) - points(a));
+    const defs = squad.filter(isDef).sort((a, b) => points(b) - points(a));
+    const mids = squad.filter(isMid).sort((a, b) => points(b) - points(a));
+    const fwds = squad.filter(isFwd).sort((a, b) => points(b) - points(a));
+
+    const formations = [
+      { def: 2, mid: 3, fwd: 3 },
+      { def: 2, mid: 4, fwd: 2 },
+      { def: 3, mid: 3, fwd: 2 },
+    ];
+
+    let best: Player[] = [];
+    let bestScore = -1;
+
+    for (const f of formations) {
+      if (gks.length < 1 || defs.length < f.def || mids.length < f.mid || fwds.length < f.fwd) {
+        continue;
+      }
+
+      const starting: Player[] = [];
+      starting.push(gks[0]);
+
+      starting.push(...defs.slice(0, f.def));
+      starting.push(...mids.slice(0, f.mid));
+
+      const chosenFwds: Player[] = [];
+      let ladyCount = 0;
+      for (const p of fwds) {
+        if (chosenFwds.length >= f.fwd) break;
+        if (p.isLady) {
+          if (ladyCount >= 1) continue;
+          ladyCount += 1;
+        }
+        chosenFwds.push(p);
+      }
+
+      if (chosenFwds.length < f.fwd) continue;
+      starting.push(...chosenFwds);
+
+      const score = starting.reduce((sum, p) => sum + points(p), 0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = starting;
+      }
+    }
+
+    return best.map((p) => p.id);
+  }
+
   function buildAutoRoster(pool: Player[]) {
     const byPoints = [...pool].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
     const squad: Player[] = [];
@@ -724,29 +796,12 @@ export default function PickTeamPage() {
 
     const squadIds = squad.slice(0, 17).map((p) => p.id);
 
-    // Build starting 10: 1 GK + 1 lady FWD + 8 best males
-    const squadByPoints = [...squad].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
-    const starting: Player[] = [];
-    const gk = squadByPoints.find(isGK);
-    if (gk) starting.push(gk);
-    const lady = squadByPoints.find((p) => isLadyFwd(p) && p.id !== gk?.id);
-    if (lady) starting.push(lady);
-
-    const males = squadByPoints.filter(
-      (p) => !p.isLady && !isGK(p) && !starting.some((s) => s.id === p.id)
-    );
-    for (const p of males) {
-      if (starting.length >= 10) break;
-      starting.push(p);
-    }
-
-    for (const p of squadByPoints) {
-      if (starting.length >= 10) break;
-      if (!starting.some((s) => s.id === p.id)) starting.push(p);
-    }
-
-    const startingIds = starting.slice(0, 10).map((p) => p.id);
-    const startingByPoints = [...starting].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+    // Build starting 9 based on formation rules
+    const startingIds = buildStartingFromSquad(squad);
+    const startingPlayers = startingIds
+      .map((id) => squad.find((p) => p.id === id))
+      .filter(Boolean) as Player[];
+    const startingByPoints = [...startingPlayers].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
     const captainId = startingByPoints[0]?.id ?? null;
     const viceId = startingByPoints[1]?.id ?? null;
 
@@ -789,11 +844,14 @@ export default function PickTeamPage() {
         }
 
         if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
-        setDbLoaded(true);
-        return;
-      }
 
-      // No roster in DB - auto-build a full squad so pitch has no ghost slots
+        // If we have a valid squad from DB, we're done
+        if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
+          setDbLoaded(true);
+          return;
+        }
+
+        // No roster in DB - auto-build a full squad so pitch has no ghost slots
       const auto = buildAutoRoster(players);
       if (auto.squadIds.length > 0) {
         setPickedIds(auto.squadIds);
@@ -815,7 +873,7 @@ export default function PickTeamPage() {
 
       if (
         auto.squadIds.length === 17 &&
-        auto.startingIds.length === 10 &&
+        auto.startingIds.length === 9 &&
         auto.captainId &&
         auto.viceId
       ) {
@@ -868,13 +926,16 @@ export default function PickTeamPage() {
   const pickedGoalkeepers = picked.filter(
     (p) => normalizePosition(p.position) === "Goalkeeper"
   );
+  const startingGoalkeepers = startingByPos.Goalkeepers.length;
+  const startingDefenders = startingByPos.Defenders.length;
+  const startingMidfielders = startingByPos.Midfielders.length;
+  const startingForwards = startingByPos.Forwards.length;
   const startingLadyForwards = starting.filter(
     (p) => p.isLady && normalizePosition(p.position) === "Forward"
   ).length;
-  const startingGoalkeepers = starting.filter(
-    (p) => normalizePosition(p.position) === "Goalkeeper"
+  const startingLadyNonForwards = starting.filter(
+    (p) => p.isLady && normalizePosition(p.position) !== "Forward"
   ).length;
-  const startingMales = starting.filter((p) => !p.isLady).length;
 
   const budgetUsed = picked.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
   const budgetRemaining = Math.max(0, BUDGET_TOTAL - budgetUsed);
@@ -962,35 +1023,43 @@ export default function PickTeamPage() {
     setMsg(null);
 
     if (!pickedIds.includes(id)) {
-      setMsg("Pick the player first, then add to starting 10.");
+      setMsg("Pick the player first, then add to starting 9.");
       return;
     }
 
     setStartingIds((prev) => {
       const has = prev.includes(id);
       if (has) return prev.filter((x) => x !== id);
-      if (prev.length >= 10) {
-        setMsg("Starting lineup is only 10 players.");
+      if (prev.length >= 9) {
+        setMsg("Starting lineup is only 9 players.");
         return prev;
       }
       const player = playerById.get(id);
-      if (player && normalizePosition(player.position) === "Goalkeeper") {
-        if (startingGoalkeepers >= 1) {
-          setMsg("Only one goalkeeper can start.");
-          return prev;
-        }
+      if (!player) return prev;
+
+      const pos = normalizePosition(player.position);
+      if (pos === "Goalkeeper" && startingGoalkeepers >= 1) {
+        setMsg("Only one goalkeeper can start.");
+        return prev;
       }
-      if (player?.isLady) {
-        if (normalizePosition(player.position) !== "Forward") {
-          setMsg("Only lady forwards can start.");
-          return prev;
-        }
-        if (startingLadyForwards >= 1) {
-          setMsg("Only one lady forward can start.");
-          return prev;
-        }
-      } else if (startingMales >= 9) {
-        setMsg("Starting lineup must have only 9 male players.");
+      if (pos === "Defender" && startingDefenders >= 3) {
+        setMsg("Defenders are limited to 3.");
+        return prev;
+      }
+      if (pos === "Midfielder" && startingMidfielders >= 4) {
+        setMsg("Midfielders are limited to 4.");
+        return prev;
+      }
+      if (pos === "Forward" && startingForwards >= 3) {
+        setMsg("Forwards are limited to 3.");
+        return prev;
+      }
+      if (player.isLady && pos !== "Forward") {
+        setMsg("Lady players can only start as forwards.");
+        return prev;
+      }
+      if (player.isLady && startingLadyForwards >= 1) {
+        setMsg("Only one lady forward can start.");
         return prev;
       }
       return [...prev, id];
@@ -999,7 +1068,7 @@ export default function PickTeamPage() {
 
   function setCaptain(id: string) {
     if (!startingIds.includes(id)) {
-      setMsg("Captain must be in the starting 10.");
+      setMsg("Captain must be in the starting 9.");
       return;
     }
     setCaptainId(id);
@@ -1012,7 +1081,7 @@ export default function PickTeamPage() {
 
   function setVice(id: string) {
     if (!startingIds.includes(id)) {
-      setMsg("Vice-captain must be in the starting 10.");
+      setMsg("Vice-captain must be in the starting 9.");
       return;
     }
     setViceId(id);
@@ -1112,57 +1181,32 @@ export default function PickTeamPage() {
     setMsg(`Auto-picked ${newPicks.length} player${newPicks.length > 1 ? "s" : ""}.`);
   }
 
-  // Auto-select starting 10
+  // Auto-select starting 9
   function autoSelectStarting() {
     setMsg(null);
 
-    if (pickedIds.length < 10) {
-      setMsg("Pick at least 10 players first.");
+    if (pickedIds.length < 9) {
+      setMsg("Pick at least 9 players first.");
       return;
     }
 
-    // Sort picked by points
-    const sortedPicked = [...picked].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+    const newStarting = buildStartingFromSquad(picked);
 
-    const newStarting: string[] = [];
-
-    // Must have 1 GK
-    const gk = sortedPicked.find((p) => normalizePosition(p.position) === "Goalkeeper");
-    if (gk) newStarting.push(gk.id);
-
-    // Must have 1 lady forward
-    const ladyFwd = sortedPicked.find((p) => p.isLady && normalizePosition(p.position) === "Forward");
-    if (ladyFwd) newStarting.push(ladyFwd.id);
-
-    // Fill remaining 8 with best males (non-GK)
-    const males = sortedPicked.filter(
-      (p) => !p.isLady && normalizePosition(p.position) !== "Goalkeeper" && !newStarting.includes(p.id)
-    );
-
-    for (const m of males) {
-      if (newStarting.length >= 10) break;
-      newStarting.push(m.id);
-    }
-
-    // If still not 10, add more non-starting males
-    if (newStarting.length < 10) {
-      const remaining = sortedPicked.filter((p) => !newStarting.includes(p.id) && !p.isLady);
-      for (const r of remaining) {
-        if (newStarting.length >= 10) break;
-        newStarting.push(r.id);
-      }
+    if (newStarting.length < 9) {
+      setMsg("Not enough players to form a valid starting 9.");
+      return;
     }
 
     setStartingIds(newStarting);
-    setMsg("Auto-selected starting 10 based on points.");
+    setMsg("Auto-selected starting 9 based on points.");
   }
 
-  function resetTeam() {
-    setPickedIds([]);
+  function resetStartingLineup() {
+    // Only reset starting lineup, captain, and vice - keep the squad intact
     setStartingIds([]);
     setCaptainId(null);
     setViceId(null);
-    setMsg("Team has been reset.");
+    setMsg("Starting lineup has been reset. Tap players to select your starting 10.");
   }
 
   function cancelChanges() {
@@ -1187,17 +1231,26 @@ export default function PickTeamPage() {
     if (pickedLadyForwards.length > 2) {
       return setMsg("Only 2 lady forwards are allowed in the squad.");
     }
-    if (startingIds.length !== 10) {
-      return setMsg("Starting lineup must be exactly 10 players.");
+    if (startingIds.length !== 9) {
+      return setMsg("Starting lineup must be exactly 9 players.");
     }
     if (startingGoalkeepers !== 1) {
       return setMsg("Starting lineup must include exactly 1 goalkeeper.");
     }
-    if (startingLadyForwards !== 1) {
-      return setMsg("Starting lineup must include exactly 1 lady forward.");
+    if (startingDefenders < 2 || startingDefenders > 3) {
+      return setMsg("Starting defenders must be between 2 and 3.");
     }
-    if (startingMales !== 9) {
-      return setMsg("Starting lineup must include exactly 9 male players.");
+    if (startingMidfielders < 3 || startingMidfielders > 4) {
+      return setMsg("Starting midfielders must be between 3 and 4.");
+    }
+    if (startingForwards < 2 || startingForwards > 3) {
+      return setMsg("Starting forwards must be between 2 and 3.");
+    }
+    if (startingLadyNonForwards > 0) {
+      return setMsg("Lady players can only start as forwards.");
+    }
+    if (startingLadyForwards > 1) {
+      return setMsg("Only one lady forward can start.");
     }
     if (!captainId || !viceId) {
       return setMsg("Please choose a Captain and Vice-captain.");
@@ -1282,25 +1335,57 @@ export default function PickTeamPage() {
 
   /* ── SVG Kit component ── */
   function Kit({ color = "#EF0107", isGK = false, size = 56 }: { color?: string; isGK?: boolean; size?: number }) {
+    const id = `kit-${Math.random().toString(36).substr(2, 9)}`;
     if (isGK) {
       return (
-        <svg width={size} height={size} viewBox="0 0 60 60">
-          <rect x="10" y="8" width="40" height="36" rx="4" fill={color} />
-          <rect x="4" y="8" width="12" height="20" rx="3" fill={color} />
-          <rect x="44" y="8" width="12" height="20" rx="3" fill={color} />
-          <rect x="18" y="40" width="24" height="16" rx="2" fill={color} opacity="0.8" />
-          <line x1="10" y1="20" x2="50" y2="20" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-          <rect x="22" y="12" width="16" height="6" rx="1" fill="rgba(255,255,255,0.3)" />
+        <svg width={size} height={size} viewBox="0 0 60 60" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>
+          <defs>
+            <linearGradient id={`${id}-gk`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color} />
+              <stop offset="50%" stopColor={color} stopOpacity="0.9" />
+              <stop offset="100%" stopColor={color} />
+            </linearGradient>
+          </defs>
+          {/* Body */}
+          <rect x="10" y="8" width="40" height="36" rx="4" fill={`url(#${id}-gk)`} stroke="rgba(0,0,0,0.2)" strokeWidth="1" />
+          {/* Sleeves */}
+          <rect x="4" y="8" width="12" height="20" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
+          <rect x="44" y="8" width="12" height="20" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
+          {/* Shorts */}
+          <rect x="18" y="40" width="24" height="16" rx="2" fill={color} stroke="rgba(0,0,0,0.2)" strokeWidth="0.5" />
+          {/* Collar detail */}
+          <path d="M25 8 Q30 12 35 8" stroke="rgba(255,255,255,0.6)" strokeWidth="2" fill="none" />
+          {/* Chest stripe */}
+          <line x1="10" y1="20" x2="50" y2="20" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
+          {/* Number box */}
+          <rect x="22" y="22" width="16" height="10" rx="1" fill="rgba(255,255,255,0.25)" />
         </svg>
       );
     }
     return (
-      <svg width={size} height={size} viewBox="0 0 60 60">
-        <rect x="12" y="10" width="36" height="30" rx="4" fill={color} />
-        <rect x="4" y="10" width="14" height="18" rx="3" fill={color} opacity="0.85" />
-        <rect x="42" y="10" width="14" height="18" rx="3" fill={color} opacity="0.85" />
-        <rect x="18" y="38" width="24" height="16" rx="2" fill="white" />
-        <line x1="12" y1="22" x2="48" y2="22" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" />
+      <svg width={size} height={size} viewBox="0 0 60 60" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>
+        <defs>
+          <linearGradient id={`${id}-out`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={color} />
+            <stop offset="30%" stopColor={color} />
+            <stop offset="50%" stopColor="rgba(255,255,255,0.15)" stopOpacity="0.3" />
+            <stop offset="70%" stopColor={color} />
+            <stop offset="100%" stopColor={color} />
+          </linearGradient>
+        </defs>
+        {/* Body */}
+        <rect x="12" y="10" width="36" height="30" rx="4" fill={color} stroke="rgba(0,0,0,0.2)" strokeWidth="1" />
+        {/* Gradient overlay for sheen */}
+        <rect x="12" y="10" width="36" height="30" rx="4" fill={`url(#${id}-out)`} />
+        {/* Sleeves */}
+        <rect x="4" y="10" width="14" height="18" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
+        <rect x="42" y="10" width="14" height="18" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
+        {/* Shorts */}
+        <rect x="18" y="38" width="24" height="16" rx="2" fill="white" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
+        {/* Collar */}
+        <path d="M25 10 Q30 14 35 10" stroke="rgba(255,255,255,0.7)" strokeWidth="2" fill="none" />
+        {/* Chest stripe */}
+        <line x1="12" y1="22" x2="48" y2="22" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
       </svg>
     );
   }
@@ -1318,42 +1403,48 @@ export default function PickTeamPage() {
           {player.captain && (
             <span
               style={{
-                position: "absolute", top: -2, left: -2, zIndex: 2,
-                background: "#FFD700", color: "#000", fontSize: 9, fontWeight: 800,
-                width: 16, height: 16, borderRadius: "50%",
+                position: "absolute", top: -4, left: -4, zIndex: 2,
+                background: "linear-gradient(135deg, #FFD700, #FFA500)", color: "#000", fontSize: 10, fontWeight: 900,
+                width: 18, height: 18, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                border: "1.5px solid #333",
+                border: "2px solid #fff",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
               }}
             >C</span>
           )}
           {player.viceCaptain && (
             <span
               style={{
-                position: "absolute", top: -2, left: -2, zIndex: 2,
-                background: "#fff", color: "#000", fontSize: 8, fontWeight: 800,
-                width: 16, height: 16, borderRadius: "50%",
+                position: "absolute", top: -4, left: -4, zIndex: 2,
+                background: "linear-gradient(135deg, #fff, #e0e0e0)", color: "#000", fontSize: 9, fontWeight: 900,
+                width: 18, height: 18, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                border: "1.5px solid #333",
+                border: "2px solid #37003C",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
               }}
             >V</span>
           )}
           {player.star && (
             <span
               style={{
-                position: "absolute", top: -2, right: -2, zIndex: 2,
-                background: "#37003C", color: "#fff", fontSize: 10,
-                width: 16, height: 16, borderRadius: "50%",
+                position: "absolute", top: -4, right: -4, zIndex: 2,
+                background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 11,
+                width: 18, height: 18, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
+                border: "2px solid #fff",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
               }}
             >★</span>
           )}
           {player.warning && (
             <span
               style={{
-                position: "absolute", top: -2, right: -2, zIndex: 2,
-                background: "#FFD700", color: "#000", fontSize: 10, fontWeight: 900,
-                width: 16, height: 16, borderRadius: "50%",
+                position: "absolute", top: -4, right: -4, zIndex: 2,
+                background: "linear-gradient(135deg, #FFD700, #FFA500)", color: "#000", fontSize: 11, fontWeight: 900,
+                width: 18, height: 18, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
+                border: "2px solid #fff",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
               }}
             >!</span>
           )}
@@ -1361,33 +1452,36 @@ export default function PickTeamPage() {
         </div>
         <div
           style={{
-            background: player.captain ? "#FFD700" : "white",
-            color: "#333",
+            background: player.captain ? "linear-gradient(135deg, #FFD700, #FFA500)" : "linear-gradient(180deg, #fff, #f0f0f0)",
+            color: "#1a1a2e",
             fontSize: small ? 10 : 11,
             fontWeight: 700,
-            padding: "2px 8px",
-            borderRadius: "3px 3px 0 0",
+            padding: "3px 10px",
+            borderRadius: "4px 4px 0 0",
             marginTop: -4,
             textAlign: "center",
-            minWidth: small ? 60 : 70,
+            minWidth: small ? 62 : 72,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            maxWidth: small ? 70 : 85,
+            maxWidth: small ? 72 : 88,
+            boxShadow: "0 -1px 3px rgba(0,0,0,0.15)",
+            borderTop: "1px solid rgba(255,255,255,0.8)",
           }}
         >
           {player.name}
         </div>
         <div
           style={{
-            background: player.captain ? "#e6c200" : "#e0e0e0",
-            color: "#555",
+            background: player.captain ? "linear-gradient(180deg, #e6c200, #d4a800)" : "linear-gradient(180deg, #37003C, #2d0032)",
+            color: player.captain ? "#1a1a2e" : "#fff",
             fontSize: small ? 9 : 10,
             fontWeight: 600,
-            padding: "1px 8px",
-            borderRadius: "0 0 3px 3px",
+            padding: "2px 10px",
+            borderRadius: "0 0 4px 4px",
             textAlign: "center",
-            minWidth: small ? 60 : 70,
+            minWidth: small ? 62 : 72,
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
           }}
         >
           {player.team} ({player.fixture})
@@ -1396,24 +1490,24 @@ export default function PickTeamPage() {
     );
   }
 
-  // Team kit colors mapping
+  // Team kit colors mapping - vibrant FPL-style colors
   const TEAM_KIT_COLORS: Record<string, string> = {
-    ACC: "#EF0107", // Accumulators - Red
-    BAS: "#0033A0", // Basunzi - Blue
-    BIF: "#FF6B00", // Bifa - Orange
-    TRO: "#00A651", // Trotballo - Green
-    DUJ: "#6B3FA0", // Dujay - Purple
-    NIG: "#000000", // Night Prep - Black
-    PEA: "#1C1C1C", // Peaky Blinders - Dark
-    KOM: "#FFD700", // Komunoballo - Gold
-    MAS: "#DC143C", // Masappe - Crimson
-    MID: "#4169E1", // Midnight Express - Royal Blue
-    CEN: "#228B22", // Centurions - Forest Green
-    JUB: "#FF4500", // Jubilewos - Orange Red
-    END: "#8B0000", // Endgame - Dark Red
-    ABA: "#2E8B57", // Abachuba - Sea Green
-    THA: "#9932CC", // Thazobalo - Orchid
-    QUA: "#20B2AA", // Quadballo - Light Sea Green
+    ACC: "#DB0007", // Accumulators - Arsenal Red
+    BAS: "#034694", // Basunzi - Chelsea Blue
+    BIF: "#FF7B00", // Bifa - Vibrant Orange
+    TRO: "#00B140", // Trotballo - Vibrant Green
+    DUJ: "#7B2D8E", // Dujay - Purple
+    NIG: "#2D2D2D", // Night Prep - Dark Gray (not pure black for visibility)
+    PEA: "#132257", // Peaky Blinders - Navy
+    KOM: "#FDBE11", // Komunoballo - Wolves Gold
+    MAS: "#EF0107", // Masappe - Bright Red
+    MID: "#003399", // Midnight Express - Royal Blue
+    CEN: "#00A650", // Centurions - Celtic Green
+    JUB: "#FF5722", // Jubilewos - Deep Orange
+    END: "#C8102E", // Endgame - Liverpool Red
+    ABA: "#1EB980", // Abachuba - Teal Green
+    THA: "#A855F7", // Thazobalo - Bright Purple
+    QUA: "#06B6D4", // Quadballo - Cyan
   };
 
   function getKitColor(teamShort?: string | null): string {
@@ -1425,59 +1519,59 @@ export default function PickTeamPage() {
   function EmptySlot({ position, small = false }: { position: string; small?: boolean }) {
     const isGK = position === "GK";
     const sz = small ? 48 : 56;
-    const ghostColor = isGK ? "#c9a227" : "#5a5a6e";
+    const ghostColor = isGK ? "#8B7355" : "#4a4a5a";
 
     return (
-      <div className="flex flex-col items-center" style={{ minWidth: small ? 64 : 72, opacity: 0.7 }}>
-        <div className="relative">
-          <div style={{ opacity: 0.5 }}>
-            <Kit color={ghostColor} isGK={isGK} size={sz} />
-          </div>
+      <div className="flex flex-col items-center" style={{ minWidth: small ? 64 : 72 }}>
+        <div className="relative" style={{ opacity: 0.85 }}>
+          <Kit color={ghostColor} isGK={isGK} size={sz} />
           {/* Plus icon */}
           <div
             style={{
               position: "absolute",
-              bottom: 2,
-              right: -4,
-              width: 18,
-              height: 18,
+              bottom: 4,
+              right: -6,
+              width: 20,
+              height: 20,
               borderRadius: "50%",
               background: "linear-gradient(135deg, #00ff87, #04f5ff)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 2px 6px rgba(0,255,135,0.5)",
-              border: "2px solid #1a472a",
+              boxShadow: "0 2px 8px rgba(0,255,135,0.6)",
+              border: "2px solid #fff",
             }}
           >
-            <span style={{ color: "#000", fontSize: 14, fontWeight: 800, lineHeight: 1 }}>+</span>
+            <span style={{ color: "#000", fontSize: 14, fontWeight: 900, lineHeight: 1 }}>+</span>
           </div>
         </div>
         <div
           style={{
-            background: "white",
-            color: "#333",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(240,240,240,0.9))",
+            color: "#666",
             fontSize: small ? 10 : 11,
             fontWeight: 700,
-            padding: "2px 8px",
-            borderRadius: "3px 3px 0 0",
+            padding: "3px 10px",
+            borderRadius: "4px 4px 0 0",
             marginTop: -4,
             textAlign: "center",
-            minWidth: small ? 60 : 70,
+            minWidth: small ? 62 : 72,
+            boxShadow: "0 -1px 3px rgba(0,0,0,0.1)",
           }}
         >
           {position}
         </div>
         <div
           style={{
-            background: "#e0e0e0",
-            color: "#555",
+            background: "linear-gradient(180deg, #555, #444)",
+            color: "#ccc",
             fontSize: small ? 9 : 10,
             fontWeight: 600,
-            padding: "1px 8px",
-            borderRadius: "0 0 3px 3px",
+            padding: "2px 10px",
+            borderRadius: "0 0 4px 4px",
             textAlign: "center",
-            minWidth: small ? 60 : 70,
+            minWidth: small ? 62 : 72,
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
           }}
         >
           ---
@@ -1547,22 +1641,32 @@ export default function PickTeamPage() {
     viceId: string | null;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
-    const startingMales = starting.filter((p) => !p.isLady).length;
+    const startingByPos = groupByPosition(starting);
+    const startingGKs = startingByPos.Goalkeepers.length;
+    const startingDefs = startingByPos.Defenders.length;
+    const startingMids = startingByPos.Midfielders.length;
+    const startingFwds = startingByPos.Forwards.length;
     const startingLadyForwards = starting.filter(
       (p) => p.isLady && normalizePosition(p.position) === "Forward"
     ).length;
-    const startingGKs = starting.filter(
-      (p) => normalizePosition(p.position) === "Goalkeeper"
+    const startingLadyNonForwards = starting.filter(
+      (p) => p.isLady && normalizePosition(p.position) !== "Forward"
     ).length;
 
-    // Check if starting 10 is complete and valid
+    // Check if starting 9 is complete and valid
     const isStartingComplete =
-      starting.length === 10 &&
-      startingMales === 9 &&
-      startingLadyForwards === 1 &&
-      startingGKs === 1;
+      starting.length === 9 &&
+      startingGKs === 1 &&
+      startingDefs >= 2 &&
+      startingDefs <= 3 &&
+      startingMids >= 3 &&
+      startingMids <= 4 &&
+      startingFwds >= 2 &&
+      startingFwds <= 3 &&
+      startingLadyForwards <= 1 &&
+      startingLadyNonForwards === 0;
 
-    // When starting is complete, show starting 10 on pitch; otherwise show all picked
+    // When starting is complete, show starting 9 on pitch; otherwise show all picked
     const playersOnPitch = isStartingComplete ? starting : picked;
     const g = groupByPosition(playersOnPitch);
 
@@ -1581,6 +1685,50 @@ export default function PickTeamPage() {
             overflow: "hidden",
           }}
         >
+          {/* Goal line - top */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 2.5,
+              background: "rgba(255,255,255,0.4)",
+            }}
+          />
+          {/* Goal line - bottom */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 2.5,
+              background: "rgba(255,255,255,0.4)",
+            }}
+          />
+          {/* Sideline - left */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: 2.5,
+              background: "rgba(255,255,255,0.4)",
+            }}
+          />
+          {/* Sideline - right */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              right: 0,
+              width: 2.5,
+              background: "rgba(255,255,255,0.4)",
+            }}
+          />
           {/* Pitch markings - center circle */}
           <div
             style={{
@@ -1588,10 +1736,23 @@ export default function PickTeamPage() {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              width: 100,
-              height: 100,
+              width: 120,
+              height: 120,
               borderRadius: "50%",
-              border: "1.5px solid rgba(255,255,255,0.15)",
+              border: "2.5px solid rgba(255,255,255,0.35)",
+            }}
+          />
+          {/* Center spot */}
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.35)",
             }}
           />
           {/* Halfway line */}
@@ -1601,55 +1762,123 @@ export default function PickTeamPage() {
               top: "50%",
               left: 0,
               right: 0,
-              height: 1.5,
-              background: "rgba(255,255,255,0.12)",
+              height: 2.5,
+              background: "rgba(255,255,255,0.35)",
             }}
           />
           {/* Penalty area top */}
           <div
             style={{
               position: "absolute",
-              top: 32,
+              top: 0,
               left: "50%",
               transform: "translateX(-50%)",
-              width: 180,
-              height: 60,
-              borderBottom: "1.5px solid rgba(255,255,255,0.12)",
-              borderLeft: "1.5px solid rgba(255,255,255,0.12)",
-              borderRight: "1.5px solid rgba(255,255,255,0.12)",
+              width: 200,
+              height: 70,
+              borderBottom: "2.5px solid rgba(255,255,255,0.35)",
+              borderLeft: "2.5px solid rgba(255,255,255,0.35)",
+              borderRight: "2.5px solid rgba(255,255,255,0.35)",
+            }}
+          />
+          {/* Goal area top (six-yard box) */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 80,
+              height: 30,
+              borderBottom: "2.5px solid rgba(255,255,255,0.35)",
+              borderLeft: "2.5px solid rgba(255,255,255,0.35)",
+              borderRight: "2.5px solid rgba(255,255,255,0.35)",
             }}
           />
           {/* Penalty area bottom */}
           <div
             style={{
               position: "absolute",
-              bottom: 16,
+              bottom: 0,
               left: "50%",
               transform: "translateX(-50%)",
-              width: 180,
-              height: 60,
-              borderTop: "1.5px solid rgba(255,255,255,0.12)",
-              borderLeft: "1.5px solid rgba(255,255,255,0.12)",
-              borderRight: "1.5px solid rgba(255,255,255,0.12)",
+              width: 200,
+              height: 70,
+              borderTop: "2.5px solid rgba(255,255,255,0.35)",
+              borderLeft: "2.5px solid rgba(255,255,255,0.35)",
+              borderRight: "2.5px solid rgba(255,255,255,0.35)",
+            }}
+          />
+          {/* Goal area bottom (six-yard box) */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 80,
+              height: 30,
+              borderTop: "2.5px solid rgba(255,255,255,0.35)",
+              borderLeft: "2.5px solid rgba(255,255,255,0.35)",
+              borderRight: "2.5px solid rgba(255,255,255,0.35)",
             }}
           />
 
+          {/* Budo League Fantasy Branding Bar */}
+          <div style={{ display: "flex", height: 28, marginBottom: 4 }}>
+            <div
+              style={{
+                flex: 1,
+                background: "linear-gradient(90deg, #C8102E, #8B0000)",
+                display: "flex",
+                alignItems: "center",
+                paddingLeft: 12,
+                fontSize: 11,
+                fontWeight: 800,
+                color: "#fff",
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}
+            >
+              Budo League
+            </div>
+            <div
+              style={{
+                flex: 1,
+                background: "linear-gradient(90deg, #8B0000, #C8102E)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                paddingRight: 12,
+                fontSize: 11,
+                fontWeight: 800,
+                color: "#fff",
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}
+            >
+              Fantasy
+            </div>
+          </div>
+
           {/* GK Row */}
-          <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 16px", position: "relative", zIndex: 1 }}>
-            {g.Goalkeepers.length > 0 ? (
-              g.Goalkeepers.map((p) => (
-                <PitchPlayerCard
-                  key={p.id}
-                  player={p}
-                  onToggle={() => onToggleStarting(p.id)}
-                  isCaptain={captainId === p.id}
-                  isVice={viceId === p.id}
-                  isStarting={!isStartingComplete && startingIds.includes(p.id)}
-                />
-              ))
-            ) : (
-              <EmptySlot position="GK" />
-            )}
+          <div style={{ position: "relative", padding: "8px 0 16px" }}>
+            {/* GK */}
+            <div style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
+              {g.Goalkeepers.length > 0 ? (
+                g.Goalkeepers.map((p) => (
+                  <PitchPlayerCard
+                    key={p.id}
+                    player={p}
+                    onToggle={() => onToggleStarting(p.id)}
+                    isCaptain={captainId === p.id}
+                    isVice={viceId === p.id}
+                    isStarting={!isStartingComplete && startingIds.includes(p.id)}
+                  />
+                ))
+              ) : (
+                <EmptySlot position="GK" />
+              )}
+            </div>
           </div>
 
           {/* DEF Row */}
@@ -1713,7 +1942,7 @@ export default function PickTeamPage() {
           </div>
         </div>
 
-        {/* Bench - Only show when starting 10 is complete */}
+        {/* Bench - Only show when starting 9 is complete */}
         {isStartingComplete ? (
           <div
             style={{
@@ -1721,41 +1950,138 @@ export default function PickTeamPage() {
               padding: "12px 8px 20px",
             }}
           >
-            <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: "#37003C" }}>SUBSTITUTES</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-around" }}>
-              {bench.map((p, index) => (
-                <div key={p.id} className="relative">
-                  <div className="absolute -top-2 -left-1 z-10 h-5 w-5 rounded-full bg-zinc-900 text-white text-[10px] font-bold grid place-items-center shadow">
-                    {index + 1}
-                  </div>
-                  <PitchPlayerCard
-                    player={p}
-                    onToggle={() => onToggleStarting(p.id)}
-                    isCaptain={captainId === p.id}
-                    isVice={viceId === p.id}
-                    small
-                  />
-                </div>
-              ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 12px" }}>
+              {bench
+                .sort((a, b) => {
+                  const posOrder: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
+                  const posA = posOrder[normalizePosition(a.position)] || 5;
+                  const posB = posOrder[normalizePosition(b.position)] || 5;
+                  return posA - posB;
+                })
+                .map((p, index) => {
+                  const pos = normalizePosition(p.position);
+                  const posShort = pos === "Goalkeeper" ? "GK" : pos === "Defender" ? "DEF" : pos === "Midfielder" ? "MID" : "FWD";
+                  const kitColor = getKitColor(p.teamShort);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => onToggleStarting(p.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        background: "#fff",
+                        borderRadius: 8,
+                        padding: "8px 12px",
+                        border: "1px solid #e0e0e0",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: "50%",
+                          background: "#37003C",
+                          color: "#fff",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {index + 1}
+                      </div>
+                      <div style={{ width: 32, height: 32 }}>
+                        <Kit color={kitColor} isGK={pos === "Goalkeeper"} size={32} />
+                      </div>
+                      <div style={{ flex: 1, textAlign: "left" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e" }}>
+                          {shortName(p.name, p.webName)}
+                        </div>
+                        <div style={{ fontSize: 10, color: "#666" }}>
+                          {p.teamShort} • {p.nextOpponent ?? "--"}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          background: posShort === "GK" ? "#f59e0b" : posShort === "DEF" ? "#3b82f6" : posShort === "MID" ? "#22c55e" : "#ef4444",
+                          color: "#fff",
+                          fontSize: 9,
+                          fontWeight: 700,
+                          padding: "3px 8px",
+                          borderRadius: 4,
+                        }}
+                      >
+                        {posShort}
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
           </div>
         ) : (
           <div
             style={{
               background: "linear-gradient(180deg, #e0f7f0, #c8ece0)",
-              padding: "12px 16px",
+              padding: "16px",
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
-              {picked.length === 0
-                ? "Pick 17 players from Transfers to build your squad"
-                : picked.length < 17
-                ? `${picked.length}/17 players picked • Select ${17 - picked.length} more`
-                : "Tap players to select your starting 10 (9 males + 1 lady forward + 1 GK)"}
-            </div>
+            {picked.length === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
+                  Build your 17-player squad in Transfers first
+                </div>
+                <Link
+                  href="/dashboard/transfers"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: "linear-gradient(135deg, #C8102E, #8B0000)",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "10px 20px",
+                    borderRadius: 8,
+                    textDecoration: "none",
+                  }}
+                >
+                  <ArrowLeftRight size={16} />
+                  Go to Transfers
+                </Link>
+              </div>
+            ) : picked.length < 17 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
+                  {picked.length}/17 players in squad
+                </div>
+                <Link
+                  href="/dashboard/transfers"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    color: "#C8102E",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Complete your squad in Transfers
+                </Link>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
+                Tap players to select your starting 10 (9 males + 1 lady forward + 1 GK)
+              </div>
+            )}
             {picked.length === 17 && starting.length > 0 && starting.length < 10 && (
               <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
                 {starting.length}/10 starting • Need {10 - starting.length} more
@@ -1816,14 +2142,12 @@ export default function PickTeamPage() {
                     <MoreVertical className="h-4 w-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuItem
-                    onClick={autoPick}
-                    disabled={loading || pickedIds.length >= 17}
-                    className="gap-2"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Auto-Pick
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem asChild className="gap-2">
+                    <Link href="/dashboard/transfers">
+                      <ArrowLeftRight className="h-4 w-4" />
+                      Transfers
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={autoSelectStarting}
@@ -1834,12 +2158,12 @@ export default function PickTeamPage() {
                     Auto-Start
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={resetTeam}
-                    disabled={loading || pickedIds.length === 0}
+                    onClick={resetStartingLineup}
+                    disabled={loading || startingIds.length === 0}
                     className="gap-2 text-destructive focus:text-destructive"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    Reset
+                    Reset Lineup
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -2137,7 +2461,7 @@ export default function PickTeamPage() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   GKs {pickedGoalkeepers.length}/2 - Lady forwards {pickedLadyForwards.length}/2 - Starting{" "}
-                  {startingIds.length}/10
+                  {startingIds.length}/9
                 </div>
 
                 {picked.length === 0 ? (

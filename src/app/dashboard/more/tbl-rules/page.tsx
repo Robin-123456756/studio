@@ -23,14 +23,13 @@ const ruleSections: RuleSection[] = [
     ],
   },
   {
-    title: "Starting 10 Rules",
+    title: "Starting 9 Rules",
     icon: <Zap className="h-5 w-5" />,
     rules: [
-      "Your starting lineup must contain exactly 10 players",
+      "Your starting lineup must contain exactly 9 players",
       "Exactly 1 Goalkeeper must start",
-      "Exactly 1 Lady Forward must start",
-      "The remaining 8 outfield players must be male",
-      "Formation is flexible (e.g., 3-4-2, 4-3-2, 2-5-2)",
+      "Formation rules: 2–3 DEF, 3–4 MID, 2–3 FWD",
+      "Lady forward is optional (if you field her, your team earns +1 LP in the table)",
       "Only starting players earn points for your team",
     ],
   },
@@ -38,7 +37,7 @@ const ruleSections: RuleSection[] = [
     title: "Captain & Vice-Captain",
     icon: <Trophy className="h-5 w-5" />,
     rules: [
-      "You must select a Captain and a Vice-Captain from your Starting 10",
+      "You must select a Captain and a Vice-Captain from your Starting 9",
       "Your Captain's points are doubled each gameweek",
       "If your Captain doesn't play, the Vice-Captain's points are doubled instead",
       "Captain and Vice-Captain must be different players",
@@ -97,6 +96,7 @@ const ruleSections: RuleSection[] = [
       "Bonus Points: 1-3 bonus points awarded to best performers in each match",
       "Yellow Card: -1pt, Red Card: -3pts",
       "Own Goal: -2pts, Penalty Miss: -2pts",
+      "LP: +1 league point if a team fields a lady forward in a match",
     ],
   },
 ];
@@ -123,7 +123,7 @@ export default function TBLRulesPage() {
       <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 p-4">
         <h2 className="text-lg font-bold text-primary">Welcome to The Budo League Fantasy!</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Build your dream squad of 17 players, select your best Starting 10 each gameweek,
+          Build your dream squad of 17 players, select your best Starting 9 each gameweek,
           and compete against other managers in The Budo League. Read the rules below to
           maximize your points and climb the leaderboard!
         </p>

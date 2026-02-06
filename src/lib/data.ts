@@ -28,7 +28,7 @@ export type Player = {
   points: number;
   team: string;
 
-  // ✅ needed to enforce "9 males + optional 1 lady on field"
+  // ✅ needed to enforce "max 9 starters; lady optional"
   gender: "male" | "female";
 };
 
@@ -39,7 +39,7 @@ export type MatchDaySquad = {
 
 // ✅ NEW: restricted on-field lineup
 export type OnFieldLineup = {
-  players: Player[]; // max 10 total (<=9 male, <=1 female)
+  players: Player[]; // max 9 total (1 GK, 2-3 DEF, 3-4 MID, 2-3 FWD)
 };
 
 export type Game = {
@@ -92,17 +92,26 @@ export function validateOnFieldLineup(team: Team, lineup: OnFieldLineup) {
     throw new Error("Lineup contains duplicate players.");
   }
 
-  // Gender rule: <=9 males, <=1 female
-  const males = lineup.players.filter((p) => p.gender === "male").length;
+  // Gender rule: <=1 female, and if present must be a Forward
   const females = lineup.players.filter((p) => p.gender === "female").length;
-
-  if (males > 9) throw new Error(`Too many male players on field: ${males} (max 9).`);
   if (females > 1) throw new Error(`Too many lady players on field: ${females} (max 1).`);
-
-  // Total cap (optional safety)
-  if (lineup.players.length > 10) {
-    throw new Error(`Too many total players on field: ${lineup.players.length} (max 10).`);
+  if (lineup.players.some((p) => p.gender === "female" && p.position !== "Forward")) {
+    throw new Error("Lady players can only be fielded as Forwards.");
   }
+
+  // Formation rules
+  const gk = lineup.players.filter((p) => p.position === "Goalkeeper").length;
+  const def = lineup.players.filter((p) => p.position === "Defender").length;
+  const mid = lineup.players.filter((p) => p.position === "Midfielder").length;
+  const fwd = lineup.players.filter((p) => p.position === "Forward").length;
+
+  if (lineup.players.length !== 9) {
+    throw new Error(`On-field lineup must have exactly 9 players (got ${lineup.players.length}).`);
+  }
+  if (gk !== 1) throw new Error("On-field lineup must include exactly 1 Goalkeeper.");
+  if (def < 2 || def > 3) throw new Error("Defenders must be between 2 and 3.");
+  if (mid < 3 || mid > 4) throw new Error("Midfielders must be between 3 and 4.");
+  if (fwd < 2 || fwd > 3) throw new Error("Forwards must be between 2 and 3.");
 
   return true;
 }
@@ -116,11 +125,46 @@ function groupPlayersByTeam(players: Player[]) {
 }
 
 // Convenience: auto-pick a legal on-field lineup from a team’s squad
-// - Picks up to 9 male + up to 1 female (lady) from available squad players
+// - Picks 9 total: 1 GK, 2-3 DEF, 3-4 MID, 2-3 FWD (lady forward optional)
 export function autoPickOnFieldLineup(team: Team, squad: MatchDaySquad): OnFieldLineup {
-  const males = squad.players.filter((p) => p.team === team.name && p.gender === "male").slice(0, 9);
-  const lady = squad.players.filter((p) => p.team === team.name && p.gender === "female").slice(0, 1);
-  const lineup: OnFieldLineup = { players: [...males, ...lady] };
+  const pool = squad.players.filter((p) => p.team === team.name);
+  const gks = pool.filter((p) => p.position === "Goalkeeper");
+  const defs = pool.filter((p) => p.position === "Defender");
+  const mids = pool.filter((p) => p.position === "Midfielder");
+  const fwds = pool.filter((p) => p.position === "Forward");
+
+  const pick: Player[] = [];
+  if (gks[0]) pick.push(gks[0]);
+  pick.push(...defs.slice(0, 2));
+  pick.push(...mids.slice(0, 3));
+  pick.push(...fwds.slice(0, 2));
+
+  const maxDef = 3;
+  const maxMid = 4;
+  const maxFwd = 3;
+
+  const addIf = (p?: Player) => {
+    if (!p) return;
+    if (pick.some((x) => x.id === p.id)) return;
+    const def = pick.filter((x) => x.position === "Defender").length;
+    const mid = pick.filter((x) => x.position === "Midfielder").length;
+    const fwd = pick.filter((x) => x.position === "Forward").length;
+    if (p.position === "Defender" && def >= maxDef) return;
+    if (p.position === "Midfielder" && mid >= maxMid) return;
+    if (p.position === "Forward" && fwd >= maxFwd) return;
+    pick.push(p);
+  };
+
+  while (pick.length < 9) {
+    const next =
+      mids.find((p) => !pick.some((x) => x.id === p.id)) ??
+      defs.find((p) => !pick.some((x) => x.id === p.id)) ??
+      fwds.find((p) => !pick.some((x) => x.id === p.id));
+    if (!next) break;
+    addIf(next);
+  }
+
+  const lineup: OnFieldLineup = { players: pick.slice(0, 9) };
   validateOnFieldLineup(team, lineup);
   return lineup;
 }
