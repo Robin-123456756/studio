@@ -19,6 +19,7 @@ import {
   Scale,
   MoreVertical,
   RotateCcw,
+  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -558,6 +559,12 @@ export default function PickTeamPage() {
   const [captainId, setCaptainId] = React.useState<string | null>(null);
   const [viceId, setViceId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+
+  // Saved state tracking (for FPL-style confirm/cancel UI)
+  const [savedPickedIds, setSavedPickedIds] = React.useState<string[]>([]);
+  const [savedStartingIds, setSavedStartingIds] = React.useState<string[]>([]);
+  const [savedCaptainId, setSavedCaptainId] = React.useState<string | null>(null);
+  const [savedViceId, setSavedViceId] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
   const [tab, setTab] = React.useState<TabKey>("pitch");
 
@@ -702,6 +709,9 @@ export default function PickTeamPage() {
         if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
           setPickedIds(data.squadIds);
           setStartingIds(data.startingIds ?? []);
+          // Also set saved state for change tracking
+          setSavedPickedIds(data.squadIds);
+          setSavedStartingIds(data.startingIds ?? []);
 
           localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
           localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
@@ -710,10 +720,12 @@ export default function PickTeamPage() {
 
         if (data.captainId) {
           setCaptainId(data.captainId);
+          setSavedCaptainId(data.captainId);
           localStorage.setItem(LS_CAPTAIN, data.captainId);
         }
         if (data.viceId) {
           setViceId(data.viceId);
+          setSavedViceId(data.viceId);
           localStorage.setItem(LS_VICE, data.viceId);
         }
 
@@ -789,6 +801,15 @@ export default function PickTeamPage() {
     { title: "Midfielders", players: startingByPos.Midfielders },
     { title: "Forwards", players: startingByPos.Forwards },
   ];
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = React.useMemo(() => {
+    const pickedChanged = JSON.stringify([...pickedIds].sort()) !== JSON.stringify([...savedPickedIds].sort());
+    const startingChanged = JSON.stringify([...startingIds].sort()) !== JSON.stringify([...savedStartingIds].sort());
+    const captainChanged = captainId !== savedCaptainId;
+    const viceChanged = viceId !== savedViceId;
+    return pickedChanged || startingChanged || captainChanged || viceChanged;
+  }, [pickedIds, startingIds, captainId, viceId, savedPickedIds, savedStartingIds, savedCaptainId, savedViceId]);
 
   React.useEffect(() => {
     if (captainId && !startingIds.includes(captainId)) setCaptainId(null);
@@ -1041,6 +1062,14 @@ export default function PickTeamPage() {
     setMsg("Team has been reset.");
   }
 
+  function cancelChanges() {
+    setPickedIds(savedPickedIds);
+    setStartingIds(savedStartingIds);
+    setCaptainId(savedCaptainId);
+    setViceId(savedViceId);
+    setMsg(null);
+  }
+
   async function save() {
     setMsg(null);
 
@@ -1093,6 +1122,12 @@ export default function PickTeamPage() {
         captainId,
         viceId,
       });
+
+      // Update saved state after successful save
+      setSavedPickedIds(pickedIds);
+      setSavedStartingIds(startingIds);
+      setSavedCaptainId(captainId);
+      setSavedViceId(viceId);
 
       setMsg("Saved (Database + Local).");
     } catch (e: any) {
@@ -1519,50 +1554,71 @@ export default function PickTeamPage() {
       <div className="rounded-2xl border bg-card/70 p-4 space-y-4">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Link
-              href="/dashboard/fantasy"
-              className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
-              aria-label="Back to Fantasy"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
+            {hasUnsavedChanges ? (
+              <button
+                onClick={cancelChanges}
+                className="h-9 w-9 rounded-full border border-red-200 bg-red-50 grid place-items-center hover:bg-red-100 transition-colors"
+                aria-label="Cancel changes"
+              >
+                <X className="h-4 w-4 text-red-600" />
+              </button>
+            ) : (
+              <Link
+                href="/dashboard/fantasy"
+                className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
+                aria-label="Back to Fantasy"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            )}
             <div className="text-base font-semibold">Pick Team</div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
-                  aria-label="Team options"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem
-                  onClick={autoPick}
-                  disabled={loading || pickedIds.length >= 17}
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Auto-Pick
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={autoSelectStarting}
-                  disabled={loading || pickedIds.length < 10}
-                  className="gap-2"
-                >
-                  <Zap className="h-4 w-4" />
-                  Auto-Start
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={resetTeam}
-                  disabled={loading || pickedIds.length === 0}
-                  className="gap-2 text-destructive focus:text-destructive"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Reset
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {hasUnsavedChanges ? (
+              <button
+                onClick={save}
+                disabled={loading}
+                className="h-9 w-9 rounded-full border border-emerald-200 bg-emerald-50 grid place-items-center hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                aria-label="Confirm changes"
+              >
+                <Check className="h-4 w-4 text-emerald-600" />
+              </button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
+                    aria-label="Team options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem
+                    onClick={autoPick}
+                    disabled={loading || pickedIds.length >= 17}
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Auto-Pick
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={autoSelectStarting}
+                    disabled={loading || pickedIds.length < 10}
+                    className="gap-2"
+                  >
+                    <Zap className="h-4 w-4" />
+                    Auto-Start
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={resetTeam}
+                    disabled={loading || pickedIds.length === 0}
+                    className="gap-2 text-destructive focus:text-destructive"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Reset
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           <div className="text-sm text-muted-foreground text-center">
@@ -1617,16 +1673,6 @@ export default function PickTeamPage() {
                 </span>
               </button>
             ))}
-          </div>
-
-          <div className="flex justify-center">
-            <Button
-              className="rounded-2xl bg-primary hover:bg-primary/90 gap-2"
-              onClick={save}
-              disabled={loading}
-            >
-              {loading ? "Loading..." : "Save Team"}
-            </Button>
           </div>
         </div>
 
