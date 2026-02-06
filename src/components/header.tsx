@@ -39,7 +39,6 @@ export default function Header() {
 
           <div className="hidden sm:flex items-center gap-2">
             <div className="rounded-full border bg-card px-3 py-1 text-xs font-semibold text-foreground">
-              Season TBL9
             </div>
             <div className="rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
               60 min matches

@@ -68,47 +68,22 @@ const LS_SQUAD = "tbl_squad_player_ids"; // transfers key
 const LS_CAPTAIN = "tbl_captain_id";
 const LS_VICE = "tbl_vice_captain_id";
 
-const BUDGET_TOTAL = 100; // UGX 100m
-
-const TEAM_LOGOS: Record<string, string> = {
-  accumulators: "/logos/t-accumulators.png",
-  basunzi: "/logos/t-basunzi.png",
-  bifa: "/logos/t-bifa.png",
-  trotballo: "/logos/t-trotballo.png",
-  dujay: "/logos/t-dujay.png",
-  "night prep": "/logos/t-night-prep.png",
-  "peaky blinders": "/logos/t-peaky-blinders.png",
-  komunoballo: "/logos/t-komunoballo.png",
-  masappe: "/logos/t-masappe.png",
-  "midnight express": "/logos/t-midnight-express.png",
-  centurions: "/logos/t-centurions.png",
-  jubilewos: "/logos/t-jubilewos.png",
-  endgame: "/logos/t-endgame.png",
-  abachuba: "/logos/t-abachuba.png",
-  abacuba: "/logos/t-abachuba.png",
-  thazobalo: "/logos/t-thazobalo.png",
-  thazoballo: "/logos/t-thazobalo.png",
-  quadballo: "/logos/t-quadballo.png",
-};
-
-const TEAM_SHORT_LOGOS: Record<string, string> = {
-  ACC: "/logos/t-accumulators.png",
-  BAS: "/logos/t-basunzi.png",
-  BIF: "/logos/t-bifa.png",
-  TRO: "/logos/t-trotballo.png",
-  DUJ: "/logos/t-dujay.png",
-  NIG: "/logos/t-night-prep.png",
-  PEA: "/logos/t-peaky-blinders.png",
-  KOM: "/logos/t-komunoballo.png",
-  MAS: "/logos/t-masappe.png",
-  MID: "/logos/t-midnight-express.png",
-  CEN: "/logos/t-centurions.png",
-  JUB: "/logos/t-jubilewos.png",
-  END: "/logos/t-endgame.png",
-  ABA: "/logos/t-abachuba.png",
-  THA: "/logos/t-thazobalo.png",
-  QUA: "/logos/t-quadballo.png",
-};
+import {
+  BUDGET_TOTAL,
+  TEAM_LOGOS,
+  TEAM_SHORT_LOGOS,
+  TEAM_KIT_COLORS,
+  normalizePosition,
+  shortPos,
+  shortName,
+  formatUGX,
+  getTeamLogo,
+  getKitColor,
+  groupByPosition,
+  splitStartingAndBench,
+  Kit,
+  EmptySlot,
+} from "@/lib/pitch-helpers";
 
 function loadIds(key: string) {
   try {
@@ -121,37 +96,6 @@ function loadIds(key: string) {
 }
 
 type TabKey = "pitch" | "list" | "squad";
-
-function normalizePosition(pos?: string | null) {
-  const p = (pos ?? "").trim().toLowerCase();
-  if (p === "gk" || p === "goalkeeper" || p === "keeper") return "Goalkeeper";
-  if (p === "def" || p === "defender" || p === "df") return "Defender";
-  if (p === "mid" || p === "midfielder" || p === "mf") return "Midfielder";
-  if (p === "fwd" || p === "forward" || p === "fw" || p === "striker") return "Forward";
-  return (pos ?? "Midfielder") as any;
-}
-
-function shortPos(pos?: string | null) {
-  const p = normalizePosition(pos);
-  if (p === "Goalkeeper") return "GK";
-  if (p === "Defender") return "DEF";
-  if (p === "Midfielder") return "MID";
-  if (p === "Forward") return "FWD";
-  return "--";
-}
-
-function shortName(name?: string | null, webName?: string | null) {
-  if (webName && webName.trim().length > 0) return webName.trim();
-  const raw = (name ?? "").trim();
-  if (!raw) return "--";
-  const parts = raw.split(" ").filter(Boolean);
-  return parts.length > 1 ? parts[parts.length - 1] : raw;
-}
-
-function formatUGX(value?: number | null) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "UGX --";
-  return `UGX ${value.toFixed(1)}m`;
-}
 
 function formatNumber(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(value)) return "--";
@@ -186,31 +130,6 @@ function formatDeadlineUG(iso?: string | null) {
   return formatted.replace(/\./g, "");
 }
 
-function getTeamLogo(teamName?: string | null, teamShort?: string | null) {
-  const short = (teamShort ?? "").trim().toUpperCase();
-  if (short && TEAM_SHORT_LOGOS[short]) return TEAM_SHORT_LOGOS[short];
-
-  const nameKey = (teamName ?? "").trim().toLowerCase();
-  if (nameKey && TEAM_LOGOS[nameKey]) return TEAM_LOGOS[nameKey];
-
-  return null;
-}
-
-function groupByPosition(players: Player[]) {
-  return {
-    Goalkeepers: players.filter((p) => p.position === "Goalkeeper"),
-    Defenders: players.filter((p) => p.position === "Defender"),
-    Midfielders: players.filter((p) => p.position === "Midfielder"),
-    Forwards: players.filter((p) => p.position === "Forward"),
-  };
-}
-
-function splitStartingAndBench(players: Player[], startingIds: string[]) {
-  const startingSet = new Set(startingIds);
-  const starting = players.filter((p) => startingSet.has(p.id));
-  const bench = players.filter((p) => !startingSet.has(p.id));
-  return { starting, bench };
-}
 
 // ============================================
 // FPL-INSPIRED COMPONENTS
@@ -727,10 +646,12 @@ export default function PickTeamPage() {
     const mids = squad.filter(isMid).sort((a, b) => points(b) - points(a));
     const fwds = squad.filter(isFwd).sort((a, b) => points(b) - points(a));
 
+    // 10 starters: 1 GK + 9 outfield
+    // DEF: 2-3, MID: 3-4, FWD: 2-3 (including lady)
     const formations = [
-      { def: 2, mid: 3, fwd: 3 },
-      { def: 2, mid: 4, fwd: 2 },
-      { def: 3, mid: 3, fwd: 2 },
+      { def: 2, mid: 4, fwd: 3 },
+      { def: 3, mid: 4, fwd: 2 },
+      { def: 3, mid: 3, fwd: 3 },
     ];
 
     let best: Player[] = [];
@@ -799,7 +720,7 @@ export default function PickTeamPage() {
 
     const squadIds = squad.slice(0, 17).map((p) => p.id);
 
-    // Build starting 9 based on formation rules
+    // Build starting 10 based on formation rules
     const startingIds = buildStartingFromSquad(squad);
     const startingPlayers = startingIds
       .map((id) => squad.find((p) => p.id === id))
@@ -1026,15 +947,15 @@ export default function PickTeamPage() {
     setMsg(null);
 
     if (!pickedIds.includes(id)) {
-      setMsg("Pick the player first, then add to starting 9.");
+      setMsg("Pick the player first, then add to starting 10.");
       return;
     }
 
     setStartingIds((prev) => {
       const has = prev.includes(id);
       if (has) return prev.filter((x) => x !== id);
-      if (prev.length >= 9) {
-        setMsg("Starting lineup is only 9 players.");
+      if (prev.length >= 10) {
+        setMsg("Starting lineup is only 10 players.");
         return prev;
       }
       const player = playerById.get(id);
@@ -1163,7 +1084,7 @@ export default function PickTeamPage() {
 
   function setCaptain(id: string) {
     if (!startingIds.includes(id)) {
-      setMsg("Captain must be in the starting 9.");
+      setMsg("Captain must be in the starting 10.");
       return;
     }
     setCaptainId(id);
@@ -1176,7 +1097,7 @@ export default function PickTeamPage() {
 
   function setVice(id: string) {
     if (!startingIds.includes(id)) {
-      setMsg("Vice-captain must be in the starting 9.");
+      setMsg("Vice-captain must be in the starting 10.");
       return;
     }
     setViceId(id);
@@ -1276,24 +1197,24 @@ export default function PickTeamPage() {
     setMsg(`Auto-picked ${newPicks.length} player${newPicks.length > 1 ? "s" : ""}.`);
   }
 
-  // Auto-select starting 9
+  // Auto-select starting 10
   function autoSelectStarting() {
     setMsg(null);
 
-    if (pickedIds.length < 9) {
-      setMsg("Pick at least 9 players first.");
+    if (pickedIds.length < 10) {
+      setMsg("Pick at least 10 players first.");
       return;
     }
 
     const newStarting = buildStartingFromSquad(picked);
 
-    if (newStarting.length < 9) {
-      setMsg("Not enough players to form a valid starting 9.");
+    if (newStarting.length < 10) {
+      setMsg("Not enough players to form a valid starting 10.");
       return;
     }
 
     setStartingIds(newStarting);
-    setMsg("Auto-selected starting 9 based on points.");
+    setMsg("Auto-selected starting 10 based on points.");
   }
 
   function resetStartingLineup() {
@@ -1326,8 +1247,8 @@ export default function PickTeamPage() {
     if (pickedLadyForwards.length > 2) {
       return setMsg("Only 2 lady forwards are allowed in the squad.");
     }
-    if (startingIds.length !== 9) {
-      return setMsg("Starting lineup must be exactly 9 players.");
+    if (startingIds.length !== 10) {
+      return setMsg("Starting lineup must be exactly 10 players.");
     }
     if (startingGoalkeepers !== 1) {
       return setMsg("Starting lineup must include exactly 1 goalkeeper.");
@@ -1428,63 +1349,6 @@ export default function PickTeamPage() {
     );
   }
 
-  /* ── SVG Kit component ── */
-  function Kit({ color = "#EF0107", isGK = false, size = 56 }: { color?: string; isGK?: boolean; size?: number }) {
-    const id = `kit-${Math.random().toString(36).substr(2, 9)}`;
-    if (isGK) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 60 60" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>
-          <defs>
-            <linearGradient id={`${id}-gk`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={color} />
-              <stop offset="50%" stopColor={color} stopOpacity="0.9" />
-              <stop offset="100%" stopColor={color} />
-            </linearGradient>
-          </defs>
-          {/* Body */}
-          <rect x="10" y="8" width="40" height="36" rx="4" fill={`url(#${id}-gk)`} stroke="rgba(0,0,0,0.2)" strokeWidth="1" />
-          {/* Sleeves */}
-          <rect x="4" y="8" width="12" height="20" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
-          <rect x="44" y="8" width="12" height="20" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
-          {/* Shorts */}
-          <rect x="18" y="40" width="24" height="16" rx="2" fill={color} stroke="rgba(0,0,0,0.2)" strokeWidth="0.5" />
-          {/* Collar detail */}
-          <path d="M25 8 Q30 12 35 8" stroke="rgba(255,255,255,0.6)" strokeWidth="2" fill="none" />
-          {/* Chest stripe */}
-          <line x1="10" y1="20" x2="50" y2="20" stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
-          {/* Number box */}
-          <rect x="22" y="22" width="16" height="10" rx="1" fill="rgba(255,255,255,0.25)" />
-        </svg>
-      );
-    }
-    return (
-      <svg width={size} height={size} viewBox="0 0 60 60" style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }}>
-        <defs>
-          <linearGradient id={`${id}-out`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={color} />
-            <stop offset="30%" stopColor={color} />
-            <stop offset="50%" stopColor="rgba(255,255,255,0.15)" stopOpacity="0.3" />
-            <stop offset="70%" stopColor={color} />
-            <stop offset="100%" stopColor={color} />
-          </linearGradient>
-        </defs>
-        {/* Body */}
-        <rect x="12" y="10" width="36" height="30" rx="4" fill={color} stroke="rgba(0,0,0,0.2)" strokeWidth="1" />
-        {/* Gradient overlay for sheen */}
-        <rect x="12" y="10" width="36" height="30" rx="4" fill={`url(#${id}-out)`} />
-        {/* Sleeves */}
-        <rect x="4" y="10" width="14" height="18" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
-        <rect x="42" y="10" width="14" height="18" rx="3" fill={color} stroke="rgba(0,0,0,0.15)" strokeWidth="0.5" />
-        {/* Shorts */}
-        <rect x="18" y="38" width="24" height="16" rx="2" fill="white" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
-        {/* Collar */}
-        <path d="M25 10 Q30 14 35 10" stroke="rgba(255,255,255,0.7)" strokeWidth="2" fill="none" />
-        {/* Chest stripe */}
-        <line x1="12" y1="22" x2="48" y2="22" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
-      </svg>
-    );
-  }
-
   /* ── FPL Style Player Card ── */
   function PlayerCard({ player, isGK = false, small = false }: {
     player: { name: string; team: string; fixture: string; color: string; captain?: boolean; viceCaptain?: boolean; star?: boolean; warning?: boolean };
@@ -1580,96 +1444,6 @@ export default function PickTeamPage() {
           }}
         >
           {player.team} ({player.fixture})
-        </div>
-      </div>
-    );
-  }
-
-  // Team kit colors mapping - vibrant FPL-style colors
-  const TEAM_KIT_COLORS: Record<string, string> = {
-    ACC: "#DB0007", // Accumulators - Arsenal Red
-    BAS: "#034694", // Basunzi - Chelsea Blue
-    BIF: "#FF7B00", // Bifa - Vibrant Orange
-    TRO: "#00B140", // Trotballo - Vibrant Green
-    DUJ: "#7B2D8E", // Dujay - Purple
-    NIG: "#2D2D2D", // Night Prep - Dark Gray (not pure black for visibility)
-    PEA: "#132257", // Peaky Blinders - Navy
-    KOM: "#FDBE11", // Komunoballo - Wolves Gold
-    MAS: "#EF0107", // Masappe - Bright Red
-    MID: "#003399", // Midnight Express - Royal Blue
-    CEN: "#00A650", // Centurions - Celtic Green
-    JUB: "#FF5722", // Jubilewos - Deep Orange
-    END: "#C8102E", // Endgame - Liverpool Red
-    ABA: "#1EB980", // Abachuba - Teal Green
-    THA: "#A855F7", // Thazobalo - Bright Purple
-    QUA: "#06B6D4", // Quadballo - Cyan
-  };
-
-  function getKitColor(teamShort?: string | null): string {
-    if (!teamShort) return "#666666";
-    return TEAM_KIT_COLORS[teamShort.toUpperCase()] || "#666666";
-  }
-
-  /* ── Empty Player Slot (FPL Style) ── */
-  function EmptySlot({ position, small = false }: { position: string; small?: boolean }) {
-    const isGK = position === "GK";
-    const sz = small ? 48 : 56;
-    const ghostColor = isGK ? "#8B7355" : "#4a4a5a";
-
-    return (
-      <div className="flex flex-col items-center" style={{ minWidth: small ? 64 : 72 }}>
-        <div className="relative" style={{ opacity: 0.85 }}>
-          <Kit color={ghostColor} isGK={isGK} size={sz} />
-          {/* Plus icon */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 4,
-              right: -6,
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #00ff87, #04f5ff)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(0,255,135,0.6)",
-              border: "2px solid #fff",
-            }}
-          >
-            <span style={{ color: "#000", fontSize: 14, fontWeight: 900, lineHeight: 1 }}>+</span>
-          </div>
-        </div>
-        <div
-          style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(240,240,240,0.9))",
-            color: "#666",
-            fontSize: small ? 10 : 11,
-            fontWeight: 700,
-            padding: "3px 10px",
-            borderRadius: "4px 4px 0 0",
-            marginTop: -4,
-            textAlign: "center",
-            minWidth: small ? 62 : 72,
-            boxShadow: "0 -1px 3px rgba(0,0,0,0.1)",
-          }}
-        >
-          {position}
-        </div>
-        <div
-          style={{
-            background: "linear-gradient(180deg, #555, #444)",
-            color: "#ccc",
-            fontSize: small ? 9 : 10,
-            fontWeight: 600,
-            padding: "2px 10px",
-            borderRadius: "0 0 4px 4px",
-            textAlign: "center",
-            minWidth: small ? 62 : 72,
-            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-          }}
-        >
-          ---
         </div>
       </div>
     );
@@ -2043,7 +1817,7 @@ export default function PickTeamPage() {
                 </span>
               )}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 8px" }}>
               {bench
                 .sort((a, b) => {
                   const posOrder: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
@@ -2054,7 +1828,6 @@ export default function PickTeamPage() {
                 .map((p, index) => {
                   const pos = normalizePosition(p.position);
                   const posShort = pos === "Goalkeeper" ? "GK" : pos === "Defender" ? "DEF" : pos === "Midfielder" ? "MID" : "FWD";
-                  const kitColor = getKitColor(p.teamShort);
                   const selected = isSelected(p.id);
                   return (
                     <button
@@ -2063,23 +1836,24 @@ export default function PickTeamPage() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 8,
+                        gap: 10,
                         background: selected ? "#fef3c7" : "#fff",
-                        borderRadius: 6,
-                        padding: "6px 10px",
+                        borderRadius: 8,
+                        padding: "10px 14px",
                         border: selected ? "2px solid #f59e0b" : "1px solid #e0e0e0",
                         cursor: "pointer",
                         transition: "all 0.2s",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
                       }}
                     >
                       <div
                         style={{
-                          width: 20,
-                          height: 20,
+                          width: 24,
+                          height: 24,
                           borderRadius: "50%",
                           background: "#37003C",
                           color: "#fff",
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 700,
                           display: "flex",
                           alignItems: "center",
@@ -2088,14 +1862,14 @@ export default function PickTeamPage() {
                       >
                         {index + 1}
                       </div>
-                      <div style={{ width: 28, height: 28 }}>
-                        <Kit color={kitColor} isGK={pos === "Goalkeeper"} size={28} />
+                      <div style={{ width: 36, height: 36 }}>
+                        <Kit color="#1e3a5f" isGK={pos === "Goalkeeper"} size={36} />
                       </div>
                       <div style={{ flex: 1, textAlign: "left" }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#1a1a2e" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>
                           {shortName(p.name, p.webName)}
                         </div>
-                        <div style={{ fontSize: 9, color: "#666" }}>
+                        <div style={{ fontSize: 10, color: "#666" }}>
                           {p.teamShort} • {p.nextOpponent ?? "--"}
                         </div>
                       </div>
@@ -2103,10 +1877,10 @@ export default function PickTeamPage() {
                         style={{
                           background: posShort === "GK" ? "#f59e0b" : posShort === "DEF" ? "#3b82f6" : posShort === "MID" ? "#22c55e" : "#ef4444",
                           color: "#fff",
-                          fontSize: 8,
+                          fontSize: 9,
                           fontWeight: 700,
-                          padding: "2px 6px",
-                          borderRadius: 3,
+                          padding: "3px 8px",
+                          borderRadius: 4,
                         }}
                       >
                         {posShort}
@@ -2162,78 +1936,75 @@ export default function PickTeamPage() {
 
   return (
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
-      <div className="rounded-2xl border bg-card/70 p-4 space-y-4">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            {hasUnsavedChanges ? (
+      {/* Page header - directly on surface */}
+      <div className="flex items-center justify-between">
+        {hasUnsavedChanges ? (
+          <button
+            onClick={cancelChanges}
+            className="h-9 w-9 rounded-full border border-red-200 bg-red-50 grid place-items-center hover:bg-red-100 transition-colors"
+            aria-label="Cancel changes"
+          >
+            <X className="h-4 w-4 text-red-600" />
+          </button>
+        ) : (
+          <Link
+            href="/dashboard/fantasy"
+            className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
+            aria-label="Back to Fantasy"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        )}
+        <div className="text-base font-semibold">Pick Team</div>
+        {hasUnsavedChanges ? (
+          <button
+            onClick={save}
+            disabled={loading}
+            className="h-9 w-9 rounded-full border border-emerald-200 bg-emerald-50 grid place-items-center hover:bg-emerald-100 transition-colors disabled:opacity-50"
+            aria-label="Confirm changes"
+          >
+            <Check className="h-4 w-4 text-emerald-600" />
+          </button>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <button
-                onClick={cancelChanges}
-                className="h-9 w-9 rounded-full border border-red-200 bg-red-50 grid place-items-center hover:bg-red-100 transition-colors"
-                aria-label="Cancel changes"
-              >
-                <X className="h-4 w-4 text-red-600" />
-              </button>
-            ) : (
-              <Link
-                href="/dashboard/fantasy"
                 className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
-                aria-label="Back to Fantasy"
+                aria-label="Team options"
               >
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            )}
-            <div className="text-base font-semibold">Pick Team</div>
-            {hasUnsavedChanges ? (
-              <button
-                onClick={save}
-                disabled={loading}
-                className="h-9 w-9 rounded-full border border-emerald-200 bg-emerald-50 grid place-items-center hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                aria-label="Confirm changes"
-              >
-                <Check className="h-4 w-4 text-emerald-600" />
+                <MoreVertical className="h-4 w-4" />
               </button>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
-                    aria-label="Team options"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem asChild className="gap-2">
-                    <Link href="/dashboard/transfers">
-                      <ArrowLeftRight className="h-4 w-4" />
-                      Transfers
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={autoSelectStarting}
-                    disabled={loading || pickedIds.length < 10}
-                    className="gap-2"
-                  >
-                    <Zap className="h-4 w-4" />
-                    Auto-Start
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={resetStartingLineup}
-                    disabled={loading || startingIds.length === 0}
-                    className="gap-2 text-destructive focus:text-destructive"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Reset Lineup
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem asChild className="gap-2">
+                <Link href="/dashboard/transfers">
+                  <ArrowLeftRight className="h-4 w-4" />
+                  Transfers
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={autoSelectStarting}
+                disabled={loading || pickedIds.length < 11}
+                className="gap-2"
+              >
+                <Zap className="h-4 w-4" />
+                Auto-Start
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={resetStartingLineup}
+                disabled={loading || startingIds.length === 0}
+                className="gap-2 text-destructive focus:text-destructive"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset Lineup
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
 
-          <div className="text-sm text-muted-foreground text-center">
-            {gwLoading ? "Loading..." : `${currentGwLabel} - Deadline: ${deadlineLabel}`}
-          </div>
-        </div>
+      <div className="text-sm text-muted-foreground text-center">
+        {gwLoading ? "Loading..." : `${currentGwLabel} - Deadline: ${deadlineLabel}`}
       </div>
 
       {/* Chips - separate small cards */}
