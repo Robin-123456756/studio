@@ -647,9 +647,12 @@ export default function PickTeamPage() {
     const fwds = squad.filter(isFwd).sort((a, b) => points(b) - points(a));
 
     // 10 starters: 1 GK + 9 outfield
-    // DEF: 2-3, MID: 3-4, FWD: 2-3 (including lady)
+    // DEF: 2-3, MID: 3-5, FWD: 1-3
+    // Must always include at least one lady forward
     const formations = [
+      { def: 2, mid: 5, fwd: 2 },
       { def: 2, mid: 4, fwd: 3 },
+      { def: 3, mid: 5, fwd: 1 },
       { def: 3, mid: 4, fwd: 2 },
       { def: 3, mid: 3, fwd: 3 },
     ];
@@ -668,18 +671,21 @@ export default function PickTeamPage() {
       starting.push(...defs.slice(0, f.def));
       starting.push(...mids.slice(0, f.mid));
 
+      // Ensure at least one lady forward is included
+      const ladyFwd = fwds.find((p) => p.isLady);
       const chosenFwds: Player[] = [];
-      let ladyCount = 0;
+      if (ladyFwd) {
+        chosenFwds.push(ladyFwd);
+      }
       for (const p of fwds) {
         if (chosenFwds.length >= f.fwd) break;
-        if (p.isLady) {
-          if (ladyCount >= 1) continue;
-          ladyCount += 1;
-        }
+        if (chosenFwds.some((c) => c.id === p.id)) continue;
         chosenFwds.push(p);
       }
 
       if (chosenFwds.length < f.fwd) continue;
+      // Must have at least one lady forward
+      if (!chosenFwds.some((p) => p.isLady)) continue;
       starting.push(...chosenFwds);
 
       const score = starting.reduce((sum, p) => sum + points(p), 0);
@@ -970,8 +976,8 @@ export default function PickTeamPage() {
         setMsg("Defenders are limited to 3.");
         return prev;
       }
-      if (pos === "Midfielder" && startingMidfielders >= 4) {
-        setMsg("Midfielders are limited to 4.");
+      if (pos === "Midfielder" && startingMidfielders >= 5) {
+        setMsg("Midfielders are limited to 5.");
         return prev;
       }
       if (pos === "Forward" && startingForwards >= 3) {
@@ -1039,8 +1045,8 @@ export default function PickTeamPage() {
       setMsg("Defenders are limited to 3.");
       return;
     }
-    if (pos === "Midfielder" && currentStartingByPos.Midfielder >= 4) {
-      setMsg("Midfielders are limited to 4.");
+    if (pos === "Midfielder" && currentStartingByPos.Midfielder >= 5) {
+      setMsg("Midfielders are limited to 5.");
       return;
     }
     if (pos === "Forward" && currentStartingByPos.Forward >= 3) {
@@ -1256,11 +1262,11 @@ export default function PickTeamPage() {
     if (startingDefenders < 2 || startingDefenders > 3) {
       return setMsg("Starting defenders must be between 2 and 3.");
     }
-    if (startingMidfielders < 3 || startingMidfielders > 4) {
-      return setMsg("Starting midfielders must be between 3 and 4.");
+    if (startingMidfielders < 3 || startingMidfielders > 5) {
+      return setMsg("Starting midfielders must be between 3 and 5.");
     }
-    if (startingForwards < 2 || startingForwards > 3) {
-      return setMsg("Starting forwards must be between 2 and 3.");
+    if (startingForwards < 1 || startingForwards > 3) {
+      return setMsg("Starting forwards must be between 1 and 3.");
     }
     if (startingLadyNonForwards > 0) {
       return setMsg("Lady players can only start as forwards.");
@@ -2116,9 +2122,8 @@ export default function PickTeamPage() {
       {/* List view - in a card */}
       {tab === "list" && (
         <div className="rounded-2xl border bg-card">
-              <div className="px-4 py-3 border-b text-[11px] font-semibold text-muted-foreground grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2">
+              <div className="px-4 py-3 border-b text-[11px] font-semibold text-muted-foreground grid grid-cols-[1fr_84px_70px] sm:grid-cols-[1fr_100px_80px] gap-2">
                 <div>Player</div>
-                <div className="text-right">Form</div>
                 <div className="text-right">Current Price</div>
                 <div className="text-right">Selected</div>
               </div>
@@ -2153,7 +2158,7 @@ export default function PickTeamPage() {
                                   }
                                 }}
                                 className={cn(
-                                  "px-4 py-2 grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2 items-center",
+                                  "px-4 py-2 grid grid-cols-[1fr_84px_70px] sm:grid-cols-[1fr_100px_80px] gap-2 items-center",
                                   isStarting ? "bg-emerald-50/60" : "hover:bg-muted/40"
                                 )}
                               >
@@ -2196,7 +2201,6 @@ export default function PickTeamPage() {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="text-right text-xs tabular-nums">{formatForm(p.formLast5)}</div>
                                 <div className="text-right text-xs tabular-nums">{formatUGX(p.price)}</div>
                                 <div className="text-right text-xs tabular-nums">{formatOwnership(p.ownership)}</div>
                               </div>
@@ -2230,7 +2234,7 @@ export default function PickTeamPage() {
                                   toggleStarting(p.id);
                                 }
                               }}
-                              className="px-4 py-2 grid grid-cols-[1fr_56px_84px_70px] sm:grid-cols-[1fr_70px_100px_80px] gap-2 items-center hover:bg-muted/40"
+                              className="px-4 py-2 grid grid-cols-[1fr_84px_70px] sm:grid-cols-[1fr_100px_80px] gap-2 items-center hover:bg-muted/40"
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <button
@@ -2271,7 +2275,6 @@ export default function PickTeamPage() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right text-xs tabular-nums">{formatForm(p.formLast5)}</div>
                               <div className="text-right text-xs tabular-nums">{formatUGX(p.price)}</div>
                               <div className="text-right text-xs tabular-nums">{formatOwnership(p.ownership)}</div>
                             </div>
@@ -2294,7 +2297,7 @@ export default function PickTeamPage() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   GKs {pickedGoalkeepers.length}/2 - Lady forwards {pickedLadyForwards.length}/2 - Starting{" "}
-                  {startingIds.length}/9
+                  {startingIds.length}/10
                 </div>
 
                 {picked.length === 0 ? (

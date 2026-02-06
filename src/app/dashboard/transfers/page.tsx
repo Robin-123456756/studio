@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { saveSquadIds, loadSquadIds, loadIds, LS_STARTING } from "@/lib/fantasyStorage";
+import { saveSquadIds, loadSquadIds } from "@/lib/fantasyStorage";
 import { type Player } from "./player-card";
 import { TransferBadge } from "./transfer-badge";
 import { TransferLogItemComponent } from "./transfer-log-item";
@@ -22,7 +22,6 @@ import {
   shortName,
   getKitColor,
   groupByPosition,
-  splitStartingAndBench,
   Kit,
   EmptySlot,
 } from "@/lib/pitch-helpers";
@@ -101,10 +100,10 @@ export default function TransfersPage() {
   const [playersError, setPlayersError] = React.useState<string | null>(null);
 
   const [squadIds, setSquadIds] = React.useState<string[]>([]);
-  const [startingIds, setStartingIds] = React.useState<string[]>([]);
 
   const [outId, setOutId] = React.useState<string | null>(null);
   const [inId, setInId] = React.useState<string | null>(null);
+  const [bottomTab, setBottomTab] = React.useState<"add" | "next">("add");
 
   // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
@@ -127,12 +126,6 @@ export default function TransfersPage() {
         setGwLoading(false);
       }
     })();
-  }, []);
-
-  // Load starting IDs from local storage
-  React.useEffect(() => {
-    const ids = loadIds(LS_STARTING);
-    if (ids.length > 0) setStartingIds(ids);
   }, []);
 
   const savingGw = React.useMemo(() => {
@@ -240,24 +233,6 @@ export default function TransfersPage() {
   );
   const budgetRemaining = Math.max(0, BUDGET_TOTAL - budgetUsed);
 
-  // Auto-infer starting IDs if none saved
-  const effectiveStartingIds = React.useMemo(() => {
-    if (startingIds.length > 0) {
-      // Filter to only include IDs actually in the squad
-      const inSquad = startingIds.filter((id) => squadIds.includes(id));
-      if (inSquad.length > 0) return inSquad;
-    }
-    // Auto-infer: first 1 GK + 3 DEF + 3 MID + 3 FWD
-    const normalized = squad.map((p) => ({ ...p, position: normalizePosition(p.position) }));
-    const g = groupByPosition(normalized);
-    const auto: string[] = [];
-    auto.push(...g.Goalkeepers.slice(0, 1).map((p) => p.id));
-    auto.push(...g.Defenders.slice(0, 3).map((p) => p.id));
-    auto.push(...g.Midfielders.slice(0, 3).map((p) => p.id));
-    auto.push(...g.Forwards.slice(0, 3).map((p) => p.id));
-    return auto;
-  }, [startingIds, squadIds, squad]);
-
   // Read back inId from localStorage (set by add-player page)
   React.useEffect(() => {
     const stored = localStorage.getItem("tbl_transfer_in_id");
@@ -331,8 +306,10 @@ export default function TransfersPage() {
     [squad]
   );
 
-  const { starting, bench } = splitStartingAndBench(normalizedSquad, effectiveStartingIds);
-  const g = groupByPosition(starting);
+  // Group ALL squad players by position for the full-squad pitch view
+  const allGrouped = groupByPosition(normalizedSquad);
+  const maleFwds = allGrouped.Forwards.filter((p) => !p.isLady);
+  const ladyPlayers = normalizedSquad.filter((p) => p.isLady);
 
   // =====================
   // RENDER
@@ -386,28 +363,46 @@ export default function TransfersPage() {
       {gwError && <div className="text-xs text-red-600 text-center">Warning: {gwError}</div>}
       {playersError && <div className="text-xs text-red-600 text-center">Warning: {playersError}</div>}
 
-      {/* === FPL-STYLE INFO BAR === */}
-      <div className="flex items-center justify-between gap-1 rounded-xl border bg-muted/40 px-2 py-2">
-        <InfoPill label="Budget" value={`${budgetRemaining.toFixed(1)}m`} />
-        <div className="w-px h-8 bg-border" />
-        <InfoPill label="Wildcard" value="Available" variant="chip" />
-        <div className="w-px h-8 bg-border" />
-        <InfoPill label="Free Hit" value="Available" variant="chip" />
-        <div className="w-px h-8 bg-border" />
-        <InfoPill label="Free Transfers" value={String(freeTransfers)} />
-        <div className="w-px h-8 bg-border" />
-        <InfoPill label="Cost" value={`${cost} pts`} highlight={cost > 0} />
+      {/* === TRANSFER INFO CARDS === */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl border bg-card p-3 text-center">
+          <div className="text-lg font-bold tabular-nums">{budgetRemaining.toFixed(1)}m</div>
+          <div className="text-[10px] text-muted-foreground font-medium">Budget</div>
+        </div>
+        <div className="rounded-xl border bg-card p-3 text-center">
+          <div className="text-lg font-bold tabular-nums">{freeTransfers}</div>
+          <div className="text-[10px] text-muted-foreground font-medium">Free Transfers</div>
+        </div>
+        <div className="rounded-xl border bg-card p-3 text-center">
+          <div className={cn("text-lg font-bold tabular-nums", cost > 0 && "text-red-600")}>{cost} pts</div>
+          <div className="text-[10px] text-muted-foreground font-medium">Cost</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold">Wildcard</div>
+            <div className="text-[10px] text-muted-foreground">Play to make unlimited free transfers</div>
+          </div>
+          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Available</span>
+        </div>
+        <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold">Free Hit</div>
+            <div className="text-[10px] text-muted-foreground">Temporary squad for one gameweek</div>
+          </div>
+          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Available</span>
+        </div>
       </div>
 
-      {/* === PITCH VIEW (Full Width) === */}
+      {/* === PITCH VIEW (Full Width — all 17 players) === */}
       <div className="-mx-4">
         <div className="space-y-0 rounded-none overflow-hidden">
-          {/* Pitch */}
           <div
             style={{
               background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 8%, #2d8b4e 8%, #37a35c 16%, #2d8b4e 16%, #37a35c 24%, #2d8b4e 24%, #37a35c 32%, #2d8b4e 32%, #37a35c 40%, #2d8b4e 40%, #37a35c 48%, #2d8b4e 48%, #37a35c 56%, #2d8b4e 56%, #37a35c 64%, #2d8b4e 64%, #37a35c 72%, #2d8b4e 72%, #37a35c 80%, #2d8b4e 80%, #37a35c 88%, #2d8b4e 88%, #37a35c 96%, #2d8b4e 96%, #37a35c 100%)",
               position: "relative",
-              padding: "8px 0 16px",
+              padding: "8px 0 20px",
               overflow: "hidden",
             }}
           >
@@ -418,159 +413,104 @@ export default function TransfersPage() {
             <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 2.5, background: "rgba(255,255,255,0.4)" }} />
 
             {/* Center circle */}
-            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 120, height: 120, borderRadius: "50%", border: "2.5px solid rgba(255,255,255,0.35)" }} />
-            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,0.35)" }} />
+            <div style={{ position: "absolute", top: "46%", left: "50%", transform: "translate(-50%, -50%)", width: 100, height: 100, borderRadius: "50%", border: "2.5px solid rgba(255,255,255,0.3)" }} />
+            <div style={{ position: "absolute", top: "46%", left: "50%", transform: "translate(-50%, -50%)", width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,0.3)" }} />
             {/* Halfway line */}
-            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 2.5, background: "rgba(255,255,255,0.35)" }} />
+            <div style={{ position: "absolute", top: "46%", left: 0, right: 0, height: 2.5, background: "rgba(255,255,255,0.3)" }} />
 
             {/* Penalty area top */}
-            <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 200, height: 70, borderBottom: "2.5px solid rgba(255,255,255,0.35)", borderLeft: "2.5px solid rgba(255,255,255,0.35)", borderRight: "2.5px solid rgba(255,255,255,0.35)" }} />
-            <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 80, height: 30, borderBottom: "2.5px solid rgba(255,255,255,0.35)", borderLeft: "2.5px solid rgba(255,255,255,0.35)", borderRight: "2.5px solid rgba(255,255,255,0.35)" }} />
+            <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 180, height: 56, borderBottom: "2.5px solid rgba(255,255,255,0.3)", borderLeft: "2.5px solid rgba(255,255,255,0.3)", borderRight: "2.5px solid rgba(255,255,255,0.3)" }} />
+            <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 70, height: 24, borderBottom: "2.5px solid rgba(255,255,255,0.3)", borderLeft: "2.5px solid rgba(255,255,255,0.3)", borderRight: "2.5px solid rgba(255,255,255,0.3)" }} />
 
             {/* Penalty area bottom */}
-            <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 200, height: 70, borderTop: "2.5px solid rgba(255,255,255,0.35)", borderLeft: "2.5px solid rgba(255,255,255,0.35)", borderRight: "2.5px solid rgba(255,255,255,0.35)" }} />
-            <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 80, height: 30, borderTop: "2.5px solid rgba(255,255,255,0.35)", borderLeft: "2.5px solid rgba(255,255,255,0.35)", borderRight: "2.5px solid rgba(255,255,255,0.35)" }} />
+            <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 180, height: 56, borderTop: "2.5px solid rgba(255,255,255,0.3)", borderLeft: "2.5px solid rgba(255,255,255,0.3)", borderRight: "2.5px solid rgba(255,255,255,0.3)" }} />
+            <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 70, height: 24, borderTop: "2.5px solid rgba(255,255,255,0.3)", borderLeft: "2.5px solid rgba(255,255,255,0.3)", borderRight: "2.5px solid rgba(255,255,255,0.3)" }} />
 
             {/* Budo League Branding Bar */}
-            <div style={{ display: "flex", height: 28, marginBottom: 4 }}>
-              <div style={{ flex: 1, background: "linear-gradient(90deg, #C8102E, #8B0000)", display: "flex", alignItems: "center", paddingLeft: 12, fontSize: 11, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
+            <div style={{ display: "flex", height: 24, marginBottom: 2 }}>
+              <div style={{ flex: 1, background: "linear-gradient(90deg, #C8102E, #8B0000)", display: "flex", alignItems: "center", paddingLeft: 12, fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
                 Budo League
               </div>
-              <div style={{ flex: 1, background: "linear-gradient(90deg, #8B0000, #C8102E)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 12, fontSize: 11, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
+              <div style={{ flex: 1, background: "linear-gradient(90deg, #8B0000, #C8102E)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 12, fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
                 Fantasy
               </div>
             </div>
 
-            {/* GK Row */}
-            <div style={{ position: "relative", padding: "4px 0 8px" }}>
-              <div style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
-                {g.Goalkeepers.length > 0 ? (
-                  g.Goalkeepers.map((p) => (
-                    <TransferPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+            {/* GK Row — 2 keepers */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "2px 0 4px", position: "relative", zIndex: 1 }}>
+              {allGrouped.Goalkeepers.length > 0 ? (
+                allGrouped.Goalkeepers.map((p) => (
+                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                ))
+              ) : (
+                <>
+                  <EmptySlot position="GK" small />
+                  <EmptySlot position="GK" small />
+                </>
+              )}
+            </div>
+
+            {/* DEF Row — 4 defenders */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "4px 0", position: "relative", zIndex: 1 }}>
+              {allGrouped.Defenders.length > 0 ? (
+                allGrouped.Defenders.map((p) => (
+                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                ))
+              ) : (
+                Array.from({ length: 4 }).map((_, i) => <EmptySlot key={i} position="DEF" small />)
+              )}
+            </div>
+
+            {/* MID Row — 6 midfielders */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 1, padding: "4px 0", position: "relative", zIndex: 1 }}>
+              {allGrouped.Midfielders.length > 0 ? (
+                allGrouped.Midfielders.map((p) => (
+                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                ))
+              ) : (
+                Array.from({ length: 6 }).map((_, i) => <EmptySlot key={i} position="MID" small />)
+              )}
+            </div>
+
+            {/* FWD Row — 3 male forwards */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "4px 0", position: "relative", zIndex: 1 }}>
+              {maleFwds.length > 0 ? (
+                maleFwds.map((p) => (
+                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                ))
+              ) : (
+                Array.from({ length: 3 }).map((_, i) => <EmptySlot key={i} position="FWD" small />)
+              )}
+            </div>
+
+            {/* LADIES Row — 2 lady forwards */}
+            <div style={{ position: "relative", zIndex: 1, padding: "6px 0 4px" }}>
+              <div style={{ textAlign: "center", marginBottom: 2 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" as const, letterSpacing: 1.5 }}>Ladies</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
+                {ladyPlayers.length > 0 ? (
+                  ladyPlayers.map((p) => (
+                    <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
                   ))
                 ) : (
-                  <EmptySlot position="GK" />
+                  <>
+                    <EmptySlot position="FWD" small />
+                    <EmptySlot position="FWD" small />
+                  </>
                 )}
               </div>
             </div>
-
-            {/* DEF Row */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
-              {g.Defenders.map((p) => (
-                <TransferPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
-              ))}
-              {g.Defenders.length === 0 && (
-                <>
-                  <EmptySlot position="DEF" />
-                  <EmptySlot position="DEF" />
-                </>
-              )}
-            </div>
-
-            {/* MID Row */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
-              {g.Midfielders.map((p) => (
-                <TransferPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
-              ))}
-              {g.Midfielders.length === 0 && (
-                <>
-                  <EmptySlot position="MID" />
-                  <EmptySlot position="MID" />
-                  <EmptySlot position="MID" />
-                </>
-              )}
-            </div>
-
-            {/* FWD Row */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 0 4px", position: "relative", zIndex: 1 }}>
-              {g.Forwards.map((p) => (
-                <TransferPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
-              ))}
-              {g.Forwards.length === 0 && (
-                <>
-                  <EmptySlot position="FWD" />
-                  <EmptySlot position="FWD" />
-                </>
-              )}
-            </div>
           </div>
 
-          {/* Bench / Substitutes */}
-          {bench.length > 0 ? (
-            <div style={{ background: "linear-gradient(180deg, #e0f7f0, #c8ece0)", padding: "12px 8px 16px" }}>
-              <div style={{ textAlign: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#37003C" }}>SUBSTITUTES</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 8px" }}>
-                {bench
-                  .sort((a, b) => {
-                    const posOrder: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
-                    return (posOrder[normalizePosition(a.position)] || 5) - (posOrder[normalizePosition(b.position)] || 5);
-                  })
-                  .map((p, index) => {
-                    const pos = normalizePosition(p.position);
-                    const posShort = pos === "Goalkeeper" ? "GK" : pos === "Defender" ? "DEF" : pos === "Midfielder" ? "MID" : "FWD";
-                    const selected = outId === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => pickOut(p.id)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          background: selected ? "#fee2e2" : "#fff",
-                          borderRadius: 8,
-                          padding: "10px 14px",
-                          border: selected ? "2px solid #ef4444" : "1px solid #e0e0e0",
-                          cursor: "pointer",
-                          transition: "all 0.2s",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                        }}
-                      >
-                        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#37003C", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {index + 1}
-                        </div>
-                        <div style={{ width: 36, height: 36 }}>
-                          <Kit color="#1e3a5f" isGK={pos === "Goalkeeper"} size={36} />
-                        </div>
-                        <div style={{ flex: 1, textAlign: "left" }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>
-                            {shortName(p.name)}
-                          </div>
-                          <div style={{ fontSize: 10, color: "#666" }}>
-                            {p.teamShort ?? "--"} • {p.price ? `${p.price.toFixed(1)}m` : "--"}
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            background: posShort === "GK" ? "#f59e0b" : posShort === "DEF" ? "#3b82f6" : posShort === "MID" ? "#22c55e" : "#ef4444",
-                            color: "#fff",
-                            fontSize: 9,
-                            fontWeight: 700,
-                            padding: "3px 8px",
-                            borderRadius: 4,
-                          }}
-                        >
-                          {posShort}
-                        </div>
-                        {selected && (
-                          <div style={{ background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>
-                            OUT
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-          ) : squad.length === 0 ? (
+          {/* Empty state */}
+          {squad.length === 0 && (
             <div style={{ background: "linear-gradient(180deg, #e0f7f0, #c8ece0)", padding: "16px", textAlign: "center" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
                 Start building your 17-player squad below!
               </div>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -592,101 +532,172 @@ export default function TransfersPage() {
         </div>
       )}
 
-      {/* === ADD PLAYER BUTTON === */}
-      <Link
-        href={`/dashboard/transfers/add-player${outId ? `?outId=${outId}&pos=${normalizePosition(byId.get(outId)?.position)}` : ""}`}
-        className="flex items-center justify-center gap-2 w-full rounded-2xl border bg-primary text-primary-foreground py-3 text-sm font-semibold hover:bg-primary/90 transition"
-      >
-        + Add Player
-      </Link>
-
-      {/* === TRANSFER SUMMARY === */}
-      <div className="space-y-4">
-        <div className="rounded-xl border bg-card p-4 space-y-3">
-          <div className="text-sm font-semibold text-center">Transfer Summary</div>
-
-          {/* OUT row */}
-          <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
-            <TransferBadge kind="out" />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold truncate">
-                {outId ? (byId.get(outId)?.name ?? "Selected") : "Pick player from pitch"}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {outId ? `${byId.get(outId)?.teamShort ?? "--"} - ${byId.get(outId)?.position ?? "--"}` : "--"}
-              </div>
-            </div>
-            {outId && (
-              <div className="text-xs font-mono text-muted-foreground">
-                {byId.get(outId)?.price ? `${Number(byId.get(outId)!.price).toFixed(1)}m` : "--"}
-              </div>
-            )}
-          </div>
-
-          {/* Arrow */}
-          <div className="flex justify-center">
-            <div className="h-8 w-8 rounded-full bg-muted grid place-items-center">
-              <span className="text-muted-foreground text-lg">↓</span>
-            </div>
-          </div>
-
-          {/* IN row */}
-          <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
-            <TransferBadge kind="in" />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold truncate">
-                {inId ? (byId.get(inId)?.name ?? "Selected") : "Pick replacement from Add Player"}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {inId ? `${byId.get(inId)?.teamShort ?? "--"} - ${byId.get(inId)?.position ?? "--"}` : "--"}
-              </div>
-            </div>
-            {inId && (
-              <div className="text-xs font-mono text-muted-foreground">
-                {byId.get(inId)?.price ? `${Number(byId.get(inId)!.price).toFixed(1)}m` : "--"}
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 justify-end">
-            <Button type="button" variant="outline" className="rounded-2xl" onClick={resetSelection}>
-              Reset
-            </Button>
-            <Button type="button" className="rounded-2xl" disabled={!canConfirm()} onClick={confirmTransfer}>
-              Confirm Transfer
-            </Button>
-          </div>
-
-          {locked && (
-            <div className="text-xs text-red-600">
-              Transfers are locked because the deadline has passed.
-            </div>
+      {/* === ADD PLAYER + NEXT BUTTONS === */}
+      <div className="grid grid-cols-2 gap-2">
+        <Link
+          href={`/dashboard/transfers/add-player${outId ? `?outId=${outId}&pos=${normalizePosition(byId.get(outId)?.position)}` : ""}`}
+          className="flex items-center justify-center gap-2 rounded-xl border bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:bg-primary/90 transition"
+        >
+          + Add Player
+        </Link>
+        <button
+          type="button"
+          onClick={() => setBottomTab(bottomTab === "next" ? "add" : "next")}
+          className={cn(
+            "rounded-xl py-2.5 text-sm font-semibold transition-colors",
+            bottomTab === "next"
+              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+              : "border bg-card text-foreground hover:bg-accent"
           )}
-        </div>
-
-        {/* Transfer History */}
-        <div className="rounded-xl border bg-card p-4 space-y-3">
-          <div className="text-sm font-semibold">Transfer History</div>
-          {transfersThisGW.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              No transfers logged for this gameweek yet.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {transfersThisGW.map((t) => (
-                <TransferLogItemComponent
-                  key={t.ts}
-                  transfer={t}
-                  outPlayer={byId.get(t.outId)}
-                  inPlayer={byId.get(t.inId)}
-                  formatTime={formatTimeUG}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        >
+          Next
+        </button>
       </div>
+
+      {/* === NEXT PANEL === */}
+      {bottomTab === "next" && (
+        <div className="space-y-4">
+          {/* Transfer notice */}
+          <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-center">
+            <div className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              You are about to make {usedTransfers > 0 ? usedTransfers + 1 : 1} transfer{usedTransfers > 0 ? "s" : ""}
+            </div>
+            {cost > 0 && (
+              <div className="text-xs text-red-600 font-medium mt-1">
+                This will cost you {cost} points
+              </div>
+            )}
+          </div>
+
+          {/* Transfer Summary */}
+          <div className="rounded-xl border bg-card p-4 space-y-3">
+            <div className="text-sm font-semibold text-center">Transfer Summary</div>
+
+            {/* OUT row */}
+            <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
+              <TransferBadge kind="out" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold truncate">
+                  {outId ? (byId.get(outId)?.name ?? "Selected") : "Pick player from pitch"}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {outId ? `${byId.get(outId)?.teamShort ?? "--"} - ${byId.get(outId)?.position ?? "--"}` : "--"}
+                </div>
+              </div>
+              {outId && (
+                <div className="text-xs font-mono text-muted-foreground">
+                  {byId.get(outId)?.price ? `${Number(byId.get(outId)!.price).toFixed(1)}m` : "--"}
+                </div>
+              )}
+            </div>
+
+            {/* Arrow */}
+            <div className="flex justify-center">
+              <div className="h-8 w-8 rounded-full bg-muted grid place-items-center">
+                <span className="text-muted-foreground text-lg">↓</span>
+              </div>
+            </div>
+
+            {/* IN row */}
+            <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
+              <TransferBadge kind="in" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold truncate">
+                  {inId ? (byId.get(inId)?.name ?? "Selected") : "Pick replacement from Add Player"}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {inId ? `${byId.get(inId)?.teamShort ?? "--"} - ${byId.get(inId)?.position ?? "--"}` : "--"}
+                </div>
+              </div>
+              {inId && (
+                <div className="text-xs font-mono text-muted-foreground">
+                  {byId.get(inId)?.price ? `${Number(byId.get(inId)!.price).toFixed(1)}m` : "--"}
+                </div>
+              )}
+            </div>
+
+            {locked && (
+              <div className="text-xs text-red-600 mt-2">
+                Transfers are locked because the deadline has passed.
+              </div>
+            )}
+          </div>
+
+          {/* Points Overview (FPL-style) */}
+          <div className="rounded-xl border bg-card overflow-hidden">
+            <div className="bg-muted/50 px-4 py-2">
+              <div className="text-xs font-semibold text-center">Points Overview</div>
+            </div>
+            <div className="divide-y">
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-sm text-muted-foreground">Free transfers</span>
+                <span className="text-sm font-semibold">{freeTransfers}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-sm text-muted-foreground">Transfers made</span>
+                <span className="text-sm font-semibold">{usedTransfers}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-sm text-muted-foreground">Extra transfers</span>
+                <span className="text-sm font-semibold">{Math.max(0, usedTransfers - freeTransfers)}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-sm text-muted-foreground">Transfer cost</span>
+                <span className={cn("text-sm font-semibold", cost > 0 && "text-red-600")}>{cost} pts</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-sm text-muted-foreground">Budget remaining</span>
+                <span className="text-sm font-semibold">{budgetRemaining.toFixed(1)}m</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Transfer History */}
+          <div className="rounded-xl border bg-card p-4 space-y-3">
+            <div className="text-sm font-semibold">Transfer History</div>
+            {transfersThisGW.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                No transfers logged for this gameweek yet.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {transfersThisGW.map((t) => (
+                  <TransferLogItemComponent
+                    key={t.ts}
+                    transfer={t}
+                    outPlayer={byId.get(t.outId)}
+                    inPlayer={byId.get(t.inId)}
+                    formatTime={formatTimeUG}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons (FPL-style) */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl py-3 text-sm font-semibold"
+              onClick={() => {
+                resetSelection();
+                setBottomTab("add");
+              }}
+            >
+              Edit Transfer
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl py-3 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={!canConfirm()}
+              onClick={confirmTransfer}
+            >
+              Confirm
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -695,27 +706,7 @@ export default function TransfersPage() {
 // SUB-COMPONENTS
 // =====================
 
-function InfoPill({ label, value, variant = "default", highlight = false }: {
-  label: string;
-  value: string;
-  variant?: "default" | "chip";
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center text-center min-w-0 flex-1">
-      <div className={cn(
-        "text-xs font-mono font-bold tabular-nums",
-        highlight ? "text-red-600" : "",
-        variant === "chip" ? "text-emerald-600" : ""
-      )}>
-        {value}
-      </div>
-      <div className="text-[9px] text-muted-foreground font-medium truncate">{label}</div>
-    </div>
-  );
-}
-
-function TransferPitchCard({ player, isSelected, onTap }: {
+function SmallPitchCard({ player, isSelected, onTap }: {
   player: Player;
   isSelected: boolean;
   onTap: () => void;
@@ -729,32 +720,32 @@ function TransferPitchCard({ player, isSelected, onTap }: {
       type="button"
       onClick={onTap}
       className={cn(
-        "active:scale-[0.96] transition-transform duration-150 rounded-lg p-1",
+        "active:scale-[0.96] transition-transform duration-150 rounded-md p-0.5",
         isSelected && "bg-red-500/30 ring-2 ring-red-500"
       )}
     >
-      <div className="flex flex-col items-center" style={{ minWidth: 72 }}>
+      <div className="flex flex-col items-center" style={{ minWidth: 50 }}>
         <div className="relative">
-          <Kit color={kitColor} isGK={isGK} size={56} />
+          <Kit color={kitColor} isGK={isGK} size={38} />
           {isSelected && (
             <div
               style={{
                 position: "absolute",
-                top: -4,
-                right: -4,
+                top: -3,
+                right: -3,
                 zIndex: 2,
                 background: "#ef4444",
                 color: "#fff",
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: 800,
-                width: 22,
-                height: 16,
-                borderRadius: 4,
+                width: 18,
+                height: 13,
+                borderRadius: 3,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: "1.5px solid #fff",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                border: "1px solid #fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
               }}
             >
               OUT
@@ -763,12 +754,12 @@ function TransferPitchCard({ player, isSelected, onTap }: {
           {player.isLady && (
             <span
               style={{
-                position: "absolute", top: -4, left: -4, zIndex: 2,
-                background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 11,
-                width: 18, height: 18, borderRadius: "50%",
+                position: "absolute", top: -3, left: -3, zIndex: 2,
+                background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 8,
+                width: 14, height: 14, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                border: "2px solid #fff",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
+                border: "1.5px solid #fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
               }}
             >★</span>
           )}
@@ -777,18 +768,18 @@ function TransferPitchCard({ player, isSelected, onTap }: {
           style={{
             background: isSelected ? "linear-gradient(180deg, #fee2e2, #fecaca)" : "linear-gradient(180deg, #fff, #f0f0f0)",
             color: "#1a1a2e",
-            fontSize: 11,
+            fontSize: 9,
             fontWeight: 700,
-            padding: "3px 10px",
-            borderRadius: "4px 4px 0 0",
-            marginTop: -4,
+            padding: "2px 6px",
+            borderRadius: "3px 3px 0 0",
+            marginTop: -3,
             textAlign: "center",
-            minWidth: 72,
+            minWidth: 50,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            maxWidth: 88,
-            boxShadow: "0 -1px 3px rgba(0,0,0,0.15)",
+            maxWidth: 62,
+            boxShadow: "0 -1px 2px rgba(0,0,0,0.12)",
             borderTop: "1px solid rgba(255,255,255,0.8)",
           }}
         >
@@ -798,13 +789,13 @@ function TransferPitchCard({ player, isSelected, onTap }: {
           style={{
             background: isSelected ? "linear-gradient(180deg, #dc2626, #b91c1c)" : "linear-gradient(180deg, #37003C, #2d0032)",
             color: "#fff",
-            fontSize: 10,
+            fontSize: 8,
             fontWeight: 600,
-            padding: "2px 10px",
-            borderRadius: "0 0 4px 4px",
+            padding: "1px 6px",
+            borderRadius: "0 0 3px 3px",
             textAlign: "center",
-            minWidth: 72,
-            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+            minWidth: 50,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
           }}
         >
           {player.teamShort ?? "--"} • {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}

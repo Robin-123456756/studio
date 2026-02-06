@@ -382,6 +382,7 @@ function FantasyPage() {
         padding: "0 0 24px",
         position: "relative",
         overflow: "hidden",
+        borderRadius: "0 0 24px 24px",
       }}>
         {/* Abstract swirl decoration */}
         <div style={{
