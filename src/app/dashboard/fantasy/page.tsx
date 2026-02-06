@@ -2,19 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
 import { myFantasyTeam, fantasyStandings } from "@/lib/data";
 import {
   ArrowDown,
   ArrowUp,
   Minus,
-  Shirt,
-  ArrowLeftRight,
-  Clock,
-  Flame,
+  ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
@@ -39,26 +32,22 @@ type ApiPlayer = {
   teamName?: string | null;
 };
 
-function formatDeadlineUG(iso?: string | null) {
-  if (!iso) return "—";
+function formatDeadlineShort(iso?: string | null) {
+  if (!iso) return "--";
   const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "--";
 
   const s = new Intl.DateTimeFormat("en-GB", {
     weekday: "long",
-    day: "2-digit",
+    day: "numeric",
     month: "short",
-    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
+    hour12: false,
     timeZone: "Africa/Kampala",
   }).format(d);
 
-  return s
-    .replace(/\bam\b/i, "AM")
-    .replace(/\bpm\b/i, "PM")
-    .replace(/\ba\.m\.\b/i, "AM")
-    .replace(/\bp\.m\.\b/i, "PM");
+  return s;
 }
 
 function getInitials(value: string) {
@@ -112,106 +101,106 @@ function useDeadlineCountdown(deadlineIso?: string | null) {
   return { label: formatCountdown(msLeft), msLeft, tone };
 }
 
-function StatCard({
-  label,
-  value,
-  sublabel,
-  highlight = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  sublabel?: string;
-  highlight?: boolean;
-}) {
+// ── Mini League ──
+function MiniLeague() {
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white shadow-sm",
-        highlight && "bg-white/20"
-      )}
-    >
-      <div className="text-xs uppercase tracking-widest text-white/70">{label}</div>
-      <div className={cn("mt-1 text-2xl font-extrabold tabular-nums", highlight && "text-3xl")}>
-        {value}
+    <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+      <div style={{ padding: "16px 16px 10px" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e" }}>Budo League</div>
+        <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>Your rank among rivals.</div>
       </div>
-      {sublabel ? <div className="mt-1 text-xs text-white/70">{sublabel}</div> : null}
+
+      <div style={{ padding: "0 12px 16px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {fantasyStandings.map((t) => {
+            const isMe = t.name === myFantasyTeam.name;
+            const delta = t.points - myFantasyTeam.points;
+            const trend = delta > 0 ? "up" : delta < 0 ? "down" : "same";
+            const trendLabel = delta === 0 ? "Even" : `${delta > 0 ? "+" : ""}${delta}`;
+
+            return (
+              <div
+                key={t.rank}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderRadius: 14,
+                  border: isMe ? "1.5px solid rgba(55,0,60,0.3)" : "1px solid #eee",
+                  background: isMe ? "rgba(55,0,60,0.06)" : "#fff",
+                  padding: "10px 14px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#888", width: 28, fontVariantNumeric: "tabular-nums" }}>
+                    #{t.rank}
+                  </div>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "50%", background: "#f0f0f0",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 700, color: "#555",
+                    border: "1px solid #e0e0e0",
+                  }}>
+                    {getInitials(t.name)}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                    <div style={{ fontSize: 11, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 4,
+                    borderRadius: 20, padding: "3px 10px",
+                    fontSize: 12, fontWeight: 600,
+                    background: trend === "up" ? "rgba(16,185,129,0.12)" : trend === "down" ? "rgba(239,68,68,0.12)" : "#f0f0f0",
+                    color: trend === "up" ? "#059669" : trend === "down" ? "#dc2626" : "#888",
+                  }}>
+                    {trend === "up" ? (
+                      <ArrowUp style={{ width: 12, height: 12 }} />
+                    ) : trend === "down" ? (
+                      <ArrowDown style={{ width: 12, height: 12 }} />
+                    ) : (
+                      <Minus style={{ width: 12, height: 12 }} />
+                    )}
+                    {trendLabel}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", fontFamily: "monospace", color: "#1a1a2e" }}>
+                    {t.points}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-function MiniLeague() {
+// ── Navigation Row ──
+function NavRow({ label, href }: { label: string; href: string }) {
   return (
-    <Card className="overflow-hidden border-border/60">
-      <CardContent className="p-0">
-        <div className="px-4 pt-4 pb-2">
-          <div className="text-base font-semibold">Budo League</div>
-          <div className="text-sm text-muted-foreground">Your rank among rivals.</div>
-        </div>
-
-        <div className="px-3 pb-4">
-          <div className="space-y-2">
-            {fantasyStandings.map((t) => {
-              const isMe = t.name === myFantasyTeam.name;
-              const delta = t.points - myFantasyTeam.points;
-              const trend = delta > 0 ? "up" : delta < 0 ? "down" : "same";
-              const trendLabel = delta === 0 ? "Even" : `${delta > 0 ? "+" : ""}${delta}`;
-
-              return (
-                <div
-                  key={t.rank}
-                  className={cn(
-                    "flex items-center justify-between rounded-2xl border border-border/40 bg-card px-3 py-2 shadow-sm transition",
-                    isMe && "border-primary/40 bg-primary/10"
-                  )}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="text-xs font-semibold text-muted-foreground tabular-nums w-8">
-                      #{t.rank}
-                    </div>
-                    <Avatar className="size-9 border border-border/60">
-                      <AvatarImage src="" alt={t.name} />
-                      <AvatarFallback className="bg-muted text-xs font-semibold">
-                        {getInitials(t.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold truncate">{t.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{t.owner}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold",
-                        trend === "up" && "bg-emerald-500/15 text-emerald-600",
-                        trend === "down" && "bg-rose-500/15 text-rose-600",
-                        trend === "same" && "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {trend === "up" ? (
-                        <ArrowUp className="h-3 w-3" />
-                      ) : trend === "down" ? (
-                        <ArrowDown className="h-3 w-3" />
-                      ) : (
-                        <Minus className="h-3 w-3" />
-                      )}
-                      {trendLabel}
-                    </div>
-
-                    <div className="text-sm font-bold font-mono tabular-nums">{t.points}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <Link
+      href={href}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "18px 20px",
+        background: "#fff",
+        textDecoration: "none",
+        borderBottom: "1px solid #f0f0f0",
+      }}
+    >
+      <span style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e" }}>{label}</span>
+      <ChevronRight style={{ width: 20, height: 20, color: "#ccc" }} />
+    </Link>
   );
 }
 
-/** ✅ Your actual fantasy main UI (only shows Pick Team / Transfers) */
+// ── Main Fantasy Page ──
 function FantasyPage() {
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
   const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
@@ -239,7 +228,6 @@ function FantasyPage() {
     })();
   }, []);
 
-  // (Optional) You can later replace this with DB-loaded team name
   const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
 
   function editTeamName() {
@@ -369,139 +357,268 @@ function FantasyPage() {
     return () => window.clearInterval(timer);
   }, [loadStats]);
 
-  const gwPointsValue = statsLoading ? "..." : stats.gwPoints ?? "—";
-  const totalPointsValue =
-    statsLoading ? "..." : stats.totalPoints ?? myFantasyTeam.points ?? "—";
-  const overallRankValue =
-    statsLoading ? "..." : stats.overallRank ?? myFantasyTeam.rank ?? "—";
-  const gwRankValue = statsLoading ? "..." : stats.gwRank ?? "—";
+  const gwPointsValue = statsLoading ? "--" : stats.gwPoints ?? "--";
+  const totalPointsValue = statsLoading ? "--" : stats.totalPoints ?? myFantasyTeam.points ?? "--";
+  const overallRankValue = statsLoading ? "--" : stats.overallRank ?? myFantasyTeam.rank ?? "--";
 
-  const countdownToneClass = cn(
-    "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
-    deadlineCountdown.tone === "critical" && "bg-rose-600/40 text-white",
-    deadlineCountdown.tone === "urgent" && "bg-rose-500/35 text-white",
-    deadlineCountdown.tone === "soon" && "bg-amber-400/30 text-white",
-    deadlineCountdown.tone === "normal" && "bg-white/15 text-white/90",
-    deadlineCountdown.tone === "closed" && "bg-white/10 text-white/70",
-    deadlineCountdown.tone === "neutral" && "bg-white/10 text-white/70"
-  );
+  // Average & Highest are placeholders — replace with real data when available
+  const averagePoints = 55;
+  const highestPoints = 126;
 
   return (
-    <div className="space-y-5 animate-in fade-in-50">
-      {/* Top card */}
-      <div
-        className={cn(
-          "rounded-3xl overflow-hidden",
-          "bg-gradient-to-br from-rose-700 via-red-600 to-orange-500"
-        )}
-      >
-        <div className="p-4 text-white">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <button
-                type="button"
-                onClick={editTeamName}
-                className="flex items-center gap-3 rounded-2xl bg-white/10 px-3 py-2 hover:bg-white/15 active:bg-white/20"
-                aria-label="Edit team name"
-              >
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20">
-                  <Shirt className="h-6 w-6" />
-                </div>
-                <div className="text-left">
-                  <div className="text-xl font-bold leading-tight">{teamName}</div>
-                  <div className="text-sm text-white/80">{myFantasyTeam.owner}</div>
-                </div>
-              </button>
+    <div style={{
+      maxWidth: 430,
+      margin: "0 auto",
+      background: "#f2f2f2",
+      fontFamily: "'Outfit', 'DM Sans', -apple-system, sans-serif",
+      display: "flex",
+      flexDirection: "column",
+      minHeight: "100vh",
+      position: "relative",
+    }}>
+      {/* ═══ HERO SECTION ═══ */}
+      <div style={{
+        background: "linear-gradient(135deg, #8B2FC9 0%, #37003C 25%, #2D8B6E 60%, #04F5FF 85%, #00FF87 100%)",
+        padding: "0 0 24px",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* Abstract swirl decoration */}
+        <div style={{
+          position: "absolute", top: -40, right: -60,
+          width: 280, height: 380,
+          background: "linear-gradient(160deg, transparent 20%, rgba(0,255,135,0.15) 40%, rgba(4,245,255,0.2) 60%, rgba(0,255,135,0.12) 80%)",
+          borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%",
+          transform: "rotate(-15deg)",
+          pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", top: 80, right: -30,
+          width: 200, height: 300,
+          background: "linear-gradient(180deg, rgba(4,245,255,0.08), rgba(0,255,135,0.15))",
+          borderRadius: "60% 40% 30% 70% / 50% 60% 40% 50%",
+          transform: "rotate(25deg)",
+          pointerEvents: "none",
+        }} />
 
-              <div className="text-right">
-                <div className="text-xs uppercase tracking-widest text-white/70">Current GW</div>
-                <div className="text-lg font-semibold">
-                  {gwLoading ? "GW ..." : `GW ${currentGW?.id ?? "—"}`}
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <span className={countdownToneClass}>
-                    {deadlineCountdown.tone === "critical" ||
-                    deadlineCountdown.tone === "urgent" ? (
-                      <Flame className="h-3.5 w-3.5" />
-                    ) : (
-                      <Clock className="h-3.5 w-3.5" />
-                    )}
-                    {deadlineCountdown.tone === "closed"
-                      ? "Deadline closed"
-                      : `Deadline in ${deadlineCountdown.label}`}
-                  </span>
-                </div>
+        {/* ── Team Info Row ── */}
+        <button
+          type="button"
+          onClick={editTeamName}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "16px 20px 14px",
+            gap: 12,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            width: "100%",
+            textAlign: "left",
+          }}
+        >
+          {/* Team badge placeholder */}
+          <div style={{
+            width: 48, height: 48, borderRadius: 12,
+            background: "rgba(255,255,255,0.15)",
+            border: "1.5px solid rgba(255,255,255,0.25)",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" />
+              <path d="M12 8v4l3 3" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span style={{ fontSize: 6, color: "rgba(255,255,255,0.5)", fontWeight: 600, marginTop: 1 }}>Generate</span>
+            <span style={{ fontSize: 5, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>team badge</span>
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#fff", fontSize: 16, fontWeight: 800 }}>{teamName}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+              {/* Uganda flag */}
+              <div style={{
+                width: 18, height: 12, borderRadius: 2, overflow: "hidden",
+                display: "flex", flexDirection: "column",
+              }}>
+                <div style={{ flex: 1, background: "#000" }} />
+                <div style={{ flex: 1, background: "#FCDC04" }} />
+                <div style={{ flex: 1, background: "#D90000" }} />
+                <div style={{ flex: 1, background: "#000" }} />
+                <div style={{ flex: 1, background: "#FCDC04" }} />
+                <div style={{ flex: 1, background: "#D90000" }} />
               </div>
+              <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 500 }}>
+                {myFantasyTeam.owner}
+              </span>
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard
-                label="Your GW Points"
-                value={gwPointsValue}
-                sublabel="Live from your picks"
-                highlight
-              />
-              <StatCard
-                label="Overall Rank"
-                value={overallRankValue}
-                sublabel="Budo League"
-              />
-              <StatCard
-                label="Total Points"
-                value={totalPointsValue}
-                sublabel="Season total"
-              />
-              <StatCard
-                label="Gameweek Rank"
-                value={gwRankValue}
-                sublabel={`GW ${currentGW?.id ?? "—"}`}
-              />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M9 6l6 6-6 6" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {/* ── Divider ── */}
+        <div style={{ width: 60, height: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 14px", borderRadius: 1 }} />
+
+        {/* ── Gameweek Label ── */}
+        <div style={{ textAlign: "center", color: "rgba(255,255,255,0.65)", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
+          {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? "--"}`}
+        </div>
+
+        {/* ── Points Row ── */}
+        <div style={{
+          display: "flex", alignItems: "flex-end", justifyContent: "center",
+          padding: "0 20px 16px", gap: 0,
+        }}>
+          {/* Average */}
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 32, fontWeight: 800, color: "rgba(255,255,255,0.75)", lineHeight: 1 }}>
+              {averagePoints}
             </div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600, marginTop: 4 }}>Average</div>
+          </div>
 
-            <div className="rounded-2xl bg-white/10 px-4 py-3 text-sm text-white/85">
-              <div className="text-xs uppercase tracking-widest text-white/70">Next deadline</div>
-              <div className="mt-1 text-base font-semibold">
-                {gwLoading ? "Loading..." : formatDeadlineUG(nextGW?.deadline_time)}
-              </div>
-              {gwError ? <div className="mt-2 text-xs text-white/80">⚠ {gwError}</div> : null}
-              {statsError ? <div className="mt-1 text-xs text-white/80">⚠ {statsError}</div> : null}
+          {/* Points (larger, center) */}
+          <div style={{ flex: 1.2, textAlign: "center" }}>
+            <div style={{ fontSize: 52, fontWeight: 900, color: "#fff", lineHeight: 1 }}>
+              {gwPointsValue}
             </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 4 }}>
+              <span style={{ fontSize: 13, color: "#00FF87", fontWeight: 700 }}>Points</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M9 6l6 6-6 6" stroke="#00FF87" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </div>
 
-            <div className="space-y-3">
-              <Button
-                asChild
-                className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
-                variant="secondary"
-              >
-                <Link href="/dashboard/fantasy/pick-team">
-                  <span className="flex items-center justify-center gap-2">
-                    <Shirt className="h-5 w-5" /> Pick Team
-                  </span>
-                </Link>
-              </Button>
-
-              <Button
-                asChild
-                className="w-full rounded-2xl bg-white/15 text-white hover:bg-white/20"
-                variant="secondary"
-              >
-                <Link href="/dashboard/transfers">
-                  <span className="flex items-center justify-center gap-2">
-                    <ArrowLeftRight className="h-5 w-5" /> Transfers
-                  </span>
-                </Link>
-              </Button>
+          {/* Highest */}
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 32, fontWeight: 800, color: "rgba(255,255,255,0.75)", lineHeight: 1 }}>
+              {highestPoints}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 4 }}>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>Highest</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M9 6l6 6-6 6" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
           </div>
         </div>
+
+        {/* ── Divider ── */}
+        <div style={{ width: 60, height: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 14px", borderRadius: 1 }} />
+
+        {/* ── Next Gameweek Deadline ── */}
+        <div style={{ textAlign: "center", marginBottom: 6 }}>
+          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600 }}>
+            {gwLoading ? "" : `Gameweek ${nextGW?.id ?? (currentGW?.id ? (currentGW.id + 1) : "--")}`}
+          </div>
+          <div style={{ color: "#fff", fontSize: 17, fontWeight: 800, marginTop: 4 }}>
+            {gwLoading
+              ? "Loading..."
+              : `Deadline: ${formatDeadlineShort(nextGW?.deadline_time)}`}
+          </div>
+          {deadlineCountdown.tone !== "neutral" && deadlineCountdown.tone !== "closed" && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              marginTop: 8, padding: "4px 14px",
+              borderRadius: 20,
+              background:
+                deadlineCountdown.tone === "critical" ? "rgba(239,68,68,0.4)" :
+                deadlineCountdown.tone === "urgent" ? "rgba(239,68,68,0.3)" :
+                deadlineCountdown.tone === "soon" ? "rgba(245,158,11,0.3)" :
+                "rgba(255,255,255,0.12)",
+              fontSize: 12, fontWeight: 700, color: "#fff",
+            }}>
+              {deadlineCountdown.label}
+            </div>
+          )}
+          {deadlineCountdown.tone === "closed" && (
+            <div style={{
+              display: "inline-flex", marginTop: 8, padding: "4px 14px",
+              borderRadius: 20, background: "rgba(255,255,255,0.1)",
+              fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)",
+            }}>
+              Deadline closed
+            </div>
+          )}
+        </div>
+
+        {gwError && (
+          <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>
+            {gwError}
+          </div>
+        )}
+        {statsError && (
+          <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
+            {statsError}
+          </div>
+        )}
+
+        {/* ── CTA Buttons ── */}
+        <div style={{ padding: "14px 20px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Pick Team */}
+          <Link
+            href="/dashboard/fantasy/pick-team"
+            style={{
+              width: "100%", padding: "14px 0",
+              background: "linear-gradient(90deg, rgba(0,255,135,0.25), rgba(4,245,255,0.2))",
+              border: "1.5px solid rgba(255,255,255,0.2)",
+              borderRadius: 28, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              backdropFilter: "blur(8px)",
+              textDecoration: "none",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L9 9H2l6 4.5L5.5 22 12 17l6.5 5-2.5-8.5L22 9h-7L12 2z" stroke="#fff" strokeWidth="1.5" fill="rgba(255,255,255,0.15)" />
+            </svg>
+            <span style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>Pick Team</span>
+          </Link>
+
+          {/* Transfers */}
+          <Link
+            href="/dashboard/transfers"
+            style={{
+              width: "100%", padding: "14px 0",
+              background: "linear-gradient(90deg, rgba(0,255,135,0.25), rgba(4,245,255,0.2))",
+              border: "1.5px solid rgba(255,255,255,0.2)",
+              borderRadius: 28, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              backdropFilter: "blur(8px)",
+              textDecoration: "none",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>Transfers</span>
+          </Link>
+        </div>
       </div>
 
-      <MiniLeague />
+      {/* ═══ NAVIGATION SECTIONS ═══ */}
+      <div style={{ marginTop: 16 }}>
+        <div style={{ borderRadius: 16, overflow: "hidden", margin: "0 0px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          <NavRow label="Fixtures" href="/dashboard/schedule" />
+          <NavRow label="Fixture Difficulty Rating" href="/dashboard/schedule" />
+          <NavRow label="Player Statistics" href="/dashboard/players" />
+          <NavRow label="Set Piece Taker" href="/dashboard/players" />
+        </div>
+      </div>
+
+      {/* ═══ MINI LEAGUE ═══ */}
+      <div style={{ padding: "16px 0px" }}>
+        <MiniLeague />
+      </div>
     </div>
   );
 }
 
-/** ✅ AUTH WRAPPER (this is what renders at /dashboard/fantasy) */
+/** AUTH WRAPPER */
 export default function FantasyRoute() {
   const [checking, setChecking] = React.useState(true);
   const [authed, setAuthed] = React.useState(false);
@@ -535,7 +652,6 @@ export default function FantasyRoute() {
   }
 
   if (!authed) {
-    // AuthGate should handle sign in + sign up then call onAuthed
     return <AuthGate onAuthed={() => setAuthed(true)} />;
   }
 
