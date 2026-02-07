@@ -822,39 +822,39 @@ export default function PickTeamPage() {
     const mids = squad.filter(isMid).sort((a, b) => points(b) - points(a));
     const fwds = squad.filter(isFwd).sort((a, b) => points(b) - points(a));
 
-    // 10 starters: 1 GK + 8 male outfield + 1 lady (always the 10th)
-    // Formation describes male outfield only (sum = 8):
-    // DEF: 2-3, MID: 3-5, male FWD: 1-3
+    // 10 starters: 1 GK + 9 outfield (DEF + MID + FWD = 9)
+    // Lady forward is always included; maleFwd = totalFwd - 1
     const maleFwds = fwds.filter((p) => !p.isLady);
     const ladyFwd = fwds.find((p) => p.isLady);
 
     // Lady is mandatory — if no lady forward, can't build valid starting
     if (!ladyFwd) return [];
 
+    // total FWD is 2–3 including the lady (lady always 1)
+    // so maleFwd is 1–2
     const formations = [
-      { gk:1, def: 2, mid: 5, fwd: 1 },
-      { gk:1, def: 2, mid: 4, fwd: 2 },
-      { gk:1, def: 2, mid: 3, fwd: 3 },
-      { gk:1, def: 3, mid: 4, fwd: 1 },
-      { gk:1, def: 3, mid: 3, fwd: 2 },
+      { gk: 1, def: 2, mid: 5, maleFwd: 1, totalFwd: 2 }, // 2-5-2
+      { gk: 1, def: 2, mid: 4, maleFwd: 2, totalFwd: 3 }, // 2-4-3
+      { gk: 1, def: 3, mid: 4, maleFwd: 1, totalFwd: 2 }, // 3-4-2
+      { gk: 1, def: 3, mid: 3, maleFwd: 2, totalFwd: 3 }, // 3-3-3
     ];
 
     let best: Player[] = [];
     let bestScore = -1;
 
     for (const f of formations) {
-      if (gks.length < 1 || defs.length < f.def || mids.length < f.mid || maleFwds.length < f.fwd) {
-        continue;
-      }
+      if (gks.length < 1 || defs.length < f.def || mids.length < f.mid || maleFwds.length < f.maleFwd) continue;
 
       const starting: Player[] = [];
-      starting.push(gks[0]);                    // 1 GK
-      starting.push(...defs.slice(0, f.def));   // male DEFs
-      starting.push(...mids.slice(0, f.mid));   // male MIDs
-      starting.push(...maleFwds.slice(0, f.fwd)); // male FWDs
-      starting.push(ladyFwd);                   // lady is always the 10th
+      starting.push(gks[0]);
+      starting.push(...defs.slice(0, f.def));
+      starting.push(...mids.slice(0, f.mid));
+      starting.push(...maleFwds.slice(0, f.maleFwd));
+      starting.push(ladyFwd); // ensures lady is part of the 2 or 3 forwards
 
-      const score = starting.reduce((sum, p) => sum + points(p), 0);
+      if (starting.length !== 10) continue;
+
+      const score = starting.reduce((sum, p) => sum + Number(p.points ?? 0), 0);
       if (score > bestScore) {
         bestScore = score;
         best = starting;
@@ -969,7 +969,7 @@ export default function PickTeamPage() {
 
       if (
         auto.squadIds.length === 17 &&
-        auto.startingIds.length === 9 &&
+        auto.startingIds.length === 10 &&
         auto.captainId &&
         auto.viceId
       ) {
@@ -997,6 +997,36 @@ export default function PickTeamPage() {
   const playerById = React.useMemo(() => {
     return new Map(players.map((p) => [p.id, p]));
   }, [players]);
+
+  // --- Formation validator (reused by toggle, swap, save) ---
+  function getStartingCounts(ids: string[]) {
+    const ps = ids.map((id) => playerById.get(id)).filter(Boolean) as Player[];
+    const count = (pos: string) => ps.filter((p) => normalizePosition(p.position) === pos).length;
+
+    const GK = count("Goalkeeper");
+    const DEF = count("Defender");
+    const MID = count("Midfielder");
+    const FWD = count("Forward");
+    const ladyFwd = ps.filter((p) => p.isLady && normalizePosition(p.position) === "Forward").length;
+    const ladyNonFwd = ps.filter((p) => p.isLady && normalizePosition(p.position) !== "Forward").length;
+
+    return { GK, DEF, MID, FWD, ladyFwd, ladyNonFwd };
+  }
+
+  function validateStarting10(ids: string[]): string | null {
+    if (ids.length !== 10) return null; // only enforce when lineup is complete
+
+    const { GK, DEF, MID, FWD, ladyFwd, ladyNonFwd } = getStartingCounts(ids);
+
+    if (GK !== 1) return "Starting lineup must include exactly 1 goalkeeper.";
+    if (DEF < 2 || DEF > 3) return "Defenders must be between 2 and 3.";
+    if (MID < 3 || MID > 5) return "Midfielders must be between 3 and 5.";
+    if (FWD < 2 || FWD > 3) return "Forwards must be between 2 and 3 (including the lady).";
+    if (ladyFwd !== 1) return "Starting lineup must include exactly 1 lady forward.";
+    if (ladyNonFwd > 0) return "Lady players can only start as forwards.";
+
+    return null;
+  }
 
   // derived
   const picked = React.useMemo(
@@ -1175,18 +1205,18 @@ export default function PickTeamPage() {
         setMsg("Midfielders are limited to 5.");
         return prev;
       }
-      if (pos === "Forward") {
-        // Count male forwards only (ladies don't count toward formation)
-        const maleFwdCount = prev.filter((sid) => {
-          const p = playerById.get(sid);
-          return p && !p.isLady && normalizePosition(p.position) === "Forward";
-        }).length;
-        if (maleFwdCount >= 3) {
-          setMsg("Male forwards are limited to 3.");
-          return prev;
-        }
+      if (pos === "Forward" && startingForwards >= 3) {
+        setMsg("Forwards are limited to 3 (including the lady).");
+        return prev;
       }
-      return [...prev, id];
+
+      const next = [...prev, id];
+      const err = validateStarting10(next);
+      if (err) {
+        setMsg(err);
+        return prev;
+      }
+      return next;
     });
   }
 
@@ -1267,48 +1297,14 @@ export default function PickTeamPage() {
       return true;
     }
 
-    // Male player swap — check position limits
-    const pos = normalizePosition(benchPlayer.position);
+    // Simulate the swap and validate the resulting formation
+    const nextStarting = startingIds
+      .filter((id) => id !== startingId)
+      .concat(benchId);
 
-    // Count male starters by position (exclude ladies)
-    const maleCounts = {
-      Goalkeeper: 0,
-      Defender: 0,
-      Midfielder: 0,
-      Forward: 0,
-    };
-    for (const sid of startingIds) {
-      const p = playerById.get(sid);
-      if (!p || p.isLady) continue;
-      const pPos = normalizePosition(p.position);
-      if (pPos === "Goalkeeper") maleCounts.Goalkeeper++;
-      if (pPos === "Defender") maleCounts.Defender++;
-      if (pPos === "Midfielder") maleCounts.Midfielder++;
-      if (pPos === "Forward") maleCounts.Forward++;
-    }
-
-    // Subtract the male player leaving
-    const leavingPos = normalizePosition(startingPlayer.position);
-    if (leavingPos === "Goalkeeper") maleCounts.Goalkeeper--;
-    if (leavingPos === "Defender") maleCounts.Defender--;
-    if (leavingPos === "Midfielder") maleCounts.Midfielder--;
-    if (leavingPos === "Forward") maleCounts.Forward--;
-
-    // Check limits for incoming male player
-    if (pos === "Goalkeeper" && maleCounts.Goalkeeper >= 1) {
-      setMsg("Only one goalkeeper can start. Swap with another goalkeeper.");
-      return false;
-    }
-    if (pos === "Defender" && maleCounts.Defender >= 3) {
-      setMsg("Defenders are limited to 3.");
-      return false;
-    }
-    if (pos === "Midfielder" && maleCounts.Midfielder >= 5) {
-      setMsg("Midfielders are limited to 5.");
-      return false;
-    }
-    if (pos === "Forward" && maleCounts.Forward >= 3) {
-      setMsg("Male forwards are limited to 3.");
+    const formationErr = validateStarting10(nextStarting);
+    if (formationErr) {
+      setMsg(formationErr);
       return false;
     }
 
@@ -1352,23 +1348,14 @@ export default function PickTeamPage() {
     if (sPos === "Goalkeeper" && bPos === "Goalkeeper") return true;
     if (startingP.isLady && benchP.isLady) return true;
 
-    const mc = { Goalkeeper: 0, Defender: 0, Midfielder: 0, Forward: 0 };
-    for (const sid of startingIds) {
-      const p = playerById.get(sid);
-      if (!p || p.isLady) continue;
-      const pp = normalizePosition(p.position);
-      if (pp in mc) mc[pp as keyof typeof mc]++;
-    }
-    const lp = normalizePosition(startingP.position);
-    if (lp in mc) mc[lp as keyof typeof mc]--;
+    // Simulate the swap and validate
+    const startingId = isSourceStarting ? sourceId : targetId;
+    const benchId = isSourceStarting ? targetId : sourceId;
+    const nextStarting = startingIds
+      .filter((id) => id !== startingId)
+      .concat(benchId);
 
-    const bp = normalizePosition(benchP.position);
-    if (bp === "Goalkeeper" && mc.Goalkeeper >= 1) return false;
-    if (bp === "Defender" && mc.Defender >= 3) return false;
-    if (bp === "Midfielder" && mc.Midfielder >= 5) return false;
-    if (bp === "Forward" && mc.Forward >= 3) return false;
-
-    return true;
+    return validateStarting10(nextStarting) === null;
   }
 
   function setCaptain(id: string) {
@@ -1542,24 +1529,20 @@ export default function PickTeamPage() {
     if (startingGoalkeepers !== 1) {
       return setMsg("Starting lineup must include exactly 1 goalkeeper.");
     }
+    if (startingForwards < 2 || startingForwards > 3) {
+      return setMsg("Starting forwards must be between 2 and 3 (including the lady).");
+    }
     if (startingLadyForwards !== 1) {
       return setMsg("Starting lineup must include exactly 1 lady forward.");
     }
     if (startingLadyNonForwards > 0) {
       return setMsg("Lady players can only start as forwards.");
     }
-    // Male outfield validation (formation counts exclude the lady)
-    const maleDef = starting.filter((p) => !p.isLady && normalizePosition(p.position) === "Defender").length;
-    const maleMid = starting.filter((p) => !p.isLady && normalizePosition(p.position) === "Midfielder").length;
-    const maleFwd = starting.filter((p) => !p.isLady && normalizePosition(p.position) === "Forward").length;
-    if (maleDef < 2 || maleDef > 3) {
+    if (startingDefenders < 2 || startingDefenders > 3) {
       return setMsg("Starting defenders must be between 2 and 3.");
     }
-    if (maleMid < 3 || maleMid > 5) {
+    if (startingMidfielders < 3 || startingMidfielders > 5) {
       return setMsg("Starting midfielders must be between 3 and 5.");
-    }
-    if (maleFwd < 1 || maleFwd > 3) {
-      return setMsg("Starting male forwards must be between 1 and 3.");
     }
     if (!captainId || !viceId) {
       return setMsg("Please choose a Captain and Vice-captain.");
@@ -2444,7 +2427,18 @@ export default function PickTeamPage() {
 
       {/* Pitch view - full width edge to edge like FPL */}
       {tab === "pitch" && (
-        <div className="-mx-4">
+        <div className="-mx-4 space-y-3">
+          <div className="mx-4 rounded-2xl border bg-card p-3">
+            <div className="text-sm font-semibold">Formation Rules</div>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+              <div>GK: <span className="font-semibold text-foreground">1</span></div>
+              <div>DEF: <span className="font-semibold text-foreground">2-3</span></div>
+              <div>MID: <span className="font-semibold text-foreground">3-5</span></div>
+              <div>FWD: <span className="font-semibold text-foreground">2-3</span></div>
+              <div className="col-span-2">Lady: <span className="font-semibold text-foreground">must be Forward</span></div>
+            </div>
+          </div>
+
           <PickPitch
             picked={picked}
             startingIds={startingIds}

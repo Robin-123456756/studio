@@ -9,6 +9,7 @@ import {
   Minus,
   ChevronRight,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,14 @@ type ApiPlayer = {
   teamShort?: string | null;
   teamName?: string | null;
 };
+
+const topTabs = ["Fantasy", "Challenge", "Draft"] as const;
+
+const menuItems = [
+  { label: "Fixtures", href: "/dashboard/schedule" },
+  { label: "Player Statistics", href: "/dashboard/players" },
+  { label: "Set Piece Taker", href: "/dashboard/players" },
+];
 
 function formatDeadlineShort(iso?: string | null) {
   if (!iso) return "--";
@@ -105,142 +114,103 @@ function useDeadlineCountdown(deadlineIso?: string | null) {
 // ── Mini League ──
 function MiniLeague() {
   return (
-    <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-      <div style={{ padding: "16px 16px 10px" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e" }}>Budo League</div>
-        <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>Your rank among rivals.</div>
-      </div>
+    <Card className="rounded-2xl shadow-sm">
+      <CardContent className="p-4">
+        <div className="text-base font-semibold text-foreground">Budo League</div>
+        <div className="mt-1 text-xs text-muted-foreground">Your rank among rivals.</div>
+      </CardContent>
 
-      <div style={{ padding: "0 12px 16px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {fantasyStandings.map((t) => {
-            const isMe = t.name === myFantasyTeam.name;
-            const delta = t.points - myFantasyTeam.points;
-            const trend = delta > 0 ? "up" : delta < 0 ? "down" : "same";
-            const trendLabel = delta === 0 ? "Even" : `${delta > 0 ? "+" : ""}${delta}`;
+      <div className="space-y-2 px-3 pb-4">
+        {fantasyStandings.map((t) => {
+          const isMe = t.name === myFantasyTeam.name;
+          const delta = t.points - myFantasyTeam.points;
+          const trend = delta > 0 ? "up" : delta < 0 ? "down" : "same";
+          const trendLabel = delta === 0 ? "Even" : `${delta > 0 ? "+" : ""}${delta}`;
+          const trendClass =
+            trend === "up"
+              ? "bg-emerald-500/10 text-emerald-600"
+              : trend === "down"
+              ? "bg-red-500/10 text-red-600"
+              : "bg-muted/70 text-muted-foreground";
 
-            return (
-              <div
-                key={t.rank}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderRadius: 14,
-                  border: isMe ? "1.5px solid rgba(55,0,60,0.3)" : "1px solid #eee",
-                  background: isMe ? "rgba(55,0,60,0.06)" : "#fff",
-                  padding: "10px 14px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#888", width: 28, fontVariantNumeric: "tabular-nums" }}>
-                    #{t.rank}
-                  </div>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: "50%", background: "#f0f0f0",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 12, fontWeight: 700, color: "#555",
-                    border: "1px solid #e0e0e0",
-                  }}>
-                    {getInitials(t.name)}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
-                    <div style={{ fontSize: 11, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.owner}</div>
-                  </div>
+          return (
+            <div
+              key={t.rank}
+              className={cn(
+                "flex items-center justify-between rounded-xl border px-3 py-2",
+                isMe ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+              )}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="w-7 text-center text-xs font-semibold tabular-nums text-muted-foreground">
+                  #{t.rank}
                 </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 4,
-                    borderRadius: 20, padding: "3px 10px",
-                    fontSize: 12, fontWeight: 600,
-                    background: trend === "up" ? "rgba(16,185,129,0.12)" : trend === "down" ? "rgba(239,68,68,0.12)" : "#f0f0f0",
-                    color: trend === "up" ? "#059669" : trend === "down" ? "#dc2626" : "#888",
-                  }}>
-                    {trend === "up" ? (
-                      <ArrowUp style={{ width: 12, height: 12 }} />
-                    ) : trend === "down" ? (
-                      <ArrowDown style={{ width: 12, height: 12 }} />
-                    ) : (
-                      <Minus style={{ width: 12, height: 12 }} />
-                    )}
-                    {trendLabel}
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
+                  {getInitials(t.name)}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-foreground">
+                    {t.name}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", fontFamily: "monospace", color: "#1a1a2e" }}>
-                    {t.points}
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {t.owner}
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="flex items-center gap-3">
+                <div
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
+                    trendClass
+                  )}
+                >
+                  {trend === "up" ? (
+                    <ArrowUp className="h-3 w-3" />
+                  ) : trend === "down" ? (
+                    <ArrowDown className="h-3 w-3" />
+                  ) : (
+                    <Minus className="h-3 w-3" />
+                  )}
+                  {trendLabel}
+                </div>
+                <div className="text-sm font-bold tabular-nums text-foreground">
+                  {t.points}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </Card>
   );
 }
 
 // ── Navigation Row ──
-function NavRow({ label, href }: { label: string; href: string }) {
+function NavRow({
+  label,
+  href,
+  isLast,
+}: {
+  label: string;
+  href: string;
+  isLast?: boolean;
+}) {
   return (
     <Link
       href={href}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "18px 20px",
-        background: "#fff",
-        textDecoration: "none",
-        borderBottom: "1px solid #f0f0f0",
-      }}
+      className={cn(
+        "flex items-center justify-between px-5 py-4 text-sm font-semibold text-foreground transition hover:bg-muted/40",
+        !isLast && "border-b border-border"
+      )}
     >
-      <span style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e" }}>{label}</span>
-      <ChevronRight style={{ width: 20, height: 20, color: "#ccc" }} />
+      <span>{label}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
     </Link>
   );
 }
 
 // ── Main Fantasy Page ──
-function StatTile({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={
-        highlight
-          ? "rounded-2xl border border-primary/30 bg-primary px-3 py-3 text-center text-primary-foreground"
-          : "rounded-2xl border bg-muted/40 px-3 py-3 text-center"
-      }
-    >
-      <div
-        className={
-          highlight
-            ? "text-[11px] font-semibold uppercase tracking-widest text-primary-foreground/70"
-            : "text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
-        }
-      >
-        {label}
-      </div>
-      <div
-        className={
-          highlight
-            ? "mt-1 text-2xl font-extrabold tabular-nums"
-            : "mt-1 text-xl font-bold tabular-nums"
-        }
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function FantasyPage() {
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
   const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
@@ -269,6 +239,7 @@ function FantasyPage() {
   }, []);
 
   const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
+  const [activeTab, setActiveTab] = React.useState<(typeof topTabs)[number]>(topTabs[0]);
 
   function editTeamName() {
     const next = window.prompt("Enter your team name:", teamName);
@@ -400,7 +371,6 @@ function FantasyPage() {
   const gwPointsValue = statsLoading ? "--" : stats.gwPoints ?? "--";
   const totalPointsValue = statsLoading ? "--" : stats.totalPoints ?? myFantasyTeam.points ?? "--";
   const overallRankValue = statsLoading ? "--" : stats.overallRank ?? myFantasyTeam.rank ?? "--";
-  const gwRankValue = statsLoading ? "--" : stats.gwRank ?? "--";
 
   const deadlinePillClass =
     deadlineCountdown.tone === "critical"
@@ -413,143 +383,166 @@ function FantasyPage() {
       ? "bg-muted/70 text-muted-foreground"
       : "bg-muted text-muted-foreground";
 
-  // Average & Highest are placeholders — replace with real data when available
-
   return (
-    <div style={{
-      maxWidth: 430,
-      margin: "0 auto",
-      background: "#f2f2f2",
-      fontFamily: "'Outfit', 'DM Sans', -apple-system, sans-serif",
-      display: "flex",
-      flexDirection: "column",
-      minHeight: "100vh",
-      position: "relative",
-    }}>
+    <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
       <div className="space-y-4 px-4 pt-4">
-        <Card className="rounded-3xl overflow-hidden border-none">
-          <CardContent className="p-0">
-            <div className="relative overflow-hidden p-5 bg-gradient-to-br from-primary via-primary/90 to-primary/70">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
-              <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/5" />
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/80 to-accent text-primary-foreground">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary-foreground/10" />
+          <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-primary-foreground/10" />
 
-              <div className="relative flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm/none text-primary-foreground/60">Season</div>
-                  <div className="mt-2 text-2xl font-extrabold tracking-tight text-primary-foreground">
-                    TBL9
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={editTeamName}
-                  className="text-right"
-                >
-                  <div className="text-base font-bold text-primary-foreground">
-                    {teamName}
-                  </div>
-                  <div className="text-xs text-primary-foreground/70">
-                    {myFantasyTeam.owner}
-                  </div>
-                  <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-foreground/70">
-                    Edit team
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </div>
-                </button>
-              </div>
+          <div className="px-4 pt-4">
+            <div className="flex rounded-full bg-primary-foreground/10 p-1">
+              {topTabs.map((tab) => {
+                const isActive = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "flex-1 rounded-full py-2 text-xs font-semibold transition",
+                      isActive
+                        ? "bg-background text-primary shadow-sm"
+                        : "text-primary-foreground/70"
+                    )}
+                  >
+                    {tab}
+                  </button>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className="rounded-3xl border">
-          <CardContent className="space-y-4 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                  Fantasy score
-                </div>
-                <div className="text-lg font-extrabold">
-                  {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? "--"}`}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                  Next deadline
-                </div>
-                <div className="text-sm font-semibold">
-                  {gwLoading ? "Loading..." : formatDeadlineShort(nextGW?.deadline_time)}
-                </div>
-              </div>
+          <button
+            type="button"
+            onClick={editTeamName}
+            className="mt-4 flex w-full items-center gap-3 px-5 text-left"
+          >
+            <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground">
+              <span className="text-xs font-bold">{getInitials(teamName)}</span>
+              <span className="text-[9px] font-semibold text-primary-foreground/60">Team</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <StatTile label="GW points" value={gwPointsValue} highlight />
-              <StatTile label="Total points" value={totalPointsValue} />
-              <StatTile label="GW rank" value={gwRankValue} />
-              <StatTile label="Overall rank" value={overallRankValue} />
+            <div className="flex-1">
+              <div className="text-base font-extrabold">{teamName}</div>
+              <div className="mt-1 text-xs text-primary-foreground/70">{myFantasyTeam.owner}</div>
             </div>
 
-            {deadlineCountdown.tone !== "neutral" && (
-              <div className="flex justify-center">
-                <span
-                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${deadlinePillClass}`}
-                >
-                  {deadlineCountdown.tone === "closed"
-                    ? "Deadline closed"
-                    : `Deadline in ${deadlineCountdown.label}`}
-                </span>
-              </div>
-            )}
+            <ChevronRight className="h-5 w-5 text-primary-foreground/70" />
+          </button>
 
-            {gwError && (
-              <div className="text-center text-xs text-muted-foreground">
-                {gwError}
-              </div>
-            )}
-            {statsError && (
-              <div className="text-center text-xs text-muted-foreground">
-                {statsError}
-              </div>
-            )}
+          <div className="mx-auto my-4 h-0.5 w-14 rounded-full bg-primary-foreground/20" />
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Link
-                href="/dashboard/fantasy/pick-team"
-                className="rounded-2xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+          <div className="text-center text-xs font-semibold text-primary-foreground/70">
+            {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? "--"}`}
+          </div>
+
+          <div className="flex items-end justify-center gap-0 px-5 pb-4 pt-2">
+            <div className="flex-1 text-center">
+              <div className="text-2xl font-bold text-primary-foreground/80 tabular-nums">
+                {totalPointsValue}
+              </div>
+              <div className="mt-1 text-[11px] font-semibold text-primary-foreground/60">
+                Total
+              </div>
+            </div>
+
+            <div className="flex-[1.2] text-center">
+              <div className="text-4xl font-extrabold text-primary-foreground tabular-nums">
+                {gwPointsValue}
+              </div>
+              <div className="mt-1 flex items-center justify-center gap-1 text-xs font-semibold text-primary-foreground">
+                GW points
+                <ChevronRight className="h-3.5 w-3.5 text-primary-foreground/80" />
+              </div>
+            </div>
+
+            <div className="flex-1 text-center">
+              <div className="text-2xl font-bold text-primary-foreground/80 tabular-nums">
+                {overallRankValue}
+              </div>
+              <div className="mt-1 text-[11px] font-semibold text-primary-foreground/60">
+                Overall
+              </div>
+            </div>
+          </div>
+
+          <div className="mx-auto mb-3 h-0.5 w-14 rounded-full bg-primary-foreground/20" />
+
+          <div className="text-center text-xs font-semibold text-primary-foreground/70">
+            {gwLoading
+              ? ""
+              : `Gameweek ${nextGW?.id ?? (currentGW?.id ? currentGW.id + 1 : "--")}`}
+          </div>
+          <div className="mt-1 text-center text-sm font-bold text-primary-foreground">
+            {gwLoading
+              ? "Loading..."
+              : `Deadline: ${formatDeadlineShort(nextGW?.deadline_time)}`}
+          </div>
+
+          {deadlineCountdown.tone !== "neutral" && (
+            <div className="mt-2 flex justify-center">
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold",
+                  deadlinePillClass
+                )}
               >
-                Pick Team
-              </Link>
-              <Link
-                href="/dashboard/transfers"
-                className="rounded-2xl border border-primary/30 bg-background px-4 py-3 text-center text-sm font-semibold text-foreground transition hover:border-primary/50"
-              >
-                Transfers
-              </Link>
+                {deadlineCountdown.tone === "closed"
+                  ? "Deadline closed"
+                  : `Deadline in ${deadlineCountdown.label}`}
+              </span>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
 
-      {/* NAVIGATION SECTIONS */}
-      <div style={{ marginTop: 16, padding: "0 16px" }}>
-        <div style={{ borderRadius: 16, overflow: "hidden", margin: "0 0px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-          <NavRow label="Fixtures" href="/dashboard/schedule" />
-          {/* <NavRow label="Fixture Difficulty Rating" href="/dashboard/schedule" /> */}
-          <NavRow label="Player Statistics" href="/dashboard/players" />
-          <NavRow label="Set Piece Taker" href="/dashboard/players" />
+          {gwError && (
+            <div className="mt-2 text-center text-xs text-primary-foreground/70">
+              {gwError}
+            </div>
+          )}
+          {statsError && (
+            <div className="mt-1 text-center text-xs text-primary-foreground/70">
+              {statsError}
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-col gap-2 px-5 pb-5">
+            <Link
+              href="/dashboard/fantasy/pick-team"
+              className="flex items-center justify-center gap-2 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-foreground/20"
+            >
+              Pick Team
+            </Link>
+            <Link
+              href="/dashboard/transfers"
+              className="flex items-center justify-center gap-2 rounded-full border border-primary-foreground/15 bg-primary-foreground/5 px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-foreground/15"
+            >
+              Transfers
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* ═══ MINI LEAGUE ═══ */}
-      <div style={{ padding: "16px 16px" }}>
+      <div className="mt-4 px-4">
+        <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
+          {menuItems.map((item, i) => (
+            <NavRow
+              key={item.label}
+              label={item.label}
+              href={item.href}
+              isLast={i === menuItems.length - 1}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="px-4 py-4">
         <MiniLeague />
       </div>
     </div>
   );
 }
 
-/** AUTH WRAPPER */
 export default function FantasyRoute() {
   const [checking, setChecking] = React.useState(true);
   const [authed, setAuthed] = React.useState(false);
