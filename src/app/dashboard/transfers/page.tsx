@@ -2,12 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { saveSquadIds, loadSquadIds } from "@/lib/fantasyStorage";
+import { loadSquadIds } from "@/lib/fantasyStorage";
 import { type Player } from "./player-card";
-import { TransferBadge } from "./transfer-badge";
-import { TransferLogItemComponent } from "./transfer-log-item";
 import { useTransfers } from "./use-transfers";
 import { ArrowLeft, MoreVertical, RotateCcw } from "lucide-react";
 import {
@@ -73,19 +70,6 @@ function isLocked(deadlineIso?: string | null) {
   return Date.now() >= new Date(deadlineIso).getTime();
 }
 
-function formatTimeUG(iso: string) {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "Africa/Kampala",
-  })
-    .format(d)
-    .replace(/\bam\b/i, "AM")
-    .replace(/\bpm\b/i, "PM");
-}
-
 // =====================
 // PAGE
 // =====================
@@ -96,18 +80,17 @@ export default function TransfersPage() {
   const [gwError, setGwError] = React.useState<string | null>(null);
 
   const [allPlayers, setAllPlayers] = React.useState<Player[]>([]);
-  const [playersLoading, setPlayersLoading] = React.useState(true);
+  const [, setPlayersLoading] = React.useState(true);
   const [playersError, setPlayersError] = React.useState<string | null>(null);
 
   const [squadIds, setSquadIds] = React.useState<string[]>([]);
 
   const [outId, setOutId] = React.useState<string | null>(null);
   const [inId, setInId] = React.useState<string | null>(null);
-  const [bottomTab, setBottomTab] = React.useState<"add" | "next">("add");
 
   // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
-  const { transfersThisGW, freeTransfers, usedTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
+  const { freeTransfers, cost } = useTransfers(gwId);
 
   // Load gameweeks
   React.useEffect(() => {
@@ -242,11 +225,6 @@ export default function TransfersPage() {
     }
   }, []);
 
-  function persistSquad(ids: string[]) {
-    setSquadIds(ids);
-    saveSquadIds(ids);
-  }
-
   function resetSelection() {
     setOutId(null);
     setInId(null);
@@ -256,48 +234,6 @@ export default function TransfersPage() {
     if (locked) return;
     setOutId(id);
     setInId(null);
-  }
-
-  function canConfirm() {
-    if (locked) return false;
-    if (!outId || !inId) return false;
-    if (!squadIds.includes(outId)) return false;
-    if (squadIds.includes(inId)) return false;
-    return true;
-  }
-
-  async function confirmTransfer() {
-    if (!canConfirm() || !outId || !inId) return;
-
-    const next = squadIds.map((id) => (id === outId ? inId : id));
-    persistSquad(next);
-
-    incrementUsedTransfers();
-
-    if (!gwId) {
-      resetSelection();
-      return;
-    }
-
-    const outP = byId.get(outId);
-    const inP = byId.get(inId);
-
-    recordTransfer({
-      gwId: gwId,
-      ts: new Date().toISOString(),
-      outId,
-      inId,
-      outName: outP?.name,
-      inName: inP?.name,
-      outTeamShort: outP?.teamShort ?? null,
-      inTeamShort: inP?.teamShort ?? null,
-      outPos: outP?.position ?? null,
-      inPos: inP?.position ?? null,
-      outPrice: typeof outP?.price === "number" ? outP.price : null,
-      inPrice: typeof inP?.price === "number" ? inP.price : null,
-    });
-
-    resetSelection();
   }
 
   // Normalize positions for pitch display
@@ -540,164 +476,13 @@ export default function TransfersPage() {
         >
           + Add Player
         </Link>
-        <button
-          type="button"
-          onClick={() => setBottomTab(bottomTab === "next" ? "add" : "next")}
-          className={cn(
-            "rounded-xl py-2.5 text-sm font-semibold transition-colors",
-            bottomTab === "next"
-              ? "bg-emerald-600 text-white hover:bg-emerald-700"
-              : "border bg-card text-foreground hover:bg-accent"
-          )}
+        <Link
+          href={`/dashboard/transfers/next${outId || inId ? `?${[outId ? `outId=${outId}` : "", inId ? `inId=${inId}` : ""].filter(Boolean).join("&")}` : ""}`}
+          className="flex items-center justify-center rounded-xl border bg-card text-foreground py-2.5 text-sm font-semibold hover:bg-accent transition"
         >
           Next
-        </button>
+        </Link>
       </div>
-
-      {/* === NEXT PANEL === */}
-      {bottomTab === "next" && (
-        <div className="space-y-4">
-          {/* Transfer notice */}
-          <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-center">
-            <div className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              You are about to make {usedTransfers > 0 ? usedTransfers + 1 : 1} transfer{usedTransfers > 0 ? "s" : ""}
-            </div>
-            {cost > 0 && (
-              <div className="text-xs text-red-600 font-medium mt-1">
-                This will cost you {cost} points
-              </div>
-            )}
-          </div>
-
-          {/* Transfer Summary */}
-          <div className="rounded-xl border bg-card p-4 space-y-3">
-            <div className="text-sm font-semibold text-center">Transfer Summary</div>
-
-            {/* OUT row */}
-            <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
-              <TransferBadge kind="out" />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold truncate">
-                  {outId ? (byId.get(outId)?.name ?? "Selected") : "Pick player from pitch"}
-                </div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {outId ? `${byId.get(outId)?.teamShort ?? "--"} - ${byId.get(outId)?.position ?? "--"}` : "--"}
-                </div>
-              </div>
-              {outId && (
-                <div className="text-xs font-mono text-muted-foreground">
-                  {byId.get(outId)?.price ? `${Number(byId.get(outId)!.price).toFixed(1)}m` : "--"}
-                </div>
-              )}
-            </div>
-
-            {/* Arrow */}
-            <div className="flex justify-center">
-              <div className="h-8 w-8 rounded-full bg-muted grid place-items-center">
-                <span className="text-muted-foreground text-lg">↓</span>
-              </div>
-            </div>
-
-            {/* IN row */}
-            <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
-              <TransferBadge kind="in" />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold truncate">
-                  {inId ? (byId.get(inId)?.name ?? "Selected") : "Pick replacement from Add Player"}
-                </div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {inId ? `${byId.get(inId)?.teamShort ?? "--"} - ${byId.get(inId)?.position ?? "--"}` : "--"}
-                </div>
-              </div>
-              {inId && (
-                <div className="text-xs font-mono text-muted-foreground">
-                  {byId.get(inId)?.price ? `${Number(byId.get(inId)!.price).toFixed(1)}m` : "--"}
-                </div>
-              )}
-            </div>
-
-            {locked && (
-              <div className="text-xs text-red-600 mt-2">
-                Transfers are locked because the deadline has passed.
-              </div>
-            )}
-          </div>
-
-          {/* Points Overview (FPL-style) */}
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="bg-muted/50 px-4 py-2">
-              <div className="text-xs font-semibold text-center">Points Overview</div>
-            </div>
-            <div className="divide-y">
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-sm text-muted-foreground">Free transfers</span>
-                <span className="text-sm font-semibold">{freeTransfers}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-sm text-muted-foreground">Transfers made</span>
-                <span className="text-sm font-semibold">{usedTransfers}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-sm text-muted-foreground">Extra transfers</span>
-                <span className="text-sm font-semibold">{Math.max(0, usedTransfers - freeTransfers)}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-sm text-muted-foreground">Transfer cost</span>
-                <span className={cn("text-sm font-semibold", cost > 0 && "text-red-600")}>{cost} pts</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-sm text-muted-foreground">Budget remaining</span>
-                <span className="text-sm font-semibold">{budgetRemaining.toFixed(1)}m</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Transfer History */}
-          <div className="rounded-xl border bg-card p-4 space-y-3">
-            <div className="text-sm font-semibold">Transfer History</div>
-            {transfersThisGW.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No transfers logged for this gameweek yet.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {transfersThisGW.map((t) => (
-                  <TransferLogItemComponent
-                    key={t.ts}
-                    transfer={t}
-                    outPlayer={byId.get(t.outId)}
-                    inPlayer={byId.get(t.inId)}
-                    formatTime={formatTimeUG}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Action buttons (FPL-style) */}
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-xl py-3 text-sm font-semibold"
-              onClick={() => {
-                resetSelection();
-                setBottomTab("add");
-              }}
-            >
-              Edit Transfer
-            </Button>
-            <Button
-              type="button"
-              className="rounded-xl py-3 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={!canConfirm()}
-              onClick={confirmTransfer}
-            >
-              Confirm
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
