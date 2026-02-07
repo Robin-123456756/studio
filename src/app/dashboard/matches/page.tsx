@@ -245,10 +245,7 @@ function MatchRow({ g }: { g: UiGame }) {
 export default function MatchesPage() {
   const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
 
-  const [gw, setGw] = React.useState<{
-    current: ApiGameweek | null;
-    next: ApiGameweek | null;
-  } | null>(null);
+  const [allGws, setAllGws] = React.useState<ApiGameweek[]>([]);
   const [gwId, setGwId] = React.useState<number | null>(null);
 
   const [games, setGames] = React.useState<UiGame[]>([]);
@@ -263,7 +260,20 @@ export default function MatchesPage() {
   const [statsData, setStatsData] = React.useState<StatPlayer[]>([]);
   const [statsLoading, setStatsLoading] = React.useState(true);
 
-  // Load current/next gameweek
+  // Gameweeks that have started (deadline passed) — sorted by id
+  const startedGwIds = React.useMemo(() => {
+    const now = Date.now();
+    return allGws
+      .filter((g) => {
+        if (g.finalized) return true;
+        const dl = g.deadline_time ? new Date(g.deadline_time).getTime() : NaN;
+        return Number.isFinite(dl) && dl <= now;
+      })
+      .map((g) => g.id)
+      .sort((a, b) => a - b);
+  }, [allGws]);
+
+  // Load gameweeks and default to latest started
   React.useEffect(() => {
     (async () => {
       try {
@@ -271,11 +281,24 @@ export default function MatchesPage() {
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load gameweeks");
 
-        const current = json.current ?? null;
-        const next = json.next ?? null;
+        const all: ApiGameweek[] = json.all ?? [];
+        setAllGws(all);
 
-        setGw({ current, next });
-        setGwId(current?.id ?? next?.id ?? null);
+        // Default to the latest gameweek whose deadline has passed
+        const now = Date.now();
+        const started = all
+          .filter((g) => {
+            if (g.finalized) return true;
+            const dl = g.deadline_time ? new Date(g.deadline_time).getTime() : NaN;
+            return Number.isFinite(dl) && dl <= now;
+          })
+          .sort((a, b) => a.id - b.id);
+
+        const defaultGw = started.length > 0
+          ? started[started.length - 1].id
+          : json.current?.id ?? json.next?.id ?? null;
+
+        setGwId(defaultGw);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load gameweeks");
       }
@@ -284,7 +307,7 @@ export default function MatchesPage() {
 
   // Fetch matches for gwId
   React.useEffect(() => {
-    if (!gwId || !gw) return;
+    if (!gwId) return;
 
     (async () => {
       try {
@@ -304,7 +327,7 @@ export default function MatchesPage() {
         setLoading(false);
       }
     })();
-  }, [gwId, gw]);
+  }, [gwId]);
 
   // Fetch standings
   React.useEffect(() => {
@@ -339,15 +362,12 @@ export default function MatchesPage() {
     })();
   }, [gwId]);
 
-  const activeName =
-    gw?.current?.id === gwId
-      ? gw?.current?.name
-      : gw?.next?.id === gwId
-      ? gw?.next?.name
-      : null;
+  const activeGw = allGws.find((g) => g.id === gwId);
+  const activeName = activeGw?.name ?? (gwId ? `Match day ${gwId}` : "Match day —");
 
-  const canPrev = Boolean(gwId && gwId > 1);
-  const canNext = Boolean(gwId);
+  const currentIdx = startedGwIds.indexOf(gwId ?? -1);
+  const canPrev = currentIdx > 0;
+  const canNext = currentIdx >= 0 && currentIdx < startedGwIds.length - 1;
 
   const visibleRows = expanded ? standings : standings.slice(0, 8);
 
@@ -440,7 +460,10 @@ export default function MatchesPage() {
               <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setGwId((x) => (x ? Math.max(1, x - 1) : x))}
+                  onClick={() => {
+                    const idx = startedGwIds.indexOf(gwId ?? -1);
+                    if (idx > 0) setGwId(startedGwIds[idx - 1]);
+                  }}
                   disabled={!canPrev}
                   className={cn(
                     "grid h-11 w-11 place-items-center rounded-full border bg-background",
@@ -453,13 +476,16 @@ export default function MatchesPage() {
 
                 <div className="text-center min-w-0">
                   <div className="text-lg font-extrabold truncate">
-                    {activeName ?? (gwId ? `Match day ${gwId}` : "Match day —")}
+                    {activeName}
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setGwId((x) => (x ? x + 1 : x))}
+                  onClick={() => {
+                    const idx = startedGwIds.indexOf(gwId ?? -1);
+                    if (idx >= 0 && idx < startedGwIds.length - 1) setGwId(startedGwIds[idx + 1]);
+                  }}
                   disabled={!canNext}
                   className={cn(
                     "grid h-11 w-11 place-items-center rounded-full border bg-background",

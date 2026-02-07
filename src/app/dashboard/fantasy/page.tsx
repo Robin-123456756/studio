@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
+import { Card, CardContent } from "@/components/ui/card";
 
 type ApiGameweek = {
   id: number;
@@ -201,6 +202,45 @@ function NavRow({ label, href }: { label: string; href: string }) {
 }
 
 // ── Main Fantasy Page ──
+function StatTile({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={
+        highlight
+          ? "rounded-2xl border border-primary/30 bg-primary px-3 py-3 text-center text-primary-foreground"
+          : "rounded-2xl border bg-muted/40 px-3 py-3 text-center"
+      }
+    >
+      <div
+        className={
+          highlight
+            ? "text-[11px] font-semibold uppercase tracking-widest text-primary-foreground/70"
+            : "text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+        }
+      >
+        {label}
+      </div>
+      <div
+        className={
+          highlight
+            ? "mt-1 text-2xl font-extrabold tabular-nums"
+            : "mt-1 text-xl font-bold tabular-nums"
+        }
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function FantasyPage() {
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
   const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
@@ -360,10 +400,20 @@ function FantasyPage() {
   const gwPointsValue = statsLoading ? "--" : stats.gwPoints ?? "--";
   const totalPointsValue = statsLoading ? "--" : stats.totalPoints ?? myFantasyTeam.points ?? "--";
   const overallRankValue = statsLoading ? "--" : stats.overallRank ?? myFantasyTeam.rank ?? "--";
+  const gwRankValue = statsLoading ? "--" : stats.gwRank ?? "--";
+
+  const deadlinePillClass =
+    deadlineCountdown.tone === "critical"
+      ? "bg-red-500/15 text-red-600"
+      : deadlineCountdown.tone === "urgent"
+      ? "bg-orange-500/15 text-orange-600"
+      : deadlineCountdown.tone === "soon"
+      ? "bg-amber-500/15 text-amber-700"
+      : deadlineCountdown.tone === "normal"
+      ? "bg-muted/70 text-muted-foreground"
+      : "bg-muted text-muted-foreground";
 
   // Average & Highest are placeholders — replace with real data when available
-  const averagePoints = 55;
-  const highestPoints = 126;
 
   return (
     <div style={{
@@ -376,202 +426,113 @@ function FantasyPage() {
       minHeight: "100vh",
       position: "relative",
     }}>
-      {/* ═══ HERO SECTION ═══ */}
-      <div style={{
-        background: "linear-gradient(135deg, #DC143C 0%, #8B0000 20%, #1a0a0a 45%, #2a1a00 70%, #D4A843 90%, #FFD700 100%)",
-        padding: "0 0 24px",
-        position: "relative",
-        overflow: "hidden",
-        borderRadius: "0 0 24px 24px",
-      }}>
-        {/* Abstract swirl decoration */}
-        <div style={{
-          position: "absolute", top: -40, right: -60,
-          width: 280, height: 380,
-          background: "linear-gradient(160deg, transparent 20%, rgba(255,215,0,0.12) 40%, rgba(212,168,67,0.18) 60%, rgba(255,215,0,0.08) 80%)",
-          borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%",
-          transform: "rotate(-15deg)",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", top: 80, right: -30,
-          width: 200, height: 300,
-          background: "linear-gradient(180deg, rgba(255,215,0,0.06), rgba(212,168,67,0.12))",
-          borderRadius: "60% 40% 30% 70% / 50% 60% 40% 50%",
-          transform: "rotate(25deg)",
-          pointerEvents: "none",
-        }} />
+      <div className="space-y-4 px-4 pt-4">
+        <Card className="rounded-3xl overflow-hidden border-none">
+          <CardContent className="p-0">
+            <div className="relative overflow-hidden p-5 bg-gradient-to-br from-primary via-primary/90 to-primary/70">
+              <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
+              <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/5" />
 
-        {/* ── Team Info Row ── */}
-        <button
-          type="button"
-          onClick={editTeamName}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "16px 20px 14px",
-            gap: 12,
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            width: "100%",
-            textAlign: "left",
-          }}
-        >
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "#fff", fontSize: 18, fontWeight: 800 }}>{teamName}</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500, marginTop: 2 }}>
-              {myFantasyTeam.owner}
+              <div className="relative flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm/none text-primary-foreground/60">Season</div>
+                  <div className="mt-2 text-2xl font-extrabold tracking-tight text-primary-foreground">
+                    TBL9
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={editTeamName}
+                  className="text-right"
+                >
+                  <div className="text-base font-bold text-primary-foreground">
+                    {teamName}
+                  </div>
+                  <div className="text-xs text-primary-foreground/70">
+                    {myFantasyTeam.owner}
+                  </div>
+                  <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-foreground/70">
+                    Edit team
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </div>
+                </button>
+              </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M9 6l6 6-6 6" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-
-        {/* ── Divider ── */}
-        <div style={{ width: 60, height: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 14px", borderRadius: 1 }} />
-
-        {/* ── Gameweek Label ── */}
-        <div style={{ textAlign: "center", color: "rgba(255,255,255,0.65)", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-          {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? "--"}`}
-        </div>
-
-        {/* ── Points Row ── */}
-        <div style={{
-          display: "flex", alignItems: "flex-end", justifyContent: "center",
-          padding: "0 20px 16px", gap: 0,
-        }}>
-          {/* Average */}
-          <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 32, fontWeight: 800, color: "rgba(255,255,255,0.75)", lineHeight: 1 }}>
-              {averagePoints}
+        <Card className="rounded-3xl border">
+          <CardContent className="space-y-4 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Fantasy score
+                </div>
+                <div className="text-lg font-extrabold">
+                  {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? "--"}`}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Next deadline
+                </div>
+                <div className="text-sm font-semibold">
+                  {gwLoading ? "Loading..." : formatDeadlineShort(nextGW?.deadline_time)}
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600, marginTop: 4 }}>Average</div>
-          </div>
 
-          {/* Points (larger, center) */}
-          <div style={{ flex: 1.2, textAlign: "center" }}>
-            <div style={{ fontSize: 52, fontWeight: 900, color: "#fff", lineHeight: 1 }}>
-              {gwPointsValue}
+            <div className="grid grid-cols-2 gap-2">
+              <StatTile label="GW points" value={gwPointsValue} highlight />
+              <StatTile label="Total points" value={totalPointsValue} />
+              <StatTile label="GW rank" value={gwRankValue} />
+              <StatTile label="Overall rank" value={overallRankValue} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 4 }}>
-              <span style={{ fontSize: 13, color: "#FFD700", fontWeight: 700 }}>Points</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M9 6l6 6-6 6" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+
+            {deadlineCountdown.tone !== "neutral" && (
+              <div className="flex justify-center">
+                <span
+                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${deadlinePillClass}`}
+                >
+                  {deadlineCountdown.tone === "closed"
+                    ? "Deadline closed"
+                    : `Deadline in ${deadlineCountdown.label}`}
+                </span>
+              </div>
+            )}
+
+            {gwError && (
+              <div className="text-center text-xs text-muted-foreground">
+                {gwError}
+              </div>
+            )}
+            {statsError && (
+              <div className="text-center text-xs text-muted-foreground">
+                {statsError}
+              </div>
+            )}
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Link
+                href="/dashboard/fantasy/pick-team"
+                className="rounded-2xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+              >
+                Pick Team
+              </Link>
+              <Link
+                href="/dashboard/transfers"
+                className="rounded-2xl border border-primary/30 bg-background px-4 py-3 text-center text-sm font-semibold text-foreground transition hover:border-primary/50"
+              >
+                Transfers
+              </Link>
             </div>
-          </div>
-
-          {/* Highest */}
-          <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 32, fontWeight: 800, color: "rgba(255,255,255,0.75)", lineHeight: 1 }}>
-              {highestPoints}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 4 }}>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>Highest</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                <path d="M9 6l6 6-6 6" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Divider ── */}
-        <div style={{ width: 60, height: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 14px", borderRadius: 1 }} />
-
-        {/* ── Next Gameweek Deadline ── */}
-        <div style={{ textAlign: "center", marginBottom: 6 }}>
-          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600 }}>
-            {gwLoading ? "" : `Gameweek ${nextGW?.id ?? (currentGW?.id ? (currentGW.id + 1) : "--")}`}
-          </div>
-          <div style={{ color: "#fff", fontSize: 17, fontWeight: 800, marginTop: 4 }}>
-            {gwLoading
-              ? "Loading..."
-              : `Deadline: ${formatDeadlineShort(nextGW?.deadline_time)}`}
-          </div>
-          {deadlineCountdown.tone !== "neutral" && deadlineCountdown.tone !== "closed" && (
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              marginTop: 8, padding: "4px 14px",
-              borderRadius: 20,
-              background:
-                deadlineCountdown.tone === "critical" ? "rgba(239,68,68,0.4)" :
-                deadlineCountdown.tone === "urgent" ? "rgba(239,68,68,0.3)" :
-                deadlineCountdown.tone === "soon" ? "rgba(245,158,11,0.3)" :
-                "rgba(255,255,255,0.12)",
-              fontSize: 12, fontWeight: 700, color: "#fff",
-            }}>
-              {deadlineCountdown.label}
-            </div>
-          )}
-          {deadlineCountdown.tone === "closed" && (
-            <div style={{
-              display: "inline-flex", marginTop: 8, padding: "4px 14px",
-              borderRadius: 20, background: "rgba(255,255,255,0.1)",
-              fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)",
-            }}>
-              Deadline closed
-            </div>
-          )}
-        </div>
-
-        {gwError && (
-          <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>
-            {gwError}
-          </div>
-        )}
-        {statsError && (
-          <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
-            {statsError}
-          </div>
-        )}
-
-        {/* ── CTA Buttons ── */}
-        <div style={{ padding: "14px 20px 0", display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Pick Team */}
-          <Link
-            href="/dashboard/fantasy/pick-team"
-            style={{
-              width: "100%", padding: "14px 0",
-              background: "linear-gradient(90deg, rgba(255,215,0,0.2), rgba(212,168,67,0.12))",
-              border: "1.5px solid rgba(255,255,255,0.2)",
-              borderRadius: 28, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-              backdropFilter: "blur(8px)",
-              textDecoration: "none",
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L9 9H2l6 4.5L5.5 22 12 17l6.5 5-2.5-8.5L22 9h-7L12 2z" stroke="#fff" strokeWidth="1.5" fill="rgba(255,255,255,0.15)" />
-            </svg>
-            <span style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>Pick Team</span>
-          </Link>
-
-          {/* Transfers */}
-          <Link
-            href="/dashboard/transfers"
-            style={{
-              width: "100%", padding: "14px 0",
-              background: "linear-gradient(90deg, rgba(255,215,0,0.2), rgba(212,168,67,0.12))",
-              border: "1.5px solid rgba(255,255,255,0.2)",
-              borderRadius: 28, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-              backdropFilter: "blur(8px)",
-              textDecoration: "none",
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4m4-4H3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>Transfers</span>
-          </Link>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* ═══ NAVIGATION SECTIONS ═══ */}
-      <div style={{ marginTop: 16 }}>
+      {/* NAVIGATION SECTIONS */}
+      <div style={{ marginTop: 16, padding: "0 16px" }}>
         <div style={{ borderRadius: 16, overflow: "hidden", margin: "0 0px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <NavRow label="Fixtures" href="/dashboard/schedule" />
           {/* <NavRow label="Fixture Difficulty Rating" href="/dashboard/schedule" /> */}
@@ -581,7 +542,7 @@ function FantasyPage() {
       </div>
 
       {/* ═══ MINI LEAGUE ═══ */}
-      <div style={{ padding: "16px 0px" }}>
+      <div style={{ padding: "16px 16px" }}>
         <MiniLeague />
       </div>
     </div>

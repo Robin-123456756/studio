@@ -39,18 +39,18 @@ export async function GET(req: Request) {
         .select("id, name, web_name, position, is_lady, avatar_url, team_id")
         .in("id", playerIds);
 
-      // Fetch teams for these players
-      const teamIds = [...new Set((playersData ?? []).map((p: any) => p.team_id).filter(Boolean))];
-      let teamsMap = new Map<number, any>();
+      // Fetch teams for these players (team_id stores UUIDs matching teams.team_uuid)
+      const teamUuids = [...new Set((playersData ?? []).map((p: any) => p.team_id).filter(Boolean))];
+      let teamsMap = new Map<string, any>();
 
-      if (teamIds.length > 0) {
+      if (teamUuids.length > 0) {
         const { data: teamsData } = await supabase
           .from("teams")
           .select("id, team_uuid, name, short_name, logo_url")
-          .in("id", teamIds);
+          .in("team_uuid", teamUuids);
 
         for (const t of teamsData ?? []) {
-          teamsMap.set(t.id, t);
+          teamsMap.set(t.team_uuid, t);
         }
       }
 

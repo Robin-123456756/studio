@@ -60,5 +60,6 @@ export async function GET() {
   return NextResponse.json({
     current: current ?? null,
     next: next ?? null,
+    all: gws,
   });
 }
