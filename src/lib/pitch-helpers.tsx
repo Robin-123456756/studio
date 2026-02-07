@@ -65,22 +65,22 @@ export const TEAM_SHORT_LOGOS: Record<string, string> = {
 };
 
 export const TEAM_KIT_COLORS: Record<string, string> = {
-  ACC: "#DB0007",
-  BAS: "#034694",
-  BIF: "#FF7B00",
-  TRO: "#00B140",
-  DUJ: "#7B2D8E",
-  NIG: "#2D2D2D",
-  PEA: "#132257",
-  KOM: "#FDBE11",
-  MAS: "#EF0107",
-  MID: "#003399",
-  CEN: "#00A650",
-  JUB: "#FF5722",
-  END: "#C8102E",
-  ABA: "#1EB980",
-  THA: "#A855F7",
-  QUA: "#06B6D4",
+  ABA: "#800000",      // Abacuba — maroon
+  ACC: "#00008B",      // Accumulators — dark blue
+  BAS: "#E00000",      // Basunzi — red
+  BIF: "#87CEEB",      // Bifa — light blue
+  CEN: "#CCFF00",      // Centurions — lemon yellow
+  DUJ: "#B8860B",      // Dujay — golden blue
+  END: "#FFD700",      // Endgame — gold
+  JUB: "#FFFFFF",      // Jubilewos — white
+  KOM: "#FF69B4",      // Komunoballo — pink
+  MAS: "#006994",      // Masappe — ocean blue
+  MID: "#FFD700",      // Midnight Express — yellow
+  NIG: "#301934",      // Night Prep — dark purple
+  PEA: "#800000",      // Peaky Blinders — maroon
+  QUA: "#808080",      // Quadballo — grey
+  THA: "#1A1A1A",      // Thazoballo — black
+  TRO: "#228B22",      // Trotballo — green
 };
 
 // =====================

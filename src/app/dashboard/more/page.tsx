@@ -5,8 +5,8 @@ import { ChevronRight, Settings, Users, UserCircle2, ArrowLeftRight, Medal, Star
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/dashboard/more/tbl-rules", label: "TBL Rules", Icon: BookOpen },
   { href: "/dashboard/settings", label: "myTBL Settings", Icon: Settings },
+  { href: "/dashboard/more/tbl-rules", label: "TBL fantasy Rules", Icon: BookOpen },
   { href: "/dashboard/teams", label: "Teams", Icon: Users },
   { href: "/dashboard/players", label: "Players", Icon: UserCircle2 },
   { href: "/dashboard/transfers", label: "Transfers", Icon: ArrowLeftRight },

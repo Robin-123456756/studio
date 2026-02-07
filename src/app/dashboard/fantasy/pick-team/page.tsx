@@ -950,6 +950,13 @@ export default function PickTeamPage() {
     const player = playerById.get(id);
     if (!player) return;
 
+    // Goalkeeper in starting can't be toggled out — use swap with another GK
+    const pos = normalizePosition(player.position);
+    if (pos === "Goalkeeper" && startingIds.includes(id) && startingGoalkeepers <= 1) {
+      setMsg("The starting goalkeeper can only be swapped with the bench goalkeeper.");
+      return;
+    }
+
     // Lady players are always in starting — they can only be swapped with another lady
     if (player.isLady) {
       setMsg("Lady players are always in the starting 10. Use swap to replace a lady with another lady.");
@@ -1028,6 +1035,18 @@ export default function PickTeamPage() {
     const startingId = isId1Starting ? id1 : id2;
     const benchId = isId1Starting ? id2 : id1;
 
+    // Goalkeeper can only swap with goalkeeper
+    const startingPos = normalizePosition(startingPlayer.position);
+    const benchPos = normalizePosition(benchPlayer.position);
+    if (startingPos === "Goalkeeper" && benchPos !== "Goalkeeper") {
+      setMsg("A goalkeeper can only be swapped with another goalkeeper.");
+      return;
+    }
+    if (benchPos === "Goalkeeper" && startingPos !== "Goalkeeper") {
+      setMsg("A goalkeeper can only be swapped with another goalkeeper.");
+      return;
+    }
+
     // Lady can only swap with lady
     if (startingPlayer.isLady && !benchPlayer.isLady) {
       setMsg("A lady player can only be swapped with another lady.");
@@ -1035,6 +1054,23 @@ export default function PickTeamPage() {
     }
     if (benchPlayer.isLady && !startingPlayer.isLady) {
       setMsg("A lady player can only be swapped with another lady.");
+      return;
+    }
+
+    // If swapping two GKs, just do it directly
+    if (startingPos === "Goalkeeper" && benchPos === "Goalkeeper") {
+      setStartingIds((prev) => {
+        const updated = prev.filter((id) => id !== startingId);
+        return [...updated, benchId];
+      });
+      if (captainId === startingId) {
+        setCaptainId(benchId);
+        localStorage.setItem(LS_CAPTAIN, benchId);
+      }
+      if (viceId === startingId) {
+        setViceId(benchId);
+        localStorage.setItem(LS_VICE, benchId);
+      }
       return;
     }
 
@@ -1980,10 +2016,9 @@ export default function PickTeamPage() {
         {hasUnsavedChanges ? (
           <button
             onClick={cancelChanges}
-            className="h-9 w-9 rounded-full border border-red-200 bg-red-50 grid place-items-center hover:bg-red-100 transition-colors"
-            aria-label="Cancel changes"
+            className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
           >
-            <X className="h-4 w-4 text-red-600" />
+            Cancel
           </button>
         ) : (
           <Link
@@ -1999,10 +2034,9 @@ export default function PickTeamPage() {
           <button
             onClick={save}
             disabled={loading}
-            className="h-9 w-9 rounded-full border border-emerald-200 bg-emerald-50 grid place-items-center hover:bg-emerald-100 transition-colors disabled:opacity-50"
-            aria-label="Confirm changes"
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
           >
-            <Check className="h-4 w-4 text-emerald-600" />
+            Save
           </button>
         ) : (
           <DropdownMenu>

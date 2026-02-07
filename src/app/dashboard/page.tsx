@@ -176,7 +176,7 @@ export default function DashboardPage() {
               The Budo League
             </h1>
             <p className="text-sm text-muted-foreground max-w-xl">
-              A Sunday league built for everyone. Clear stats, simple choices,
+              A Sunday league built for budonians. Clear stats, simple choices,
               and match coverage that respects how your league actually runs.
             </p>
           </div>
@@ -206,7 +206,7 @@ export default function DashboardPage() {
 
             <div className="rounded-2xl border bg-background/70 p-4 shadow-[var(--shadow-1)]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Recording</span>
+                <span>Progress</span>
                 <History className="h-4 w-4" />
               </div>
               <div className="mt-2 text-2xl font-semibold font-headline">
@@ -226,13 +226,16 @@ export default function DashboardPage() {
 
           <div className="flex flex-wrap gap-2">
             <Button asChild className="rounded-2xl">
-              <Link href="/dashboard/matches">Go to matches</Link>
+              <Link href="/dashboard/more/tbl-fantasy-rules">TBL fantasy rules</Link>
             </Button>
             <Button asChild variant="outline" className="rounded-2xl">
               <Link href="/dashboard/fantasy">Open fantasy</Link>
             </Button>
             <Button asChild variant="outline" className="rounded-2xl">
               <Link href="/dashboard/explore">Explore teams</Link>
+            </Button>
+            <Button asChild className="rounded-2xl">
+              <Link href="/dashboard/matches">Go to matches</Link>
             </Button>
           </div>
         </div>
@@ -414,7 +417,6 @@ export default function DashboardPage() {
               <div>Rotational subs are allowed.</div>
               <div>Matches run for 60 minutes.</div>
               <div>Lady forward is optional; +1 LP if fielded.</div>
-              <div>Only 3 of 8 matches are officially recorded each round.</div>
             </CardContent>
           </Card>
         </div>

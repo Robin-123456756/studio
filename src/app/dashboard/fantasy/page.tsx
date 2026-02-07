@@ -574,7 +574,7 @@ function FantasyPage() {
       <div style={{ marginTop: 16 }}>
         <div style={{ borderRadius: 16, overflow: "hidden", margin: "0 0px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <NavRow label="Fixtures" href="/dashboard/schedule" />
-          <NavRow label="Fixture Difficulty Rating" href="/dashboard/schedule" />
+          {/* <NavRow label="Fixture Difficulty Rating" href="/dashboard/schedule" /> */}
           <NavRow label="Player Statistics" href="/dashboard/players" />
           <NavRow label="Set Piece Taker" href="/dashboard/players" />
         </div>
