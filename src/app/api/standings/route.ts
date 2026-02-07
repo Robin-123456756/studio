@@ -15,7 +15,6 @@ type Row = {
   GF: number;
   GA: number;
   GD: number;
-  LP: number;
   Pts: number;
 };
 
@@ -28,8 +27,9 @@ export async function GET(req: Request) {
     const toGwParam = url.searchParams.get("to_gw");
     const toGw = toGwParam ? Number(toGwParam) : NaN;
 
-    // Determine latest played gameweek if to_gw not provided
+    // If to_gw not provided: find latest played/final match gw
     let toGwResolved = Number.isFinite(toGw) ? toGw : null;
+
     if (!toGwResolved) {
       const { data: latestPlayed, error: latestErr } = await supabase
         .from("matches")
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
       toGwResolved = latestPlayed?.gameweek_id ?? null;
     }
 
-    // Load teams for complete table (even if no matches yet)
+    // Load all teams (so table shows even if some teams haven't played)
     const { data: teams, error: teamsErr } = await supabase
       .from("teams")
       .select("team_uuid,name,logo_url")
@@ -69,7 +69,6 @@ export async function GET(req: Request) {
         GF: 0,
         GA: 0,
         GD: 0,
-        LP: 0,
         Pts: 0,
       });
     }
@@ -82,6 +81,7 @@ export async function GET(req: Request) {
       });
     }
 
+    // IMPORTANT: use your real column names: home_team_uuid / away_team_uuid
     let matchesQuery = supabase
       .from("matches")
       .select(
@@ -92,77 +92,24 @@ export async function GET(req: Request) {
         away_goals,
         is_played,
         is_final,
-        home_team_uid,
-        away_team_uid
+        home_team_uuid,
+        away_team_uuid
       `
       )
       .or("is_played.eq.true,is_final.eq.true")
       .order("gameweek_id", { ascending: true });
 
-    if (Number.isFinite(fromGw)) {
-      matchesQuery = matchesQuery.gte("gameweek_id", fromGw);
-    }
-    if (Number.isFinite(toGwResolved)) {
-      matchesQuery = matchesQuery.lte("gameweek_id", toGwResolved);
-    }
+    if (Number.isFinite(fromGw)) matchesQuery = matchesQuery.gte("gameweek_id", fromGw);
+    if (Number.isFinite(toGwResolved)) matchesQuery = matchesQuery.lte("gameweek_id", toGwResolved);
 
     const { data: matches, error: matchesErr } = await matchesQuery;
     if (matchesErr) {
       return NextResponse.json({ error: matchesErr.message }, { status: 500 });
     }
 
-    // Fetch player_stats (flat, no FK joins) for lady detection
-    const { data: playerStats } = await supabase
-      .from("player_stats")
-      .select("gameweek_id, player_id");
-
-    // Fetch players to check is_lady + get team_id
-    const statPlayerIds = [...new Set((playerStats ?? []).map((s: any) => s.player_id))];
-    // Map player_id → { isLady, teamUuid }
-    const playerLadyLookup = new Map<string, { isLady: boolean; teamUuid: string | null }>();
-
-    if (statPlayerIds.length > 0) {
-      const { data: playersData } = await supabase
-        .from("players")
-        .select("id, is_lady, team_id")
-        .in("id", statPlayerIds);
-
-      // Fetch teams to map team_id → team_uuid
-      const teamIds = [...new Set((playersData ?? []).map((p: any) => p.team_id).filter(Boolean))];
-      const teamIdToUuid = new Map<number, string>();
-
-      if (teamIds.length > 0) {
-        const { data: teamsData } = await supabase
-          .from("teams")
-          .select("id, team_uuid")
-          .in("id", teamIds);
-
-        for (const t of teamsData ?? []) {
-          teamIdToUuid.set(t.id, t.team_uuid);
-        }
-      }
-
-      for (const p of playersData ?? []) {
-        playerLadyLookup.set(p.id, {
-          isLady: p.is_lady ?? false,
-          teamUuid: teamIdToUuid.get(p.team_id) ?? null,
-        });
-      }
-    }
-
-    // Build lookup: Set<"gwId:teamUuid"> where a lady player has stats
-    const ladyPlayedSet = new Set<string>();
-    for (const s of playerStats ?? []) {
-      const p = playerLadyLookup.get(s.player_id);
-      if (p?.isLady && p.teamUuid) {
-        ladyPlayedSet.add(`${s.gameweek_id}:${p.teamUuid}`);
-      }
-    }
-
     for (const m of matches ?? []) {
-      const homeId = m.home_team_uid;
-      const awayId = m.away_team_uid;
-
+      const homeId = m.home_team_uuid;
+      const awayId = m.away_team_uuid;
       if (!homeId || !awayId) continue;
 
       const home = rowsMap.get(homeId);
@@ -177,6 +124,7 @@ export async function GET(req: Request) {
 
       home.GF += hg;
       home.GA += ag;
+
       away.GF += ag;
       away.GA += hg;
 
@@ -190,21 +138,17 @@ export async function GET(req: Request) {
         home.D += 1;
         away.D += 1;
       }
-
-      // Lady points: +1 if a lady player has a player_stats entry for this GW + team
-      if (ladyPlayedSet.has(`${m.gameweek_id}:${homeId}`)) home.LP += 1;
-      if (ladyPlayedSet.has(`${m.gameweek_id}:${awayId}`)) away.LP += 1;
     }
 
-    // finalize GD + points
     for (const r of rowsMap.values()) {
       r.GD = r.GF - r.GA;
-      r.Pts = r.W * 3 + r.D + r.LP;
+      r.Pts = r.W * 3 + r.D;
     }
 
     const rows = Array.from(rowsMap.values()).sort((a, b) => {
       if (b.Pts !== a.Pts) return b.Pts - a.Pts;
       if (b.GD !== a.GD) return b.GD - a.GD;
+      if (b.GF !== a.GF) return b.GF - a.GF;
       return a.name.localeCompare(b.name);
     });
 

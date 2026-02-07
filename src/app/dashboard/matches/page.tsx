@@ -7,6 +7,15 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 /* ---------------- types ---------------- */
 
@@ -42,10 +51,9 @@ type ApiMatch = {
 type UiTeam = { id: string; name: string; logoUrl: string };
 type UiGame = {
   id: string;
-  date: string; // YYYY-MM-DD (UG)
-  time: string; // "10:00 AM" (UG)
+  date: string;
+  time: string;
   kickoffIso: string | null;
-
   status: "completed" | "scheduled";
   team1: UiTeam;
   team2: UiTeam;
@@ -54,10 +62,42 @@ type UiGame = {
   isFinal?: boolean;
 };
 
+type StandingsRow = {
+  teamId: string;
+  name: string;
+  logoUrl: string;
+  PL: number;
+  W: number;
+  D: number;
+  L: number;
+  GF: number;
+  GA: number;
+  GD: number;
+  Pts: number;
+};
+
+type StatPlayer = {
+  id: string;
+  playerId: string;
+  gameweekId: number;
+  points: number;
+  goals: number;
+  assists: number;
+  cleanSheet: boolean;
+  yellowCards: number;
+  redCards: number;
+  ownGoals: number;
+  playerName: string;
+  player: {
+    name: string;
+    teamName: string | null;
+    teamShort: string | null;
+  } | null;
+};
+
 /* ---------------- helpers ---------------- */
 
 function formatDateHeading(yyyyMmDd: string) {
-  // yyyy-mm-dd -> "Sun 11 Jan"
   const d = new Date(`${yyyyMmDd}T00:00:00`);
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
@@ -90,6 +130,7 @@ function groupByDate(games: UiGame[]) {
     (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
   );
 }
+
 function toUgDateKey(iso: string) {
   const d = new Date(iso);
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -105,12 +146,9 @@ function toUgDateKey(iso: string) {
   return `${y}-${m}-${da}`;
 }
 
-
-
 function mapApiMatchToUi(m: ApiMatch): UiGame {
   const homeName = m.home_team?.name ?? "Home";
   const awayName = m.away_team?.name ?? "Away";
-
   const kickoffIso = m.kickoff_time ?? null;
 
   return {
@@ -118,7 +156,6 @@ function mapApiMatchToUi(m: ApiMatch): UiGame {
     date: kickoffIso ? toUgDateKey(kickoffIso) : "0000-00-00",
     time: kickoffIso ? toUgTime(kickoffIso) : "—",
     kickoffIso,
-
     status: m.is_played ? "completed" : "scheduled",
     team1: {
       id: m.home_team_uuid,
@@ -136,6 +173,12 @@ function mapApiMatchToUi(m: ApiMatch): UiGame {
   };
 }
 
+function posBarClass(pos: number) {
+  if (pos >= 1 && pos <= 4) return "bg-primary/80";
+  if (pos >= 5 && pos <= 8) return "bg-foreground/50";
+  return "bg-transparent";
+}
+
 /* ---------------- FPL-ish list row ---------------- */
 
 function MatchRow({ g }: { g: UiGame }) {
@@ -144,14 +187,12 @@ function MatchRow({ g }: { g: UiGame }) {
   return (
     <div className="py-4">
       <div className="grid grid-cols-[minmax(0,1fr)_28px_72px_28px_minmax(0,1fr)] items-center gap-x-3">
-        {/* left team */}
         <div className="min-w-0 text-right">
           <div className="truncate text-[14px] font-semibold leading-none">
             {g.team1.name}
           </div>
         </div>
 
-        {/* left logo */}
         <div className="h-7 w-7 justify-self-end rounded-full bg-muted overflow-hidden">
           <Image
             src={g.team1.logoUrl}
@@ -162,7 +203,6 @@ function MatchRow({ g }: { g: UiGame }) {
           />
         </div>
 
-        {/* center time / score */}
         <div className="text-center">
           {showScore ? (
             <>
@@ -180,7 +220,6 @@ function MatchRow({ g }: { g: UiGame }) {
           )}
         </div>
 
-        {/* right logo */}
         <div className="h-7 w-7 justify-self-start rounded-full bg-muted overflow-hidden">
           <Image
             src={g.team2.logoUrl}
@@ -191,7 +230,6 @@ function MatchRow({ g }: { g: UiGame }) {
           />
         </div>
 
-        {/* right team */}
         <div className="min-w-0">
           <div className="truncate text-[14px] font-semibold leading-none">
             {g.team2.name}
@@ -205,7 +243,6 @@ function MatchRow({ g }: { g: UiGame }) {
 /* ---------------- Page ---------------- */
 
 export default function MatchesPage() {
-  // Top-level page tabs
   const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
 
   const [gw, setGw] = React.useState<{
@@ -217,6 +254,14 @@ export default function MatchesPage() {
   const [games, setGames] = React.useState<UiGame[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Table + Stats state
+  const [standings, setStandings] = React.useState<StandingsRow[]>([]);
+  const [standingsLoading, setStandingsLoading] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
+
+  const [statsData, setStatsData] = React.useState<StatPlayer[]>([]);
+  const [statsLoading, setStatsLoading] = React.useState(true);
 
   // Load current/next gameweek
   React.useEffect(() => {
@@ -237,7 +282,7 @@ export default function MatchesPage() {
     })();
   }, []);
 
-  // Fetch matches for gwId (show all; UI displays score or kickoff time)
+  // Fetch matches for gwId
   React.useEffect(() => {
     if (!gwId || !gw) return;
 
@@ -246,9 +291,7 @@ export default function MatchesPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/matches?gw_id=${gwId}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(`/api/matches?gw_id=${gwId}`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load matches");
 
@@ -263,6 +306,39 @@ export default function MatchesPage() {
     })();
   }, [gwId, gw]);
 
+  // Fetch standings
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setStandingsLoading(true);
+        const res = await fetch("/api/standings", { cache: "no-store" });
+        const json = await res.json();
+        if (res.ok) setStandings(json.rows ?? []);
+      } catch {
+        // silent
+      } finally {
+        setStandingsLoading(false);
+      }
+    })();
+  }, []);
+
+  // Fetch player stats for current GW
+  React.useEffect(() => {
+    if (!gwId) return;
+    (async () => {
+      try {
+        setStatsLoading(true);
+        const res = await fetch(`/api/player-stats?gw_id=${gwId}`, { cache: "no-store" });
+        const json = await res.json();
+        if (res.ok) setStatsData(json.stats ?? []);
+      } catch {
+        // silent
+      } finally {
+        setStatsLoading(false);
+      }
+    })();
+  }, [gwId]);
+
   const activeName =
     gw?.current?.id === gwId
       ? gw?.current?.name
@@ -271,153 +347,316 @@ export default function MatchesPage() {
       : null;
 
   const canPrev = Boolean(gwId && gwId > 1);
-  const canNext = Boolean(gwId); // you can tighten this later
+  const canNext = Boolean(gwId);
 
- // inside MatchesPage() return...
+  const visibleRows = expanded ? standings : standings.slice(0, 8);
 
-return (
-  <div className="animate-in fade-in-50 space-y-4">
-    {/* ✅ Season card ONLY on matches page */}
-    <Card className="rounded-3xl overflow-hidden border-none">
-      <CardContent className="p-0">
-        <div className="p-5 text-white bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-400">
-          <div className="text-sm/none opacity-90">Season</div>
-          <div className="mt-2 flex items-center gap-2">
-            <div className="text-2xl font-extrabold tracking-tight">TBL8</div>
-            
+  // Aggregate stats: top scorers + top assists from fetched player stats
+  const scorerMap = new Map<string, { name: string; goals: number; team: string }>();
+  const assistMap = new Map<string, { name: string; assists: number; team: string }>();
+  for (const s of statsData) {
+    const name = s.playerName;
+    const team = s.player?.teamShort ?? s.player?.teamName ?? "—";
+    if (s.goals > 0) {
+      const existing = scorerMap.get(s.playerId);
+      scorerMap.set(s.playerId, {
+        name,
+        goals: (existing?.goals ?? 0) + s.goals,
+        team,
+      });
+    }
+    if (s.assists > 0) {
+      const existing = assistMap.get(s.playerId);
+      assistMap.set(s.playerId, {
+        name,
+        assists: (existing?.assists ?? 0) + s.assists,
+        team,
+      });
+    }
+  }
+  const topScorers = [...scorerMap.values()].sort((a, b) => b.goals - a.goals).slice(0, 5);
+  const topAssists = [...assistMap.values()].sort((a, b) => b.assists - a.assists).slice(0, 5);
+
+  return (
+    <div className="animate-in fade-in-50 space-y-4">
+      {/* Season card — themed with app primary */}
+      <Card className="rounded-3xl overflow-hidden border-none">
+        <CardContent className="p-0">
+          <div className="relative overflow-hidden p-5 bg-gradient-to-br from-primary via-primary/90 to-primary/70">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
+            <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/5" />
+            <div className="relative">
+              <div className="text-sm/none text-primary-foreground/60">Season</div>
+              <div className="mt-2 text-2xl font-extrabold tracking-tight text-primary-foreground">
+                TBL9
+              </div>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
 
-    {/* ✅ Main card with tabs like FPL */}
-    <Card className="rounded-3xl">
-      <CardContent className="p-4">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
-          <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
-            <TabsTrigger
-              value="matches"
-              className={cn(
-                "rounded-none px-0 pb-2 text-base font-semibold",
-                "data-[state=active]:shadow-none",
-                "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
-              )}
-            >
-              Matches
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="table"
-              className={cn(
-                "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
-                "data-[state=active]:text-foreground data-[state=active]:shadow-none",
-                "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
-              )}
-            >
-              Table
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="stats"
-              className={cn(
-                "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
-                "data-[state=active]:text-foreground data-[state=active]:shadow-none",
-                "data-[state=active]:border-b-2 data-[state=active]:border-foreground"
-              )}
-            >
-              Stats
-            </TabsTrigger>
-          </TabsList>
-
-          {/* MATCHES TAB */}
-          <TabsContent value="matches" className="mt-4 space-y-3">
-            {/* ✅ Matchday selector with arrows */}
-            <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
-              {/* Left arrow */}
-              <button
-                type="button"
-                onClick={() => setGwId((x) => (x ? Math.max(1, x - 1) : x))}
-                disabled={!canPrev}
+      {/* Main card with tabs — content renders directly on surface */}
+      <Card className="rounded-3xl">
+        <CardContent className="p-4">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+            <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
+              <TabsTrigger
+                value="matches"
                 className={cn(
-                  "grid h-11 w-11 place-items-center rounded-full border bg-background",
-                  !canPrev && "opacity-40"
+                  "rounded-none px-0 pb-2 text-base font-semibold",
+                  "data-[state=active]:shadow-none",
+                  "data-[state=active]:border-b-2 data-[state=active]:border-primary"
                 )}
-                aria-label="Previous matchday"
               >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
+                Matches
+              </TabsTrigger>
 
-              {/* Center title */}
-              <div className="text-center min-w-0">
-                <div className="text-lg font-extrabold truncate">
-                  {activeName ?? (gwId ? `Match day ${gwId}` : "Match day —")}
-                </div>
-              </div>
-
-              {/* Right arrow */}
-              <button
-                type="button"
-                onClick={() => setGwId((x) => (x ? x + 1 : x))}
-                disabled={!canNext}
+              <TabsTrigger
+                value="table"
                 className={cn(
-                  "grid h-11 w-11 place-items-center rounded-full border bg-background",
-                  !canNext && "opacity-40"
+                  "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
+                  "data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                  "data-[state=active]:border-b-2 data-[state=active]:border-primary"
                 )}
-                aria-label="Next matchday"
               >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
+                Table
+              </TabsTrigger>
 
-            {/* Content */}
-            {error ? <div className="text-sm text-red-600">⚠ {error}</div> : null}
+              <TabsTrigger
+                value="stats"
+                className={cn(
+                  "rounded-none px-0 pb-2 text-base font-semibold text-muted-foreground",
+                  "data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                  "data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                )}
+              >
+                Stats
+              </TabsTrigger>
+            </TabsList>
 
-            {loading ? (
-              <div className="text-sm text-muted-foreground py-6 text-center">
-                Loading matches...
-              </div>
-            ) : games.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-6 text-center">
-                No matches found for this matchday.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {groupByDate(games).map(([date, list]) => (
-                  <div key={date}>
-                    <div className="px-1 text-sm font-semibold text-muted-foreground">
-                      {formatDateHeading(date)}
-                    </div>
+            {/* MATCHES TAB */}
+            <TabsContent value="matches" className="mt-4 space-y-3">
+              {/* Matchday selector */}
+              <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGwId((x) => (x ? Math.max(1, x - 1) : x))}
+                  disabled={!canPrev}
+                  className={cn(
+                    "grid h-11 w-11 place-items-center rounded-full border bg-background",
+                    !canPrev && "opacity-40"
+                  )}
+                  aria-label="Previous matchday"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
 
-                    <div className="mt-2 rounded-2xl border bg-card px-3 divide-y divide-border/40">
-                      {list.map((g) => (
-                        <MatchRow key={g.id} g={g} />
-                      ))}
-                    </div>
+                <div className="text-center min-w-0">
+                  <div className="text-lg font-extrabold truncate">
+                    {activeName ?? (gwId ? `Match day ${gwId}` : "Match day —")}
                   </div>
-                ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setGwId((x) => (x ? x + 1 : x))}
+                  disabled={!canNext}
+                  className={cn(
+                    "grid h-11 w-11 place-items-center rounded-full border bg-background",
+                    !canNext && "opacity-40"
+                  )}
+                  aria-label="Next matchday"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
               </div>
-            )}
-          </TabsContent>
 
-          {/* TABLE TAB */}
-          <TabsContent value="table" className="mt-4">
-            <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
-              Table will be connected next (standings computed from matches).
-            </div>
-          </TabsContent>
+              {error ? <div className="text-sm text-red-600">{error}</div> : null}
 
-          {/* STATS TAB */}
-          <TabsContent value="stats" className="mt-4">
-            <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
-              Stats coming next (goals, assists, clean sheets).
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+              {loading ? (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  Loading matches...
+                </div>
+              ) : games.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center">
+                  No matches found for this matchday.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {groupByDate(games).map(([date, list]) => (
+                    <div key={date}>
+                      <div className="px-1 text-sm font-semibold text-muted-foreground">
+                        {formatDateHeading(date)}
+                      </div>
 
-    <div className="h-24 md:hidden" />
-  </div>
-);
+                      <div className="mt-2 rounded-2xl border bg-card px-3 divide-y divide-border/40">
+                        {list.map((g) => (
+                          <MatchRow key={g.id} g={g} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* TABLE TAB */}
+            <TabsContent value="table" className="mt-4">
+              {standingsLoading ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Loading table...
+                </div>
+              ) : standings.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No table data yet.
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-[11px]">
+                        <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
+                        <TableHead className="pr-1">Team</TableHead>
+                        <TableHead className="w-[28px] px-1 text-center">PL</TableHead>
+                        <TableHead className="w-[28px] px-1 text-center">W</TableHead>
+                        <TableHead className="w-[28px] px-1 text-center">D</TableHead>
+                        <TableHead className="w-[28px] px-1 text-center">L</TableHead>
+                        <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                        <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
+                      </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                      {visibleRows.map((r, idx) => {
+                        const pos = idx + 1;
+                        const bar = posBarClass(pos);
+
+                        return (
+                          <TableRow key={r.teamId} className="text-[12px]">
+                            <TableCell className="py-2 pl-2 pr-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className={`h-5 w-1.5 rounded-full ${bar}`} />
+                                <span className="font-semibold tabular-nums">{pos}</span>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="py-2 pr-1">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Image
+                                  src={r.logoUrl}
+                                  alt={r.name}
+                                  width={20}
+                                  height={20}
+                                  className="rounded-full shrink-0"
+                                />
+                                <span className="truncate text-[12px] font-medium">
+                                  {r.name}
+                                </span>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.PL}</TableCell>
+                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.W}</TableCell>
+                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.D}</TableCell>
+                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.L}</TableCell>
+                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.GD}</TableCell>
+                            <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">{r.Pts}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+
+                  {standings.length > 8 && (
+                    <div className="pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpanded((v) => !v)}
+                        className="w-full justify-center rounded-2xl text-sm font-semibold"
+                        type="button"
+                      >
+                        {expanded ? "Show less" : "View full table"}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            {/* STATS TAB */}
+            <TabsContent value="stats" className="mt-4">
+              {statsLoading ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Loading stats...
+                </div>
+              ) : topScorers.length === 0 && topAssists.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Stats will appear once matches have been played.
+                </div>
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {topScorers.length > 0 && (
+                    <div>
+                      <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                        Top scorers
+                      </div>
+                      <div className="space-y-1">
+                        {topScorers.map((s, i) => (
+                          <div
+                            key={s.name + s.team}
+                            className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">
+                                {i + 1}
+                              </span>
+                              <div>
+                                <div className="text-sm font-medium leading-tight">{s.name}</div>
+                                <div className="text-[11px] text-muted-foreground">{s.team}</div>
+                              </div>
+                            </div>
+                            <span className="text-sm font-bold tabular-nums">{s.goals}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {topAssists.length > 0 && (
+                    <div>
+                      <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                        Top assists
+                      </div>
+                      <div className="space-y-1">
+                        {topAssists.map((a, i) => (
+                          <div
+                            key={a.name + a.team}
+                            className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">
+                                {i + 1}
+                              </span>
+                              <div>
+                                <div className="text-sm font-medium leading-tight">{a.name}</div>
+                                <div className="text-[11px] text-muted-foreground">{a.team}</div>
+                              </div>
+                            </div>
+                            <span className="text-sm font-bold tabular-nums">{a.assists}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <div className="h-24 md:hidden" />
+    </div>
+  );
 }
-
