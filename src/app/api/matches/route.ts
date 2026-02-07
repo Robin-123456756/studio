@@ -55,6 +55,30 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message, details: error }, { status: 500 });
     }
 
+    const rows = data ?? [];
+    const teamIds = Array.from(
+      new Set(
+        rows
+          .flatMap((m: any) => [m.home_team_uid, m.away_team_uid])
+          .filter(Boolean)
+      )
+    );
+
+    const { data: teams, error: teamsErr } =
+      teamIds.length > 0
+        ? await supabase
+            .from("teams")
+            .select("team_uuid,name,short_name,logo_url")
+            .in("team_uuid", teamIds)
+        : { data: [], error: null };
+
+    if (teamsErr) {
+      return NextResponse.json({ error: teamsErr.message, details: teamsErr }, { status: 500 });
+    }
+
+    const teamMap = new Map<string, any>();
+    for (const t of teams ?? []) teamMap.set(t.team_uuid, t);
+
     // Optionally fetch player_stats for enrichment (separate queries, no FK joins)
     let statsMap = new Map<string, any[]>();
     if (enrich) {
@@ -122,7 +146,7 @@ export async function GET(req: Request) {
     }
 
     // ✅ normalize output for UI
-    const matches = (data ?? []).map((m: any) => {
+    const matches = rows.map((m: any) => {
       const base = {
         ...m,
         id: String(m.id),
@@ -131,13 +155,15 @@ export async function GET(req: Request) {
         away_goals: m.away_goals == null ? null : Number(m.away_goals),
         is_played: m.is_played == null ? null : Boolean(m.is_played),
         is_final: m.is_final == null ? null : Boolean(m.is_final),
-        home_team_uuid: String(m.home_team_uuid),
-        away_team_uuid: String(m.away_team_uuid),
+        home_team_uuid: String(m.home_team_uid),
+        away_team_uuid: String(m.away_team_uid),
+        home_team: teamMap.get(m.home_team_uid) ?? null,
+        away_team: teamMap.get(m.away_team_uid) ?? null,
       };
 
       if (enrich) {
-        const homeStats = statsMap.get(String(m.home_team_uuid)) ?? [];
-        const awayStats = statsMap.get(String(m.away_team_uuid)) ?? [];
+        const homeStats = statsMap.get(String(m.home_team_uid)) ?? [];
+        const awayStats = statsMap.get(String(m.away_team_uid)) ?? [];
         return {
           ...base,
           home_events: buildEvents(homeStats),

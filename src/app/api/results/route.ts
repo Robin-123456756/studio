@@ -15,8 +15,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "gw_id is required" }, { status: 400 });
     }
 
-    // ✅ ASSUMED schema (you can rename to your real table/columns):
-    // matches: id, gameweek_id, kickoff_time, home_team_uuid, away_team_uuid, home_score, away_score, status
+    // ✅ Using matches + teams (manual join to avoid schema cache FK issues)
     const { data, error } = await supabase
       .from("matches")
       .select(
@@ -24,11 +23,12 @@ export async function GET(req: Request) {
         id,
         gameweek_id,
         kickoff_time,
-        home_score,
-        away_score,
-        status,
-        home_team:teams!matches_home_team_uid_fkey ( name, short_name, logo_url ),
-        away_team:teams!matches_away_team_uid_fkey ( name, short_name, logo_url )
+        home_goals,
+        away_goals,
+        is_played,
+        is_final,
+        home_team_uid,
+        away_team_uid
       `
       )
       .eq("gameweek_id", gwId)
@@ -38,7 +38,33 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message, details: error }, { status: 500 });
     }
 
-    return NextResponse.json({ results: data ?? [] });
+    const rows = data ?? [];
+    const teamIds = Array.from(
+      new Set(
+        rows
+          .flatMap((m: any) => [m.home_team_uid, m.away_team_uid])
+          .filter(Boolean)
+      )
+    );
+
+    const { data: teams } =
+      teamIds.length > 0
+        ? await supabase
+            .from("teams")
+            .select("team_uuid,name,short_name,logo_url")
+            .in("team_uuid", teamIds)
+        : { data: [] };
+
+    const teamMap = new Map<string, any>();
+    for (const t of teams ?? []) teamMap.set(t.team_uuid, t);
+
+    const results = rows.map((m: any) => ({
+      ...m,
+      home_team: teamMap.get(m.home_team_uid) ?? null,
+      away_team: teamMap.get(m.away_team_uid) ?? null,
+    }));
+
+    return NextResponse.json({ results });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? String(e) }, { status: 500 });
   }

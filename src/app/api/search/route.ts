@@ -27,13 +27,12 @@ export async function GET(req: Request) {
       .or(`name.ilike.%${q}%,web_name.ilike.%${q}%`)
       .limit(12);
 
-    // Matches (optional): search by team names through the joined teams
+    // Matches (optional): fetch raw, then attach teams manually
     const matchesQ = supabase
       .from("matches")
       .select(`
         id,gameweek_id,kickoff_time,home_goals,away_goals,is_played,is_final,
-        home_team:teams!matches_home_team_uid_fkey(team_uuid,name,short_name,logo_url),
-        away_team:teams!matches_away_team_uid_fkey(team_uuid,name,short_name,logo_url)
+        home_team_uid,away_team_uid
       `)
       .order("kickoff_time", { ascending: false })
       .limit(10);
@@ -44,9 +43,36 @@ export async function GET(req: Request) {
       matchesQ,
     ]);
 
+    // Attach team info to matches (no FK join in schema)
+    const matchRows = matches ?? [];
+    const matchTeamIds = Array.from(
+      new Set(
+        matchRows
+          .flatMap((m: any) => [m.home_team_uid, m.away_team_uid])
+          .filter(Boolean)
+      )
+    );
+
+    const { data: matchTeams } =
+      matchTeamIds.length > 0
+        ? await supabase
+            .from("teams")
+            .select("team_uuid,name,short_name,logo_url")
+            .in("team_uuid", matchTeamIds)
+        : { data: [] };
+
+    const teamMap = new Map<string, any>();
+    for (const t of matchTeams ?? []) teamMap.set(t.team_uuid, t);
+
+    const matchesWithTeams = matchRows.map((m: any) => ({
+      ...m,
+      home_team: teamMap.get(m.home_team_uid) ?? null,
+      away_team: teamMap.get(m.away_team_uid) ?? null,
+    }));
+
     // Filter matches in JS by team name (simple + reliable)
     const matchesFiltered =
-      (matches ?? []).filter((m: any) => {
+      matchesWithTeams.filter((m: any) => {
         const hn = (m.home_team?.name ?? "").toLowerCase();
         const an = (m.away_team?.name ?? "").toLowerCase();
         return hn.includes(q.toLowerCase()) || an.includes(q.toLowerCase());
