@@ -27,8 +27,8 @@ export async function GET(req: Request) {
         home_score,
         away_score,
         status,
-        home_team:teams!matches_home_team_uuid_fkey ( name, short_name, logo_url ),
-        away_team:teams!matches_away_team_uuid_fkey ( name, short_name, logo_url )
+        home_team:teams!matches_home_team_uid_fkey ( name, short_name, logo_url ),
+        away_team:teams!matches_away_team_uid_fkey ( name, short_name, logo_url )
       `
       )
       .eq("gameweek_id", gwId)

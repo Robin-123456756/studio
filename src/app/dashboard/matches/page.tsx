@@ -237,7 +237,7 @@ export default function MatchesPage() {
     })();
   }, []);
 
-  // Fetch matches for gwId (auto-detect mode based on whether GW is finalized)
+  // Fetch matches for gwId (show all; UI displays score or kickoff time)
   React.useEffect(() => {
     if (!gwId || !gw) return;
 
@@ -246,12 +246,7 @@ export default function MatchesPage() {
         setLoading(true);
         setError(null);
 
-        // Auto-detect: if current GW is finalized, show results; otherwise show fixtures
-        const gwData = gw.current?.id === gwId ? gw.current : gw.next?.id === gwId ? gw.next : null;
-        const isFinalized = gwData?.finalized ?? false;
-        const played = isFinalized ? "1" : "0";
-
-        const res = await fetch(`/api/matches?gw_id=${gwId}&played=${played}`, {
+        const res = await fetch(`/api/matches?gw_id=${gwId}`, {
           cache: "no-store",
         });
         const json = await res.json();

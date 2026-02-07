@@ -28,6 +28,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 
 // DB helpers (Step 3)
 import { loadRosterFromDb, saveRosterToDb, upsertTeamName } from "@/lib/fantasyDb";
@@ -470,6 +477,173 @@ function ComparePlayersModal({
   );
 }
 
+// =====================
+// FPL-style Player Info Bottom Sheet
+// =====================
+function PlayerInfoSheet({
+  player,
+  open,
+  onOpenChange,
+  isCaptain,
+  isVice,
+  isStarting,
+  onSetCaptain,
+  onSetVice,
+  onSubstitute,
+}: {
+  player: Player;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isCaptain: boolean;
+  isVice: boolean;
+  isStarting: boolean;
+  onSetCaptain: () => void;
+  onSetVice: () => void;
+  onSubstitute: () => void;
+}) {
+  const displayName = shortName(player.name, player.webName);
+  const logo = getTeamLogo(player.teamName, player.teamShort);
+  const kitColor = getKitColor(player.teamShort);
+  const isGK = normalizePosition(player.position) === "Goalkeeper";
+  const history = player.pointsHistory ?? [];
+  const maxPts = Math.max(...history, 1);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="rounded-t-3xl p-0 max-h-[85vh] overflow-y-auto">
+        <SheetTitle className="sr-only">{player.name}</SheetTitle>
+
+        {/* Handle bar */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
+        </div>
+
+        {/* Player Header */}
+        <div className="flex items-center gap-4 px-5 pb-4 border-b">
+          <div className="relative shrink-0">
+            <Kit color={kitColor} isGK={isGK} size={56} />
+            {player.isLady && (
+              <span
+                className="absolute -top-1 -right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white text-[8px] text-white"
+                style={{ background: "linear-gradient(135deg, #FF69B4, #FF1493)" }}
+              >★</span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="inline-block rounded bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground mb-1">
+              {shortPos(player.position)}
+            </span>
+            <div className="text-lg font-bold truncate">{player.name}</div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {logo && <img src={logo} alt="" className="h-4 w-4 rounded-full object-contain" />}
+              <span>{player.teamName ?? player.teamShort ?? "--"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-4 gap-2 px-5 py-3">
+          <div className="rounded-xl bg-muted/50 p-2 text-center">
+            <div className="text-[10px] text-muted-foreground font-semibold uppercase">Price</div>
+            <div className="text-base font-bold text-primary">{formatUGX(player.price)}</div>
+          </div>
+          <div className="rounded-xl bg-muted/50 p-2 text-center">
+            <div className="text-[10px] text-muted-foreground font-semibold uppercase">Total Pts</div>
+            <div className="text-base font-bold">{formatNumber(player.points)}</div>
+          </div>
+          <div className="rounded-xl bg-muted/50 p-2 text-center">
+            <div className="text-[10px] text-muted-foreground font-semibold uppercase">Form</div>
+            <div className="text-base font-bold">{formatForm(player.formLast5)}</div>
+          </div>
+          <div className="rounded-xl bg-muted/50 p-2 text-center">
+            <div className="text-[10px] text-muted-foreground font-semibold uppercase">Owned</div>
+            <div className="text-base font-bold">{formatOwnership(player.ownership)}</div>
+          </div>
+        </div>
+
+        {/* GW History Bar Chart */}
+        {history.length > 0 && (
+          <div className="px-5 py-2 border-t">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+              Gameweek History
+            </div>
+            <div className="flex items-end gap-1" style={{ height: 72 }}>
+              {history.map((pts, i) => {
+                const h = Math.max(4, (pts / maxPts) * 56);
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] font-bold">{pts}</span>
+                    <div
+                      className={cn(
+                        "w-full rounded-t-sm",
+                        pts >= 8 ? "bg-emerald-500" : pts >= 5 ? "bg-sky-400" : pts >= 3 ? "bg-amber-400" : "bg-muted"
+                      )}
+                      style={{ height: h }}
+                    />
+                    <span className="text-[7px] text-muted-foreground">GW{i + 1}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Captain / Vice Captain */}
+        {isStarting && (
+          <div className="grid grid-cols-2 gap-2 px-5 py-3 border-t">
+            <button
+              type="button"
+              onClick={onSetCaptain}
+              className={cn(
+                "flex items-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-semibold transition-colors",
+                isCaptain ? "border-amber-500 bg-amber-50" : "border-border"
+              )}
+            >
+              <div className={cn(
+                "h-6 w-6 rounded-full grid place-items-center text-xs font-black",
+                isCaptain ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
+              )}>C</div>
+              <div className="text-left">
+                <div className="text-sm font-bold">Captain</div>
+                <div className="text-[10px] text-muted-foreground">Double points</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={onSetVice}
+              className={cn(
+                "flex items-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-semibold transition-colors",
+                isVice ? "border-sky-500 bg-sky-50" : "border-border"
+              )}
+            >
+              <div className={cn(
+                "h-6 w-6 rounded-full grid place-items-center text-xs font-black",
+                isVice ? "bg-sky-500 text-white" : "bg-muted text-muted-foreground"
+              )}>V</div>
+              <div className="text-left">
+                <div className="text-sm font-bold">Vice Captain</div>
+                <div className="text-[10px] text-muted-foreground">Backup captain</div>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Substitute Button */}
+        <div className="px-5 pb-6 pt-2">
+          <Button
+            type="button"
+            onClick={onSubstitute}
+            className="w-full rounded-xl gap-2"
+          >
+            <ArrowUpDown className="h-4 w-4" />
+            Substitute
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export default function PickTeamPage() {
   const [authed, setAuthed] = React.useState(false);
 
@@ -502,6 +676,8 @@ export default function PickTeamPage() {
 
   // Substitution mode - track player selected for swap
   const [selectedForSwap, setSelectedForSwap] = React.useState<string | null>(null);
+  const [sheetPlayer, setSheetPlayer] = React.useState<Player | null>(null);
+  const { toast } = useToast();
 
   const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
 
@@ -1014,20 +1190,20 @@ export default function PickTeamPage() {
     });
   }
 
-  // Swap two players (one starting, one bench)
-  function swapPlayers(id1: string, id2: string) {
+  // Swap two players (one starting, one bench). Returns true on success.
+  function swapPlayers(id1: string, id2: string): boolean {
     setMsg(null);
 
     const player1 = playerById.get(id1);
     const player2 = playerById.get(id2);
-    if (!player1 || !player2) return;
+    if (!player1 || !player2) return false;
 
     const isId1Starting = startingIds.includes(id1);
     const isId2Starting = startingIds.includes(id2);
 
     if (isId1Starting === isId2Starting) {
       setMsg("Select one starting player and one bench player to swap.");
-      return;
+      return false;
     }
 
     const startingPlayer = isId1Starting ? player1 : player2;
@@ -1040,21 +1216,21 @@ export default function PickTeamPage() {
     const benchPos = normalizePosition(benchPlayer.position);
     if (startingPos === "Goalkeeper" && benchPos !== "Goalkeeper") {
       setMsg("A goalkeeper can only be swapped with another goalkeeper.");
-      return;
+      return false;
     }
     if (benchPos === "Goalkeeper" && startingPos !== "Goalkeeper") {
       setMsg("A goalkeeper can only be swapped with another goalkeeper.");
-      return;
+      return false;
     }
 
     // Lady can only swap with lady
     if (startingPlayer.isLady && !benchPlayer.isLady) {
       setMsg("A lady player can only be swapped with another lady.");
-      return;
+      return false;
     }
     if (benchPlayer.isLady && !startingPlayer.isLady) {
       setMsg("A lady player can only be swapped with another lady.");
-      return;
+      return false;
     }
 
     // If swapping two GKs, just do it directly
@@ -1071,7 +1247,7 @@ export default function PickTeamPage() {
         setViceId(benchId);
         localStorage.setItem(LS_VICE, benchId);
       }
-      return;
+      return true;
     }
 
     // If swapping two ladies, just do it (lady always stays in starting)
@@ -1088,7 +1264,7 @@ export default function PickTeamPage() {
         setViceId(benchId);
         localStorage.setItem(LS_VICE, benchId);
       }
-      return;
+      return true;
     }
 
     // Male player swap — check position limits
@@ -1121,19 +1297,19 @@ export default function PickTeamPage() {
     // Check limits for incoming male player
     if (pos === "Goalkeeper" && maleCounts.Goalkeeper >= 1) {
       setMsg("Only one goalkeeper can start. Swap with another goalkeeper.");
-      return;
+      return false;
     }
     if (pos === "Defender" && maleCounts.Defender >= 3) {
       setMsg("Defenders are limited to 3.");
-      return;
+      return false;
     }
     if (pos === "Midfielder" && maleCounts.Midfielder >= 5) {
       setMsg("Midfielders are limited to 5.");
-      return;
+      return false;
     }
     if (pos === "Forward" && maleCounts.Forward >= 3) {
       setMsg("Male forwards are limited to 3.");
-      return;
+      return false;
     }
 
     // Perform the swap
@@ -1151,6 +1327,48 @@ export default function PickTeamPage() {
       setViceId(benchId);
       localStorage.setItem(LS_VICE, benchId);
     }
+    return true;
+  }
+
+  // Pure predicate: can sourceId swap with targetId?
+  function canSwapWith(sourceId: string, targetId: string): boolean {
+    const source = playerById.get(sourceId);
+    const target = playerById.get(targetId);
+    if (!source || !target || sourceId === targetId) return false;
+
+    const isSourceStarting = startingIds.includes(sourceId);
+    const isTargetStarting = startingIds.includes(targetId);
+    if (isSourceStarting === isTargetStarting) return false;
+
+    const startingP = isSourceStarting ? source : target;
+    const benchP = isSourceStarting ? target : source;
+    const sPos = normalizePosition(startingP.position);
+    const bPos = normalizePosition(benchP.position);
+
+    if (sPos === "Goalkeeper" && bPos !== "Goalkeeper") return false;
+    if (bPos === "Goalkeeper" && sPos !== "Goalkeeper") return false;
+    if (startingP.isLady && !benchP.isLady) return false;
+    if (benchP.isLady && !startingP.isLady) return false;
+    if (sPos === "Goalkeeper" && bPos === "Goalkeeper") return true;
+    if (startingP.isLady && benchP.isLady) return true;
+
+    const mc = { Goalkeeper: 0, Defender: 0, Midfielder: 0, Forward: 0 };
+    for (const sid of startingIds) {
+      const p = playerById.get(sid);
+      if (!p || p.isLady) continue;
+      const pp = normalizePosition(p.position);
+      if (pp in mc) mc[pp as keyof typeof mc]++;
+    }
+    const lp = normalizePosition(startingP.position);
+    if (lp in mc) mc[lp as keyof typeof mc]--;
+
+    const bp = normalizePosition(benchP.position);
+    if (bp === "Goalkeeper" && mc.Goalkeeper >= 1) return false;
+    if (bp === "Defender" && mc.Defender >= 3) return false;
+    if (bp === "Midfielder" && mc.Midfielder >= 5) return false;
+    if (bp === "Forward" && mc.Forward >= 3) return false;
+
+    return true;
   }
 
   function setCaptain(id: string) {
@@ -1579,6 +1797,8 @@ export default function PickTeamPage() {
     viceId,
     selectedForSwap,
     onSelectForSwap,
+    onOpenSheet,
+    canSwapWithFn,
   }: {
     picked: Player[];
     startingIds: string[];
@@ -1587,29 +1807,59 @@ export default function PickTeamPage() {
     viceId: string | null;
     selectedForSwap: string | null;
     onSelectForSwap: (id: string | null) => void;
+    onOpenSheet: (player: Player) => void;
+    canSwapWithFn: (sourceId: string, targetId: string) => boolean;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
     const g = groupByPosition(starting);
 
-    // Handle player tap for substitution
+    // Handle player tap — opens sheet normally, or completes swap in swap mode
     const handlePlayerTap = (playerId: string) => {
       if (!selectedForSwap) {
-        // First tap - select this player
-        onSelectForSwap(playerId);
+        // Not in swap mode — open bottom sheet
+        const player = picked.find((p) => p.id === playerId);
+        if (player) onOpenSheet(player);
       } else if (selectedForSwap === playerId) {
-        // Tapped same player - deselect
+        // Tapped same player — cancel swap
         onSelectForSwap(null);
       } else {
-        // Second tap - swap the two players
+        // In swap mode — attempt swap
         onSwapPlayers(selectedForSwap, playerId);
         onSelectForSwap(null);
       }
     };
 
     const isSelected = (id: string) => selectedForSwap === id;
+    const isValidTarget = (id: string) => selectedForSwap ? canSwapWithFn(selectedForSwap, id) : false;
+    const isDimmed = (id: string) => {
+      if (!selectedForSwap) return false;
+      if (id === selectedForSwap) return false;
+      return !canSwapWithFn(selectedForSwap, id);
+    };
+
+    const swapPlayer = selectedForSwap ? picked.find((p) => p.id === selectedForSwap) : null;
 
     return (
       <div className="space-y-0 rounded-2xl overflow-hidden">
+        {/* Swap Mode Banner */}
+        {swapPlayer && (
+          <div className="flex items-center justify-between bg-amber-500 px-4 py-3">
+            <div className="flex items-center gap-2 text-white">
+              <ArrowUpDown className="h-4 w-4" />
+              <div>
+                <div className="text-sm font-bold">Swapping {shortName(swapPlayer.name, swapPlayer.webName)}</div>
+                <div className="text-[10px] text-white/70">Tap a valid player to complete</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectForSwap(null)}
+              className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/30"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         {/* Pitch View */}
         <div
           style={{
@@ -1799,7 +2049,12 @@ export default function PickTeamPage() {
             <div style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
               {g.Goalkeepers.length > 0 ? (
                 g.Goalkeepers.map((p) => (
-                  <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+                  <div key={p.id} className={cn(
+                    "rounded-lg p-1 transition-all duration-200",
+                    isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500",
+                    isValidTarget(p.id) && "ring-2 ring-emerald-400 bg-emerald-400/20",
+                    isDimmed(p.id) && "opacity-30",
+                  )}>
                     <PitchPlayerCard
                       player={p}
                       onToggle={() => handlePlayerTap(p.id)}
@@ -1817,7 +2072,12 @@ export default function PickTeamPage() {
           {/* DEF Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
             {g.Defenders.map((p) => (
-              <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+              <div key={p.id} className={cn(
+                "rounded-lg p-1 transition-all duration-200",
+                isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500",
+                isValidTarget(p.id) && "ring-2 ring-emerald-400 bg-emerald-400/20",
+                isDimmed(p.id) && "opacity-30",
+              )}>
                 <PitchPlayerCard
                   player={p}
                   onToggle={() => handlePlayerTap(p.id)}
@@ -1837,7 +2097,12 @@ export default function PickTeamPage() {
           {/* MID Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
             {g.Midfielders.map((p) => (
-              <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+              <div key={p.id} className={cn(
+                "rounded-lg p-1 transition-all duration-200",
+                isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500",
+                isValidTarget(p.id) && "ring-2 ring-emerald-400 bg-emerald-400/20",
+                isDimmed(p.id) && "opacity-30",
+              )}>
                 <PitchPlayerCard
                   player={p}
                   onToggle={() => handlePlayerTap(p.id)}
@@ -1858,7 +2123,12 @@ export default function PickTeamPage() {
           {/* FWD Row */}
           <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 0 4px", position: "relative", zIndex: 1 }}>
             {g.Forwards.map((p) => (
-              <div key={p.id} className={cn("rounded-lg p-1", isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500")}>
+              <div key={p.id} className={cn(
+                "rounded-lg p-1 transition-all duration-200",
+                isSelected(p.id) && "bg-amber-400/50 ring-2 ring-amber-500",
+                isValidTarget(p.id) && "ring-2 ring-emerald-400 bg-emerald-400/20",
+                isDimmed(p.id) && "opacity-30",
+              )}>
                 <PitchPlayerCard
                   player={p}
                   onToggle={() => handlePlayerTap(p.id)}
@@ -1912,13 +2182,14 @@ export default function PickTeamPage() {
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
-                        background: selected ? "#fef3c7" : "#fff",
+                        background: selected ? "#fef3c7" : isValidTarget(p.id) ? "rgba(52,211,153,0.15)" : "#fff",
                         borderRadius: 8,
                         padding: "10px 14px",
-                        border: selected ? "2px solid #f59e0b" : "1px solid #e0e0e0",
-                        cursor: "pointer",
+                        border: selected ? "2px solid #f59e0b" : isValidTarget(p.id) ? "2px solid #34d399" : "1px solid #e0e0e0",
+                        cursor: isDimmed(p.id) ? "not-allowed" : "pointer",
                         transition: "all 0.2s",
                         boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                        opacity: isDimmed(p.id) ? 0.3 : 1,
                       }}
                     >
                       <div
@@ -2177,11 +2448,18 @@ export default function PickTeamPage() {
           <PickPitch
             picked={picked}
             startingIds={startingIds}
-            onSwapPlayers={swapPlayers}
+            onSwapPlayers={(id1, id2) => {
+              const ok = swapPlayers(id1, id2);
+              if (ok) {
+                toast({ description: "Swap completed" });
+              }
+            }}
             captainId={captainId}
             viceId={viceId}
             selectedForSwap={selectedForSwap}
             onSelectForSwap={setSelectedForSwap}
+            onOpenSheet={(player) => setSheetPlayer(player)}
+            canSwapWithFn={canSwapWith}
           />
         </div>
       )}
@@ -2505,6 +2783,30 @@ export default function PickTeamPage() {
           }}
         />
       )}
+
+      {/* Player Info Bottom Sheet (pitch tap) */}
+      {sheetPlayer && (
+        <PlayerInfoSheet
+          player={sheetPlayer}
+          open={!!sheetPlayer}
+          onOpenChange={(open) => { if (!open) setSheetPlayer(null); }}
+          isCaptain={captainId === sheetPlayer.id}
+          isVice={viceId === sheetPlayer.id}
+          isStarting={startingIds.includes(sheetPlayer.id)}
+          onSetCaptain={() => {
+            setCaptain(sheetPlayer.id);
+          }}
+          onSetVice={() => {
+            setVice(sheetPlayer.id);
+          }}
+          onSubstitute={() => {
+            setSelectedForSwap(sheetPlayer.id);
+            setSheetPlayer(null);
+          }}
+        />
+      )}
+
+      <Toaster />
 
       {/* Compare Players Modal */}
       {compareMode && comparePlayerIds.length >= 1 && (

@@ -8,54 +8,54 @@ export const revalidate = 0;
 export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
-  // 1) Current gameweek (admin flag)
-  const { data: flaggedCurrent, error } = await supabase
+  // Load all gameweeks so we can apply FPL-like selection logic safely.
+  const { data: gameweeks, error } = await supabase
     .from("gameweeks")
-    .select("id, name, deadline_time, finalized, is_current")
-    .eq("is_current", true)
-    .maybeSingle();
+    .select("*")
+    .order("id", { ascending: true });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // 2) Earliest open gameweek (not finalized)
-  const { data: earliestOpen, error: openErr } = await supabase
-    .from("gameweeks")
-    .select("id, name, deadline_time, finalized, is_current")
-    .or("finalized.is.false,finalized.is.null")
-    .order("id", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const gws = (gameweeks ?? []) as any[];
+  const now = Date.now();
 
-  if (openErr) {
-    return NextResponse.json({ error: openErr.message }, { status: 500 });
-  }
+  const getDeadlineMs = (gw: any) => {
+    const ts = gw?.deadline_time ? new Date(gw.deadline_time).getTime() : NaN;
+    return Number.isFinite(ts) ? ts : NaN;
+  };
 
-  // Prefer the earliest open gameweek if it's ahead of or missing from the flag
-  let current = flaggedCurrent ?? null;
-  if (earliestOpen) {
-    if (!current) current = earliestOpen;
-    else if (current.finalized) current = earliestOpen;
-    else if (earliestOpen.id < current.id) current = earliestOpen;
-  }
+  const isFinished = (gw: any) =>
+    Boolean(gw?.finalized ?? gw?.is_finished ?? gw?.is_final ?? false);
+
+  const isStarted = (gw: any) =>
+    Boolean(gw?.is_started ?? (Number.isFinite(getDeadlineMs(gw)) && getDeadlineMs(gw) <= now));
+
+  const flaggedCurrent = gws.find((g) => g?.is_current === true) ?? null;
+  const flaggedNext = gws.find((g) => g?.is_next === true) ?? null;
+
+  // Current (FPL-like):
+  // 1) explicit is_current flag
+  // 2) latest started and not finished
+  // 3) earliest not finished
+  // 4) fallback to last by id
+  let current =
+    flaggedCurrent ??
+    [...gws]
+      .filter((g) => isStarted(g) && !isFinished(g))
+      .sort((a, b) => (getDeadlineMs(b) || b.id) - (getDeadlineMs(a) || a.id))[0] ??
+    gws.find((g) => !isFinished(g)) ??
+    (gws.length > 0 ? gws[gws.length - 1] : null);
 
   // 3) Next gameweek
   const currentId = current?.id ?? null;
-
-  const nextQuery = supabase
-    .from("gameweeks")
-    .select("id, name, deadline_time, finalized, is_current")
-    .order("id", { ascending: true })
-    .limit(1);
-
-  const { data: next, error: nextErr } = currentId
-    ? await nextQuery.gt("id", currentId).maybeSingle()
-    : await nextQuery.maybeSingle();
-
-  if (nextErr) {
-    return NextResponse.json({ error: nextErr.message }, { status: 500 });
-  }
+  let next =
+    (flaggedNext && flaggedNext?.id !== currentId ? flaggedNext : null) ??
+    (currentId
+      ? gws.find((g) => Number(g.id) > Number(currentId))
+      : gws.find((g) => !isFinished(g))) ??
+    null;
 
   return NextResponse.json({
     current: current ?? null,

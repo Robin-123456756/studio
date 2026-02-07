@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const teamId = url.searchParams.get("team_id");
     const idsParam = url.searchParams.get("ids");
+    const dynamicPoints = url.searchParams.get("dynamic_points") === "1";
 
     let query = supabase
       .from("players")
@@ -67,19 +68,49 @@ export async function GET(req: Request) {
       );
     }
 
-    const players = (data ?? []).map((p: any) => ({
-      id: p.id,
-      name: p.name ?? p.web_name ?? "—", // ✅ full name first
-      webName: p.web_name ?? null,
-      position: p.position,
-      price: p.now_cost ?? null,
-      points: p.total_points ?? null,
-      avatarUrl: p.avatar_url ?? null,
-      isLady: p.is_lady ?? null,
-      teamId: p.team_id,
-      teamName: p.teams?.name ?? "—",
-      teamShort: p.teams?.short_name ?? "—",
-    }));
+    // Optionally compute dynamic total_points from player_stats
+    let totalsMap = new Map<string, { points: number; goals: number; assists: number; appearances: number }>();
+    if (dynamicPoints) {
+      const playerIds = (data ?? []).map((p: any) => p.id);
+      if (playerIds.length > 0) {
+        const { data: statsData } = await supabase
+          .from("player_stats")
+          .select("player_id, points, goals, assists")
+          .in("player_id", playerIds);
+
+        for (const s of statsData ?? []) {
+          const pid = s.player_id;
+          const existing = totalsMap.get(pid) ?? { points: 0, goals: 0, assists: 0, appearances: 0 };
+          existing.points += s.points ?? 0;
+          existing.goals += s.goals ?? 0;
+          existing.assists += s.assists ?? 0;
+          existing.appearances += 1;
+          totalsMap.set(pid, existing);
+        }
+      }
+    }
+
+    const players = (data ?? []).map((p: any) => {
+      const totals = dynamicPoints ? totalsMap.get(p.id) : null;
+      return {
+        id: p.id,
+        name: p.name ?? p.web_name ?? "—",
+        webName: p.web_name ?? null,
+        position: p.position,
+        price: p.now_cost ?? null,
+        points: totals ? totals.points : (p.total_points ?? null),
+        avatarUrl: p.avatar_url ?? null,
+        isLady: p.is_lady ?? null,
+        teamId: p.team_id,
+        teamName: p.teams?.name ?? "—",
+        teamShort: p.teams?.short_name ?? "—",
+        ...(totals ? {
+          totalGoals: totals.goals,
+          totalAssists: totals.assists,
+          appearances: totals.appearances,
+        } : {}),
+      };
+    });
 
     return NextResponse.json({ players });
   } catch (e: any) {

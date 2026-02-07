@@ -32,8 +32,8 @@ export async function GET(req: Request) {
       .from("matches")
       .select(`
         id,gameweek_id,kickoff_time,home_goals,away_goals,is_played,is_final,
-        home_team:teams!matches_home_team_uuid_fkey(team_uuid,name,short_name,logo_url),
-        away_team:teams!matches_away_team_uuid_fkey(team_uuid,name,short_name,logo_url)
+        home_team:teams!matches_home_team_uid_fkey(team_uuid,name,short_name,logo_url),
+        away_team:teams!matches_away_team_uid_fkey(team_uuid,name,short_name,logo_url)
       `)
       .order("kickoff_time", { ascending: false })
       .limit(10);
