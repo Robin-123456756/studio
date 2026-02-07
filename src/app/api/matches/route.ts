@@ -34,21 +34,8 @@ export async function GET(req: Request) {
         away_goals,
         is_played,
         is_final,
-        home_team_uuid:home_team_uid,
-        away_team_uuid:away_team_uid,
-
-        home_team:teams!matches_home_team_uid_fkey (
-          team_uuid,
-          name,
-          short_name,
-          logo_url
-        ),
-        away_team:teams!matches_away_team_uid_fkey (
-          team_uuid,
-          name,
-          short_name,
-          logo_url
-        )
+        home_team_uid,
+        away_team_uid
       `
       )
       .eq("gameweek_id", gwId)
@@ -68,39 +55,53 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message, details: error }, { status: 500 });
     }
 
-    // Optionally fetch player_stats for enrichment
-    let statsMap = new Map<string, any[]>(); // key: "home" or "away" side per match
+    // Optionally fetch player_stats for enrichment (separate queries, no FK joins)
+    let statsMap = new Map<string, any[]>();
     if (enrich) {
+      // Fetch flat player_stats for this gameweek
       const { data: statsData } = await supabase
         .from("player_stats")
-        .select(
-          `
-          gameweek_id,
-          player_id,
-          goals,
-          assists,
-          yellow_cards,
-          red_cards,
-          own_goals,
-          player_name,
-          players:player_id (
-            name,
-            web_name,
-            is_lady,
-            team_id,
-            teams:teams!players_team_id_fkey ( team_uuid )
-          )
-        `
-        )
+        .select("player_id, goals, assists, yellow_cards, red_cards, own_goals, player_name")
         .eq("gameweek_id", gwId);
 
-      // Group stats by team_uuid for easy lookup
+      // Fetch players to get team_id and is_lady
+      const statPlayerIds = [...new Set((statsData ?? []).map((s: any) => s.player_id))];
+      const playersLookup = new Map<string, any>();
+
+      if (statPlayerIds.length > 0) {
+        const { data: playersData } = await supabase
+          .from("players")
+          .select("id, name, is_lady, team_id")
+          .in("id", statPlayerIds);
+
+        // Fetch teams to map team_id → team_uuid
+        const teamIds = [...new Set((playersData ?? []).map((p: any) => p.team_id).filter(Boolean))];
+        const teamIdToUuid = new Map<number, string>();
+
+        if (teamIds.length > 0) {
+          const { data: teamsData } = await supabase
+            .from("teams")
+            .select("id, team_uuid")
+            .in("id", teamIds);
+
+          for (const t of teamsData ?? []) {
+            teamIdToUuid.set(t.id, t.team_uuid);
+          }
+        }
+
+        for (const p of playersData ?? []) {
+          playersLookup.set(p.id, { ...p, teamUuid: teamIdToUuid.get(p.team_id) ?? null });
+        }
+      }
+
+      // Group stats by team_uuid
       const statsByTeam = new Map<string, any[]>();
       for (const s of statsData ?? []) {
-        const teamUuid = (s as any).players?.teams?.team_uuid;
-        if (!teamUuid) continue;
-        if (!statsByTeam.has(teamUuid)) statsByTeam.set(teamUuid, []);
-        statsByTeam.get(teamUuid)!.push(s);
+        const player = playersLookup.get(s.player_id);
+        const tUuid = player?.teamUuid;
+        if (!tUuid) continue;
+        if (!statsByTeam.has(tUuid)) statsByTeam.set(tUuid, []);
+        statsByTeam.get(tUuid)!.push({ ...s, _player: player });
       }
       statsMap = statsByTeam;
     }
@@ -109,14 +110,14 @@ export async function GET(req: Request) {
       return teamStats
         .filter((s: any) => s.goals > 0 || s.assists > 0 || s.yellow_cards > 0 || s.red_cards > 0 || s.own_goals > 0)
         .map((s: any) => ({
-          playerName: s.player_name ?? s.players?.name ?? "—",
+          playerName: s.player_name ?? s._player?.name ?? "—",
           playerId: s.player_id,
           goals: s.goals ?? 0,
           assists: s.assists ?? 0,
           yellowCards: s.yellow_cards ?? 0,
           redCards: s.red_cards ?? 0,
           ownGoals: s.own_goals ?? 0,
-          isLady: s.players?.is_lady ?? false,
+          isLady: s._player?.is_lady ?? false,
         }));
     }
 

@@ -23,10 +23,10 @@ const ruleSections: RuleSection[] = [
     ],
   },
   {
-    title: "Starting 9 Rules",
+    title: "Starting 10 Rules",
     icon: <Zap className="h-5 w-5" />,
     rules: [
-      "Your starting lineup must contain exactly 9 players",
+      "Your starting lineup must contain exactly 10 players",
       "Exactly 1 Goalkeeper must start",
       "Formation rules: 2–3 DEF, 3–4 MID, 2–3 FWD",
       "Lady forward is optional (if you field her, your team earns +1 LP in the table)",
@@ -37,7 +37,7 @@ const ruleSections: RuleSection[] = [
     title: "Captain & Vice-Captain",
     icon: <Trophy className="h-5 w-5" />,
     rules: [
-      "You must select a Captain and a Vice-Captain from your Starting 9",
+      "You must select a Captain and a Vice-Captain from your Starting 10",
       "Your Captain's points are doubled each gameweek",
       "If your Captain doesn't play, the Vice-Captain's points are doubled instead",
       "Captain and Vice-Captain must be different players",

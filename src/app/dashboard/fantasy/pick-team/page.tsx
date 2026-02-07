@@ -832,11 +832,11 @@ export default function PickTeamPage() {
     if (!ladyFwd) return [];
 
     const formations = [
-      { def: 2, mid: 5, fwd: 1 },
-      { def: 2, mid: 4, fwd: 2 },
-      { def: 2, mid: 3, fwd: 3 },
-      { def: 3, mid: 4, fwd: 1 },
-      { def: 3, mid: 3, fwd: 2 },
+      { gk:1, def: 2, mid: 5, fwd: 1 },
+      { gk:1, def: 2, mid: 4, fwd: 2 },
+      { gk:1, def: 2, mid: 3, fwd: 3 },
+      { gk:1, def: 3, mid: 4, fwd: 1 },
+      { gk:1, def: 3, mid: 3, fwd: 2 },
     ];
 
     let best: Player[] = [];

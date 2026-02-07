@@ -111,27 +111,51 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: matchesErr.message }, { status: 500 });
     }
 
-    // Fetch player_stats joined with players for lady detection
+    // Fetch player_stats (flat, no FK joins) for lady detection
     const { data: playerStats } = await supabase
       .from("player_stats")
-      .select(
-        `
-        gameweek_id,
-        player_id,
-        players:player_id (
-          is_lady,
-          team_id,
-          teams:teams!players_team_id_fkey ( team_uuid )
-        )
-      `
-      );
+      .select("gameweek_id, player_id");
+
+    // Fetch players to check is_lady + get team_id
+    const statPlayerIds = [...new Set((playerStats ?? []).map((s: any) => s.player_id))];
+    // Map player_id → { isLady, teamUuid }
+    const playerLadyLookup = new Map<string, { isLady: boolean; teamUuid: string | null }>();
+
+    if (statPlayerIds.length > 0) {
+      const { data: playersData } = await supabase
+        .from("players")
+        .select("id, is_lady, team_id")
+        .in("id", statPlayerIds);
+
+      // Fetch teams to map team_id → team_uuid
+      const teamIds = [...new Set((playersData ?? []).map((p: any) => p.team_id).filter(Boolean))];
+      const teamIdToUuid = new Map<number, string>();
+
+      if (teamIds.length > 0) {
+        const { data: teamsData } = await supabase
+          .from("teams")
+          .select("id, team_uuid")
+          .in("id", teamIds);
+
+        for (const t of teamsData ?? []) {
+          teamIdToUuid.set(t.id, t.team_uuid);
+        }
+      }
+
+      for (const p of playersData ?? []) {
+        playerLadyLookup.set(p.id, {
+          isLady: p.is_lady ?? false,
+          teamUuid: teamIdToUuid.get(p.team_id) ?? null,
+        });
+      }
+    }
 
     // Build lookup: Set<"gwId:teamUuid"> where a lady player has stats
     const ladyPlayedSet = new Set<string>();
     for (const s of playerStats ?? []) {
-      const p = (s as any).players;
-      if (p?.is_lady && p?.teams?.team_uuid) {
-        ladyPlayedSet.add(`${s.gameweek_id}:${p.teams.team_uuid}`);
+      const p = playerLadyLookup.get(s.player_id);
+      if (p?.isLady && p.teamUuid) {
+        ladyPlayedSet.add(`${s.gameweek_id}:${p.teamUuid}`);
       }
     }
 
