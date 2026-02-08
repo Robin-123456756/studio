@@ -21,18 +21,15 @@ export default function Header() {
             href="/dashboard"
             className="group flex items-center gap-3 rounded-2xl p-2 -ml-2 hover:bg-muted/60 transition-colors"
           >
-            <div className="h-11 w-11 rounded-2xl bg-white ring-1 ring-border shadow-sm overflow-hidden grid place-items-center">
-              <img
-                src="/icon.png"
-                alt="Budo League"
-                className="h-8 w-auto object-contain scale-[1.4]"
-                style={{ transformOrigin: "center" }}
-              />
-            </div>
+            <img
+              src="/icon.png"
+              alt="Budo League"
+              className="h-14 w-14 object-contain"
+            />
 
             <div className="min-w-0">
               <div className="text-base font-semibold tracking-tight font-headline">
-                The Budo League
+                The <span className="text-primary">Budo</span> League
               </div>
             </div>
           </Link>

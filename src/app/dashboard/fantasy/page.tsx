@@ -260,11 +260,15 @@ function FantasyPage() {
     totalPoints: number | null;
     overallRank: number | null;
     gwRank: number | null;
+    avgPoints: number | null;
+    highestPoints: number | null;
   }>({
     gwPoints: null,
     totalPoints: null,
     overallRank: null,
     gwRank: null,
+    avgPoints: null,
+    highestPoints: null,
   });
   const [statsLoading, setStatsLoading] = React.useState(true);
   const [statsError, setStatsError] = React.useState<string | null>(null);
@@ -349,11 +353,34 @@ function FantasyPage() {
         // Ignore if the table/columns aren't available yet.
       }
 
+      // Fetch all fantasy teams for average & highest
+      let avgPoints: number | null = null;
+      let highestPoints: number | null = null;
+      try {
+        const { data: allTeams } = await supabase
+          .from("fantasy_teams")
+          .select("user_id, total_points, points");
+        if (allTeams && allTeams.length > 0) {
+          const otherPts = allTeams
+            .filter((t: any) => t.user_id !== userId)
+            .map((t: any) => Number(t.total_points ?? t.points ?? 0))
+            .filter((n: number) => Number.isFinite(n));
+          if (otherPts.length > 0) {
+            avgPoints = Math.round(otherPts.reduce((a: number, b: number) => a + b, 0) / otherPts.length);
+            highestPoints = Math.max(...otherPts);
+          }
+        }
+      } catch {
+        // Ignore if table unavailable
+      }
+
       setStats({
         gwPoints,
         totalPoints,
         overallRank,
         gwRank,
+        avgPoints,
+        highestPoints,
       });
     } catch (e: any) {
       setStatsError(e?.message || "Failed to load stats");
@@ -369,8 +396,8 @@ function FantasyPage() {
   }, [loadStats]);
 
   const gwPointsValue = statsLoading ? "--" : stats.gwPoints ?? "--";
-  const totalPointsValue = statsLoading ? "--" : stats.totalPoints ?? myFantasyTeam.points ?? "--";
-  const overallRankValue = statsLoading ? "--" : stats.overallRank ?? myFantasyTeam.rank ?? "--";
+  const avgPointsValue = statsLoading ? "--" : stats.avgPoints ?? "--";
+  const highestPointsValue = statsLoading ? "--" : stats.highestPoints ?? "--";
 
   const deadlinePillClass =
     deadlineCountdown.tone === "critical"
@@ -386,7 +413,7 @@ function FantasyPage() {
   return (
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
       <div className="space-y-4 px-4 pt-4">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/80 to-accent text-primary-foreground">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-700 via-red-600 to-red-800 text-primary-foreground">
           <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary-foreground/10" />
           <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-primary-foreground/10" />
 
@@ -440,10 +467,10 @@ function FantasyPage() {
           <div className="flex items-end justify-center gap-0 px-5 pb-4 pt-2">
             <div className="flex-1 text-center">
               <div className="text-2xl font-bold text-primary-foreground/80 tabular-nums">
-                {totalPointsValue}
+                {avgPointsValue}
               </div>
               <div className="mt-1 text-[11px] font-semibold text-primary-foreground/60">
-                Total
+                Average
               </div>
             </div>
 
@@ -459,10 +486,10 @@ function FantasyPage() {
 
             <div className="flex-1 text-center">
               <div className="text-2xl font-bold text-primary-foreground/80 tabular-nums">
-                {overallRankValue}
+                {highestPointsValue}
               </div>
               <div className="mt-1 text-[11px] font-semibold text-primary-foreground/60">
-                Overall
+                Highest
               </div>
             </div>
           </div>
