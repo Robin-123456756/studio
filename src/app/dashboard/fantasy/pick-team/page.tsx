@@ -1158,40 +1158,28 @@ export default function PickTeamPage() {
 
   setStartingIds((prev) => {
     const has = prev.includes(id);
-
-    // helper counts based on prev (fresh)
-    const ps = prev.map((pid) => playerById.get(pid)).filter(Boolean) as Player[];
-    const countPos = (pos: string) => ps.filter((p) => normalizePosition(p.position) === pos).length;
-
-    const GK = countPos("Goalkeeper");
-    const DEF = countPos("Defender");
-    const MID = countPos("Midfielder");
-    const FWD = countPos("Forward");
-    const ladyFwd = ps.filter((p) => p.isLady && normalizePosition(p.position) === "Forward").length;
-
     const pos = normalizePosition(player.position);
 
-    // ---- LADY RULE (FIX) ----
+    // --- LADY RULE (fix) ---
     if (player.isLady) {
-      // must be forward
       if (pos !== "Forward") {
         setMsg("Lady players can only start as forwards.");
         return prev;
       }
 
-      // block removing a starting lady
+      // don’t allow removing lady from starting
       if (has) {
-        setMsg("Lady forward must stay in Starting 10. Use swap to change lady.");
+        setMsg("Lady forward must stay in Starting 10. Use swap to change the lady.");
         return prev;
       }
 
       // only 1 lady forward in starting
-      if (ladyFwd >= 1) {
-        setMsg("Only 1 lady forward can be in the starting 10.");
+      const c0 = getStartingCounts(prev);
+      if (c0.ladyFwd >= 1) {
+        setMsg("Starting lineup must include exactly 1 lady forward.");
         return prev;
       }
 
-      // must have space
       if (prev.length >= 10) {
         setMsg("Starting lineup is only 10 players.");
         return prev;
@@ -1206,47 +1194,40 @@ export default function PickTeamPage() {
       return next;
     }
 
-    // ---- GK RULE ----
-    if (pos === "Goalkeeper") {
-      // can't start 2 GKs
-      if (!has && GK >= 1) {
-        setMsg("Only one goalkeeper can start.");
-        return prev;
-      }
-
-      // allow removing GK (lineup can be incomplete while editing)
-      if (has) return prev.filter((x) => x !== id);
-    }
-
-    // ---- NORMAL TOGGLE (MEN) ----
+    // remove (male or GK) — allow while editing
     if (has) {
-      // allow removing any male while editing; formation is enforced when lineup reaches 10
       return prev.filter((x) => x !== id);
     }
 
-    // adding
+    // add
     if (prev.length >= 10) {
       setMsg("Starting lineup is only 10 players.");
       return prev;
     }
 
-    // upper limits while adding
-    if (pos === "Defender" && DEF >= 3) {
+    // use fresh counts from prev
+    const c = getStartingCounts(prev);
+
+    if (pos === "Goalkeeper" && c.GK >= 1) {
+      setMsg("Only one goalkeeper can start.");
+      return prev;
+    }
+    if (pos === "Defender" && c.DEF >= 3) {
       setMsg("Defenders are limited to 3.");
       return prev;
     }
-    if (pos === "Midfielder" && MID >= 5) {
+    if (pos === "Midfielder" && c.MID >= 5) {
       setMsg("Midfielders are limited to 5.");
       return prev;
     }
-    if (pos === "Forward" && FWD >= 3) {
+    if (pos === "Forward" && c.FWD >= 3) {
       setMsg("Forwards are limited to 3 (including the lady).");
       return prev;
     }
 
     const next = [...prev, id];
 
-    // validate ONLY when we hit 10 players
+    // only enforce full rules when lineup hits 10
     const err = validateStarting10(next);
     if (err) {
       setMsg(err);

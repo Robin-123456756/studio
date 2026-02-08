@@ -419,7 +419,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-     /* {/* Recent Results */}
+       {/* Recent Results */}
       <Card className="rounded-3xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-headline">
