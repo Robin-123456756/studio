@@ -402,20 +402,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-3xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-headline">
-                League rules
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <div>Rotational subs are allowed.</div>
-              <div>Matches run for 60 minutes.</div>
-              <div>Lady forward is optional.</div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+         
 
        {/* Recent Results */}
       <Card className="rounded-3xl">

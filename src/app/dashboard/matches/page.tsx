@@ -34,6 +34,17 @@ type ApiTeam = {
   logo_url: string | null;
 };
 
+type MatchEvent = {
+  playerName: string;
+  playerId: string;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+  ownGoals: number;
+  isLady: boolean;
+};
+
 type ApiMatch = {
   id: number;
   gameweek_id: number;
@@ -46,6 +57,8 @@ type ApiMatch = {
   away_team_uuid: string;
   home_team: ApiTeam | null;
   away_team: ApiTeam | null;
+  home_events?: MatchEvent[];
+  away_events?: MatchEvent[];
 };
 
 type UiTeam = { id: string; name: string; logoUrl: string };
@@ -60,6 +73,8 @@ type UiGame = {
   score1?: number | null;
   score2?: number | null;
   isFinal?: boolean;
+  homeEvents?: MatchEvent[];
+  awayEvents?: MatchEvent[];
 };
 
 type StandingsRow = {
@@ -170,6 +185,8 @@ function mapApiMatchToUi(m: ApiMatch): UiGame {
     score1: m.home_goals,
     score2: m.away_goals,
     isFinal: m.is_final,
+    homeEvents: m.home_events,
+    awayEvents: m.away_events,
   };
 }
 
@@ -183,6 +200,12 @@ function posBarClass(pos: number) {
 
 function MatchRow({ g }: { g: UiGame }) {
   const showScore = g.status === "completed";
+
+  const homeGoals = g.homeEvents?.filter((e) => e.goals > 0) ?? [];
+  const awayGoals = g.awayEvents?.filter((e) => e.goals > 0) ?? [];
+  const homeAssists = g.homeEvents?.filter((e) => e.assists > 0) ?? [];
+  const awayAssists = g.awayEvents?.filter((e) => e.assists > 0) ?? [];
+  const hasEvents = homeGoals.length > 0 || awayGoals.length > 0;
 
   return (
     <div className="py-4">
@@ -236,6 +259,37 @@ function MatchRow({ g }: { g: UiGame }) {
           </div>
         </div>
       </div>
+
+      {/* Goal scorers & assists */}
+      {showScore && hasEvents && (
+        <div className="mt-2 grid grid-cols-[1fr_72px_1fr] gap-x-3 text-[11px] text-muted-foreground">
+          <div className="text-right space-y-0.5">
+            {homeGoals.map((e) => (
+              <div key={e.playerId}>
+                {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
+              </div>
+            ))}
+            {homeAssists.map((e) => (
+              <div key={e.playerId + "-a"} className="text-[10px] italic">
+                {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
+              </div>
+            ))}
+          </div>
+          <div />
+          <div className="space-y-0.5">
+            {awayGoals.map((e) => (
+              <div key={e.playerId}>
+                {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
+              </div>
+            ))}
+            {awayAssists.map((e) => (
+              <div key={e.playerId + "-a"} className="text-[10px] italic">
+                {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -314,7 +368,7 @@ export default function MatchesPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/matches?gw_id=${gwId}`, { cache: "no-store" });
+        const res = await fetch(`/api/matches?gw_id=${gwId}&enrich=1`, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load matches");
 
