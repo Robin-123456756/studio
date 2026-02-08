@@ -345,13 +345,12 @@ export default function MatchesPage() {
     })();
   }, []);
 
-  // Fetch player stats for current GW
+  // Fetch player stats across ALL gameweeks (cumulative top scorers / assists)
   React.useEffect(() => {
-    if (!gwId) return;
     (async () => {
       try {
         setStatsLoading(true);
-        const res = await fetch(`/api/player-stats?gw_id=${gwId}`, { cache: "no-store" });
+        const res = await fetch("/api/player-stats", { cache: "no-store" });
         const json = await res.json();
         if (res.ok) setStatsData(json.stats ?? []);
       } catch {
@@ -360,7 +359,7 @@ export default function MatchesPage() {
         setStatsLoading(false);
       }
     })();
-  }, [gwId]);
+  }, []);
 
   const activeGw = allGws.find((g) => g.id === gwId);
   const activeName = activeGw?.name ?? (gwId ? `Match day ${gwId}` : "Match day —");

@@ -310,12 +310,7 @@ export default function DashboardPage() {
 
             {table.length > 4 && !loading && (
               <div className="pt-3 px-2 space-y-2">
-                {!expanded && (
-                  <p className="text-xs text-muted-foreground">
-                    Showing the top 4 teams. Expand for the full table.
-                  </p>
-                )}
-
+                
                 <Button
                   variant="outline"
                   size="sm"
