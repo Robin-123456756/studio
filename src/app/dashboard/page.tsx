@@ -173,10 +173,7 @@ export default function DashboardPage() {
             <h1 className="text-3xl sm:text-4xl font-headline font-semibold tracking-tight">
               The Budo League
             </h1>
-            <p className="text-sm text-muted-foreground max-w-xl">
-              A Sunday league built for budonians. Clear stats, simple choices,
-              and match coverage that respects how your league actually runs.
-            </p>
+            
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -422,7 +419,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Results */}
+     /* {/* Recent Results */}
       <Card className="rounded-3xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-headline">
