@@ -104,7 +104,7 @@ export default function DashboardPage() {
         // 1. Fetch teams + standings + gameweeks in parallel
         const [teamsRes, standingsRes, gwRes] = await Promise.all([
           fetch("/api/teams", { cache: "no-store" }),
-          fetch("/api/standings?from_gw=1&to_gw=2", { cache: "no-store" }),
+          fetch("/api/standings", { cache: "no-store" }),
           fetch("/api/gameweeks/current", { cache: "no-store" }),
         ]);
 
@@ -116,37 +116,35 @@ export default function DashboardPage() {
         setTable((standingsJson.rows ?? []) as Row[]);
 
         const currentGwId = gwJson.current?.id;
-        const nextGwId = gwJson.next?.id;
+        const allGws: number[] = (gwJson.all ?? []).map((g: any) => g.id);
 
-        // 2. Fetch played matches (enriched) + upcoming matches in parallel
-        const matchFetches: Promise<Response>[] = [];
+        // Recent: fetch played matches from all gameweeks up to current
+        const gwsToFetchPlayed = allGws.filter((id: number) => id <= (currentGwId ?? 0));
+        const recentFetches = gwsToFetchPlayed.map((gwId: number) =>
+          fetch(`/api/matches?gw_id=${gwId}&played=1&enrich=1`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((j) => j.matches ?? [])
+            .catch(() => [])
+        );
 
+        // Upcoming: current GW unplayed matches
+        let upcomingFetch: Promise<any[]>;
         if (currentGwId) {
-          matchFetches.push(
-            fetch(`/api/matches?gw_id=${currentGwId}&played=1&enrich=1`, { cache: "no-store" })
-          );
+          upcomingFetch = fetch(`/api/matches?gw_id=${currentGwId}&played=0`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((j) => j.matches ?? [])
+            .catch(() => []);
         } else {
-          matchFetches.push(Promise.resolve(new Response(JSON.stringify({ matches: [] }))));
+          upcomingFetch = Promise.resolve([]);
         }
 
-        if (nextGwId) {
-          matchFetches.push(
-            fetch(`/api/matches?gw_id=${nextGwId}&played=0`, { cache: "no-store" })
-          );
-        } else if (currentGwId) {
-          matchFetches.push(
-            fetch(`/api/matches?gw_id=${currentGwId}&played=0`, { cache: "no-store" })
-          );
-        } else {
-          matchFetches.push(Promise.resolve(new Response(JSON.stringify({ matches: [] }))));
-        }
+        const [recentArrays, upcoming] = await Promise.all([
+          Promise.all(recentFetches),
+          upcomingFetch,
+        ]);
 
-        const [recentRes, upcomingRes] = await Promise.all(matchFetches);
-        const recentJson = await recentRes.json();
-        const upcomingJson = await upcomingRes.json();
-
-        setRecentMatches(recentJson.matches ?? []);
-        setUpcomingMatches(upcomingJson.matches ?? []);
+        setRecentMatches(recentArrays.flat());
+        setUpcomingMatches(upcoming);
       } catch (e) {
         console.error("Dashboard load error:", e);
       } finally {

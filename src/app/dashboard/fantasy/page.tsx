@@ -10,6 +10,7 @@ import {
   Minus,
   ChevronRight,
   Users,
+  Shirt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
@@ -413,50 +414,31 @@ function FantasyPage() {
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
       <div className="space-y-4 px-4 pt-4">
         <div
-          className="relative overflow-hidden rounded-3xl text-white"
-          style={{
-            background: "linear-gradient(135deg, #8B2FC9 0%, #37003C 25%, #2D8B6E 60%, #04F5FF 85%, #00FF87 100%)",
-          }}
+          className={cn(
+            "rounded-3xl overflow-hidden",
+            "bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500"
+          )}
         >
-          {/* Abstract swirl decorations */}
-          <div
-            className="pointer-events-none absolute"
-            style={{
-              top: -40, right: -60,
-              width: 280, height: 380,
-              background: "linear-gradient(160deg, transparent 20%, rgba(0,255,135,0.15) 40%, rgba(4,245,255,0.2) 60%, rgba(0,255,135,0.12) 80%)",
-              borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%",
-              transform: "rotate(-15deg)",
-            }}
-          />
-          <div
-            className="pointer-events-none absolute"
-            style={{
-              top: 80, right: -30,
-              width: 200, height: 300,
-              background: "linear-gradient(180deg, rgba(4,245,255,0.08), rgba(0,255,135,0.15))",
-              borderRadius: "60% 40% 30% 70% / 50% 60% 40% 50%",
-              transform: "rotate(25deg)",
-            }}
-          />
-
+          <div className="p-4 text-white">
+          <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={editTeamName}
-            className="mt-4 flex w-full items-center gap-3 px-5 text-left"
+            className="flex items-center gap-3 rounded-2xl bg-white/10 px-3 py-2 hover:bg-white/15 active:bg-white/20"
+            aria-label="Edit team name"
           >
-            <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl border border-white/20 bg-white/10">
-              <span className="text-xs font-bold">{getInitials(teamName)}</span>
-              <span className="text-[9px] font-semibold text-white/60">Team</span>
+            <div className="h-12 w-12 rounded-2xl bg-white/20 grid place-items-center">
+              <Shirt className="h-6 w-6" />
             </div>
 
             <div className="flex-1">
               <div className="text-base font-extrabold">{teamName}</div>
               <div className="mt-1 text-xs text-white/70">{myFantasyTeam.owner}</div>
             </div>
+          </button>
 
             <ChevronRight className="h-5 w-5 text-white/70" />
-          </button>
+          </div>
 
           <div className="mx-auto my-4 h-0.5 w-14 rounded-full bg-white/20" />
 
@@ -532,8 +514,9 @@ function FantasyPage() {
               {statsError}
             </div>
           )}
+          </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-0 border-t border-white/15">
+          <div className="grid grid-cols-2 gap-0 border-t border-white/15 text-white">
             <Link
               href="/dashboard/fantasy/pick-team"
               className="flex flex-col items-center gap-1 border-r border-white/15 py-4 transition hover:bg-white/10"
