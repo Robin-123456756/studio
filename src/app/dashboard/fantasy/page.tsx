@@ -6,8 +6,10 @@ import { myFantasyTeam, fantasyStandings } from "@/lib/data";
 import {
   ArrowDown,
   ArrowUp,
+  ArrowLeftRight,
   Minus,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
@@ -33,8 +35,6 @@ type ApiPlayer = {
   teamShort?: string | null;
   teamName?: string | null;
 };
-
-const topTabs = ["Fantasy", "Challenge", "Draft"] as const;
 
 const menuItems = [
   { label: "Fixtures", href: "/dashboard/schedule" },
@@ -239,7 +239,6 @@ function FantasyPage() {
   }, []);
 
   const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
-  const [activeTab, setActiveTab] = React.useState<(typeof topTabs)[number]>(topTabs[0]);
 
   function editTeamName() {
     const next = window.prompt("Enter your team name:", teamName);
@@ -413,95 +412,96 @@ function FantasyPage() {
   return (
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
       <div className="space-y-4 px-4 pt-4">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-700 via-red-600 to-red-800 text-primary-foreground">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary-foreground/10" />
-          <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-primary-foreground/10" />
-
-          <div className="px-4 pt-4">
-            <div className="flex rounded-full bg-primary-foreground/10 p-1">
-              {topTabs.map((tab) => {
-                const isActive = activeTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className={cn(
-                      "flex-1 rounded-full py-2 text-xs font-semibold transition",
-                      isActive
-                        ? "bg-background text-primary shadow-sm"
-                        : "text-primary-foreground/70"
-                    )}
-                  >
-                    {tab}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        <div
+          className="relative overflow-hidden rounded-3xl text-white"
+          style={{
+            background: "linear-gradient(135deg, #8B2FC9 0%, #37003C 25%, #2D8B6E 60%, #04F5FF 85%, #00FF87 100%)",
+          }}
+        >
+          {/* Abstract swirl decorations */}
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              top: -40, right: -60,
+              width: 280, height: 380,
+              background: "linear-gradient(160deg, transparent 20%, rgba(0,255,135,0.15) 40%, rgba(4,245,255,0.2) 60%, rgba(0,255,135,0.12) 80%)",
+              borderRadius: "40% 60% 70% 30% / 40% 50% 60% 50%",
+              transform: "rotate(-15deg)",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              top: 80, right: -30,
+              width: 200, height: 300,
+              background: "linear-gradient(180deg, rgba(4,245,255,0.08), rgba(0,255,135,0.15))",
+              borderRadius: "60% 40% 30% 70% / 50% 60% 40% 50%",
+              transform: "rotate(25deg)",
+            }}
+          />
 
           <button
             type="button"
             onClick={editTeamName}
             className="mt-4 flex w-full items-center gap-3 px-5 text-left"
           >
-            <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground">
+            <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl border border-white/20 bg-white/10">
               <span className="text-xs font-bold">{getInitials(teamName)}</span>
-              <span className="text-[9px] font-semibold text-primary-foreground/60">Team</span>
+              <span className="text-[9px] font-semibold text-white/60">Team</span>
             </div>
 
             <div className="flex-1">
               <div className="text-base font-extrabold">{teamName}</div>
-              <div className="mt-1 text-xs text-primary-foreground/70">{myFantasyTeam.owner}</div>
+              <div className="mt-1 text-xs text-white/70">{myFantasyTeam.owner}</div>
             </div>
 
-            <ChevronRight className="h-5 w-5 text-primary-foreground/70" />
+            <ChevronRight className="h-5 w-5 text-white/70" />
           </button>
 
-          <div className="mx-auto my-4 h-0.5 w-14 rounded-full bg-primary-foreground/20" />
+          <div className="mx-auto my-4 h-0.5 w-14 rounded-full bg-white/20" />
 
-          <div className="text-center text-xs font-semibold text-primary-foreground/70">
+          <div className="text-center text-xs font-semibold text-white/70">
             {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? "--"}`}
           </div>
 
           <div className="flex items-end justify-center gap-0 px-5 pb-4 pt-2">
             <div className="flex-1 text-center">
-              <div className="text-2xl font-bold text-primary-foreground/80 tabular-nums">
+              <div className="text-2xl font-bold text-white/80 tabular-nums">
                 {avgPointsValue}
               </div>
-              <div className="mt-1 text-[11px] font-semibold text-primary-foreground/60">
+              <div className="mt-1 text-[11px] font-semibold text-white/60">
                 Average
               </div>
             </div>
 
             <div className="flex-[1.2] text-center">
-              <div className="text-4xl font-extrabold text-primary-foreground tabular-nums">
+              <div className="text-4xl font-extrabold tabular-nums">
                 {gwPointsValue}
               </div>
-              <div className="mt-1 flex items-center justify-center gap-1 text-xs font-semibold text-primary-foreground">
+              <div className="mt-1 flex items-center justify-center gap-1 text-xs font-semibold">
                 GW points
-                <ChevronRight className="h-3.5 w-3.5 text-primary-foreground/80" />
+                <ChevronRight className="h-3.5 w-3.5 text-white/80" />
               </div>
             </div>
 
             <div className="flex-1 text-center">
-              <div className="text-2xl font-bold text-primary-foreground/80 tabular-nums">
+              <div className="text-2xl font-bold text-white/80 tabular-nums">
                 {highestPointsValue}
               </div>
-              <div className="mt-1 text-[11px] font-semibold text-primary-foreground/60">
+              <div className="mt-1 text-[11px] font-semibold text-white/60">
                 Highest
               </div>
             </div>
           </div>
 
-          <div className="mx-auto mb-3 h-0.5 w-14 rounded-full bg-primary-foreground/20" />
+          <div className="mx-auto mb-3 h-0.5 w-14 rounded-full bg-white/20" />
 
-          <div className="text-center text-xs font-semibold text-primary-foreground/70">
+          <div className="text-center text-xs font-semibold text-white/70">
             {gwLoading
               ? ""
               : `Gameweek ${nextGW?.id ?? (currentGW?.id ? currentGW.id + 1 : "--")}`}
           </div>
-          <div className="mt-1 text-center text-sm font-bold text-primary-foreground">
+          <div className="mt-1 text-center text-sm font-bold">
             {gwLoading
               ? "Loading..."
               : `Deadline: ${formatDeadlineShort(nextGW?.deadline_time)}`}
@@ -523,28 +523,30 @@ function FantasyPage() {
           )}
 
           {gwError && (
-            <div className="mt-2 text-center text-xs text-primary-foreground/70">
+            <div className="mt-2 text-center text-xs text-white/70">
               {gwError}
             </div>
           )}
           {statsError && (
-            <div className="mt-1 text-center text-xs text-primary-foreground/70">
+            <div className="mt-1 text-center text-xs text-white/70">
               {statsError}
             </div>
           )}
 
-          <div className="mt-4 flex flex-col gap-2 px-5 pb-5">
+          <div className="mt-4 grid grid-cols-2 gap-0 border-t border-white/15">
             <Link
               href="/dashboard/fantasy/pick-team"
-              className="flex items-center justify-center gap-2 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-foreground/20"
+              className="flex flex-col items-center gap-1 border-r border-white/15 py-4 transition hover:bg-white/10"
             >
-              Pick Team
+              <Users className="h-5 w-5" />
+              <span className="text-[11px] font-semibold">Pick Team</span>
             </Link>
             <Link
               href="/dashboard/transfers"
-              className="flex items-center justify-center gap-2 rounded-full border border-primary-foreground/15 bg-primary-foreground/5 px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary-foreground/15"
+              className="flex flex-col items-center gap-1 py-4 transition hover:bg-white/10"
             >
-              Transfers
+              <ArrowLeftRight className="h-5 w-5" />
+              <span className="text-[11px] font-semibold">Transfers</span>
             </Link>
           </div>
         </div>
