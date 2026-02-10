@@ -869,6 +869,10 @@ export default function PickTeamPage() {
     const squad: Player[] = [];
 
     const isGK = (p: Player) => normalizePosition(p.position) === "Goalkeeper";
+    const isDef = (p: Player) => normalizePosition(p.position) === "Defender";
+    const isMid = (p: Player) => normalizePosition(p.position) === "Midfielder";
+    const isMaleFwd = (p: Player) =>
+      !p.isLady && normalizePosition(p.position) === "Forward";
     const isLadyFwd = (p: Player) =>
       p.isLady && normalizePosition(p.position) === "Forward";
     const addUnique = (p?: Player) => {
@@ -876,12 +880,22 @@ export default function PickTeamPage() {
       if (!squad.some((s) => s.id === p.id)) squad.push(p);
     };
 
-    // Ensure required positions
+    // Ensure required positions for valid formations:
+    // Need 2 GK, at least 3 DEF, at least 5 MID, 2 lady FWD, at least 2 male FWD
     for (const p of byPoints) {
       if (isGK(p) && squad.filter(isGK).length < 2) addUnique(p);
     }
     for (const p of byPoints) {
       if (isLadyFwd(p) && squad.filter(isLadyFwd).length < 2) addUnique(p);
+    }
+    for (const p of byPoints) {
+      if (isDef(p) && squad.filter(isDef).length < 3) addUnique(p);
+    }
+    for (const p of byPoints) {
+      if (isMid(p) && squad.filter(isMid).length < 5) addUnique(p);
+    }
+    for (const p of byPoints) {
+      if (isMaleFwd(p) && squad.filter(isMaleFwd).length < 2) addUnique(p);
     }
 
     // Fill remaining slots

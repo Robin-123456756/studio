@@ -13,6 +13,7 @@
     "pwa:assets": "node scripts/generate-pwa-assets.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@genkit-ai/google-genai": "^1.20.0",

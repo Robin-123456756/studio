@@ -92,7 +92,7 @@ export function normalizePosition(pos?: string | null) {
   if (p === "def" || p === "defender" || p === "df") return "Defender";
   if (p === "mid" || p === "midfielder" || p === "mf") return "Midfielder";
   if (p === "fwd" || p === "forward" || p === "fw" || p === "striker") return "Forward";
-  return (pos ?? "Midfielder") as string;
+  return "Midfielder";
 }
 
 export function shortPos(pos?: string | null) {
