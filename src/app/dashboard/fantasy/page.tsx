@@ -413,9 +413,10 @@ function FantasyPage() {
 
   return (
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
+        <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 bg-[#0D5C63]">
         <div
           className={cn(
-            "overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 rounded-b-3xl",
+            "overflow-hidden rounded-3xl",
             "bg-[#0D5C63]"
           )}
         >
@@ -532,6 +533,7 @@ function FantasyPage() {
               <span className="text-[11px] font-semibold">Transfers</span>
             </Link>
           </div>
+        </div>
         </div>
 
       <div className="mt-4 px-4">
