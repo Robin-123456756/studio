@@ -226,12 +226,15 @@ export default function DashboardPage() {
               <CardTitle className="text-base font-headline">
                 League snapshot
               </CardTitle>
-              <Link
-                href="/dashboard/results"
-                className="text-xs font-semibold text-primary hover:underline"
-              >
-                View full standings
-              </Link>
+              {table.length > 8 && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  {expanded ? "Show less" : "View full standings"}
+                </button>
+              )}
             </div>
           </CardHeader>
 
