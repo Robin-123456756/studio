@@ -200,17 +200,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button asChild className="rounded-2xl">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Button asChild className="rounded-2xl w-full">
               <Link href="/dashboard/more/tbl-rules">TBL fantasy rules</Link>
             </Button>
-            <Button asChild variant="outline" className="rounded-2xl">
+            <Button asChild variant="outline" className="rounded-2xl w-full">
               <Link href="/dashboard/fantasy">Open fantasy</Link>
             </Button>
-            <Button asChild variant="outline" className="rounded-2xl">
+            <Button asChild variant="outline" className="rounded-2xl w-full">
               <Link href="/dashboard/explore">Explore teams</Link>
             </Button>
-            <Button asChild className="rounded-2xl">
+            <Button asChild className="rounded-2xl w-full">
               <Link href="/dashboard/matches">Go to matches</Link>
             </Button>
           </div>
