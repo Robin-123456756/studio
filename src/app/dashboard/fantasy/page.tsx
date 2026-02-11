@@ -415,7 +415,7 @@ function FantasyPage() {
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
         <div
           className={cn(
-            "overflow-hidden",
+            "overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 rounded-b-3xl",
             "bg-[#0D5C63]"
           )}
         >
