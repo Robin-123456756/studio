@@ -9,7 +9,9 @@
       "Bash(npx next build:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "WebFetch(domain:icolorpalette.com)",
+      "WebFetch(domain:piktochart.com)"
     ]
   }
 }
