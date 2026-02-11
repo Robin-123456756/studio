@@ -166,11 +166,11 @@ export default function DashboardPage() {
         <div className="space-y-5">
           <div className="flex justify-center">
             <Image
-              src="/icon.png"
+              src="/tbl-logo.png"
               alt="The Budo League"
-              width={96}
-              height={96}
-              className="h-24 w-24 object-contain"
+              width={260}
+              height={120}
+              className="h-auto w-[220px] sm:w-[260px] object-contain"
               priority
             />
           </div>
