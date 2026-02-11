@@ -168,9 +168,9 @@ export default function DashboardPage() {
             <Image
               src="/tbl-logo.png"
               alt="The Budo League"
-              width={260}
-              height={120}
-              className="h-auto w-[220px] sm:w-[260px] object-contain"
+              width={180}
+              height={80}
+              className="h-auto w-[150px] sm:w-[180px] object-contain"
               priority
             />
           </div>
