@@ -162,19 +162,18 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-[28px] border bg-card/80 p-6 shadow-[var(--shadow-2)]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_320px_at_10%_0%,hsl(var(--primary)/0.08),transparent_70%),radial-gradient(900px_320px_at_90%_0%,hsl(var(--foreground)/0.06),transparent_70%)]" />
-        <div className="relative space-y-5">
-          <div className="space-y-2">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
-              Latest overview
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-headline font-semibold tracking-tight">
-              The Budo League
-            </h1>
-            
+      <section className="relative overflow-hidden rounded-[28px] border bg-white p-6 shadow-[var(--shadow-2)]">
+        <div className="space-y-5">
+          <div className="flex justify-center">
+            <Image
+              src="/icon.png"
+              alt="The Budo League"
+              width={96}
+              height={96}
+              className="h-24 w-24 object-contain"
+              priority
+            />
           </div>
-
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border bg-background/70 p-4 shadow-[var(--shadow-1)]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
