@@ -162,7 +162,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-[28px] border bg-white p-6 shadow-[var(--shadow-2)]">
+      <section className="relative overflow-hidden rounded-[28px] border bg-card p-6 shadow-[var(--shadow-2)]">
         <div className="space-y-5">
           <div className="flex justify-center">
             <Image

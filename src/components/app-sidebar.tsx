@@ -70,7 +70,7 @@ export function AppSidebar() {
             className="flex items-center gap-3 rounded-xl p-2 hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:justify-center"
           >
             {/* ✅ Your real logo (text is inside the PNG) */}
-            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm ring-1 ring-border overflow-hidden">
+            <div className="rounded-2xl bg-card px-3 py-2 shadow-sm ring-1 ring-border overflow-hidden">
               <img
                 src="/icon.png"
                 alt="Budo League"
