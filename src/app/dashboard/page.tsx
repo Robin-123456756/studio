@@ -83,7 +83,15 @@ function formatKickoff(iso: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Africa/Kampala",
+  })
+    .format(d)
+    .replace(/\bam\b/i, "AM")
+    .replace(/\bpm\b/i, "PM");
 }
 
 export default function DashboardPage() {
@@ -96,6 +104,8 @@ export default function DashboardPage() {
   const [showAllResults, setShowAllResults] = React.useState(false);
   const [upcomingMatches, setUpcomingMatches] = React.useState<ApiMatch[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [resultIdx, setResultIdx] = React.useState(0);
+  const [fixtureIdx, setFixtureIdx] = React.useState(0);
 
   React.useEffect(() => {
     (async () => {
@@ -154,10 +164,28 @@ export default function DashboardPage() {
     })();
   }, []);
 
+  // Auto-rotate latest result every 15s
+  React.useEffect(() => {
+    if (recentMatches.length <= 1) return;
+    const timer = setInterval(() => {
+      setResultIdx((i) => (i + 1) % recentMatches.length);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [recentMatches.length]);
+
+  // Auto-rotate next fixture every 15s
+  React.useEffect(() => {
+    if (upcomingMatches.length <= 1) return;
+    const timer = setInterval(() => {
+      setFixtureIdx((i) => (i + 1) % upcomingMatches.length);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [upcomingMatches.length]);
+
   const visibleRows = expanded ? table : table.slice(0, 8);
 
-  const latestResult = recentMatches[0] ?? null;
-  const nextFixture = upcomingMatches[0] ?? null;
+  const latestResult = recentMatches[resultIdx] ?? null;
+  const nextFixture = upcomingMatches[fixtureIdx] ?? null;
 
   return (
     <div className="space-y-6 animate-in fade-in-50">
@@ -326,11 +354,23 @@ export default function DashboardPage() {
 
         {/* Right column */}
         <div className="space-y-4">
-          <Card className="rounded-3xl">
+          <Card className="rounded-3xl overflow-hidden">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-headline">
-                Latest result
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-headline">Latest result</CardTitle>
+                {recentMatches.length > 1 && (
+                  <div className="flex gap-1">
+                    {recentMatches.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setResultIdx(i)}
+                        className={`h-1.5 rounded-full transition-all ${i === resultIdx ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30"}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -377,11 +417,23 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-3xl">
+          <Card className="rounded-3xl overflow-hidden">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-headline">
-                Next fixture
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-headline">Next fixture</CardTitle>
+                {upcomingMatches.length > 1 && (
+                  <div className="flex gap-1">
+                    {upcomingMatches.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setFixtureIdx(i)}
+                        className={`h-1.5 rounded-full transition-all ${i === fixtureIdx ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30"}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (

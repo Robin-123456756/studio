@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -191,8 +192,8 @@ function mapApiMatchToUi(m: ApiMatch): UiGame {
 }
 
 function posBarClass(pos: number) {
-  if (pos >= 1 && pos <= 4) return "bg-primary/80";
-  if (pos >= 5 && pos <= 8) return "bg-foreground/50";
+  if (pos >= 1 && pos <= 4) return "bg-emerald-500";   // Main Cup
+  if (pos >= 5 && pos <= 8) return "bg-amber-500";     // Semivule Cup
   return "bg-transparent";
 }
 
@@ -216,13 +217,13 @@ function MatchRow({ g }: { g: UiGame }) {
           </div>
         </div>
 
-        <div className="h-7 w-7 justify-self-end rounded-full bg-muted overflow-hidden">
+        <div className="h-7 w-7 justify-self-end overflow-hidden">
           <Image
             src={g.team1.logoUrl}
             alt={g.team1.name}
             width={28}
             height={28}
-            className="h-7 w-7 object-cover"
+            className="h-7 w-7 object-contain"
           />
         </div>
 
@@ -243,13 +244,13 @@ function MatchRow({ g }: { g: UiGame }) {
           )}
         </div>
 
-        <div className="h-7 w-7 justify-self-start rounded-full bg-muted overflow-hidden">
+        <div className="h-7 w-7 justify-self-start overflow-hidden">
           <Image
             src={g.team2.logoUrl}
             alt={g.team2.name}
             width={28}
             height={28}
-            className="h-7 w-7 object-cover"
+            className="h-7 w-7 object-contain"
           />
         </div>
 
@@ -310,8 +311,15 @@ export default function MatchesPage() {
   const [standings, setStandings] = React.useState<StandingsRow[]>([]);
   const [standingsLoading, setStandingsLoading] = React.useState(true);
   const [expanded, setExpanded] = React.useState(false);
+  const [tableView, setTableView] = React.useState<"short" | "full" | "form">("short");
+
+  // All played matches (for form) + all upcoming (for next opponent)
+  const [allPlayedMatches, setAllPlayedMatches] = React.useState<ApiMatch[]>([]);
+  const [allUpcomingMatches, setAllUpcomingMatches] = React.useState<ApiMatch[]>([]);
 
   const [statsData, setStatsData] = React.useState<StatPlayer[]>([]);
+  const [disciplineTab, setDisciplineTab] = React.useState<"yellow" | "red">("yellow");
+  const [statsView, setStatsView] = React.useState<"players" | "teams">("players");
   const [statsLoading, setStatsLoading] = React.useState(true);
 
   // Gameweeks that have started (deadline passed) — sorted by id
@@ -399,6 +407,29 @@ export default function MatchesPage() {
     })();
   }, []);
 
+  // Fetch all matches (played + upcoming) for form & next opponent
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { data: played } = await supabase
+          .from("matches")
+          .select("id,gameweek_id,home_goals,away_goals,home_team_uuid,away_team_uuid,is_played,is_final")
+          .or("is_played.eq.true,is_final.eq.true")
+          .order("gameweek_id", { ascending: true });
+        setAllPlayedMatches((played as ApiMatch[]) ?? []);
+
+        const { data: upcoming } = await supabase
+          .from("matches")
+          .select("id,gameweek_id,home_team_uuid,away_team_uuid,is_played,is_final,kickoff_time")
+          .or("is_played.eq.false,is_played.is.null")
+          .order("gameweek_id", { ascending: true });
+        setAllUpcomingMatches((upcoming as ApiMatch[]) ?? []);
+      } catch {
+        // silent
+      }
+    })();
+  }, []);
+
   // Fetch player stats across ALL gameweeks (cumulative top scorers / assists)
   React.useEffect(() => {
     (async () => {
@@ -424,9 +455,67 @@ export default function MatchesPage() {
 
   const visibleRows = expanded ? standings : standings.slice(0, 8);
 
+  // Build team name map from standings for next opponent display
+  const teamNameMap = React.useMemo(() => {
+    const m = new Map<string, { name: string; short: string; logoUrl: string }>();
+    for (const r of standings) {
+      m.set(r.teamId, { name: r.name, short: r.name.slice(0, 3).toUpperCase(), logoUrl: r.logoUrl });
+    }
+    return m;
+  }, [standings]);
+
+  // Compute form (last 5 results) per team: W/D/L
+  const teamForm = React.useMemo(() => {
+    const formMap = new Map<string, ("W" | "D" | "L")[]>();
+    // allPlayedMatches are sorted by gameweek ascending
+    for (const m of allPlayedMatches) {
+      const hg = m.home_goals ?? 0;
+      const ag = m.away_goals ?? 0;
+      const homeId = (m as any).home_team_uuid ?? (m as any).home_team_uid;
+      const awayId = (m as any).away_team_uuid ?? (m as any).away_team_uid;
+      if (!homeId || !awayId) continue;
+
+      if (!formMap.has(homeId)) formMap.set(homeId, []);
+      if (!formMap.has(awayId)) formMap.set(awayId, []);
+
+      if (hg > ag) {
+        formMap.get(homeId)!.push("W");
+        formMap.get(awayId)!.push("L");
+      } else if (hg < ag) {
+        formMap.get(homeId)!.push("L");
+        formMap.get(awayId)!.push("W");
+      } else {
+        formMap.get(homeId)!.push("D");
+        formMap.get(awayId)!.push("D");
+      }
+    }
+    // Keep only last 5
+    const result = new Map<string, ("W" | "D" | "L")[]>();
+    for (const [id, arr] of formMap) {
+      result.set(id, arr.slice(-5));
+    }
+    return result;
+  }, [allPlayedMatches]);
+
+  // Compute next opponent per team
+  const nextOpponent = React.useMemo(() => {
+    const oppMap = new Map<string, { opponentId: string; isHome: boolean }>();
+    for (const m of allUpcomingMatches) {
+      const homeId = (m as any).home_team_uuid ?? (m as any).home_team_uid;
+      const awayId = (m as any).away_team_uuid ?? (m as any).away_team_uid;
+      if (!homeId || !awayId) continue;
+      if (!oppMap.has(homeId)) oppMap.set(homeId, { opponentId: awayId, isHome: true });
+      if (!oppMap.has(awayId)) oppMap.set(awayId, { opponentId: homeId, isHome: false });
+    }
+    return oppMap;
+  }, [allUpcomingMatches]);
+
   // Aggregate stats: top scorers + top assists from fetched player stats
   const scorerMap = new Map<string, { name: string; goals: number; team: string }>();
   const assistMap = new Map<string, { name: string; assists: number; team: string }>();
+  const csMap = new Map<string, { name: string; cleanSheets: number; team: string }>();
+  const ycMap = new Map<string, { name: string; yellowCards: number; team: string }>();
+  const rcMap = new Map<string, { name: string; redCards: number; team: string }>();
   for (const s of statsData) {
     const name = s.playerName;
     const team = s.player?.teamShort ?? s.player?.teamName ?? "—";
@@ -446,16 +535,73 @@ export default function MatchesPage() {
         team,
       });
     }
+    if (s.cleanSheet) {
+      const existing = csMap.get(s.playerId);
+      csMap.set(s.playerId, {
+        name,
+        cleanSheets: (existing?.cleanSheets ?? 0) + 1,
+        team,
+      });
+    }
+    if (s.yellowCards > 0) {
+      const existing = ycMap.get(s.playerId);
+      ycMap.set(s.playerId, {
+        name,
+        yellowCards: (existing?.yellowCards ?? 0) + s.yellowCards,
+        team,
+      });
+    }
+    if (s.redCards > 0) {
+      const existing = rcMap.get(s.playerId);
+      rcMap.set(s.playerId, {
+        name,
+        redCards: (existing?.redCards ?? 0) + s.redCards,
+        team,
+      });
+    }
   }
   const topScorers = [...scorerMap.values()].sort((a, b) => b.goals - a.goals).slice(0, 5);
   const topAssists = [...assistMap.values()].sort((a, b) => b.assists - a.assists).slice(0, 5);
+  const topCleanSheets = [...csMap.values()].sort((a, b) => b.cleanSheets - a.cleanSheets).slice(0, 5);
+  const topYellowCards = [...ycMap.values()].sort((a, b) => b.yellowCards - a.yellowCards);
+  const topRedCards = [...rcMap.values()].sort((a, b) => b.redCards - a.redCards);
+
+  // Team-level aggregations
+  const teamStatsMap = new Map<string, { team: string; logoUrl: string; goals: number; assists: number; cleanSheets: number; yellowCards: number; redCards: number }>();
+  for (const s of statsData) {
+    const team = s.player?.teamShort ?? s.player?.teamName ?? "—";
+    const existing = teamStatsMap.get(team);
+    if (existing) {
+      existing.goals += s.goals;
+      existing.assists += s.assists;
+      existing.cleanSheets += s.cleanSheet ? 1 : 0;
+      existing.yellowCards += s.yellowCards;
+      existing.redCards += s.redCards;
+    } else {
+      const row = standings.find((r) => r.name === team || r.name.slice(0, 3).toUpperCase() === team);
+      teamStatsMap.set(team, {
+        team,
+        logoUrl: row?.logoUrl ?? "/placeholder-team.png",
+        goals: s.goals,
+        assists: s.assists,
+        cleanSheets: s.cleanSheet ? 1 : 0,
+        yellowCards: s.yellowCards,
+        redCards: s.redCards,
+      });
+    }
+  }
+  const teamsByGoals = [...teamStatsMap.values()].sort((a, b) => b.goals - a.goals);
+  const teamsByAssists = [...teamStatsMap.values()].sort((a, b) => b.assists - a.assists);
+  const teamsByCS = [...teamStatsMap.values()].sort((a, b) => b.cleanSheets - a.cleanSheets);
+  const teamsByYC = [...teamStatsMap.values()].sort((a, b) => b.yellowCards - a.yellowCards);
+  const teamsByRC = [...teamStatsMap.values()].sort((a, b) => b.redCards - a.redCards);
 
   return (
     <div className="animate-in fade-in-50 space-y-4">
       {/* Season card — themed with app primary */}
       <Card className="rounded-3xl overflow-hidden border-none">
         <CardContent className="p-0">
-          <div className="relative overflow-hidden p-5 bg-gradient-to-br from-primary via-primary/90 to-primary/70">
+          <div className="relative overflow-hidden p-5 bg-[#856A00]">
             <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
             <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/5" />
             <div className="relative">
@@ -568,7 +714,7 @@ export default function MatchesPage() {
                         {formatDateHeading(date)}
                       </div>
 
-                      <div className="mt-2 rounded-2xl border bg-card px-3 divide-y divide-border/40">
+                      <div className="mt-2 divide-y divide-border/40">
                         {list.map((g) => (
                           <MatchRow key={g.id} g={g} />
                         ))}
@@ -591,60 +737,207 @@ export default function MatchesPage() {
                 </div>
               ) : (
                 <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="text-[11px]">
-                        <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
-                        <TableHead className="pr-1">Team</TableHead>
-                        <TableHead className="w-[28px] px-1 text-center">PL</TableHead>
-                        <TableHead className="w-[28px] px-1 text-center">W</TableHead>
-                        <TableHead className="w-[28px] px-1 text-center">D</TableHead>
-                        <TableHead className="w-[28px] px-1 text-center">L</TableHead>
-                        <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
-                        <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                  {/* Sub-tabs: Short / Full / Form */}
+                  <div className="flex gap-1 mb-3">
+                    {(["short", "full", "form"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setTableView(v)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors",
+                          tableView === v
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        )}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
 
-                    <TableBody>
-                      {visibleRows.map((r, idx) => {
-                        const pos = idx + 1;
-                        const bar = posBarClass(pos);
-
-                        return (
-                          <TableRow key={r.teamId} className="text-[12px]">
-                            <TableCell className="py-2 pl-2 pr-1">
-                              <div className="flex items-center gap-1.5">
-                                <div className={`h-5 w-1.5 rounded-full ${bar}`} />
-                                <span className="font-semibold tabular-nums">{pos}</span>
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="py-2 pr-1">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Image
-                                  src={r.logoUrl}
-                                  alt={r.name}
-                                  width={20}
-                                  height={20}
-                                  className="rounded-full shrink-0"
-                                />
-                                <span className="truncate text-[12px] font-medium">
-                                  {r.name}
-                                </span>
-                              </div>
-                            </TableCell>
-
-                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.PL}</TableCell>
-                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.W}</TableCell>
-                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.D}</TableCell>
-                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.L}</TableCell>
-                            <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.GD}</TableCell>
-                            <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">{r.Pts}</TableCell>
+                  {/* ---- SHORT VIEW ---- */}
+                  {tableView === "short" && (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="text-[11px]">
+                            <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
+                            <TableHead className="pr-1">Team</TableHead>
+                            <TableHead className="w-[28px] px-1 text-center">PL</TableHead>
+                            <TableHead className="w-[28px] px-1 text-center">W</TableHead>
+                            <TableHead className="w-[28px] px-1 text-center">D</TableHead>
+                            <TableHead className="w-[28px] px-1 text-center">L</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
                           </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {visibleRows.map((r, idx) => {
+                            const pos = idx + 1;
+                            return (
+                              <TableRow key={r.teamId} className="text-[12px]">
+                                <TableCell className="py-2 pl-2 pr-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={`h-5 w-1.5 rounded-full ${posBarClass(pos)}`} />
+                                    <span className="font-semibold tabular-nums">{pos}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 pr-1">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Image src={r.logoUrl} alt={r.name} width={20} height={20} className="shrink-0 object-contain" />
+                                    <span className="truncate text-[12px] font-medium">{r.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.PL}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.W}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.D}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.L}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.GD}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">{r.Pts}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {/* ---- FULL VIEW ---- */}
+                  {tableView === "full" && (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="text-[11px]">
+                            <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
+                            <TableHead className="pr-1">Team</TableHead>
+                            <TableHead className="w-[26px] px-0.5 text-center">PL</TableHead>
+                            <TableHead className="w-[26px] px-0.5 text-center">W</TableHead>
+                            <TableHead className="w-[26px] px-0.5 text-center">D</TableHead>
+                            <TableHead className="w-[26px] px-0.5 text-center">L</TableHead>
+                            <TableHead className="w-[26px] px-0.5 text-center">GF</TableHead>
+                            <TableHead className="w-[26px] px-0.5 text-center">GA</TableHead>
+                            <TableHead className="w-[28px] px-0.5 text-center">GD</TableHead>
+                            <TableHead className="w-[28px] px-0.5 text-center">Pts</TableHead>
+                            <TableHead className="px-1 text-center">Next</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {visibleRows.map((r, idx) => {
+                            const pos = idx + 1;
+                            const opp = nextOpponent.get(r.teamId);
+                            const oppInfo = opp ? teamNameMap.get(opp.opponentId) : null;
+                            return (
+                              <TableRow key={r.teamId} className="text-[12px]">
+                                <TableCell className="py-2 pl-2 pr-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={`h-5 w-1.5 rounded-full ${posBarClass(pos)}`} />
+                                    <span className="font-semibold tabular-nums">{pos}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 pr-1">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Image src={r.logoUrl} alt={r.name} width={20} height={20} className="shrink-0 object-contain" />
+                                    <span className="truncate text-[12px] font-medium">{r.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.PL}</TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.W}</TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.D}</TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.L}</TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.GF}</TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.GA}</TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.GD}</TableCell>
+                                <TableCell className="py-2 px-0.5 text-center font-mono font-bold tabular-nums text-[11px]">{r.Pts}</TableCell>
+                                <TableCell className="py-2 px-1 text-center">
+                                  {oppInfo ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Image src={oppInfo.logoUrl} alt={oppInfo.name} width={16} height={16} className="shrink-0 object-contain" />
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {oppInfo.short} ({opp!.isHome ? "H" : "A"})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {/* ---- FORM VIEW ---- */}
+                  {tableView === "form" && (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="text-[11px]">
+                            <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
+                            <TableHead className="pr-1">Team</TableHead>
+                            <TableHead className="px-1 text-center">Form</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {visibleRows.map((r, idx) => {
+                            const pos = idx + 1;
+                            const form = teamForm.get(r.teamId) ?? [];
+                            return (
+                              <TableRow key={r.teamId} className="text-[12px]">
+                                <TableCell className="py-2 pl-2 pr-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={`h-5 w-1.5 rounded-full ${posBarClass(pos)}`} />
+                                    <span className="font-semibold tabular-nums">{pos}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 pr-1">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Image src={r.logoUrl} alt={r.name} width={20} height={20} className="shrink-0 object-contain" />
+                                    <span className="truncate text-[12px] font-medium">{r.name}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 px-1">
+                                  <div className="flex items-center justify-center gap-1">
+                                    {form.length === 0 ? (
+                                      <span className="text-[10px] text-muted-foreground">—</span>
+                                    ) : (
+                                      form.map((result, i) => (
+                                        <span
+                                          key={i}
+                                          className={cn(
+                                            "inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white",
+                                            result === "W" && "bg-emerald-500",
+                                            result === "L" && "bg-red-500",
+                                            result === "D" && "bg-gray-400"
+                                          )}
+                                        >
+                                          {result}
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {/* Qualification legend */}
+                  <div className="pt-3 px-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-1.5 rounded-full bg-emerald-500" />
+                      <span>Qualify to Main Cup</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-1.5 rounded-full bg-amber-500" />
+                      <span>Qualify to Semivule Cup</span>
+                    </div>
+                  </div>
 
                   {standings.length > 8 && (
                     <div className="pt-3">
@@ -669,66 +962,355 @@ export default function MatchesPage() {
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   Loading stats...
                 </div>
-              ) : topScorers.length === 0 && topAssists.length === 0 ? (
+              ) : topScorers.length === 0 && topAssists.length === 0 && topCleanSheets.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   Stats will appear once matches have been played.
                 </div>
               ) : (
-                <div className="grid gap-6 sm:grid-cols-2">
-                  {topScorers.length > 0 && (
-                    <div>
-                      <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
-                        Top scorers
-                      </div>
-                      <div className="space-y-1">
-                        {topScorers.map((s, i) => (
-                          <div
-                            key={s.name + s.team}
-                            className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">
-                                {i + 1}
-                              </span>
-                              <div>
-                                <div className="text-sm font-medium leading-tight">{s.name}</div>
-                                <div className="text-[11px] text-muted-foreground">{s.team}</div>
-                              </div>
-                            </div>
-                            <span className="text-sm font-bold tabular-nums">{s.goals}</span>
+                <>
+                  {/* Players / Teams toggle */}
+                  <div className="flex gap-1 mb-4">
+                    {(["players", "teams"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setStatsView(v)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors",
+                          statsView === v
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        )}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* ---- PLAYERS VIEW ---- */}
+                  {statsView === "players" && (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {topScorers.length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Top scorers
                           </div>
-                        ))}
-                      </div>
+                          <div className="space-y-1">
+                            {topScorers.map((s, i) => (
+                              <div
+                                key={s.name + s.team}
+                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                  <div>
+                                    <div className="text-sm font-medium leading-tight">{s.name}</div>
+                                    <div className="text-[11px] text-muted-foreground">{s.team}</div>
+                                  </div>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums">{s.goals}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {topCleanSheets.length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Most clean sheets
+                          </div>
+                          <div className="space-y-1">
+                            {topCleanSheets.map((c, i) => (
+                              <div
+                                key={c.name + c.team}
+                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                  <div>
+                                    <div className="text-sm font-medium leading-tight">{c.name}</div>
+                                    <div className="text-[11px] text-muted-foreground">{c.team}</div>
+                                  </div>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums">{c.cleanSheets}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {topAssists.length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Top assists
+                          </div>
+                          <div className="space-y-1">
+                            {topAssists.map((a, i) => (
+                              <div
+                                key={a.name + a.team}
+                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                  <div>
+                                    <div className="text-sm font-medium leading-tight">{a.name}</div>
+                                    <div className="text-[11px] text-muted-foreground">{a.team}</div>
+                                  </div>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums">{a.assists}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Discipline */}
+                      {(topYellowCards.length > 0 || topRedCards.length > 0) && (
+                        <div className="sm:col-span-2">
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Discipline
+                          </div>
+                          <div className="flex gap-1 mb-3">
+                            <button
+                              type="button"
+                              onClick={() => setDisciplineTab("yellow")}
+                              className={cn(
+                                "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                                disciplineTab === "yellow"
+                                  ? "bg-yellow-400 text-yellow-900"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              )}
+                            >
+                              Yellow Cards
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDisciplineTab("red")}
+                              className={cn(
+                                "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                                disciplineTab === "red"
+                                  ? "bg-red-500 text-white"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              )}
+                            >
+                              Red Cards
+                            </button>
+                          </div>
+
+                          {disciplineTab === "yellow" && (
+                            <div className="space-y-1">
+                              {topYellowCards.length === 0 ? (
+                                <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
+                              ) : (
+                                topYellowCards.map((p, i) => (
+                                  <div
+                                    key={p.name + p.team}
+                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                      <div>
+                                        <div className="text-sm font-medium leading-tight">{p.name}</div>
+                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-sm font-bold tabular-nums">{p.yellowCards}</span>
+                                      <div className="w-3 h-4 rounded-[2px] bg-yellow-400" />
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+
+                          {disciplineTab === "red" && (
+                            <div className="space-y-1">
+                              {topRedCards.length === 0 ? (
+                                <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
+                              ) : (
+                                topRedCards.map((p, i) => (
+                                  <div
+                                    key={p.name + p.team}
+                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                      <div>
+                                        <div className="text-sm font-medium leading-tight">{p.name}</div>
+                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-sm font-bold tabular-nums">{p.redCards}</span>
+                                      <div className="w-3 h-4 rounded-[2px] bg-red-500" />
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {topAssists.length > 0 && (
-                    <div>
-                      <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
-                        Top assists
-                      </div>
-                      <div className="space-y-1">
-                        {topAssists.map((a, i) => (
-                          <div
-                            key={a.name + a.team}
-                            className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">
-                                {i + 1}
-                              </span>
-                              <div>
-                                <div className="text-sm font-medium leading-tight">{a.name}</div>
-                                <div className="text-[11px] text-muted-foreground">{a.team}</div>
-                              </div>
-                            </div>
-                            <span className="text-sm font-bold tabular-nums">{a.assists}</span>
+                  {/* ---- TEAMS VIEW ---- */}
+                  {statsView === "teams" && (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {teamsByGoals.length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Most goals
                           </div>
-                        ))}
-                      </div>
+                          <div className="space-y-1">
+                            {teamsByGoals.map((t, i) => (
+                              <div
+                                key={t.team}
+                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                  <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
+                                  <span className="text-sm font-medium">{t.team}</span>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums">{t.goals}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {teamsByCS.length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Most clean sheets
+                          </div>
+                          <div className="space-y-1">
+                            {teamsByCS.map((t, i) => (
+                              <div
+                                key={t.team}
+                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                  <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
+                                  <span className="text-sm font-medium">{t.team}</span>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums">{t.cleanSheets}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {teamsByAssists.length > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Most assists
+                          </div>
+                          <div className="space-y-1">
+                            {teamsByAssists.map((t, i) => (
+                              <div
+                                key={t.team}
+                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                  <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
+                                  <span className="text-sm font-medium">{t.team}</span>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums">{t.assists}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Team Discipline */}
+                      {teamsByYC.length > 0 && (
+                        <div className="sm:col-span-2">
+                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
+                            Discipline
+                          </div>
+                          <div className="flex gap-1 mb-3">
+                            <button
+                              type="button"
+                              onClick={() => setDisciplineTab("yellow")}
+                              className={cn(
+                                "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                                disciplineTab === "yellow"
+                                  ? "bg-yellow-400 text-yellow-900"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              )}
+                            >
+                              Yellow Cards
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDisciplineTab("red")}
+                              className={cn(
+                                "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors",
+                                disciplineTab === "red"
+                                  ? "bg-red-500 text-white"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              )}
+                            >
+                              Red Cards
+                            </button>
+                          </div>
+
+                          {disciplineTab === "yellow" && (
+                            <div className="space-y-1">
+                              {teamsByYC.map((t, i) => (
+                                <div
+                                  key={t.team}
+                                  className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                    <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
+                                    <span className="text-sm font-medium">{t.team}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-sm font-bold tabular-nums">{t.yellowCards}</span>
+                                    <div className="w-3 h-4 rounded-[2px] bg-yellow-400" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {disciplineTab === "red" && (
+                            <div className="space-y-1">
+                              {teamsByRC.filter((t) => t.redCards > 0).length === 0 ? (
+                                <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
+                              ) : (
+                                teamsByRC.filter((t) => t.redCards > 0).map((t, i) => (
+                                  <div
+                                    key={t.team}
+                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                      <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
+                                      <span className="text-sm font-medium">{t.team}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-sm font-bold tabular-nums">{t.redCards}</span>
+                                      <div className="w-3 h-4 rounded-[2px] bg-red-500" />
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </>
               )}
             </TabsContent>
           </Tabs>

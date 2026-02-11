@@ -124,17 +124,19 @@ function formatDeadlineUG(iso?: string | null) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "--";
 
-  const formatted = new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
     day: "2-digit",
     month: "short",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
-    hour12: false,
+    hour12: true,
     timeZone: "Africa/Kampala",
-  }).format(d);
-
-  return formatted.replace(/\./g, "");
+  })
+    .format(d)
+    .replace(/\./g, "")
+    .replace(/\bam\b/i, "AM")
+    .replace(/\bpm\b/i, "PM");
 }
 
 
