@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Calendar, History, Users } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, History, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -67,8 +67,8 @@ type ApiTeam = {
 
 // ---------- UI helpers ----------
 function posBarClass(pos: number) {
-  if (pos >= 1 && pos <= 4) return "bg-primary/80";
-  if (pos >= 5 && pos <= 8) return "bg-foreground/50";
+  if (pos >= 1 && pos <= 4) return "bg-emerald-500";   // Main Cup
+  if (pos >= 5 && pos <= 8) return "bg-amber-500";     // Semivule Cup
   return "bg-transparent";
 }
 
@@ -93,6 +93,7 @@ export default function DashboardPage() {
   const [teams, setTeams] = React.useState<ApiTeam[]>([]);
   const [table, setTable] = React.useState<Row[]>([]);
   const [recentMatches, setRecentMatches] = React.useState<ApiMatch[]>([]);
+  const [showAllResults, setShowAllResults] = React.useState(false);
   const [upcomingMatches, setUpcomingMatches] = React.useState<ApiMatch[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -153,7 +154,7 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  const visibleRows = expanded ? table : table.slice(0, 4);
+  const visibleRows = expanded ? table : table.slice(0, 8);
 
   const latestResult = recentMatches[0] ?? null;
   const nextFixture = upcomingMatches[0] ?? null;
@@ -225,9 +226,12 @@ export default function DashboardPage() {
               <CardTitle className="text-base font-headline">
                 League snapshot
               </CardTitle>
-              <div className="text-xs text-muted-foreground">
-                Top {Math.min(4, table.length)} teams
-              </div>
+              <Link
+                href="/dashboard/results"
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                View full standings
+              </Link>
             </div>
           </CardHeader>
 
@@ -303,18 +307,16 @@ export default function DashboardPage() {
               </Table>
             )}
 
-            {table.length > 4 && !loading && (
-              <div className="pt-3 px-2 space-y-2">
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setExpanded((v) => !v)}
-                  className="w-full justify-center rounded-2xl text-sm font-semibold"
-                  type="button"
-                >
-                  {expanded ? "Hide full table" : "View full table"}
-                </Button>
+            {!loading && table.length > 0 && (
+              <div className="pt-3 px-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-1.5 rounded-full bg-emerald-500" />
+                  <span>Main Cup</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-1.5 rounded-full bg-amber-500" />
+                  <span>Semivule Cup</span>
+                </div>
               </div>
             )}
           </CardContent>
@@ -422,42 +424,57 @@ export default function DashboardPage() {
                 No results have been recorded yet.
               </div>
             ) : (
-              recentMatches.map((m) => (
-                <Link
-                  key={m.id}
-                  href={`/match/${m.id}`}
-                  className="block rounded-2xl border bg-card px-3 py-3 hover:bg-accent transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <div className="text-xs text-muted-foreground">
-                        {formatShortDate(m.kickoff_time)}
+              <>
+                {(showAllResults ? recentMatches : recentMatches.slice(0, 3)).map((m) => (
+                  <Link
+                    key={m.id}
+                    href={`/match/${m.id}`}
+                    className="block rounded-2xl border bg-card px-3 py-3 hover:bg-accent transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted-foreground">
+                          {formatShortDate(m.kickoff_time)}
+                        </div>
+                        <div className="truncate text-sm font-medium">
+                          {m.home_team?.name ?? "—"} vs {m.away_team?.name ?? "—"}
+                        </div>
                       </div>
-                      <div className="truncate text-sm font-medium">
-                        {m.home_team?.name ?? "—"} vs {m.away_team?.name ?? "—"}
+                      <div className="shrink-0 text-sm font-bold font-mono tabular-nums">
+                        {(m.home_goals ?? "-") + " - " + (m.away_goals ?? "-")}
                       </div>
                     </div>
-                    <div className="shrink-0 text-sm font-bold font-mono tabular-nums">
-                      {(m.home_goals ?? "-") + " - " + (m.away_goals ?? "-")}
-                    </div>
-                  </div>
-                  {/* Enriched: goal scorers */}
-                  {(m.home_events?.length || m.away_events?.length) ? (
-                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                      {m.home_events?.filter((e) => e.goals > 0).map((e) => (
-                        <span key={e.playerId}>
-                          {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
-                        </span>
-                      ))}
-                      {m.away_events?.filter((e) => e.goals > 0).map((e) => (
-                        <span key={e.playerId}>
-                          {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </Link>
-              ))
+                    {/* Enriched: goal scorers */}
+                    {(m.home_events?.length || m.away_events?.length) ? (
+                      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                        {m.home_events?.filter((e) => e.goals > 0).map((e) => (
+                          <span key={e.playerId}>
+                            {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
+                          </span>
+                        ))}
+                        {m.away_events?.filter((e) => e.goals > 0).map((e) => (
+                          <span key={e.playerId}>
+                            {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </Link>
+                ))}
+                {recentMatches.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllResults((prev) => !prev)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium text-primary hover:bg-accent transition-colors"
+                  >
+                    {showAllResults ? (
+                      <>Show less <ChevronUp className="h-4 w-4" /></>
+                    ) : (
+                      <>See more results <ChevronDown className="h-4 w-4" /></>
+                    )}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </CardContent>
