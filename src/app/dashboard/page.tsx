@@ -162,15 +162,15 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-[28px] border bg-card p-6 shadow-[var(--shadow-2)]">
-        <div className="space-y-5">
-          <div className="flex justify-center">
+      <section className="relative overflow-hidden rounded-[28px] border bg-card p-4 sm:p-5 shadow-[var(--shadow-2)]">
+        <div className="space-y-3">
+          <div className="flex">
             <Image
               src="/tbl-logo.png"
               alt="The Budo League"
-              width={180}
-              height={80}
-              className="h-auto w-[150px] sm:w-[180px] object-contain"
+              width={200}
+              height={90}
+              className="h-auto w-[170px] sm:w-[200px] object-contain"
               priority
             />
           </div>
