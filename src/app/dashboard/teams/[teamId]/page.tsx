@@ -118,7 +118,7 @@ export default function TeamDetailPage() {
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center gap-3">
           {/* using <img> avoids next/image remote config issues while testing */}
-          <div className="h-11 w-11 rounded-2xl bg-white p-1 overflow-hidden">
+          <div className="h-11 w-11 rounded-2xl bg-card p-1 overflow-hidden">
             <img
               src={logoUrl ?? "/placeholder.png"}
               alt={teamName}

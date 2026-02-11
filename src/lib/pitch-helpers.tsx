@@ -228,7 +228,7 @@ export function EmptySlot({ position, small = false }: { position: string; small
       </div>
       <div
         style={{
-          background: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(240,240,240,0.9))",
+          background: "linear-gradient(180deg, rgba(245,230,200,0.9), rgba(232,217,184,0.9))",
           color: "#666",
           fontSize: small ? 10 : 11,
           fontWeight: 700,

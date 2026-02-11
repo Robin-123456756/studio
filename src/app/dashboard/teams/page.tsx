@@ -95,7 +95,7 @@ export default function TeamsPage() {
                 aria-label={`Open ${team.name} squad`}
               >
                 <CardHeader className="flex-row items-center gap-4">
-                  <div className="h-16 w-16 rounded-lg bg-white p-1 overflow-hidden">
+                  <div className="h-16 w-16 rounded-lg bg-card p-1 overflow-hidden">
                     <img
                       src={team.logo_url ?? "/placeholder.png"}
                       alt={`${team.name} logo`}

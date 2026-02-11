@@ -311,7 +311,7 @@ function PlayerDetailModal({
                   <img
                     src={TEAM_SHORT_LOGOS[player.nextOpponent]}
                     alt=""
-                    className="h-6 w-6 rounded-full bg-white object-contain border"
+                    className="h-6 w-6 rounded-full bg-card object-contain border"
                   />
                 )}
                 <span className="font-semibold">{player.nextOpponent}</span>
@@ -1683,7 +1683,7 @@ export default function PickTeamPage() {
             <span
               style={{
                 position: "absolute", top: -4, left: -4, zIndex: 2,
-                background: "linear-gradient(135deg, #fff, #e0e0e0)", color: "#000", fontSize: 9, fontWeight: 900,
+                background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)", color: "#000", fontSize: 9, fontWeight: 900,
                 width: 18, height: 18, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 border: "2px solid #37003C",
@@ -1719,7 +1719,7 @@ export default function PickTeamPage() {
         </div>
         <div
           style={{
-            background: player.captain ? "linear-gradient(135deg, #FFD700, #FFA500)" : "linear-gradient(180deg, #fff, #f0f0f0)",
+            background: player.captain ? "linear-gradient(135deg, #FFD700, #FFA500)" : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
             color: "#1a1a2e",
             fontSize: small ? 10 : 11,
             fontWeight: 700,
@@ -2197,10 +2197,10 @@ export default function PickTeamPage() {
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
-                        background: selected ? "#fef3c7" : isValidTarget(p.id) ? "rgba(52,211,153,0.15)" : "#fff",
+                        background: selected ? "#fef3c7" : isValidTarget(p.id) ? "rgba(52,211,153,0.15)" : "#f8eed8",
                         borderRadius: 8,
                         padding: "10px 14px",
-                        border: selected ? "2px solid #f59e0b" : isValidTarget(p.id) ? "2px solid #34d399" : "1px solid #e0e0e0",
+                        border: selected ? "2px solid #f59e0b" : isValidTarget(p.id) ? "2px solid #34d399" : "1px solid #ddd0b0",
                         cursor: isDimmed(p.id) ? "not-allowed" : "pointer",
                         transition: "all 0.2s",
                         boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
@@ -2373,8 +2373,8 @@ export default function PickTeamPage() {
             key={chip.name}
             style={{
               flex: 1,
-              background: "#f8f8f8",
-              border: "1.5px solid #e0e0e0",
+              background: "#f0e4cc",
+              border: "1.5px solid #ddd0b0",
               borderRadius: 10,
               padding: "8px 4px 6px",
               display: "flex",

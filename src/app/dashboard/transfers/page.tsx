@@ -551,7 +551,7 @@ function SmallPitchCard({ player, isSelected, onTap }: {
         </div>
         <div
           style={{
-            background: isSelected ? "linear-gradient(180deg, #fee2e2, #fecaca)" : "linear-gradient(180deg, #fff, #f0f0f0)",
+            background: isSelected ? "linear-gradient(180deg, #fee2e2, #fecaca)" : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
             color: "#1a1a2e",
             fontSize: 9,
             fontWeight: 700,

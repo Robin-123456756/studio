@@ -7,53 +7,53 @@
 /* Budo League Design System: Red, Black, White - Age-Friendly */
 @layer base {
   :root {
-    /* Core colors */
-    --background: 30 20% 98%;
-    --foreground: 220 6% 12%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 6% 12%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 6% 12%;
+    /* Core colors — Royal Gold */
+    --background: 43 45% 91%;
+    --foreground: 30 10% 12%;
+    --card: 42 35% 96%;
+    --card-foreground: 30 10% 12%;
+    --popover: 42 35% 96%;
+    --popover-foreground: 30 10% 12%;
 
     /* Primary / accent */
     --primary: 356 55% 42%;
     --primary-foreground: 0 0% 98%;
-    --accent: 20 16% 92%;
-    --accent-foreground: 220 6% 12%;
+    --accent: 42 30% 86%;
+    --accent-foreground: 30 10% 12%;
 
     /* Semantic */
-    --secondary: 24 10% 95%;
-    --secondary-foreground: 220 6% 12%;
-    --muted: 24 10% 95%;
-    --muted-foreground: 0 0% 45%;
+    --secondary: 42 25% 89%;
+    --secondary-foreground: 30 10% 12%;
+    --muted: 42 25% 89%;
+    --muted-foreground: 30 8% 42%;
     --destructive: 0 65% 45%;
     --destructive-foreground: 0 0% 98%;
 
     /* Borders, rings, inputs */
-    --border: 20 10% 88%;
-    --input: 20 10% 88%;
+    --border: 42 25% 80%;
+    --input: 42 25% 80%;
     --ring: 356 55% 42%;
 
     /* Charts */
     --chart-1: 356 55% 42%;
     --chart-2: 2 46% 56%;
     --chart-3: 220 7% 36%;
-    --chart-4: 24 22% 72%;
+    --chart-4: 42 40% 60%;
     --chart-5: 10 38% 58%;
 
     /* Radius & elevation */
     --radius: 14px;
-    --shadow-1: 0 10px 30px rgba(18, 18, 18, 0.06);
-    --shadow-2: 0 25px 60px rgba(18, 18, 18, 0.08);
+    --shadow-1: 0 10px 30px rgba(40, 30, 10, 0.08);
+    --shadow-2: 0 25px 60px rgba(40, 30, 10, 0.10);
 
     /* Sidebar */
-    --sidebar-background: 30 20% 97%;
-    --sidebar-foreground: 220 6% 12%;
+    --sidebar-background: 43 40% 89%;
+    --sidebar-foreground: 30 10% 12%;
     --sidebar-primary: 356 55% 42%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 20 16% 92%;
-    --sidebar-accent-foreground: 220 6% 12%;
-    --sidebar-border: 20 10% 88%;
+    --sidebar-accent: 42 30% 84%;
+    --sidebar-accent-foreground: 30 10% 12%;
+    --sidebar-border: 42 25% 78%;
     --sidebar-ring: 356 55% 42%;
   }
 
@@ -110,8 +110,8 @@
     font-size: 16px;
     line-height: 1.6;
     background-image:
-      radial-gradient(1100px 520px at 10% -10%, hsl(var(--primary) / 0.08), transparent 60%),
-      radial-gradient(900px 520px at 90% -20%, hsl(var(--foreground) / 0.06), transparent 55%),
+      radial-gradient(1100px 520px at 10% -10%, hsl(var(--primary) / 0.06), transparent 60%),
+      radial-gradient(900px 520px at 90% -20%, hsl(42 60% 50% / 0.08), transparent 55%),
       linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
   }
 
