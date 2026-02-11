@@ -106,6 +106,7 @@ type StatPlayer = {
   playerName: string;
   player: {
     name: string;
+    position: string | null;
     teamName: string | null;
     teamShort: string | null;
   } | null;
@@ -210,52 +211,52 @@ function MatchRow({ g }: { g: UiGame }) {
 
   return (
     <div className="py-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_28px_72px_28px_minmax(0,1fr)] items-center gap-x-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_24px_56px_24px_minmax(0,1fr)] items-center gap-x-2">
         <div className="min-w-0 text-right">
-          <div className="truncate text-[14px] font-semibold leading-none">
+          <div className="truncate text-[12px] font-semibold leading-none">
             {g.team1.name}
           </div>
         </div>
 
-        <div className="h-7 w-7 justify-self-end overflow-hidden">
+        <div className="h-6 w-6 justify-self-end overflow-hidden">
           <Image
             src={g.team1.logoUrl}
             alt={g.team1.name}
-            width={28}
-            height={28}
-            className="h-7 w-7 object-contain"
+            width={24}
+            height={24}
+            className="h-6 w-6 object-contain"
           />
         </div>
 
         <div className="text-center">
           {showScore ? (
             <>
-              <div className="font-mono text-[16px] font-extrabold tabular-nums">
+              <div className="font-mono text-[13px] font-extrabold tabular-nums">
                 {g.score1 ?? 0} - {g.score2 ?? 0}
               </div>
-              <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">
+              <div className="mt-0.5 text-[9px] font-semibold text-muted-foreground">
                 {g.isFinal ? "FT" : "Played"}
               </div>
             </>
           ) : (
-            <div className="text-[16px] font-extrabold tabular-nums">
+            <div className="text-[12px] font-extrabold tabular-nums">
               {g.time}
             </div>
           )}
         </div>
 
-        <div className="h-7 w-7 justify-self-start overflow-hidden">
+        <div className="h-6 w-6 justify-self-start overflow-hidden">
           <Image
             src={g.team2.logoUrl}
             alt={g.team2.name}
-            width={28}
-            height={28}
-            className="h-7 w-7 object-contain"
+            width={24}
+            height={24}
+            className="h-6 w-6 object-contain"
           />
         </div>
 
         <div className="min-w-0">
-          <div className="truncate text-[14px] font-semibold leading-none">
+          <div className="truncate text-[12px] font-semibold leading-none">
             {g.team2.name}
           </div>
         </div>
@@ -263,7 +264,7 @@ function MatchRow({ g }: { g: UiGame }) {
 
       {/* Goal scorers & assists */}
       {showScore && hasEvents && (
-        <div className="mt-2 grid grid-cols-[1fr_72px_1fr] gap-x-3 text-[11px] text-muted-foreground">
+        <div className="mt-2 grid grid-cols-[1fr_56px_1fr] gap-x-2 text-[11px] text-muted-foreground">
           <div className="text-right space-y-0.5">
             {homeGoals.map((e) => (
               <div key={e.playerId}>
@@ -535,7 +536,7 @@ export default function MatchesPage() {
         team,
       });
     }
-    if (s.cleanSheet) {
+    if (s.cleanSheet && s.player?.position === "Goalkeeper") {
       const existing = csMap.get(s.playerId);
       csMap.set(s.playerId, {
         name,
@@ -563,8 +564,8 @@ export default function MatchesPage() {
   const topScorers = [...scorerMap.values()].sort((a, b) => b.goals - a.goals).slice(0, 5);
   const topAssists = [...assistMap.values()].sort((a, b) => b.assists - a.assists).slice(0, 5);
   const topCleanSheets = [...csMap.values()].sort((a, b) => b.cleanSheets - a.cleanSheets).slice(0, 5);
-  const topYellowCards = [...ycMap.values()].sort((a, b) => b.yellowCards - a.yellowCards);
-  const topRedCards = [...rcMap.values()].sort((a, b) => b.redCards - a.redCards);
+  const topYellowCards = [...ycMap.values()].sort((a, b) => b.yellowCards - a.yellowCards).slice(0, 5);
+  const topRedCards = [...rcMap.values()].sort((a, b) => b.redCards - a.redCards).slice(0, 5);
 
   // Team-level aggregations
   const teamStatsMap = new Map<string, { team: string; logoUrl: string; goals: number; assists: number; cleanSheets: number; yellowCards: number; redCards: number }>();
@@ -574,7 +575,7 @@ export default function MatchesPage() {
     if (existing) {
       existing.goals += s.goals;
       existing.assists += s.assists;
-      existing.cleanSheets += s.cleanSheet ? 1 : 0;
+      existing.cleanSheets += (s.cleanSheet && s.player?.position === "Goalkeeper") ? 1 : 0;
       existing.yellowCards += s.yellowCards;
       existing.redCards += s.redCards;
     } else {
@@ -584,17 +585,17 @@ export default function MatchesPage() {
         logoUrl: row?.logoUrl ?? "/placeholder-team.png",
         goals: s.goals,
         assists: s.assists,
-        cleanSheets: s.cleanSheet ? 1 : 0,
+        cleanSheets: (s.cleanSheet && s.player?.position === "Goalkeeper") ? 1 : 0,
         yellowCards: s.yellowCards,
         redCards: s.redCards,
       });
     }
   }
-  const teamsByGoals = [...teamStatsMap.values()].sort((a, b) => b.goals - a.goals);
-  const teamsByAssists = [...teamStatsMap.values()].sort((a, b) => b.assists - a.assists);
-  const teamsByCS = [...teamStatsMap.values()].sort((a, b) => b.cleanSheets - a.cleanSheets);
-  const teamsByYC = [...teamStatsMap.values()].sort((a, b) => b.yellowCards - a.yellowCards);
-  const teamsByRC = [...teamStatsMap.values()].sort((a, b) => b.redCards - a.redCards);
+  const teamsByGoals = [...teamStatsMap.values()].sort((a, b) => b.goals - a.goals).slice(0, 5);
+  const teamsByAssists = [...teamStatsMap.values()].sort((a, b) => b.assists - a.assists).slice(0, 5);
+  const teamsByCS = [...teamStatsMap.values()].sort((a, b) => b.cleanSheets - a.cleanSheets).slice(0, 5);
+  const teamsByYC = [...teamStatsMap.values()].sort((a, b) => b.yellowCards - a.yellowCards).slice(0, 5);
+  const teamsByRC = [...teamStatsMap.values()].sort((a, b) => b.redCards - a.redCards).slice(0, 5);
 
   return (
     <div className="animate-in fade-in-50 space-y-4">
@@ -805,21 +806,21 @@ export default function MatchesPage() {
 
                   {/* ---- FULL VIEW ---- */}
                   {tableView === "full" && (
-                    <div className="overflow-x-auto">
-                      <Table>
+                    <div className="overflow-x-auto -mx-4 px-0">
+                      <Table className="min-w-[600px]">
                         <TableHeader>
                           <TableRow className="text-[11px]">
-                            <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
-                            <TableHead className="pr-1">Team</TableHead>
-                            <TableHead className="w-[26px] px-0.5 text-center">PL</TableHead>
-                            <TableHead className="w-[26px] px-0.5 text-center">W</TableHead>
-                            <TableHead className="w-[26px] px-0.5 text-center">D</TableHead>
-                            <TableHead className="w-[26px] px-0.5 text-center">L</TableHead>
-                            <TableHead className="w-[26px] px-0.5 text-center">GF</TableHead>
-                            <TableHead className="w-[26px] px-0.5 text-center">GA</TableHead>
-                            <TableHead className="w-[28px] px-0.5 text-center">GD</TableHead>
-                            <TableHead className="w-[28px] px-0.5 text-center">Pts</TableHead>
-                            <TableHead className="px-1 text-center">Next</TableHead>
+                            <TableHead className="w-[42px] pl-3 pr-1 sticky left-0 bg-card z-10">Pos</TableHead>
+                            <TableHead className="w-[100px] pr-1 sticky left-[42px] bg-card z-10">Team</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">PL</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">W</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">D</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">L</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">GF</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">GA</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                            <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
+                            <TableHead className="px-2 text-center">Next</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -829,27 +830,27 @@ export default function MatchesPage() {
                             const oppInfo = opp ? teamNameMap.get(opp.opponentId) : null;
                             return (
                               <TableRow key={r.teamId} className="text-[12px]">
-                                <TableCell className="py-2 pl-2 pr-1">
+                                <TableCell className="py-2 pl-3 pr-1 sticky left-0 bg-card z-10">
                                   <div className="flex items-center gap-1.5">
                                     <div className={`h-5 w-1.5 rounded-full ${posBarClass(pos)}`} />
                                     <span className="font-semibold tabular-nums">{pos}</span>
                                   </div>
                                 </TableCell>
-                                <TableCell className="py-2 pr-1">
+                                <TableCell className="py-2 pr-1 sticky left-[42px] bg-card z-10">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <Image src={r.logoUrl} alt={r.name} width={20} height={20} className="shrink-0 object-contain" />
                                     <span className="truncate text-[12px] font-medium">{r.name}</span>
                                   </div>
                                 </TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.PL}</TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.W}</TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.D}</TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.L}</TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.GF}</TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.GA}</TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono tabular-nums text-[11px]">{r.GD}</TableCell>
-                                <TableCell className="py-2 px-0.5 text-center font-mono font-bold tabular-nums text-[11px]">{r.Pts}</TableCell>
-                                <TableCell className="py-2 px-1 text-center">
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.PL}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.W}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.D}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.L}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.GF}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.GA}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.GD}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums text-[11px]">{r.Pts}</TableCell>
+                                <TableCell className="py-2 px-2 text-center whitespace-nowrap">
                                   {oppInfo ? (
                                     <div className="flex items-center justify-center gap-1">
                                       <Image src={oppInfo.logoUrl} alt={oppInfo.name} width={16} height={16} className="shrink-0 object-contain" />
