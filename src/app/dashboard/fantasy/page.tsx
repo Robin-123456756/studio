@@ -413,10 +413,9 @@ function FantasyPage() {
 
   return (
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
-      <div className="space-y-4 px-4 pt-4">
         <div
           className={cn(
-            "rounded-3xl overflow-hidden",
+            "overflow-hidden",
             "bg-[#0D5C63]"
           )}
         >
@@ -534,7 +533,6 @@ function FantasyPage() {
             </Link>
           </div>
         </div>
-      </div>
 
       <div className="mt-4 px-4">
         <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
