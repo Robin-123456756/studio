@@ -190,33 +190,24 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-[28px] shadow-[var(--shadow-2)]">
-        {/* Branded header with logo */}
-        <div className="relative bg-[#0D5C63] px-5 pt-6 pb-10 overflow-hidden">
-          {/* Decorative circles */}
-          <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/5" />
-          <div className="pointer-events-none absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-white/5" />
-          <div className="pointer-events-none absolute right-1/4 top-1/2 h-20 w-20 rounded-full bg-white/[0.03]" />
-
-          <div className="relative flex flex-col items-center text-center">
-            <Image
-              src="/tbl-logo.png"
-              alt="The Budo League"
-              width={200}
-              height={90}
-              className="h-auto w-[160px] sm:w-[190px] object-contain drop-shadow-lg"
-              priority
-            />
-            <div className="mt-3 flex items-center gap-2">
-              <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-bold tracking-widest text-white/90 uppercase">
-                Season 9
-              </span>
-            </div>
-          </div>
+      <section className="space-y-4">
+        {/* Logo + season badge */}
+        <div className="flex flex-col items-center pt-2">
+          <Image
+            src="/tbl-logo.png"
+            alt="The Budo League"
+            width={280}
+            height={130}
+            className="h-auto w-[240px] sm:w-[280px] object-contain"
+            priority
+          />
+          <span className="mt-2 inline-block rounded-full bg-foreground/10 px-4 py-1 text-[11px] font-bold tracking-widest text-foreground/70 uppercase">
+            TBL Season 9
+          </span>
         </div>
 
-        {/* Stat cards — pulled up to overlap the branded header */}
-        <div className="relative -mt-6 px-4 pb-4 space-y-3">
+        {/* Stat cards + buttons */}
+        <div className="space-y-3 px-0">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border bg-card p-4 shadow-[var(--shadow-1)]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
