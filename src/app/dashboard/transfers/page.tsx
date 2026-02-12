@@ -474,11 +474,6 @@ export default function TransfersPage() {
               overflow: "hidden",
             }}
           >
-            {/* Pitch boundary lines */}
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, background: "rgba(255,255,255,0.4)" }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2.5, background: "rgba(255,255,255,0.4)" }} />
-            <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 2.5, background: "rgba(255,255,255,0.4)" }} />
-            <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 2.5, background: "rgba(255,255,255,0.4)" }} />
 
             {/* Center circle */}
             <div style={{ position: "absolute", top: "46%", left: "50%", transform: "translate(-50%, -50%)", width: 100, height: 100, borderRadius: "50%", border: "2.5px solid rgba(255,255,255,0.3)" }} />

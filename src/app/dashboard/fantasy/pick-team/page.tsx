@@ -1897,7 +1897,7 @@ export default function PickTeamPage() {
             boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
           }}
         >
-          {player.team} ({player.fixture})
+          {player.fixture}
         </div>
       </div>
     );
