@@ -606,7 +606,7 @@ export default function MatchesPage() {
       {/* Season card — themed with app primary */}
       <Card className="rounded-3xl overflow-hidden border-none">
         <CardContent className="p-0">
-          <div className="relative overflow-hidden p-5 bg-[#C9A44C]">
+          <div className="relative overflow-hidden p-5 bg-[#0D5C63]">
             <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
             <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/5" />
             <div className="relative">

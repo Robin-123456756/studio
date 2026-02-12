@@ -417,7 +417,7 @@ function FantasyPage() {
         <div
           className={cn(
             "overflow-hidden rounded-b-3xl",
-            "bg-[#B8923A]",
+            "bg-[#0D5C63]",
             "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
           )}
         >
