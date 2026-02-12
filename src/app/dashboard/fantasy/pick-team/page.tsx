@@ -7,12 +7,10 @@ import { cn } from "@/lib/utils";
 import AuthGate from "@/components/AuthGate";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  Sparkles,
   TrendingUp,
   ArrowUpDown,
   ArrowLeft,
   ArrowLeftRight,
-  Users,
   Zap,
   X,
   TrendingDown,
@@ -20,7 +18,6 @@ import {
   Scale,
   MoreVertical,
   RotateCcw,
-  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -77,9 +74,7 @@ const LS_VICE = "tbl_vice_captain_id";
 
 import {
   BUDGET_TOTAL,
-  TEAM_LOGOS,
   TEAM_SHORT_LOGOS,
-  TEAM_KIT_COLORS,
   normalizePosition,
   shortPos,
   shortName,
@@ -630,8 +625,8 @@ function PlayerInfoSheet({
           </div>
         )}
 
-        {/* Substitute Button */}
-        <div className="px-5 pb-6 pt-2">
+        {/* Action Buttons */}
+        <div className="px-5 pb-6 pt-2 space-y-2">
           <Button
             type="button"
             onClick={onSubstitute}
@@ -639,6 +634,17 @@ function PlayerInfoSheet({
           >
             <ArrowUpDown className="h-4 w-4" />
             Substitute
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full rounded-xl gap-2"
+            asChild
+          >
+            <Link href={`/dashboard/players/${player.id}`}>
+              <Info className="h-4 w-4" />
+              Full Profile
+            </Link>
           </Button>
         </div>
       </SheetContent>
@@ -679,6 +685,9 @@ export default function PickTeamPage() {
   // Substitution mode - track player selected for swap
   const [selectedForSwap, setSelectedForSwap] = React.useState<string | null>(null);
   const [sheetPlayer, setSheetPlayer] = React.useState<Player | null>(null);
+  // Bench reorder: custom bench ordering (array of player IDs in desired order)
+  const [benchOrder, setBenchOrder] = React.useState<string[]>([]);
+  const [selectedBenchSwap, setSelectedBenchSwap] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
@@ -1081,10 +1090,23 @@ export default function PickTeamPage() {
     [players, startingIds]
   );
 
-  const bench = React.useMemo(
-    () => picked.filter((p) => !startingIds.includes(p.id)),
-    [picked, startingIds]
-  );
+  const bench = React.useMemo(() => {
+    const benchPlayers = picked.filter((p) => !startingIds.includes(p.id));
+    // Apply custom bench ordering if available
+    if (benchOrder.length > 0) {
+      const ordered: Player[] = [];
+      for (const id of benchOrder) {
+        const p = benchPlayers.find((bp) => bp.id === id);
+        if (p) ordered.push(p);
+      }
+      // Add any bench players not yet in the order
+      for (const p of benchPlayers) {
+        if (!ordered.some((o) => o.id === p.id)) ordered.push(p);
+      }
+      return ordered;
+    }
+    return benchPlayers;
+  }, [picked, startingIds, benchOrder]);
 
   const startingByPos = React.useMemo(() => groupByPosition(starting), [starting]);
 
@@ -1569,6 +1591,20 @@ export default function PickTeamPage() {
     setMsg(null);
   }
 
+  function swapBenchOrder(id1: string, id2: string) {
+    setBenchOrder((prev) => {
+      // Initialize from current bench if no custom order yet
+      const currentBench = picked.filter((p) => !startingIds.includes(p.id));
+      const order = prev.length > 0 ? [...prev] : currentBench.map((p) => p.id);
+      const i1 = order.indexOf(id1);
+      const i2 = order.indexOf(id2);
+      if (i1 === -1 || i2 === -1) return prev;
+      [order[i1], order[i2]] = [order[i2], order[i1]];
+      return order;
+    });
+    toast({ description: "Bench order updated" });
+  }
+
   async function save() {
     setMsg(null);
 
@@ -1637,9 +1673,10 @@ export default function PickTeamPage() {
       setSavedCaptainId(captainId);
       setSavedViceId(viceId);
 
-      setMsg("Saved (Database + Local).");
+      toast({ description: "Your team has been saved!", duration: 3000 });
+      setMsg(null);
     } catch (e: any) {
-      setMsg(`Saved locally but DB failed: ${e?.message ?? "Unknown error"}`);
+      toast({ description: `Saved locally. DB error: ${e?.message ?? "Unknown"}`, variant: "destructive", duration: 4000 });
     }
   }
 
@@ -1842,6 +1879,9 @@ export default function PickTeamPage() {
     onSelectForSwap,
     onOpenSheet,
     canSwapWithFn,
+    selectedBenchSwap,
+    onSelectBenchSwap,
+    onSwapBench,
   }: {
     picked: Player[];
     startingIds: string[];
@@ -1852,6 +1892,9 @@ export default function PickTeamPage() {
     onSelectForSwap: (id: string | null) => void;
     onOpenSheet: (player: Player) => void;
     canSwapWithFn: (sourceId: string, targetId: string) => boolean;
+    selectedBenchSwap: string | null;
+    onSelectBenchSwap: (id: string | null) => void;
+    onSwapBench: (id1: string, id2: string) => void;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
     const g = groupByPosition(starting);
@@ -1884,14 +1927,14 @@ export default function PickTeamPage() {
 
     return (
       <div className="space-y-0 rounded-2xl overflow-hidden">
-        {/* Swap Mode Banner */}
+        {/* Swap Mode Banner — FPL purple style */}
         {swapPlayer && (
-          <div className="flex items-center justify-between bg-amber-500 px-4 py-3">
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "linear-gradient(90deg, #37003C, #5B0050)" }}>
             <div className="flex items-center gap-2 text-white">
               <ArrowUpDown className="h-4 w-4" />
               <div>
                 <div className="text-sm font-bold">Swapping {shortName(swapPlayer.name, swapPlayer.webName)}</div>
-                <div className="text-[10px] text-white/70">Tap a valid player to complete</div>
+                <div className="text-[10px] text-white/70">Tap a valid player to complete the swap</div>
               </div>
             </div>
             <button
@@ -2201,34 +2244,65 @@ export default function PickTeamPage() {
               <span style={{ fontSize: 11, fontWeight: 800, color: "#37003C" }}>SUBSTITUTES</span>
               {selectedForSwap && (
                 <span style={{ fontSize: 10, color: "#666", marginLeft: 8 }}>
-                  Tap a player to swap
+                  Tap a player to swap with starter
+                </span>
+              )}
+              {!selectedForSwap && selectedBenchSwap && (
+                <span style={{ fontSize: 10, color: "#7c3aed", marginLeft: 8 }}>
+                  Tap another sub to reorder
+                </span>
+              )}
+              {!selectedForSwap && !selectedBenchSwap && (
+                <span style={{ fontSize: 10, color: "#666", marginLeft: 8 }}>
+                  Long-press to reorder
                 </span>
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 8px" }}>
-              {bench
-                .sort((a, b) => {
-                  const posOrder: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
-                  const posA = posOrder[normalizePosition(a.position)] || 5;
-                  const posB = posOrder[normalizePosition(b.position)] || 5;
-                  return posA - posB;
-                })
-                .map((p, index) => {
+              {bench.map((p, index) => {
                   const pos = normalizePosition(p.position);
                   const posShort = pos === "Goalkeeper" ? "GK" : pos === "Defender" ? "DEF" : pos === "Midfielder" ? "MID" : "FWD";
                   const selected = isSelected(p.id);
+                  const isBenchSelected = selectedBenchSwap === p.id;
+                  const isBenchTarget = selectedBenchSwap && selectedBenchSwap !== p.id && !startingIds.includes(p.id);
+
+                  const handleBenchTap = () => {
+                    // If in starter swap mode, use starter swap
+                    if (selectedForSwap) {
+                      handlePlayerTap(p.id);
+                      return;
+                    }
+                    // If a bench player is selected for reorder
+                    if (selectedBenchSwap) {
+                      if (selectedBenchSwap === p.id) {
+                        onSelectBenchSwap(null); // cancel
+                      } else {
+                        onSwapBench(selectedBenchSwap, p.id);
+                        onSelectBenchSwap(null);
+                      }
+                      return;
+                    }
+                    // Normal tap — open sheet
+                    const player = picked.find((pl) => pl.id === p.id);
+                    if (player) onOpenSheet(player);
+                  };
+
                   return (
                     <button
                       key={p.id}
-                      onClick={() => handlePlayerTap(p.id)}
+                      onClick={handleBenchTap}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (!selectedForSwap) onSelectBenchSwap(p.id);
+                      }}
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
-                        background: selected ? "#fef3c7" : isValidTarget(p.id) ? "rgba(52,211,153,0.15)" : "#f8eed8",
+                        background: isBenchSelected ? "#ede9fe" : selected ? "#fef3c7" : isValidTarget(p.id) ? "rgba(52,211,153,0.15)" : isBenchTarget ? "rgba(139,92,246,0.08)" : "#f8eed8",
                         borderRadius: 8,
                         padding: "10px 14px",
-                        border: selected ? "2px solid #f59e0b" : isValidTarget(p.id) ? "2px solid #34d399" : "1px solid #ddd0b0",
+                        border: isBenchSelected ? "2px solid #7c3aed" : selected ? "2px solid #f59e0b" : isValidTarget(p.id) ? "2px solid #34d399" : isBenchTarget ? "2px solid #a78bfa" : "1px solid #ddd0b0",
                         cursor: isDimmed(p.id) ? "not-allowed" : "pointer",
                         transition: "all 0.2s",
                         boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
@@ -2240,7 +2314,7 @@ export default function PickTeamPage() {
                           width: 24,
                           height: 24,
                           borderRadius: "50%",
-                          background: "#37003C",
+                          background: isBenchSelected ? "#7c3aed" : "#37003C",
                           color: "#fff",
                           fontSize: 11,
                           fontWeight: 700,
@@ -2252,7 +2326,7 @@ export default function PickTeamPage() {
                         {index + 1}
                       </div>
                       <div style={{ width: 36, height: 36 }}>
-                        <Kit color="#1e3a5f" isGK={pos === "Goalkeeper"} size={36} />
+                        <Kit color={getKitColor(p.teamShort)} isGK={pos === "Goalkeeper"} size={36} />
                       </div>
                       <div style={{ flex: 1, textAlign: "left" }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>
@@ -2514,178 +2588,324 @@ export default function PickTeamPage() {
             onSelectForSwap={setSelectedForSwap}
             onOpenSheet={(player) => setSheetPlayer(player)}
             canSwapWithFn={canSwapWith}
+            selectedBenchSwap={selectedBenchSwap}
+            onSelectBenchSwap={setSelectedBenchSwap}
+            onSwapBench={swapBenchOrder}
           />
         </div>
       )}
 
-      {/* List view - in a card */}
+      {/* List view — FPL style */}
       {tab === "list" && (
-        <div className="rounded-2xl border bg-card">
-              <div className="px-4 py-3 border-b text-[11px] font-semibold text-muted-foreground grid grid-cols-[1fr_84px_70px] sm:grid-cols-[1fr_100px_80px] gap-2">
-                <div>Player</div>
-                <div className="text-right">Current Price</div>
-                <div className="text-right">Selected</div>
-              </div>
-
-              {picked.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground">Pick players from Player Pool below.</div>
-              ) : (
-                <div className="divide-y">
-                  {listSections.map((section) => (
-                    <div key={section.title}>
-                      <div className="px-4 py-2 text-sm font-semibold">{section.title}</div>
-                      {section.players.length === 0 ? (
-                        <div className="px-4 pb-3 text-xs text-muted-foreground">No players selected.</div>
-                      ) : (
-                        <div className="divide-y">
-                          {section.players.map((p) => {
-                            const isStarting = startingIds.includes(p.id);
-                            const isCaptain = captainId === p.id;
-                            const isVice = viceId === p.id;
-                            const displayName = shortName(p.name, p.webName);
-
-                            return (
-                              <div
-                                key={p.id}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => toggleStarting(p.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    toggleStarting(p.id);
-                                  }
-                                }}
-                                className={cn(
-                                  "px-4 py-2 grid grid-cols-[1fr_84px_70px] sm:grid-cols-[1fr_100px_80px] gap-2 items-center",
-                                  isStarting ? "bg-emerald-50/60" : "hover:bg-muted/40"
-                                )}
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedPlayer(p);
-                                    }}
-                                    className="h-6 w-6 rounded-full border bg-background grid place-items-center"
-                                    aria-label={`View ${displayName} details`}
-                                  >
-                                    <Info className="h-3 w-3" />
-                                  </button>
-                                  <div className="h-9 w-9 rounded-full overflow-hidden bg-muted shrink-0">
-                                    {p.avatarUrl ? (
-                                      <img src={p.avatarUrl} alt={displayName} className="h-9 w-9 object-cover" />
-                                    ) : (
-                                      <div className="h-full w-full grid place-items-center text-sm font-semibold text-muted-foreground">
-                                        {displayName.charAt(0)}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1">
-                                      <div className="text-sm font-semibold truncate">{displayName}</div>
-                                      {p.isLady ? (
-                                        <span className="text-[10px] font-semibold text-pink-600">• Lady</span>
-                                      ) : null}
-                                      {isCaptain ? (
-                                        <span className="text-[10px] font-semibold text-amber-600">C</span>
-                                      ) : null}
-                                      {isVice ? (
-                                        <span className="text-[10px] font-semibold text-sky-600">VC</span>
-                                      ) : null}
-                                    </div>
-                                    <div className="text-[11px] text-muted-foreground truncate">
-                                      {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-right text-xs tabular-nums">{formatUGX(p.price)}</div>
-                                <div className="text-right text-xs tabular-nums">{formatOwnership(p.ownership)}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  <div>
-                    <div className="px-4 py-2 text-sm font-semibold">Substitutes</div>
-                    {bench.length === 0 ? (
-                      <div className="px-4 pb-3 text-xs text-muted-foreground">No substitutes selected.</div>
-                    ) : (
-                      <div className="divide-y">
-                        {bench.map((p) => {
-                          const isCaptain = captainId === p.id;
-                          const isVice = viceId === p.id;
-                          const displayName = shortName(p.name, p.webName);
-
-                          return (
-                            <div
-                              key={p.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => toggleStarting(p.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  toggleStarting(p.id);
-                                }
-                              }}
-                              className="px-4 py-2 grid grid-cols-[1fr_84px_70px] sm:grid-cols-[1fr_100px_80px] gap-2 items-center hover:bg-muted/40"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedPlayer(p);
-                                  }}
-                                  className="h-6 w-6 rounded-full border bg-background grid place-items-center"
-                                  aria-label={`View ${displayName} details`}
-                                >
-                                  <Info className="h-3 w-3" />
-                                </button>
-                                <div className="h-9 w-9 rounded-full overflow-hidden bg-muted shrink-0">
-                                  {p.avatarUrl ? (
-                                    <img src={p.avatarUrl} alt={displayName} className="h-9 w-9 object-cover" />
-                                  ) : (
-                                    <div className="h-full w-full grid place-items-center text-sm font-semibold text-muted-foreground">
-                                      {displayName.charAt(0)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1">
-                                    <div className="text-sm font-semibold truncate">{displayName}</div>
-                                    {p.isLady ? (
-                                      <span className="text-[10px] font-semibold text-pink-600">• Lady</span>
-                                    ) : null}
-                                    {isCaptain ? (
-                                      <span className="text-[10px] font-semibold text-amber-600">C</span>
-                                    ) : null}
-                                    {isVice ? (
-                                      <span className="text-[10px] font-semibold text-sky-600">VC</span>
-                                    ) : null}
-                                  </div>
-                                  <div className="text-[11px] text-muted-foreground truncate">
-                                    {p.teamShort ?? p.teamName ?? "--"} - {shortPos(p.position)}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right text-xs tabular-nums">{formatUGX(p.price)}</div>
-                              <div className="text-right text-xs tabular-nums">{formatOwnership(p.ownership)}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+        <div className="-mx-4">
+          {/* Column Headers */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              padding: "14px 16px 8px 76px",
+              background: "#fff",
+              borderBottom: "1px solid #f0edf2",
+            }}
+          >
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "#37003C" }}>Player</div>
+            <div style={{ width: 46, textAlign: "center", fontSize: 12, fontWeight: 500, color: "#37003C" }}>Form</div>
+            <div style={{ width: 56, textAlign: "center", fontSize: 11, fontWeight: 500, color: "#37003C", lineHeight: 1.2 }}>
+              Current<br />Price
             </div>
+            <div style={{ width: 54, textAlign: "right", fontSize: 12, fontWeight: 500, color: "#37003C" }}>Selected</div>
+          </div>
+
+          {picked.length === 0 ? (
+            <div style={{ padding: 16, textAlign: "center", background: "#fff", color: "#999" }}>
+              Pick players from the Transfers page first.
+            </div>
+          ) : (
+            <>
+              {/* Starters by position */}
+              {listSections.map((section) => (
+                <div key={section.title}>
+                  {section.players.length > 0 && (
+                    <>
+                      {/* Section header — serif style like FPL */}
+                      <div style={{ padding: "16px 16px 8px", background: "#fff" }}>
+                        <h2 style={{
+                          margin: 0,
+                          fontSize: 22,
+                          fontWeight: 700,
+                          color: "#37003C",
+                          fontFamily: "Georgia, 'Times New Roman', serif",
+                        }}>
+                          {section.title}
+                        </h2>
+                      </div>
+                      {/* Player rows */}
+                      {section.players.map((p) => {
+                        const displayName = shortName(p.name, p.webName);
+                        const isCap = captainId === p.id;
+                        const isVc = viceId === p.id;
+                        const isGK = normalizePosition(p.position) === "Goalkeeper";
+                        const kitColor = getKitColor(p.teamShort);
+                        const formVal = p.formLast5 ? parseFloat(p.formLast5) : 0;
+
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setSheetPlayer(p)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              padding: "12px 16px 12px 12px",
+                              background: "#fff",
+                              borderBottom: "1px solid #f2f0f4",
+                              width: "100%",
+                              cursor: "pointer",
+                              border: "none",
+                              textAlign: "left",
+                            }}
+                          >
+                            {/* Status icon (info "i") */}
+                            <div style={{
+                              width: 18, height: 18, flexShrink: 0,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                              <span style={{
+                                fontFamily: "Georgia, 'Times New Roman', serif",
+                                fontStyle: "italic",
+                                fontSize: 14,
+                                fontWeight: 400,
+                                color: "#37003C",
+                                opacity: 0.5,
+                                lineHeight: 1,
+                              }}>i</span>
+                            </div>
+
+                            {/* Kit */}
+                            <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
+                              <Kit color={kitColor} isGK={isGK} size={42} />
+                            </div>
+
+                            {/* Player name + team + pos */}
+                            <div style={{
+                              flex: 1, minWidth: 0,
+                              paddingRight: 10,
+                              borderRight: "1px solid #ece8f0",
+                              marginRight: 10,
+                            }}>
+                              <div style={{
+                                fontSize: 14, fontWeight: 700, color: "#37003C",
+                                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                lineHeight: 1.3,
+                                display: "flex", alignItems: "center", gap: 4,
+                              }}>
+                                {displayName}
+                                {p.isLady && (
+                                  <span style={{
+                                    display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                                    background: "#FF69B4", border: "1px solid #FF1493",
+                                    marginLeft: 3, verticalAlign: "middle",
+                                  }} />
+                                )}
+                                {isCap && (
+                                  <span style={{
+                                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                    width: 16, height: 16, borderRadius: "50%",
+                                    background: "linear-gradient(135deg, #FFD700, #FFA500)",
+                                    color: "#000", fontSize: 9, fontWeight: 900,
+                                  }}>C</span>
+                                )}
+                                {isVc && (
+                                  <span style={{
+                                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                    width: 16, height: 16, borderRadius: "50%",
+                                    background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)",
+                                    border: "1px solid #37003C",
+                                    color: "#000", fontSize: 9, fontWeight: 900,
+                                  }}>V</span>
+                                )}
+                              </div>
+                              <div style={{
+                                fontSize: 12, color: "#999", fontWeight: 400,
+                                marginTop: 1, display: "flex", gap: 6,
+                              }}>
+                                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {p.teamShort ?? p.teamName ?? "--"}
+                                </span>
+                                <span>{shortPos(p.position)}</span>
+                              </div>
+                            </div>
+
+                            {/* Form */}
+                            <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
+                              <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                                {formVal > 0 ? formVal.toFixed(1) : "--"}
+                              </span>
+                            </div>
+
+                            {/* Price */}
+                            <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
+                              <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                                {formatUGX(p.price)}
+                              </span>
+                            </div>
+
+                            {/* Selected */}
+                            <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
+                              <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                                {formatOwnership(p.ownership)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              ))}
+
+              {/* Substitutes */}
+              {bench.length > 0 && (
+                <>
+                  <div style={{ padding: "16px 16px 8px", background: "#fff" }}>
+                    <h2 style={{
+                      margin: 0,
+                      fontSize: 22,
+                      fontWeight: 700,
+                      color: "#37003C",
+                      fontFamily: "Georgia, 'Times New Roman', serif",
+                    }}>
+                      Substitutes
+                    </h2>
+                  </div>
+                  {bench.map((p) => {
+                    const displayName = shortName(p.name, p.webName);
+                    const isCap = captainId === p.id;
+                    const isVc = viceId === p.id;
+                    const isGK = normalizePosition(p.position) === "Goalkeeper";
+                    const kitColor = getKitColor(p.teamShort);
+                    const formVal = p.formLast5 ? parseFloat(p.formLast5) : 0;
+
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSheetPlayer(p)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          padding: "12px 16px 12px 12px",
+                          background: "#fff",
+                          borderBottom: "1px solid #f2f0f4",
+                          width: "100%",
+                          cursor: "pointer",
+                          border: "none",
+                          textAlign: "left",
+                        }}
+                      >
+                        {/* Status icon */}
+                        <div style={{
+                          width: 18, height: 18, flexShrink: 0,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <span style={{
+                            fontFamily: "Georgia, 'Times New Roman', serif",
+                            fontStyle: "italic",
+                            fontSize: 14,
+                            fontWeight: 400,
+                            color: "#37003C",
+                            opacity: 0.5,
+                            lineHeight: 1,
+                          }}>i</span>
+                        </div>
+
+                        {/* Kit */}
+                        <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
+                          <Kit color={kitColor} isGK={isGK} size={42} />
+                        </div>
+
+                        {/* Player name + team + pos */}
+                        <div style={{
+                          flex: 1, minWidth: 0,
+                          paddingRight: 10,
+                          borderRight: "1px solid #ece8f0",
+                          marginRight: 10,
+                        }}>
+                          <div style={{
+                            fontSize: 14, fontWeight: 700, color: "#37003C",
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                            lineHeight: 1.3,
+                            display: "flex", alignItems: "center", gap: 4,
+                          }}>
+                            {displayName}
+                            {p.isLady && (
+                              <span style={{
+                                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                                background: "#FF69B4", border: "1px solid #FF1493",
+                                marginLeft: 3, verticalAlign: "middle",
+                              }} />
+                            )}
+                            {isCap && (
+                              <span style={{
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                width: 16, height: 16, borderRadius: "50%",
+                                background: "linear-gradient(135deg, #FFD700, #FFA500)",
+                                color: "#000", fontSize: 9, fontWeight: 900,
+                              }}>C</span>
+                            )}
+                            {isVc && (
+                              <span style={{
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                width: 16, height: 16, borderRadius: "50%",
+                                background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)",
+                                border: "1px solid #37003C",
+                                color: "#000", fontSize: 9, fontWeight: 900,
+                              }}>V</span>
+                            )}
+                          </div>
+                          <div style={{
+                            fontSize: 12, color: "#999", fontWeight: 400,
+                            marginTop: 1, display: "flex", gap: 6,
+                          }}>
+                            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {p.teamShort ?? p.teamName ?? "--"}
+                            </span>
+                            <span>{shortPos(p.position)}</span>
+                          </div>
+                        </div>
+
+                        {/* Form */}
+                        <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                            {formVal > 0 ? formVal.toFixed(1) : "--"}
+                          </span>
+                        </div>
+
+                        {/* Price */}
+                        <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                            {formatUGX(p.price)}
+                          </span>
+                        </div>
+
+                        {/* Selected */}
+                        <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                            {formatOwnership(p.ownership)}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Bottom spacer */}
+              <div style={{ height: 40, background: "#fff" }} />
+            </>
           )}
+        </div>
+      )}
 
           {tab === "squad" && (
             <div className="rounded-2xl border bg-card">
@@ -2896,6 +3116,28 @@ export default function PickTeamPage() {
             setSheetPlayer(null);
           }}
         />
+      )}
+
+      {/* Sticky Save Your Team Bar */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t px-4 py-3 flex gap-3 max-w-app mx-auto">
+          <button
+            type="button"
+            onClick={cancelChanges}
+            className="flex-1 py-3 rounded-full border-2 border-foreground text-sm font-bold hover:bg-accent transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={loading}
+            className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
+            style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
+          >
+            <span style={{ color: "#37003C" }}>Save Your Team</span>
+          </button>
+        </div>
       )}
 
       <Toaster />
