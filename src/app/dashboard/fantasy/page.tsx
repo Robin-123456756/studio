@@ -116,7 +116,7 @@ function useDeadlineCountdown(deadlineIso?: string | null) {
 // ── Mini League ──
 function MiniLeague() {
   return (
-    <Card className="rounded-2xl shadow-sm">
+    <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
       <CardContent className="p-4">
         <div className="text-base font-semibold text-foreground">Budo League</div>
         <div className="mt-1 text-xs text-muted-foreground">Your rank among rivals.</div>
@@ -416,8 +416,9 @@ function FantasyPage() {
         <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6">
         <div
           className={cn(
-            "overflow-hidden rounded-3xl",
-            "bg-[#0D5C63]"
+            "overflow-hidden rounded-b-3xl",
+            "bg-[#0D5C63]",
+            "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
           )}
         >
           <div className="p-4 text-white">
@@ -537,7 +538,7 @@ function FantasyPage() {
         </div>
 
       <div className="mt-4">
-        <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-card shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
           {menuItems.map((item, i) => (
             <NavRow
               key={item.label}
