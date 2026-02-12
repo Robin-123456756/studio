@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { saveSquadIds } from "@/lib/fantasyStorage";
 import {
   BUDGET_TOTAL,
   normalizePosition,
@@ -101,6 +102,9 @@ export default function TransfersPage() {
   // Replacement list search/sort
   const [searchQuery, setSearchQuery] = React.useState("");
   const [sortKey, setSortKey] = React.useState<"points" | "price" | "name">("points");
+
+  // "Add mode" — for building squad from scratch (no outId, just pick by position)
+  const [addPosition, setAddPosition] = React.useState<string | null>(null);
 
   // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
@@ -263,6 +267,39 @@ export default function TransfersPage() {
         return (b.points ?? 0) - (a.points ?? 0);
       });
   }, [allPlayers, effectiveSquadIds, selectedOutPosition, searchQuery, sortKey]);
+
+  // Pool for "add mode" — players filtered by addPosition, excluding current squad
+  const addPool = React.useMemo(() => {
+    if (!addPosition) return [];
+    const fullPos = addPosition === "GK" ? "Goalkeeper" : addPosition === "DEF" ? "Defender" : addPosition === "MID" ? "Midfielder" : "Forward";
+    const effectiveSet = new Set(effectiveSquadIds);
+    const q = searchQuery.trim().toLowerCase();
+
+    return allPlayers
+      .filter((p) => normalizePosition(p.position) === fullPos)
+      .filter((p) => !effectiveSet.has(p.id))
+      .filter((p) => (q ? p.name.toLowerCase().includes(q) || (p.teamShort ?? "").toLowerCase().includes(q) || (p.teamName ?? "").toLowerCase().includes(q) : true))
+      .sort((a, b) => {
+        if (sortKey === "name") return a.name.localeCompare(b.name);
+        if (sortKey === "price") return (b.price ?? 0) - (a.price ?? 0);
+        return (b.points ?? 0) - (a.points ?? 0);
+      });
+  }, [allPlayers, effectiveSquadIds, addPosition, searchQuery, sortKey]);
+
+  function addPlayerToSquad(playerId: string) {
+    const newIds = [...originalSquadIds, playerId];
+    setOriginalSquadIds(newIds);
+    saveSquadIds(newIds);
+    setAddPosition(null);
+    setSearchQuery("");
+  }
+
+  function openAddMode(posLabel: string) {
+    if (locked) return;
+    setSelectedOutId(null);
+    setAddPosition(posLabel);
+    setSearchQuery("");
+  }
 
   function selectForRemoval(playerId: string) {
     if (locked) return;
@@ -484,78 +521,82 @@ export default function TransfersPage() {
                     } : undefined}
                   />
                 ))
-              ) : (
-                <>
+              ) : null}
+              {/* Fill remaining GK slots */}
+              {Array.from({ length: Math.max(0, 2 - allGrouped.Goalkeepers.length) }).map((_, i) => (
+                <button key={`gk-empty-${i}`} type="button" onClick={() => openAddMode("GK")} className="active:scale-95 transition-transform">
                   <EmptySlot position="GK" small />
-                  <EmptySlot position="GK" small />
-                </>
-              )}
+                </button>
+              ))}
             </div>
 
             {/* DEF Row — 4 defenders */}
             <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "4px 0", position: "relative", zIndex: 1 }}>
-              {allGrouped.Defenders.length > 0 ? (
-                allGrouped.Defenders.map((p) => (
-                  <SmallPitchCard
-                    key={p.id}
-                    player={p}
-                    isSelected={selectedOutId === p.id}
-                    isGhost={selectedOutId === p.id}
-                    isNewIn={pendingInIds.has(p.id)}
-                    onTap={() => selectForRemoval(p.id)}
-                    onUndo={pendingInIds.has(p.id) ? () => {
-                      const t = pendingTransfers.find((t) => t.inId === p.id);
-                      if (t) undoTransfer(t.outId);
-                    } : undefined}
-                  />
-                ))
-              ) : (
-                Array.from({ length: 4 }).map((_, i) => <EmptySlot key={i} position="DEF" small />)
-              )}
+              {allGrouped.Defenders.map((p) => (
+                <SmallPitchCard
+                  key={p.id}
+                  player={p}
+                  isSelected={selectedOutId === p.id}
+                  isGhost={selectedOutId === p.id}
+                  isNewIn={pendingInIds.has(p.id)}
+                  onTap={() => selectForRemoval(p.id)}
+                  onUndo={pendingInIds.has(p.id) ? () => {
+                    const t = pendingTransfers.find((t) => t.inId === p.id);
+                    if (t) undoTransfer(t.outId);
+                  } : undefined}
+                />
+              ))}
+              {Array.from({ length: Math.max(0, 4 - allGrouped.Defenders.length) }).map((_, i) => (
+                <button key={`def-empty-${i}`} type="button" onClick={() => openAddMode("DEF")} className="active:scale-95 transition-transform">
+                  <EmptySlot position="DEF" small />
+                </button>
+              ))}
             </div>
 
             {/* MID Row — 6 midfielders */}
             <div style={{ display: "flex", justifyContent: "center", gap: 1, padding: "4px 0", position: "relative", zIndex: 1 }}>
-              {allGrouped.Midfielders.length > 0 ? (
-                allGrouped.Midfielders.map((p) => (
-                  <SmallPitchCard
-                    key={p.id}
-                    player={p}
-                    isSelected={selectedOutId === p.id}
-                    isGhost={selectedOutId === p.id}
-                    isNewIn={pendingInIds.has(p.id)}
-                    onTap={() => selectForRemoval(p.id)}
-                    onUndo={pendingInIds.has(p.id) ? () => {
-                      const t = pendingTransfers.find((t) => t.inId === p.id);
-                      if (t) undoTransfer(t.outId);
-                    } : undefined}
-                  />
-                ))
-              ) : (
-                Array.from({ length: 6 }).map((_, i) => <EmptySlot key={i} position="MID" small />)
-              )}
+              {allGrouped.Midfielders.map((p) => (
+                <SmallPitchCard
+                  key={p.id}
+                  player={p}
+                  isSelected={selectedOutId === p.id}
+                  isGhost={selectedOutId === p.id}
+                  isNewIn={pendingInIds.has(p.id)}
+                  onTap={() => selectForRemoval(p.id)}
+                  onUndo={pendingInIds.has(p.id) ? () => {
+                    const t = pendingTransfers.find((t) => t.inId === p.id);
+                    if (t) undoTransfer(t.outId);
+                  } : undefined}
+                />
+              ))}
+              {Array.from({ length: Math.max(0, 6 - allGrouped.Midfielders.length) }).map((_, i) => (
+                <button key={`mid-empty-${i}`} type="button" onClick={() => openAddMode("MID")} className="active:scale-95 transition-transform">
+                  <EmptySlot position="MID" small />
+                </button>
+              ))}
             </div>
 
             {/* FWD Row — 3 male forwards */}
             <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "4px 0", position: "relative", zIndex: 1 }}>
-              {maleFwds.length > 0 ? (
-                maleFwds.map((p) => (
-                  <SmallPitchCard
-                    key={p.id}
-                    player={p}
-                    isSelected={selectedOutId === p.id}
-                    isGhost={selectedOutId === p.id}
-                    isNewIn={pendingInIds.has(p.id)}
-                    onTap={() => selectForRemoval(p.id)}
-                    onUndo={pendingInIds.has(p.id) ? () => {
-                      const t = pendingTransfers.find((t) => t.inId === p.id);
-                      if (t) undoTransfer(t.outId);
-                    } : undefined}
-                  />
-                ))
-              ) : (
-                Array.from({ length: 3 }).map((_, i) => <EmptySlot key={i} position="FWD" small />)
-              )}
+              {maleFwds.map((p) => (
+                <SmallPitchCard
+                  key={p.id}
+                  player={p}
+                  isSelected={selectedOutId === p.id}
+                  isGhost={selectedOutId === p.id}
+                  isNewIn={pendingInIds.has(p.id)}
+                  onTap={() => selectForRemoval(p.id)}
+                  onUndo={pendingInIds.has(p.id) ? () => {
+                    const t = pendingTransfers.find((t) => t.inId === p.id);
+                    if (t) undoTransfer(t.outId);
+                  } : undefined}
+                />
+              ))}
+              {Array.from({ length: Math.max(0, 3 - maleFwds.length) }).map((_, i) => (
+                <button key={`fwd-empty-${i}`} type="button" onClick={() => openAddMode("FWD")} className="active:scale-95 transition-transform">
+                  <EmptySlot position="FWD" small />
+                </button>
+              ))}
             </div>
 
             {/* LADIES Row — 2 lady forwards */}
@@ -564,27 +605,25 @@ export default function TransfersPage() {
                 <span style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", textTransform: "uppercase" as const, letterSpacing: 1.5 }}>Ladies</span>
               </div>
               <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
-                {ladyPlayers.length > 0 ? (
-                  ladyPlayers.map((p) => (
-                    <SmallPitchCard
-                      key={p.id}
-                      player={p}
-                      isSelected={selectedOutId === p.id}
-                      isGhost={selectedOutId === p.id}
-                      isNewIn={pendingInIds.has(p.id)}
-                      onTap={() => selectForRemoval(p.id)}
-                      onUndo={pendingInIds.has(p.id) ? () => {
-                        const t = pendingTransfers.find((t) => t.inId === p.id);
-                        if (t) undoTransfer(t.outId);
-                      } : undefined}
-                    />
-                  ))
-                ) : (
-                  <>
+                {ladyPlayers.map((p) => (
+                  <SmallPitchCard
+                    key={p.id}
+                    player={p}
+                    isSelected={selectedOutId === p.id}
+                    isGhost={selectedOutId === p.id}
+                    isNewIn={pendingInIds.has(p.id)}
+                    onTap={() => selectForRemoval(p.id)}
+                    onUndo={pendingInIds.has(p.id) ? () => {
+                      const t = pendingTransfers.find((t) => t.inId === p.id);
+                      if (t) undoTransfer(t.outId);
+                    } : undefined}
+                  />
+                ))}
+                {Array.from({ length: Math.max(0, 2 - ladyPlayers.length) }).map((_, i) => (
+                  <button key={`lady-empty-${i}`} type="button" onClick={() => openAddMode("FWD")} className="active:scale-95 transition-transform">
                     <EmptySlot position="FWD" small />
-                    <EmptySlot position="FWD" small />
-                  </>
-                )}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -604,6 +643,76 @@ export default function TransfersPage() {
       {effectiveSquad.length < 17 && (
         <div className="text-center text-xs text-amber-600 font-medium">
           {effectiveSquad.length}/17 players • Add {17 - effectiveSquad.length} more
+        </div>
+      )}
+
+      {/* === ADD PLAYER PANEL (building squad from scratch) === */}
+      {addPosition && !selectedOutId && (
+        <div className="space-y-3">
+          <div className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-3 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-bold" style={{ color: "#37003C" }}>
+                Add a {addPosition === "GK" ? "Goalkeeper" : addPosition === "DEF" ? "Defender" : addPosition === "MID" ? "Midfielder" : "Forward"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {effectiveSquad.length}/17 players selected
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setAddPosition(null); setSearchQuery(""); }}
+              className="h-8 w-8 rounded-full border bg-white grid place-items-center hover:bg-red-100 shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or team..."
+              className="w-full rounded-xl border bg-background pl-9 pr-3 py-2.5 text-sm"
+            />
+          </div>
+
+          {/* Sort pills */}
+          <div className="flex gap-2 justify-center">
+            {(["points", "price", "name"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSortKey(key)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-semibold border transition",
+                  sortKey === key
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-card text-muted-foreground border-muted hover:bg-accent"
+                )}
+              >
+                {key === "points" ? "Points" : key === "price" ? "Price" : "Name"}
+              </button>
+            ))}
+          </div>
+
+          {/* Player list */}
+          <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+            {addPool.map((p) => (
+              <ReplacementRow
+                key={p.id}
+                player={p}
+                onPick={() => addPlayerToSquad(p.id)}
+                budgetRemaining={budgetRemaining}
+              />
+            ))}
+            {addPool.length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-6">
+                No players match your filters.
+              </div>
+            )}
+          </div>
         </div>
       )}
 
