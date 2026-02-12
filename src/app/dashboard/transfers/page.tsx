@@ -2,23 +2,18 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { loadSquadIds } from "@/lib/fantasyStorage";
 import { type Player } from "./player-card";
 import { useTransfers } from "./use-transfers";
-import { ArrowLeft, MoreVertical, RotateCcw } from "lucide-react";
+import { ArrowLeft, MoreVertical, RotateCcw, Search, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   BUDGET_TOTAL,
   normalizePosition,
@@ -52,6 +47,11 @@ type ApiPlayer = {
   teamName?: string | null;
 };
 
+type PendingTransfer = {
+  outId: string;
+  inId: string;
+};
+
 // =====================
 // HELPERS
 // =====================
@@ -80,6 +80,8 @@ function isLocked(deadlineIso?: string | null) {
 // PAGE
 // =====================
 export default function TransfersPage() {
+  const router = useRouter();
+
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
   const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
   const [gwLoading, setGwLoading] = React.useState(true);
@@ -89,15 +91,20 @@ export default function TransfersPage() {
   const [, setPlayersLoading] = React.useState(true);
   const [playersError, setPlayersError] = React.useState<string | null>(null);
 
-  const [squadIds, setSquadIds] = React.useState<string[]>([]);
+  const [originalSquadIds, setOriginalSquadIds] = React.useState<string[]>([]);
 
-  const [outId, setOutId] = React.useState<string | null>(null);
-  const [inId, setInId] = React.useState<string | null>(null);
-  const [sheetPlayer, setSheetPlayer] = React.useState<Player | null>(null);
+  // Pending transfers (multiple swaps before confirming)
+  const [pendingTransfers, setPendingTransfers] = React.useState<PendingTransfer[]>([]);
+  // Currently selected player for removal (ghosted, awaiting replacement pick)
+  const [selectedOutId, setSelectedOutId] = React.useState<string | null>(null);
+
+  // Replacement list search/sort
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [sortKey, setSortKey] = React.useState<"points" | "price" | "name">("points");
 
   // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
-  const { freeTransfers, cost } = useTransfers(gwId);
+  const { freeTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
 
   // Load gameweeks
   React.useEffect(() => {
@@ -128,7 +135,7 @@ export default function TransfersPage() {
   React.useEffect(() => {
     if (!gwIdForRoster) {
       const local = loadSquadIds();
-      if (local.length > 0) setSquadIds(local);
+      if (local.length > 0) setOriginalSquadIds(local);
       return;
     }
 
@@ -139,14 +146,14 @@ export default function TransfersPage() {
       if (!res.ok || !Array.isArray(json.squadIds) || json.squadIds.length === 0) {
         const local = loadSquadIds();
         if (local.length > 0) {
-          setSquadIds(local);
+          setOriginalSquadIds(local);
           return;
         }
-        setSquadIds([]);
+        setOriginalSquadIds([]);
         return;
       }
 
-      setSquadIds(json.squadIds);
+      setOriginalSquadIds(json.squadIds);
     })();
   }, [gwIdForRoster]);
 
@@ -185,7 +192,7 @@ export default function TransfersPage() {
   React.useEffect(() => {
     if (!gwId) {
       const local = loadSquadIds();
-      if (local.length > 0) setSquadIds(local);
+      if (local.length > 0) setOriginalSquadIds(local);
       return;
     }
 
@@ -196,14 +203,14 @@ export default function TransfersPage() {
       if (!res.ok || !Array.isArray(json.squadIds) || json.squadIds.length === 0) {
         const local = loadSquadIds();
         if (local.length > 0) {
-          setSquadIds(local);
+          setOriginalSquadIds(local);
           return;
         }
-        setSquadIds([]);
+        setOriginalSquadIds([]);
         return;
       }
 
-      setSquadIds(json.squadIds);
+      setOriginalSquadIds(json.squadIds);
     })();
   }, [gwId]);
 
@@ -211,56 +218,113 @@ export default function TransfersPage() {
 
   const byId = React.useMemo(() => new Map(allPlayers.map((p) => [p.id, p])), [allPlayers]);
 
-  const squad = React.useMemo(
-    () => squadIds.map((id) => byId.get(id)).filter(Boolean) as Player[],
-    [squadIds, byId]
+  // The effective squad: apply pending transfers to original squad
+  const effectiveSquadIds = React.useMemo(() => {
+    return originalSquadIds.map((id) => {
+      const swap = pendingTransfers.find((t) => t.outId === id);
+      return swap ? swap.inId : id;
+    });
+  }, [originalSquadIds, pendingTransfers]);
+
+  const effectiveSquad = React.useMemo(
+    () => effectiveSquadIds.map((id) => byId.get(id)).filter(Boolean) as Player[],
+    [effectiveSquadIds, byId]
   );
 
-  // Budget
+  // Budget based on effective squad
   const budgetUsed = React.useMemo(
-    () => squad.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
-    [squad]
+    () => effectiveSquad.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
+    [effectiveSquad]
   );
   const budgetRemaining = Math.max(0, BUDGET_TOTAL - budgetUsed);
 
-  // Read back inId from localStorage (set by add-player page)
-  React.useEffect(() => {
-    const stored = localStorage.getItem("tbl_transfer_in_id");
-    if (stored) {
-      setInId(stored);
-      localStorage.removeItem("tbl_transfer_in_id");
-    }
-  }, []);
+  // Transfer cost based on pending count
+  const pendingCount = pendingTransfers.length;
+  const extraTransfers = Math.max(0, pendingCount - freeTransfers);
+  const pendingCost = extraTransfers * 4;
 
-  function resetSelection() {
-    setOutId(null);
-    setInId(null);
-  }
+  // The selected out player
+  const selectedOutPlayer = selectedOutId ? byId.get(selectedOutId) : null;
+  const selectedOutPosition = selectedOutPlayer ? normalizePosition(selectedOutPlayer.position) : null;
 
-  function pickOut(id: string) {
+  // Replacement pool: filtered by position, excluding effective squad
+  const replacementPool = React.useMemo(() => {
+    if (!selectedOutPosition) return [];
+    const effectiveSet = new Set(effectiveSquadIds);
+    const q = searchQuery.trim().toLowerCase();
+
+    return allPlayers
+      .filter((p) => normalizePosition(p.position) === selectedOutPosition)
+      .filter((p) => !effectiveSet.has(p.id))
+      .filter((p) => (q ? p.name.toLowerCase().includes(q) || (p.teamShort ?? "").toLowerCase().includes(q) || (p.teamName ?? "").toLowerCase().includes(q) : true))
+      .sort((a, b) => {
+        if (sortKey === "name") return a.name.localeCompare(b.name);
+        if (sortKey === "price") return (b.price ?? 0) - (a.price ?? 0);
+        return (b.points ?? 0) - (a.points ?? 0);
+      });
+  }, [allPlayers, effectiveSquadIds, selectedOutPosition, searchQuery, sortKey]);
+
+  function selectForRemoval(playerId: string) {
     if (locked) return;
-    const player = byId.get(id);
-    if (player) setSheetPlayer(player);
+    // If tapping the same player, deselect
+    if (selectedOutId === playerId) {
+      setSelectedOutId(null);
+      setSearchQuery("");
+      return;
+    }
+    setSelectedOutId(playerId);
+    setSearchQuery("");
   }
 
-  function handleRemove() {
-    if (sheetPlayer) {
-      setOutId(sheetPlayer.id);
-      setInId(null);
+  function pickReplacement(inId: string) {
+    if (!selectedOutId) return;
+
+    // Check if this player was already swapped in a pending transfer — replace that transfer
+    const existingIdx = pendingTransfers.findIndex((t) => t.outId === selectedOutId);
+    if (existingIdx >= 0) {
+      const updated = [...pendingTransfers];
+      updated[existingIdx] = { outId: selectedOutId, inId };
+      setPendingTransfers(updated);
+    } else {
+      setPendingTransfers((prev) => [...prev, { outId: selectedOutId, inId }]);
     }
-    setSheetPlayer(null);
+
+    setSelectedOutId(null);
+    setSearchQuery("");
+  }
+
+  function undoTransfer(outId: string) {
+    setPendingTransfers((prev) => prev.filter((t) => t.outId !== outId));
+    setSelectedOutId(null);
+  }
+
+  function resetAllTransfers() {
+    setPendingTransfers([]);
+    setSelectedOutId(null);
+    setSearchQuery("");
+  }
+
+  function handleMakeTransfers() {
+    if (pendingTransfers.length === 0) return;
+    // Store pending transfers in localStorage for the confirmation page
+    localStorage.setItem("tbl_pending_transfers", JSON.stringify(pendingTransfers));
+    router.push("/dashboard/transfers/next");
   }
 
   // Normalize positions for pitch display
   const normalizedSquad = React.useMemo(
-    () => squad.map((p) => ({ ...p, position: normalizePosition(p.position) })),
-    [squad]
+    () => effectiveSquad.map((p) => ({ ...p, position: normalizePosition(p.position) })),
+    [effectiveSquad]
   );
 
   // Group ALL squad players by position for the full-squad pitch view
   const allGrouped = groupByPosition(normalizedSquad);
   const maleFwds = allGrouped.Forwards.filter((p) => !p.isLady);
   const ladyPlayers = normalizedSquad.filter((p) => p.isLady);
+
+  // Check if a player on the pitch is a "new in" (from pending transfer)
+  const pendingInIds = new Set(pendingTransfers.map((t) => t.inId));
+  const pendingOutIds = new Set(pendingTransfers.map((t) => t.outId));
 
   // =====================
   // RENDER
@@ -288,11 +352,11 @@ export default function TransfersPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem
-              onClick={resetSelection}
+              onClick={resetAllTransfers}
               className="gap-2"
             >
               <RotateCcw className="h-4 w-4" />
-              Reset Selection
+              Reset All Transfers
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="gap-2">
               <Link href="/dashboard/fantasy/pick-team">
@@ -325,26 +389,19 @@ export default function TransfersPage() {
           <div className="text-[10px] text-muted-foreground font-medium">Free Transfers</div>
         </div>
         <div className="rounded-xl border bg-card p-3 text-center">
-          <div className={cn("text-lg font-bold tabular-nums", cost > 0 && "text-red-600")}>{cost} pts</div>
+          <div className={cn("text-lg font-bold tabular-nums", pendingCost > 0 && "text-red-600")}>{pendingCost} pts</div>
           <div className="text-[10px] text-muted-foreground font-medium">Cost</div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold">Wildcard</div>
-            <div className="text-[10px] text-muted-foreground">Play to make unlimited free transfers</div>
-          </div>
-          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Available</span>
+
+      {/* Pending transfers count */}
+      {pendingCount > 0 && (
+        <div className="text-center">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            {pendingCount} transfer{pendingCount > 1 ? "s" : ""} pending
+          </span>
         </div>
-        <div className="rounded-xl border bg-card p-3 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold">Free Hit</div>
-            <div className="text-[10px] text-muted-foreground">Temporary squad for one gameweek</div>
-          </div>
-          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Available</span>
-        </div>
-      </div>
+      )}
 
       {/* === PITCH VIEW (Full Width — all 17 players) === */}
       <div className="-mx-4">
@@ -391,7 +448,18 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "2px 0 4px", position: "relative", zIndex: 1 }}>
               {allGrouped.Goalkeepers.length > 0 ? (
                 allGrouped.Goalkeepers.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard
+                    key={p.id}
+                    player={p}
+                    isSelected={selectedOutId === p.id}
+                    isGhost={selectedOutId === p.id}
+                    isNewIn={pendingInIds.has(p.id)}
+                    onTap={() => selectForRemoval(p.id)}
+                    onUndo={pendingInIds.has(p.id) ? () => {
+                      const t = pendingTransfers.find((t) => t.inId === p.id);
+                      if (t) undoTransfer(t.outId);
+                    } : undefined}
+                  />
                 ))
               ) : (
                 <>
@@ -405,7 +473,18 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "4px 0", position: "relative", zIndex: 1 }}>
               {allGrouped.Defenders.length > 0 ? (
                 allGrouped.Defenders.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard
+                    key={p.id}
+                    player={p}
+                    isSelected={selectedOutId === p.id}
+                    isGhost={selectedOutId === p.id}
+                    isNewIn={pendingInIds.has(p.id)}
+                    onTap={() => selectForRemoval(p.id)}
+                    onUndo={pendingInIds.has(p.id) ? () => {
+                      const t = pendingTransfers.find((t) => t.inId === p.id);
+                      if (t) undoTransfer(t.outId);
+                    } : undefined}
+                  />
                 ))
               ) : (
                 Array.from({ length: 4 }).map((_, i) => <EmptySlot key={i} position="DEF" small />)
@@ -416,7 +495,18 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 1, padding: "4px 0", position: "relative", zIndex: 1 }}>
               {allGrouped.Midfielders.length > 0 ? (
                 allGrouped.Midfielders.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard
+                    key={p.id}
+                    player={p}
+                    isSelected={selectedOutId === p.id}
+                    isGhost={selectedOutId === p.id}
+                    isNewIn={pendingInIds.has(p.id)}
+                    onTap={() => selectForRemoval(p.id)}
+                    onUndo={pendingInIds.has(p.id) ? () => {
+                      const t = pendingTransfers.find((t) => t.inId === p.id);
+                      if (t) undoTransfer(t.outId);
+                    } : undefined}
+                  />
                 ))
               ) : (
                 Array.from({ length: 6 }).map((_, i) => <EmptySlot key={i} position="MID" small />)
@@ -427,7 +517,18 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "4px 0", position: "relative", zIndex: 1 }}>
               {maleFwds.length > 0 ? (
                 maleFwds.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard
+                    key={p.id}
+                    player={p}
+                    isSelected={selectedOutId === p.id}
+                    isGhost={selectedOutId === p.id}
+                    isNewIn={pendingInIds.has(p.id)}
+                    onTap={() => selectForRemoval(p.id)}
+                    onUndo={pendingInIds.has(p.id) ? () => {
+                      const t = pendingTransfers.find((t) => t.inId === p.id);
+                      if (t) undoTransfer(t.outId);
+                    } : undefined}
+                  />
                 ))
               ) : (
                 Array.from({ length: 3 }).map((_, i) => <EmptySlot key={i} position="FWD" small />)
@@ -442,7 +543,18 @@ export default function TransfersPage() {
               <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
                 {ladyPlayers.length > 0 ? (
                   ladyPlayers.map((p) => (
-                    <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
+                    <SmallPitchCard
+                      key={p.id}
+                      player={p}
+                      isSelected={selectedOutId === p.id}
+                      isGhost={selectedOutId === p.id}
+                      isNewIn={pendingInIds.has(p.id)}
+                      onTap={() => selectForRemoval(p.id)}
+                      onUndo={pendingInIds.has(p.id) ? () => {
+                        const t = pendingTransfers.find((t) => t.inId === p.id);
+                        if (t) undoTransfer(t.outId);
+                      } : undefined}
+                    />
                   ))
                 ) : (
                   <>
@@ -455,7 +567,7 @@ export default function TransfersPage() {
           </div>
 
           {/* Empty state */}
-          {squad.length === 0 && (
+          {effectiveSquad.length === 0 && (
             <div style={{ background: "linear-gradient(180deg, #e0f7f0, #c8ece0)", padding: "16px", textAlign: "center" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#37003C" }}>
                 Start building your 17-player squad below!
@@ -466,97 +578,140 @@ export default function TransfersPage() {
       </div>
 
       {/* Squad count */}
-      {squad.length < 17 && (
+      {effectiveSquad.length < 17 && (
         <div className="text-center text-xs text-amber-600 font-medium">
-          {squad.length}/17 players • Add {17 - squad.length} more
+          {effectiveSquad.length}/17 players • Add {17 - effectiveSquad.length} more
         </div>
       )}
 
-      {squad.length >= 17 && (
-        <div className="text-center">
-          <Link
-            href="/dashboard/fantasy/pick-team"
-            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg"
+      {/* === SELECTED PLAYER BANNER === */}
+      {selectedOutId && selectedOutPlayer && (
+        <div className="rounded-xl border-2 border-red-400 bg-red-50 p-3 flex items-center gap-3">
+          <Kit color={getKitColor(selectedOutPlayer.teamShort)} isGK={normalizePosition(selectedOutPlayer.position) === "Goalkeeper"} size={36} />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold truncate">{selectedOutPlayer.name}</div>
+            <div className="text-xs text-muted-foreground">
+              {selectedOutPlayer.teamName ?? selectedOutPlayer.teamShort ?? "--"} • {normalizePosition(selectedOutPlayer.position)}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-red-600 font-bold">Selling</div>
+            <div className="text-xs text-muted-foreground">{selectedOutPlayer.price ? `${Number(selectedOutPlayer.price).toFixed(1)}m` : "--"}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setSelectedOutId(null); setSearchQuery(""); }}
+            className="h-8 w-8 rounded-full border bg-white grid place-items-center hover:bg-red-100 shrink-0"
           >
-            Go to Pick Team →
-          </Link>
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
-      {/* === RESET BUTTON (visible when a player is marked OUT) === */}
-      {outId && (
+      {/* === REPLACEMENT PLAYER LIST (visible when a player is selected for removal) === */}
+      {selectedOutId && selectedOutPlayer && (
+        <div className="space-y-3">
+          <div className="text-sm font-semibold text-center">
+            Select a replacement {selectedOutPosition}
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or team..."
+              className="w-full rounded-xl border bg-background pl-9 pr-3 py-2.5 text-sm"
+            />
+          </div>
+
+          {/* Sort pills */}
+          <div className="flex gap-2 justify-center">
+            {(["points", "price", "name"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSortKey(key)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-semibold border transition",
+                  sortKey === key
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-card text-muted-foreground border-muted hover:bg-accent"
+                )}
+              >
+                {key === "points" ? "Points" : key === "price" ? "Price" : "Name"}
+              </button>
+            ))}
+          </div>
+
+          {/* Player list */}
+          <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+            {replacementPool.map((p) => (
+              <ReplacementRow
+                key={p.id}
+                player={p}
+                onPick={() => pickReplacement(p.id)}
+                budgetRemaining={budgetRemaining + (selectedOutPlayer?.price ?? 0)}
+              />
+            ))}
+            {replacementPool.length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-6">
+                No players match your filters.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* === RESET BUTTON (visible when pending transfers exist) === */}
+      {pendingTransfers.length > 0 && !selectedOutId && (
         <button
           type="button"
-          onClick={resetSelection}
+          onClick={resetAllTransfers}
           className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-red-500 text-red-600 py-2.5 text-sm font-semibold hover:bg-red-50 transition"
         >
           <RotateCcw className="h-4 w-4" />
-          Reset Transfer
+          Reset All Transfers
         </button>
       )}
 
-      {/* === ADD PLAYER + NEXT BUTTONS === */}
-      <div className="grid grid-cols-2 gap-2">
-        <Link
-          href={`/dashboard/transfers/add-player${outId ? `?outId=${outId}&pos=${normalizePosition(byId.get(outId)?.position)}` : ""}`}
-          className="flex items-center justify-center gap-2 rounded-xl border bg-primary text-primary-foreground py-2.5 text-sm font-semibold hover:bg-primary/90 transition"
-        >
-          + Add Player
-        </Link>
-        <Link
-          href={`/dashboard/transfers/next${outId || inId ? `?${[outId ? `outId=${outId}` : "", inId ? `inId=${inId}` : ""].filter(Boolean).join("&")}` : ""}`}
-          className="flex items-center justify-center rounded-xl border bg-card text-foreground py-2.5 text-sm font-semibold hover:bg-accent transition"
-        >
-          Next
-        </Link>
-      </div>
-
-      {/* === ACTION SHEET === */}
-      <Sheet open={!!sheetPlayer} onOpenChange={(open) => { if (!open) setSheetPlayer(null); }}>
-        <SheetContent side="bottom" className="rounded-t-3xl px-6 pb-8">
-          <SheetHeader className="pb-4">
-            <SheetTitle className="text-left">
-              {sheetPlayer && (
-                <div className="flex items-center gap-3">
-                  <Kit color={getKitColor(sheetPlayer.teamShort)} isGK={normalizePosition(sheetPlayer.position) === "Goalkeeper"} size={44} />
-                  <div>
-                    <div className="text-base font-bold">{sheetPlayer.name}</div>
-                    <div className="text-xs text-muted-foreground font-normal">
-                      {sheetPlayer.teamName ?? sheetPlayer.teamShort ?? "--"} • {normalizePosition(sheetPlayer.position)}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </SheetTitle>
-          </SheetHeader>
-          <div className="space-y-2">
+      {/* === MAKE TRANSFERS BUTTON === */}
+      {!selectedOutId && (
+        <div className="space-y-2">
+          {pendingTransfers.length > 0 ? (
             <button
               type="button"
-              onClick={handleRemove}
-              className="w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-red-50 transition text-red-600"
+              onClick={handleMakeTransfers}
+              disabled={locked}
+              className={cn(
+                "w-full py-3.5 rounded-full text-sm font-bold text-white transition",
+                locked
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-foreground hover:bg-foreground/90"
+              )}
+              style={!locked ? { background: "linear-gradient(90deg, #00FF87, #04F5FF)" } : undefined}
             >
-              <span className="h-8 w-8 rounded-full bg-red-100 grid place-items-center text-red-600 text-xs font-bold">OUT</span>
-              Remove Player
+              <span style={!locked ? { color: "#37003C" } : undefined}>
+                Make {pendingCount} Transfer{pendingCount > 1 ? "s" : ""}
+              </span>
             </button>
+          ) : (
+            <div className="text-center text-xs text-muted-foreground py-2">
+              Tap a player on the pitch to start a transfer
+            </div>
+          )}
+
+          {effectiveSquad.length >= 17 && (
             <Link
-              href={`/dashboard/transfers/add-player${sheetPlayer ? `?outId=${sheetPlayer.id}&pos=${normalizePosition(sheetPlayer.position)}` : ""}`}
-              onClick={() => { if (sheetPlayer) { setOutId(sheetPlayer.id); setInId(null); } setSheetPlayer(null); }}
-              className="w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-accent transition"
+              href="/dashboard/fantasy/pick-team"
+              className="block text-center text-xs font-semibold text-emerald-600 hover:text-emerald-700 py-1"
             >
-              <span className="h-8 w-8 rounded-full bg-emerald-100 grid place-items-center text-emerald-600 text-xs">↔</span>
-              Select Replacement
+              Go to Pick Team →
             </Link>
-            <Link
-              href={sheetPlayer ? `/dashboard/players/${sheetPlayer.id}` : "#"}
-              onClick={() => setSheetPlayer(null)}
-              className="w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-accent transition"
-            >
-              <span className="h-8 w-8 rounded-full bg-blue-100 grid place-items-center text-blue-600 text-xs">i</span>
-              Full Profile
-            </Link>
-          </div>
-        </SheetContent>
-      </Sheet>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -565,11 +720,13 @@ export default function TransfersPage() {
 // SUB-COMPONENTS
 // =====================
 
-function SmallPitchCard({ player, isSelected, isGhost, onTap }: {
+function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }: {
   player: Player;
   isSelected: boolean;
   isGhost: boolean;
+  isNewIn: boolean;
   onTap: () => void;
+  onUndo?: () => void;
 }) {
   const displayName = shortName(player.name);
   const isGK = normalizePosition(player.position) === "Goalkeeper";
@@ -612,7 +769,36 @@ function SmallPitchCard({ player, isSelected, isGhost, onTap }: {
               OUT
             </div>
           )}
-          {player.isLady && !isGhost && (
+          {isNewIn && !isGhost && (
+            <div
+              style={{
+                position: "absolute",
+                top: -3,
+                right: -3,
+                zIndex: 2,
+                background: "#10b981",
+                color: "#fff",
+                fontSize: 7,
+                fontWeight: 800,
+                width: 18,
+                height: 13,
+                borderRadius: 3,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid #fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                cursor: "pointer",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUndo?.();
+              }}
+            >
+              IN
+            </div>
+          )}
+          {player.isLady && !isGhost && !isNewIn && (
             <span
               style={{
                 position: "absolute", top: -3, left: -3, zIndex: 2,
@@ -627,7 +813,11 @@ function SmallPitchCard({ player, isSelected, isGhost, onTap }: {
         </div>
         <div
           style={{
-            background: isGhost ? "linear-gradient(180deg, #d1d5db, #c0c4c8)" : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
+            background: isGhost
+              ? "linear-gradient(180deg, #d1d5db, #c0c4c8)"
+              : isNewIn
+                ? "linear-gradient(180deg, #a7f3d0, #6ee7b7)"
+                : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
             color: isGhost ? "#6b7280" : "#1a1a2e",
             fontSize: 9,
             fontWeight: 700,
@@ -648,7 +838,11 @@ function SmallPitchCard({ player, isSelected, isGhost, onTap }: {
         </div>
         <div
           style={{
-            background: isGhost ? "linear-gradient(180deg, #6b7280, #4b5563)" : "linear-gradient(180deg, #37003C, #2d0032)",
+            background: isGhost
+              ? "linear-gradient(180deg, #6b7280, #4b5563)"
+              : isNewIn
+                ? "linear-gradient(180deg, #059669, #047857)"
+                : "linear-gradient(180deg, #37003C, #2d0032)",
             color: "#fff",
             fontSize: 8,
             fontWeight: 600,
@@ -663,5 +857,49 @@ function SmallPitchCard({ player, isSelected, isGhost, onTap }: {
         </div>
       </div>
     </button>
+  );
+}
+
+function ReplacementRow({ player, onPick, budgetRemaining }: {
+  player: Player;
+  onPick: () => void;
+  budgetRemaining: number;
+}) {
+  const canAfford = (player.price ?? 0) <= budgetRemaining;
+
+  return (
+    <div className={cn(
+      "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+      canAfford ? "bg-card hover:bg-accent/50" : "bg-muted/40 opacity-60"
+    )}>
+      <Kit color={getKitColor(player.teamShort)} isGK={normalizePosition(player.position) === "Goalkeeper"} size={32} />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold truncate">
+          {player.name}
+          {player.isLady && <span className="text-pink-600 ml-1">• Lady</span>}
+        </div>
+        <div className="text-xs text-muted-foreground truncate">
+          {player.teamName ?? player.teamShort ?? "--"}
+        </div>
+      </div>
+      <div className="text-right shrink-0 mr-1">
+        <div className="text-xs font-bold tabular-nums">{player.price ? `${Number(player.price).toFixed(1)}m` : "--"}</div>
+        <div className="text-[10px] text-muted-foreground">{player.points ?? 0} pts</div>
+      </div>
+      <button
+        type="button"
+        onClick={onPick}
+        disabled={!canAfford}
+        className={cn(
+          "h-8 w-8 rounded-full grid place-items-center shrink-0 transition font-bold text-sm",
+          canAfford
+            ? "text-white"
+            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+        )}
+        style={canAfford ? { background: "linear-gradient(135deg, #00FF87, #04F5FF)" } : undefined}
+      >
+        <span style={canAfford ? { color: "#37003C" } : undefined}>+</span>
+      </button>
+    </div>
   );
 }

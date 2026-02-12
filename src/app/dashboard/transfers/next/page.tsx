@@ -2,15 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { saveSquadIds, loadSquadIds } from "@/lib/fantasyStorage";
-import { normalizePosition, BUDGET_TOTAL } from "@/lib/pitch-helpers";
+import { normalizePosition, BUDGET_TOTAL, Kit, getKitColor } from "@/lib/pitch-helpers";
 import { type Player } from "../player-card";
-import { TransferBadge } from "../transfer-badge";
-import { TransferLogItemComponent } from "../transfer-log-item";
 import { useTransfers } from "../use-transfers";
 
 // =====================
@@ -36,6 +32,11 @@ type ApiPlayer = {
   teamName?: string | null;
 };
 
+type PendingTransfer = {
+  outId: string;
+  inId: string;
+};
+
 // =====================
 // HELPERS
 // =====================
@@ -44,9 +45,13 @@ function isLocked(deadlineIso?: string | null) {
   return Date.now() >= new Date(deadlineIso).getTime();
 }
 
-function formatTimeUG(iso: string) {
+function formatDeadlineUG(iso?: string | null) {
+  if (!iso) return "--";
   const d = new Date(iso);
   return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
@@ -57,15 +62,23 @@ function formatTimeUG(iso: string) {
     .replace(/\bpm\b/i, "PM");
 }
 
+/* Transfer Icon (person with arrows) */
+function TransferIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M5 20c0-3.87 3.13-7 7-7s7 3.13 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M17 3l2 2-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 17l-2 2 2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // =====================
 // PAGE
 // =====================
 export default function TransferNextPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const outId = searchParams.get("outId");
-  const inId = searchParams.get("inId");
 
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
   const [nextGW, setNextGW] = React.useState<ApiGameweek | null>(null);
@@ -75,6 +88,8 @@ export default function TransferNextPage() {
   const [playersLoading, setPlayersLoading] = React.useState(true);
 
   const [squadIds, setSquadIds] = React.useState<string[]>([]);
+  const [pendingTransfers, setPendingTransfers] = React.useState<PendingTransfer[]>([]);
+  const [confirmed, setConfirmed] = React.useState(false);
 
   // Load gameweeks
   React.useEffect(() => {
@@ -124,14 +139,24 @@ export default function TransferNextPage() {
     })();
   }, []);
 
-  // Load squad
+  // Load squad + pending transfers from localStorage
   React.useEffect(() => {
     const local = loadSquadIds();
     if (local.length > 0) setSquadIds(local);
+
+    try {
+      const raw = localStorage.getItem("tbl_pending_transfers");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setPendingTransfers(parsed);
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
-  const { transfersThisGW, freeTransfers, usedTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
+  const { freeTransfers, usedTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
 
   const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
 
@@ -146,206 +171,264 @@ export default function TransferNextPage() {
     () => squad.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
     [squad]
   );
-  const budgetRemaining = Math.max(0, BUDGET_TOTAL - budgetUsed);
 
-  const outPlayer = outId ? byId.get(outId) : null;
-  const inPlayer = inId ? byId.get(inId) : null;
+  // New budget after applying pending transfers
+  const newBudgetUsed = React.useMemo(() => {
+    let total = budgetUsed;
+    for (const t of pendingTransfers) {
+      const outP = byId.get(t.outId);
+      const inP = byId.get(t.inId);
+      total -= Number(outP?.price ?? 0);
+      total += Number(inP?.price ?? 0);
+    }
+    return total;
+  }, [budgetUsed, pendingTransfers, byId]);
+  const budgetRemaining = Math.max(0, BUDGET_TOTAL - newBudgetUsed);
+
+  const pendingCount = pendingTransfers.length;
+  const extraTransfers = Math.max(0, pendingCount - freeTransfers);
+  const pendingCost = extraTransfers * 4;
+
+  const deadlineLabel = formatDeadlineUG(nextGW?.deadline_time ?? currentGW?.deadline_time);
 
   function canConfirm() {
     if (locked) return false;
-    if (!outId || !inId) return false;
-    if (!squadIds.includes(outId)) return false;
-    if (squadIds.includes(inId)) return false;
+    if (pendingTransfers.length === 0) return false;
     return true;
   }
 
-  async function confirmTransfer() {
-    if (!canConfirm() || !outId || !inId) return;
+  async function confirmTransfers() {
+    if (!canConfirm()) return;
 
-    const next = squadIds.map((id) => (id === outId ? inId : id));
+    // Apply all transfers to squad
+    let next = [...squadIds];
+    for (const t of pendingTransfers) {
+      next = next.map((id) => (id === t.outId ? t.inId : id));
+    }
     setSquadIds(next);
     saveSquadIds(next);
 
-    incrementUsedTransfers();
+    // Record each transfer and increment used count
+    for (const t of pendingTransfers) {
+      incrementUsedTransfers();
 
-    if (gwId) {
-      const outP = byId.get(outId);
-      const inP = byId.get(inId);
+      if (gwId) {
+        const outP = byId.get(t.outId);
+        const inP = byId.get(t.inId);
 
-      recordTransfer({
-        gwId: gwId,
-        ts: new Date().toISOString(),
-        outId,
-        inId,
-        outName: outP?.name,
-        inName: inP?.name,
-        outTeamShort: outP?.teamShort ?? null,
-        inTeamShort: inP?.teamShort ?? null,
-        outPos: outP?.position ?? null,
-        inPos: inP?.position ?? null,
-        outPrice: typeof outP?.price === "number" ? outP.price : null,
-        inPrice: typeof inP?.price === "number" ? inP.price : null,
-      });
+        recordTransfer({
+          gwId: gwId,
+          ts: new Date().toISOString(),
+          outId: t.outId,
+          inId: t.inId,
+          outName: outP?.name,
+          inName: inP?.name,
+          outTeamShort: outP?.teamShort ?? null,
+          inTeamShort: inP?.teamShort ?? null,
+          outPos: outP?.position ?? null,
+          inPos: inP?.position ?? null,
+          outPrice: typeof outP?.price === "number" ? outP.price : null,
+          inPrice: typeof inP?.price === "number" ? inP.price : null,
+        });
+      }
     }
 
-    router.push("/dashboard/transfers");
+    // Clear pending transfers from localStorage
+    localStorage.removeItem("tbl_pending_transfers");
+
+    setConfirmed(true);
+    setTimeout(() => router.push("/dashboard/transfers"), 1200);
   }
 
   const loading = gwLoading || playersLoading;
 
   return (
-    <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3">
+    <div className="mx-auto w-full max-w-app min-h-screen flex flex-col">
+      {/* -- Header -- */}
+      <div className="flex items-center px-4 pt-4 pb-3 bg-card">
         <Link
           href="/dashboard/transfers"
-          className="h-9 w-9 rounded-full border bg-card/80 grid place-items-center hover:bg-accent"
+          className="h-9 w-9 rounded-full border bg-card grid place-items-center hover:bg-accent shrink-0"
           aria-label="Back to Transfers"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </Link>
-        <div className="text-base font-semibold">Transfer Summary</div>
+        <h1 className="flex-1 text-center text-lg font-extrabold mr-9">Confirm Transfers</h1>
+      </div>
+
+      {/* -- Gameweek + Deadline -- */}
+      <div className="text-center px-4 py-4 bg-card">
+        <span className="text-sm text-muted-foreground font-medium">
+          {gwLoading ? "Loading..." : `Gameweek ${gwId ?? "--"}`}
+        </span>
+        <span className="mx-2 text-muted-foreground/40">•</span>
+        <span className="text-sm font-bold">
+          Deadline: {deadlineLabel}
+        </span>
       </div>
 
       {loading && (
-        <div className="text-sm text-muted-foreground text-center">Loading...</div>
+        <div className="text-sm text-muted-foreground text-center py-4">Loading...</div>
       )}
 
-      {/* Transfer notice */}
-      <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-center">
-        <div className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-          You are about to make {usedTransfers > 0 ? usedTransfers + 1 : 1} transfer{usedTransfers > 0 ? "s" : ""}
-        </div>
-        {cost > 0 && (
-          <div className="text-xs text-red-600 font-medium mt-1">
-            This will cost you {cost} points
+      {/* -- Transfer Card -- */}
+      <div className="px-5 pt-2">
+        <div className="rounded-2xl border bg-card p-5 space-y-5 shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+          {/* Banner */}
+          <div
+            className="rounded-full py-2.5 px-5 text-center"
+            style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
+          >
+            <span className="text-sm font-bold" style={{ color: "#37003C" }}>
+              You are about to make {pendingCount} transfer{pendingCount > 1 ? "s" : ""}!
+            </span>
           </div>
-        )}
-      </div>
 
-      {/* Transfer Summary */}
-      <div className="rounded-xl border bg-card p-4 space-y-3">
-        <div className="text-sm font-semibold text-center">Transfer Summary</div>
+          {/* Transfer swaps */}
+          <div className="space-y-3">
+            {pendingTransfers.map((t, i) => {
+              const outPlayer = byId.get(t.outId);
+              const inPlayer = byId.get(t.inId);
+              return (
+                <div key={i} className="flex items-center justify-center gap-3 rounded-xl bg-muted/40 p-3">
+                  {/* Out player */}
+                  <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+                    {outPlayer ? (
+                      <>
+                        <Kit color={getKitColor(outPlayer.teamShort)} isGK={outPlayer.position === "Goalkeeper"} size={36} />
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold truncate">{outPlayer.name}</div>
+                          <div className="text-xs text-muted-foreground font-medium truncate">
+                            {outPlayer.teamName ?? outPlayer.teamShort ?? "--"}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">Unknown</div>
+                    )}
+                  </div>
 
-        {/* OUT row */}
-        <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
-          <TransferBadge kind="out" />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold truncate">
-              {outPlayer ? outPlayer.name : "Pick player from pitch"}
-            </div>
-            <div className="text-xs text-muted-foreground truncate">
-              {outPlayer ? `${outPlayer.teamShort ?? "--"} - ${outPlayer.position ?? "--"}` : "--"}
-            </div>
+                  {/* Arrow */}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                    <path d="M5 12h14m0 0l-4-4m4 4l-4 4" stroke="#E0187E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+
+                  {/* In player */}
+                  <div className="flex items-center gap-2 flex-1 justify-center min-w-0">
+                    {inPlayer ? (
+                      <>
+                        <Kit color={getKitColor(inPlayer.teamShort)} isGK={inPlayer.position === "Goalkeeper"} size={36} />
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold truncate">{inPlayer.name}</div>
+                          <div className="text-xs text-muted-foreground font-medium truncate">
+                            {inPlayer.teamName ?? inPlayer.teamShort ?? "--"}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">Unknown</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {outPlayer && (
-            <div className="text-xs font-mono text-muted-foreground">
-              {outPlayer.price ? `${Number(outPlayer.price).toFixed(1)}m` : "--"}
+
+          {/* Labels */}
+          {pendingTransfers.length > 0 && (
+            <div className="flex items-center justify-center gap-5">
+              <span className="text-xs font-bold text-red-500">OUT</span>
+              <div className="text-muted-foreground">
+                <TransferIcon />
+              </div>
+              <span className="text-xs font-bold text-emerald-600">IN</span>
             </div>
           )}
-        </div>
 
-        {/* Arrow */}
-        <div className="flex justify-center">
-          <div className="h-8 w-8 rounded-full bg-muted grid place-items-center">
-            <span className="text-muted-foreground text-lg">↓</span>
-          </div>
-        </div>
+          {/* Info text */}
+          {!locked && gwId && (
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <span className="text-pink-600 font-semibold">
+                Transfers will be active for Gameweek {gwId}
+              </span>{" "}
+              if made before the deadline ({deadlineLabel})
+            </p>
+          )}
 
-        {/* IN row */}
-        <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3">
-          <TransferBadge kind="in" />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold truncate">
-              {inPlayer ? inPlayer.name : "Pick replacement from Add Player"}
-            </div>
-            <div className="text-xs text-muted-foreground truncate">
-              {inPlayer ? `${inPlayer.teamShort ?? "--"} - ${inPlayer.position ?? "--"}` : "--"}
-            </div>
-          </div>
-          {inPlayer && (
-            <div className="text-xs font-mono text-muted-foreground">
-              {inPlayer.price ? `${Number(inPlayer.price).toFixed(1)}m` : "--"}
-            </div>
+          {locked && (
+            <p className="text-xs text-red-600 font-semibold">
+              Transfers are locked because the deadline has passed.
+            </p>
+          )}
+
+          {pendingCost > 0 && (
+            <p className="text-xs text-red-600 font-semibold text-center">
+              This will cost you {pendingCost} points
+            </p>
           )}
         </div>
-
-        {locked && (
-          <div className="text-xs text-red-600 mt-2">
-            Transfers are locked because the deadline has passed.
-          </div>
-        )}
       </div>
 
-      {/* Points Overview (FPL-style) */}
-      <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="bg-muted/50 px-4 py-2">
-          <div className="text-xs font-semibold text-center">Points Overview</div>
-        </div>
-        <div className="divide-y">
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-sm text-muted-foreground">Free transfers</span>
-            <span className="text-sm font-semibold">{freeTransfers}</span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-sm text-muted-foreground">Transfers made</span>
-            <span className="text-sm font-semibold">{usedTransfers}</span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-sm text-muted-foreground">Extra transfers</span>
-            <span className="text-sm font-semibold">{Math.max(0, usedTransfers - freeTransfers)}</span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-sm text-muted-foreground">Transfer cost</span>
-            <span className={cn("text-sm font-semibold", cost > 0 && "text-red-600")}>{cost} pts</span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-2.5">
-            <span className="text-sm text-muted-foreground">Budget remaining</span>
-            <span className="text-sm font-semibold">{budgetRemaining.toFixed(1)}m</span>
+      {/* -- Points Overview -- */}
+      <div className="px-5 pt-5">
+        <div className="rounded-2xl border bg-card p-5 border-l-4 border-l-primary shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+          <h3 className="text-base font-extrabold mb-4">Points Overview</h3>
+
+          <div className="divide-y divide-muted/50">
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-sm text-muted-foreground font-medium">Total transfers</span>
+              <span className="text-lg font-extrabold">{pendingCount}</span>
+            </div>
+
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-sm text-muted-foreground font-medium">Free transfers used</span>
+              <span className="text-lg font-extrabold">{Math.min(pendingCount, freeTransfers)}</span>
+            </div>
+
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-sm text-muted-foreground font-medium">Additional transfers</span>
+              <span className="text-lg font-extrabold">
+                {extraTransfers}{" "}
+                <span className="text-sm font-semibold text-muted-foreground">({pendingCost} pts)</span>
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-sm text-muted-foreground font-medium">Left in the bank</span>
+              <span className="text-lg font-extrabold">UGX {budgetRemaining.toFixed(1)}m</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Transfer History */}
-      <div className="rounded-xl border bg-card p-4 space-y-3">
-        <div className="text-sm font-semibold">Transfer History</div>
-        {transfersThisGW.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            No transfers logged for this gameweek yet.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {transfersThisGW.map((t) => (
-              <TransferLogItemComponent
-                key={t.ts}
-                transfer={t}
-                outPlayer={byId.get(t.outId)}
-                inPlayer={byId.get(t.inId)}
-                formatTime={formatTimeUG}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* -- Spacer -- */}
+      <div className="flex-1" />
 
-      {/* Action buttons (FPL-style) */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button
+      {/* -- Bottom Buttons -- */}
+      <div className="flex gap-3 px-5 py-6">
+        <button
           type="button"
-          variant="outline"
-          className="rounded-xl py-3 text-sm font-semibold"
           onClick={() => router.push("/dashboard/transfers")}
+          className="flex-1 py-3.5 rounded-full border-2 border-foreground text-sm font-bold hover:bg-accent transition"
         >
-          Edit Transfer
-        </Button>
-        <Button
+          Edit Transfers
+        </button>
+        <button
           type="button"
-          className="rounded-xl py-3 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-          disabled={!canConfirm()}
-          onClick={confirmTransfer}
+          onClick={confirmTransfers}
+          disabled={!canConfirm() || confirmed}
+          className={cn(
+            "flex-1 py-3.5 rounded-full text-sm font-bold text-white transition",
+            confirmed
+              ? "bg-emerald-500"
+              : "bg-foreground hover:bg-foreground/90",
+            (!canConfirm() && !confirmed) && "opacity-40 cursor-not-allowed"
+          )}
         >
-          Confirm
-        </Button>
+          {confirmed ? "✓ Confirmed" : "Confirm"}
+        </button>
       </div>
     </div>
   );
