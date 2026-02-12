@@ -413,7 +413,7 @@ function FantasyPage() {
 
   return (
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
-        <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 bg-[#0D5C63]">
+        <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6">
         <div
           className={cn(
             "overflow-hidden rounded-3xl",
@@ -536,7 +536,7 @@ function FantasyPage() {
         </div>
         </div>
 
-      <div className="mt-4 px-5 sm:px-6">
+      <div className="mt-4">
         <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
           {menuItems.map((item, i) => (
             <NavRow
@@ -549,7 +549,7 @@ function FantasyPage() {
         </div>
       </div>
 
-      <div className="px-5 sm:px-6 py-4">
+      <div className="py-4">
         <MiniLeague />
       </div>
     </div>
