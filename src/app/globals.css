@@ -201,6 +201,12 @@
   }
 }
 
+/* Centurions logo needs a size boost — applies globally */
+img[src*="centurions"] {
+  transform: scale(1.35);
+  transform-origin: center;
+}
+
 @layer utilities {
   .launch-loader {
     display: none;

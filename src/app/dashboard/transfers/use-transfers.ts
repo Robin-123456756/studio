@@ -30,6 +30,8 @@ export type ApiPlayer = {
   teamShort: string;
 };
 
+const DEV_MODE = process.env.NODE_ENV === "development";
+
 const LS_TRANSFERS_LOG = "tbl_transfers_log";
 const LS_FT_BY_GW = (gwId: number) => `tbl_free_transfers_gw_${gwId}`;
 const LS_USED_BY_GW = (gwId: number) => `tbl_transfers_used_gw_${gwId}`;
@@ -86,6 +88,7 @@ export function useTransfers(gwId: number | null): UseTransfersResult {
   }, [gwId, transfersLogVersion]);
 
   const freeTransfers = React.useMemo(() => {
+    if (DEV_MODE) return 999;
     if (!gwId) return 1;
     const raw = window.localStorage.getItem(LS_FT_BY_GW(gwId));
     const n = raw ? Number(raw) : NaN;
@@ -101,6 +104,7 @@ export function useTransfers(gwId: number | null): UseTransfersResult {
   }, [gwId]);
 
   const cost = React.useMemo(() => {
+    if (DEV_MODE) return 0;
     const paid = Math.max(0, usedTransfers - freeTransfers);
     return paid * 4;
   }, [usedTransfers, freeTransfers]);
@@ -108,7 +112,7 @@ export function useTransfers(gwId: number | null): UseTransfersResult {
   const setFreeTransfers = React.useCallback(
     (value: number) => {
       if (!gwId) return;
-      const v = Math.max(1, Math.min(2, value));
+      const v = DEV_MODE ? value : Math.max(1, Math.min(2, value));
       window.localStorage.setItem(LS_FT_BY_GW(gwId), String(v));
     },
     [gwId]

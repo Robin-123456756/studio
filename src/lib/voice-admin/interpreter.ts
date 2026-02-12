@@ -79,12 +79,3 @@ export async function interpretTranscript(
     raw_ai_response: raw,
   } as AIInterpretation;
 }
-
-
-try {
-  Invoke-RestMethod -Uri "http://localhost:3001/api/voice-admin/process-text" -Method POST -ContentType "application/json" -Body '{"text": " Ssegirinya scored twice", "matchId": 26006}'
-} catch {
-  $result = $_.Exception.Response.GetResponseStream()
-  $reader = New-Object System.IO.StreamReader($result)
-  $reader.ReadToEnd()
-}

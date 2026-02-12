@@ -156,7 +156,7 @@ export default function TeamDetailPage() {
 
                   <div className="min-w-0">
                     <div className="text-sm font-semibold leading-tight break-words">
-                      {p.name} {p.isLady ? <span className="text-pink-600">Lady</span> : null}
+                      {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {normalize(p.position)}

@@ -14,6 +14,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   BUDGET_TOTAL,
   normalizePosition,
   shortName,
@@ -87,6 +93,7 @@ export default function TransfersPage() {
 
   const [outId, setOutId] = React.useState<string | null>(null);
   const [inId, setInId] = React.useState<string | null>(null);
+  const [sheetPlayer, setSheetPlayer] = React.useState<Player | null>(null);
 
   // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
@@ -232,8 +239,16 @@ export default function TransfersPage() {
 
   function pickOut(id: string) {
     if (locked) return;
-    setOutId(id);
-    setInId(null);
+    const player = byId.get(id);
+    if (player) setSheetPlayer(player);
+  }
+
+  function handleRemove() {
+    if (sheetPlayer) {
+      setOutId(sheetPlayer.id);
+      setInId(null);
+    }
+    setSheetPlayer(null);
   }
 
   // Normalize positions for pitch display
@@ -376,7 +391,7 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "2px 0 4px", position: "relative", zIndex: 1 }}>
               {allGrouped.Goalkeepers.length > 0 ? (
                 allGrouped.Goalkeepers.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
                 ))
               ) : (
                 <>
@@ -390,7 +405,7 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "4px 0", position: "relative", zIndex: 1 }}>
               {allGrouped.Defenders.length > 0 ? (
                 allGrouped.Defenders.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
                 ))
               ) : (
                 Array.from({ length: 4 }).map((_, i) => <EmptySlot key={i} position="DEF" small />)
@@ -401,7 +416,7 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 1, padding: "4px 0", position: "relative", zIndex: 1 }}>
               {allGrouped.Midfielders.length > 0 ? (
                 allGrouped.Midfielders.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
                 ))
               ) : (
                 Array.from({ length: 6 }).map((_, i) => <EmptySlot key={i} position="MID" small />)
@@ -412,7 +427,7 @@ export default function TransfersPage() {
             <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "4px 0", position: "relative", zIndex: 1 }}>
               {maleFwds.length > 0 ? (
                 maleFwds.map((p) => (
-                  <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                  <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
                 ))
               ) : (
                 Array.from({ length: 3 }).map((_, i) => <EmptySlot key={i} position="FWD" small />)
@@ -427,7 +442,7 @@ export default function TransfersPage() {
               <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
                 {ladyPlayers.length > 0 ? (
                   ladyPlayers.map((p) => (
-                    <SmallPitchCard key={p.id} player={p} isSelected={outId === p.id} onTap={() => pickOut(p.id)} />
+                    <SmallPitchCard key={p.id} player={p} isSelected={false} isGhost={outId === p.id} onTap={() => pickOut(p.id)} />
                   ))
                 ) : (
                   <>
@@ -468,6 +483,18 @@ export default function TransfersPage() {
         </div>
       )}
 
+      {/* === RESET BUTTON (visible when a player is marked OUT) === */}
+      {outId && (
+        <button
+          type="button"
+          onClick={resetSelection}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-red-500 text-red-600 py-2.5 text-sm font-semibold hover:bg-red-50 transition"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Reset Transfer
+        </button>
+      )}
+
       {/* === ADD PLAYER + NEXT BUTTONS === */}
       <div className="grid grid-cols-2 gap-2">
         <Link
@@ -483,6 +510,53 @@ export default function TransfersPage() {
           Next
         </Link>
       </div>
+
+      {/* === ACTION SHEET === */}
+      <Sheet open={!!sheetPlayer} onOpenChange={(open) => { if (!open) setSheetPlayer(null); }}>
+        <SheetContent side="bottom" className="rounded-t-3xl px-6 pb-8">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="text-left">
+              {sheetPlayer && (
+                <div className="flex items-center gap-3">
+                  <Kit color={getKitColor(sheetPlayer.teamShort)} isGK={normalizePosition(sheetPlayer.position) === "Goalkeeper"} size={44} />
+                  <div>
+                    <div className="text-base font-bold">{sheetPlayer.name}</div>
+                    <div className="text-xs text-muted-foreground font-normal">
+                      {sheetPlayer.teamName ?? sheetPlayer.teamShort ?? "--"} • {normalizePosition(sheetPlayer.position)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-red-50 transition text-red-600"
+            >
+              <span className="h-8 w-8 rounded-full bg-red-100 grid place-items-center text-red-600 text-xs font-bold">OUT</span>
+              Remove Player
+            </button>
+            <Link
+              href={`/dashboard/transfers/add-player${sheetPlayer ? `?outId=${sheetPlayer.id}&pos=${normalizePosition(sheetPlayer.position)}` : ""}`}
+              onClick={() => { if (sheetPlayer) { setOutId(sheetPlayer.id); setInId(null); } setSheetPlayer(null); }}
+              className="w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-accent transition"
+            >
+              <span className="h-8 w-8 rounded-full bg-emerald-100 grid place-items-center text-emerald-600 text-xs">↔</span>
+              Select Replacement
+            </Link>
+            <Link
+              href={sheetPlayer ? `/dashboard/players/${sheetPlayer.id}` : "#"}
+              onClick={() => setSheetPlayer(null)}
+              className="w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-accent transition"
+            >
+              <span className="h-8 w-8 rounded-full bg-blue-100 grid place-items-center text-blue-600 text-xs">i</span>
+              Full Profile
+            </Link>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -491,9 +565,10 @@ export default function TransfersPage() {
 // SUB-COMPONENTS
 // =====================
 
-function SmallPitchCard({ player, isSelected, onTap }: {
+function SmallPitchCard({ player, isSelected, isGhost, onTap }: {
   player: Player;
   isSelected: boolean;
+  isGhost: boolean;
   onTap: () => void;
 }) {
   const displayName = shortName(player.name);
@@ -508,11 +583,12 @@ function SmallPitchCard({ player, isSelected, onTap }: {
         "active:scale-[0.96] transition-transform duration-150 rounded-md p-0.5",
         isSelected && "bg-red-500/30 ring-2 ring-red-500"
       )}
+      style={isGhost ? { opacity: 0.4, filter: "grayscale(0.8)" } : undefined}
     >
       <div className="flex flex-col items-center" style={{ minWidth: 50 }}>
         <div className="relative">
-          <Kit color={kitColor} isGK={isGK} size={38} />
-          {isSelected && (
+          <Kit color={isGhost ? "#888" : kitColor} isGK={isGK} size={38} />
+          {isGhost && (
             <div
               style={{
                 position: "absolute",
@@ -536,7 +612,7 @@ function SmallPitchCard({ player, isSelected, onTap }: {
               OUT
             </div>
           )}
-          {player.isLady && (
+          {player.isLady && !isGhost && (
             <span
               style={{
                 position: "absolute", top: -3, left: -3, zIndex: 2,
@@ -551,8 +627,8 @@ function SmallPitchCard({ player, isSelected, onTap }: {
         </div>
         <div
           style={{
-            background: isSelected ? "linear-gradient(180deg, #fee2e2, #fecaca)" : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
-            color: "#1a1a2e",
+            background: isGhost ? "linear-gradient(180deg, #d1d5db, #c0c4c8)" : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
+            color: isGhost ? "#6b7280" : "#1a1a2e",
             fontSize: 9,
             fontWeight: 700,
             padding: "2px 6px",
@@ -572,7 +648,7 @@ function SmallPitchCard({ player, isSelected, onTap }: {
         </div>
         <div
           style={{
-            background: isSelected ? "linear-gradient(180deg, #dc2626, #b91c1c)" : "linear-gradient(180deg, #37003C, #2d0032)",
+            background: isGhost ? "linear-gradient(180deg, #6b7280, #4b5563)" : "linear-gradient(180deg, #37003C, #2d0032)",
             color: "#fff",
             fontSize: 8,
             fontWeight: 600,

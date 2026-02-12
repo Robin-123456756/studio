@@ -59,7 +59,7 @@ export function PlayerCard({
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate">
-              {p.name} {p.isLady ? <span className="text-pink-600">Lady</span> : null}
+              {p.name} {p.isLady ? <span className="text-pink-600">• Lady</span> : null}
             </div>
             <div className="text-xs text-muted-foreground truncate">
               {p.teamName ?? p.teamShort ?? "--"} - {p.position}
