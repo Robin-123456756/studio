@@ -520,14 +520,14 @@ function FantasyPage() {
           <div className="grid grid-cols-2 gap-0 border-t border-white/15 text-white">
             <Link
               href="/dashboard/fantasy/pick-team"
-              className="flex flex-col items-center gap-1 border-r border-white/15 py-4 transition hover:bg-white/10"
+              className="flex flex-col items-center gap-1 border-r border-white/15 py-4 transition hover:bg-white/10 rounded-bl-3xl"
             >
               <Users className="h-5 w-5" />
               <span className="text-[11px] font-semibold">Pick Team</span>
             </Link>
             <Link
               href="/dashboard/transfers"
-              className="flex flex-col items-center gap-1 py-4 transition hover:bg-white/10"
+              className="flex flex-col items-center gap-1 py-4 transition hover:bg-white/10 rounded-br-3xl"
             >
               <ArrowLeftRight className="h-5 w-5" />
               <span className="text-[11px] font-semibold">Transfers</span>
@@ -536,7 +536,7 @@ function FantasyPage() {
         </div>
         </div>
 
-      <div className="mt-4 px-4">
+      <div className="mt-4 px-5 sm:px-6">
         <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
           {menuItems.map((item, i) => (
             <NavRow
@@ -549,7 +549,7 @@ function FantasyPage() {
         </div>
       </div>
 
-      <div className="px-4 py-4">
+      <div className="px-5 sm:px-6 py-4">
         <MiniLeague />
       </div>
     </div>

@@ -567,11 +567,11 @@ export default function MatchesPage() {
   const topYellowCards = [...ycMap.values()].sort((a, b) => b.yellowCards - a.yellowCards).slice(0, 5);
   const topRedCards = [...rcMap.values()].sort((a, b) => b.redCards - a.redCards).slice(0, 5);
 
-  // Team-level aggregations
+  // Team-level aggregations — use full team name
   const teamStatsMap = new Map<string, { team: string; logoUrl: string; goals: number; assists: number; cleanSheets: number; yellowCards: number; redCards: number }>();
   for (const s of statsData) {
-    const team = s.player?.teamShort ?? s.player?.teamName ?? "—";
-    const existing = teamStatsMap.get(team);
+    const teamFull = s.player?.teamName ?? s.player?.teamShort ?? "—";
+    const existing = teamStatsMap.get(teamFull);
     if (existing) {
       existing.goals += s.goals;
       existing.assists += s.assists;
@@ -579,9 +579,9 @@ export default function MatchesPage() {
       existing.yellowCards += s.yellowCards;
       existing.redCards += s.redCards;
     } else {
-      const row = standings.find((r) => r.name === team || r.name.slice(0, 3).toUpperCase() === team);
-      teamStatsMap.set(team, {
-        team,
+      const row = standings.find((r) => r.name === teamFull || r.name.slice(0, 3).toUpperCase() === teamFull);
+      teamStatsMap.set(teamFull, {
+        team: teamFull,
         logoUrl: row?.logoUrl ?? "/placeholder-team.png",
         goals: s.goals,
         assists: s.assists,
@@ -591,7 +591,11 @@ export default function MatchesPage() {
       });
     }
   }
-  const teamsByGoals = [...teamStatsMap.values()].sort((a, b) => b.goals - a.goals).slice(0, 5);
+  // Use GF from standings for "Most goals" (goals scored by team, not individual player goals)
+  const teamsByGoals = standings
+    .map((r) => ({ team: r.name, logoUrl: r.logoUrl, goals: r.GF }))
+    .sort((a, b) => b.goals - a.goals)
+    .slice(0, 5);
   const teamsByAssists = [...teamStatsMap.values()].sort((a, b) => b.assists - a.assists).slice(0, 5);
   const teamsByCS = [...teamStatsMap.values()].sort((a, b) => b.cleanSheets - a.cleanSheets).slice(0, 5);
   const teamsByYC = [...teamStatsMap.values()].sort((a, b) => b.yellowCards - a.yellowCards).slice(0, 5);
