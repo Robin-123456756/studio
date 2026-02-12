@@ -304,6 +304,22 @@ export default function TransfersPage() {
     setSearchQuery("");
   }
 
+  function clearEntireSquad() {
+    // Clear all squad data from localStorage
+    localStorage.removeItem("tbl_squad_player_ids");
+    localStorage.removeItem("tbl_picked_player_ids");
+    localStorage.removeItem("tbl_starting_player_ids");
+    localStorage.removeItem("tbl_captain_id");
+    localStorage.removeItem("tbl_vice_captain_id");
+    localStorage.removeItem("tbl_pending_transfers");
+    // Reset state
+    setOriginalSquadIds([]);
+    setPendingTransfers([]);
+    setSelectedOutId(null);
+    setSearchQuery("");
+    window.dispatchEvent(new Event("tbl_squad_updated"));
+  }
+
   function handleMakeTransfers() {
     if (pendingTransfers.length === 0) return;
     // Store pending transfers in localStorage for the confirmation page
@@ -357,6 +373,13 @@ export default function TransfersPage() {
             >
               <RotateCcw className="h-4 w-4" />
               Reset All Transfers
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={clearEntireSquad}
+              className="gap-2 text-destructive focus:text-destructive"
+            >
+              <X className="h-4 w-4" />
+              Clear Entire Squad
             </DropdownMenuItem>
             <DropdownMenuItem asChild className="gap-2">
               <Link href="/dashboard/fantasy/pick-team">

@@ -690,6 +690,57 @@ export default function PickTeamPage() {
   const [selectedBenchSwap, setSelectedBenchSwap] = React.useState<string | null>(null);
   const { toast } = useToast();
 
+  // Chips state
+  type ChipKey = "bench_boost" | "triple_captain" | "wildcard" | "free_hit";
+  const LS_ACTIVE_CHIP = "tbl_active_chip";
+  const LS_USED_CHIPS = "tbl_used_chips";
+  const [activeChip, setActiveChip] = React.useState<ChipKey | null>(null);
+  const [usedChips, setUsedChips] = React.useState<ChipKey[]>([]);
+
+  // Load chip state from localStorage
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LS_ACTIVE_CHIP);
+      if (saved) setActiveChip(saved as ChipKey);
+      const used = localStorage.getItem(LS_USED_CHIPS);
+      if (used) setUsedChips(JSON.parse(used));
+    } catch { /* ignore */ }
+  }, []);
+
+  function toggleChip(chip: ChipKey) {
+    if (usedChips.includes(chip)) {
+      toast({ description: `${chip.replace("_", " ")} has already been used this season.`, variant: "destructive" });
+      return;
+    }
+    if (activeChip === chip) {
+      // Deactivate
+      setActiveChip(null);
+      localStorage.removeItem(LS_ACTIVE_CHIP);
+      toast({ description: `${chipLabel(chip)} deactivated` });
+    } else {
+      // Activate (only one chip at a time)
+      setActiveChip(chip);
+      localStorage.setItem(LS_ACTIVE_CHIP, chip);
+      toast({ description: `${chipLabel(chip)} activated!` });
+    }
+  }
+
+  function chipLabel(chip: ChipKey): string {
+    const labels: Record<ChipKey, string> = {
+      bench_boost: "Bench Boost",
+      triple_captain: "Triple Captain",
+      wildcard: "Wildcard",
+      free_hit: "Free Hit",
+    };
+    return labels[chip];
+  }
+
+  function chipStatus(chip: ChipKey): string {
+    if (usedChips.includes(chip)) return "Used";
+    if (activeChip === chip) return "Active";
+    return "Available";
+  }
+
   const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
 
   // Upcoming fixtures for this gameweek
@@ -1142,11 +1193,30 @@ export default function PickTeamPage() {
 
   const deadlineLabel = formatDeadlineUG(nextGW?.deadline_time ?? currentGW?.deadline_time);
   const currentGwLabel = gwId ? `Gameweek ${gwId}` : "Gameweek --";
-  const chips = [
-    { name: "Bench Boost", icon: "🔄", status: "Available" },
-    { name: "Triple Captain", icon: "👑", status: "Available" },
-    { name: "Wildcard", icon: "🃏", status: "Available" },
-    { name: "Free Hit", icon: "⚡", status: "Available" },
+  const chipsList: { key: ChipKey; name: string; icon: React.ReactNode }[] = [
+    { key: "bench_boost", name: "Bench Boost", icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M4 14h16M6 10V4h12v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M4 14v4h16v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )},
+    { key: "triple_captain", name: "Triple Captain", icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2l3 6h6l-5 4 2 7-6-4-6 4 2-7-5-4h6l3-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    )},
+    { key: "wildcard", name: "Wildcard", icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M12 6v3M12 15v3M6 12h3M15 12h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    )},
+    { key: "free_hit", name: "Free Hit", icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    )},
   ];
 
   const listSections = [
@@ -1673,7 +1743,18 @@ export default function PickTeamPage() {
       setSavedCaptainId(captainId);
       setSavedViceId(viceId);
 
-      toast({ description: "Your team has been saved!", duration: 3000 });
+      // Mark active chip as used after successful save
+      if (activeChip) {
+        const newUsed = [...usedChips, activeChip];
+        setUsedChips(newUsed);
+        localStorage.setItem(LS_USED_CHIPS, JSON.stringify(newUsed));
+        const chipName = chipLabel(activeChip);
+        setActiveChip(null);
+        localStorage.removeItem(LS_ACTIVE_CHIP);
+        toast({ description: `Team saved! ${chipName} has been applied.`, duration: 3000 });
+      } else {
+        toast({ description: "Your team has been saved!", duration: 3000 });
+      }
       setMsg(null);
     } catch (e: any) {
       toast({ description: `Saved locally. DB error: ${e?.message ?? "Unknown"}`, variant: "destructive", duration: 4000 });
@@ -2468,54 +2549,77 @@ export default function PickTeamPage() {
         {gwLoading ? "Loading..." : `${currentGwLabel} - Deadline: ${deadlineLabel}`}
       </div>
 
-      {/* Chips - separate small cards */}
+      {/* Chips - interactive */}
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        {chips.map((chip) => (
-          <button
-            key={chip.name}
-            style={{
-              flex: 1,
-              background: "#f0e4cc",
-              border: "1.5px solid #ddd0b0",
-              borderRadius: 10,
-              padding: "8px 4px 6px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 2,
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
-          >
-            <div
+        {chipsList.map((chip) => {
+          const status = chipStatus(chip.key);
+          const isActive = activeChip === chip.key;
+          const isUsed = usedChips.includes(chip.key);
+
+          return (
+            <button
+              key={chip.key}
+              onClick={() => toggleChip(chip.key)}
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #04F5FF, #00FF87)",
+                flex: 1,
+                background: isActive
+                  ? "linear-gradient(135deg, #C8102E, #8B0000)"
+                  : isUsed
+                  ? "hsl(var(--muted))"
+                  : "hsl(var(--card))",
+                border: isActive
+                  ? "2px solid #C8102E"
+                  : "1.5px solid hsl(var(--border))",
+                borderRadius: 10,
+                padding: "8px 4px 6px",
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
-                fontSize: 14,
+                gap: 2,
+                cursor: isUsed ? "not-allowed" : "pointer",
+                transition: "all 0.2s",
+                opacity: isUsed ? 0.5 : 1,
               }}
             >
-              {chip.icon}
-            </div>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#37003C" }}>{chip.name}</span>
-            <span
-              style={{
-                fontSize: 8,
-                color: "#37003C",
-                border: "1px solid #ccc",
-                borderRadius: 8,
-                padding: "1px 6px",
-                fontWeight: 600,
-              }}
-            >
-              {chip.status}
-            </span>
-          </button>
-        ))}
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  background: isActive
+                    ? "rgba(255,255,255,0.25)"
+                    : "linear-gradient(135deg, #C8102E, #8B0000)",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                }}
+              >
+                {chip.icon}
+              </div>
+              <span style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: isActive ? "#fff" : "hsl(var(--foreground))",
+              }}>
+                {chip.name}
+              </span>
+              <span
+                style={{
+                  fontSize: 8,
+                  color: isActive ? "#fff" : status === "Used" ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))",
+                  border: isActive ? "1px solid rgba(255,255,255,0.5)" : "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  padding: "1px 6px",
+                  fontWeight: 600,
+                }}
+              >
+                {status}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {msg ? <div className="text-sm text-center">{msg}</div> : null}
@@ -2597,27 +2701,26 @@ export default function PickTeamPage() {
 
       {/* List view — FPL style */}
       {tab === "list" && (
-        <div className="-mx-4">
+        <div className="rounded-2xl border bg-card overflow-hidden">
           {/* Column Headers */}
           <div
             style={{
               display: "flex",
               alignItems: "flex-end",
               padding: "14px 16px 8px 76px",
-              background: "#fff",
-              borderBottom: "1px solid #f0edf2",
+              borderBottom: "1px solid hsl(var(--border))",
             }}
           >
-            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "#37003C" }}>Player</div>
-            <div style={{ width: 46, textAlign: "center", fontSize: 12, fontWeight: 500, color: "#37003C" }}>Form</div>
-            <div style={{ width: 56, textAlign: "center", fontSize: 11, fontWeight: 500, color: "#37003C", lineHeight: 1.2 }}>
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Player</div>
+            <div style={{ width: 46, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
+            <div style={{ width: 56, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
               Current<br />Price
             </div>
-            <div style={{ width: 54, textAlign: "right", fontSize: 12, fontWeight: 500, color: "#37003C" }}>Selected</div>
+            <div style={{ width: 54, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Selected</div>
           </div>
 
           {picked.length === 0 ? (
-            <div style={{ padding: 16, textAlign: "center", background: "#fff", color: "#999" }}>
+            <div style={{ padding: 16, textAlign: "center", color: "hsl(var(--muted-foreground))" }}>
               Pick players from the Transfers page first.
             </div>
           ) : (
@@ -2631,10 +2734,9 @@ export default function PickTeamPage() {
                       <div style={{ padding: "16px 16px 8px", background: "#fff" }}>
                         <h2 style={{
                           margin: 0,
-                          fontSize: 22,
+                          fontSize: 16,
                           fontWeight: 700,
-                          color: "#37003C",
-                          fontFamily: "Georgia, 'Times New Roman', serif",
+                          color: "hsl(var(--foreground))",
                         }}>
                           {section.title}
                         </h2>
@@ -2657,8 +2759,8 @@ export default function PickTeamPage() {
                               display: "flex",
                               alignItems: "center",
                               padding: "12px 16px 12px 12px",
-                              background: "#fff",
-                              borderBottom: "1px solid #f2f0f4",
+                              background: "transparent",
+                              borderBottom: "1px solid hsl(var(--border))",
                               width: "100%",
                               cursor: "pointer",
                               border: "none",
@@ -2675,8 +2777,8 @@ export default function PickTeamPage() {
                                 fontStyle: "italic",
                                 fontSize: 14,
                                 fontWeight: 400,
-                                color: "#37003C",
-                                opacity: 0.5,
+                                color: "hsl(var(--muted-foreground))",
+                                opacity: 0.7,
                                 lineHeight: 1,
                               }}>i</span>
                             </div>
@@ -2690,11 +2792,11 @@ export default function PickTeamPage() {
                             <div style={{
                               flex: 1, minWidth: 0,
                               paddingRight: 10,
-                              borderRight: "1px solid #ece8f0",
+                              borderRight: "1px solid hsl(var(--border))",
                               marginRight: 10,
                             }}>
                               <div style={{
-                                fontSize: 14, fontWeight: 700, color: "#37003C",
+                                fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
                                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                 lineHeight: 1.3,
                                 display: "flex", alignItems: "center", gap: 4,
@@ -2726,7 +2828,7 @@ export default function PickTeamPage() {
                                 )}
                               </div>
                               <div style={{
-                                fontSize: 12, color: "#999", fontWeight: 400,
+                                fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
                                 marginTop: 1, display: "flex", gap: 6,
                               }}>
                                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -2738,21 +2840,21 @@ export default function PickTeamPage() {
 
                             {/* Form */}
                             <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
-                              <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                              <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                 {formVal > 0 ? formVal.toFixed(1) : "--"}
                               </span>
                             </div>
 
                             {/* Price */}
                             <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
-                              <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                              <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                 {formatUGX(p.price)}
                               </span>
                             </div>
 
                             {/* Selected */}
                             <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
-                              <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                              <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                 {formatOwnership(p.ownership)}
                               </span>
                             </div>
@@ -2795,8 +2897,8 @@ export default function PickTeamPage() {
                           display: "flex",
                           alignItems: "center",
                           padding: "12px 16px 12px 12px",
-                          background: "#fff",
-                          borderBottom: "1px solid #f2f0f4",
+                          background: "transparent",
+                          borderBottom: "1px solid hsl(var(--border))",
                           width: "100%",
                           cursor: "pointer",
                           border: "none",
@@ -2828,11 +2930,11 @@ export default function PickTeamPage() {
                         <div style={{
                           flex: 1, minWidth: 0,
                           paddingRight: 10,
-                          borderRight: "1px solid #ece8f0",
+                          borderRight: "1px solid hsl(var(--border))",
                           marginRight: 10,
                         }}>
                           <div style={{
-                            fontSize: 14, fontWeight: 700, color: "#37003C",
+                            fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
                             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                             lineHeight: 1.3,
                             display: "flex", alignItems: "center", gap: 4,
@@ -2864,7 +2966,7 @@ export default function PickTeamPage() {
                             )}
                           </div>
                           <div style={{
-                            fontSize: 12, color: "#999", fontWeight: 400,
+                            fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
                             marginTop: 1, display: "flex", gap: 6,
                           }}>
                             <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -2876,21 +2978,21 @@ export default function PickTeamPage() {
 
                         {/* Form */}
                         <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
-                          <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                             {formVal > 0 ? formVal.toFixed(1) : "--"}
                           </span>
                         </div>
 
                         {/* Price */}
                         <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
-                          <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                             {formatUGX(p.price)}
                           </span>
                         </div>
 
                         {/* Selected */}
                         <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
-                          <span style={{ fontSize: 14, fontWeight: 500, color: "#37003C" }}>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                             {formatOwnership(p.ownership)}
                           </span>
                         </div>
@@ -2901,7 +3003,7 @@ export default function PickTeamPage() {
               )}
 
               {/* Bottom spacer */}
-              <div style={{ height: 40, background: "#fff" }} />
+              <div style={{ height: 12 }} />
             </>
           )}
         </div>
