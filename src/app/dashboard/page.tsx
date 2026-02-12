@@ -359,16 +359,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-headline">Latest result</CardTitle>
                 {recentMatches.length > 1 && (
-                  <div className="flex gap-1">
-                    {recentMatches.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setResultIdx(i)}
-                        className={`h-1.5 rounded-full transition-all ${i === resultIdx ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30"}`}
-                      />
-                    ))}
-                  </div>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{resultIdx + 1}/{recentMatches.length}</span>
                 )}
               </div>
             </CardHeader>
@@ -422,16 +413,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-headline">Next fixture</CardTitle>
                 {upcomingMatches.length > 1 && (
-                  <div className="flex gap-1">
-                    {upcomingMatches.map((_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setFixtureIdx(i)}
-                        className={`h-1.5 rounded-full transition-all ${i === fixtureIdx ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30"}`}
-                      />
-                    ))}
-                  </div>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{fixtureIdx + 1}/{upcomingMatches.length}</span>
                 )}
               </div>
             </CardHeader>
