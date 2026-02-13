@@ -23,7 +23,6 @@ import {
   groupByPosition,
   Kit,
   EmptySlot,
-  darkenColor,
 } from "@/lib/pitch-helpers";
 
 // =====================
@@ -1267,150 +1266,124 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
       )}
       style={isGhost ? { opacity: 0.4, filter: "grayscale(0.8)" } : undefined}
     >
-      <div className="flex flex-col items-center" style={{ width: 62 }}>
-        {/* Price above kit */}
+      <div
+        className="relative flex flex-col items-center"
+        style={{
+          width: 62,
+          borderRadius: 6,
+          overflow: "hidden",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.22)",
+        }}
+      >
+        {/* Badges — positioned over the whole card */}
+        {isGhost && (
+          <div
+            style={{
+              position: "absolute", top: -1, right: -1, zIndex: 4,
+              background: "#ef4444", color: "#fff",
+              fontSize: 7, fontWeight: 800,
+              width: 18, height: 13, borderRadius: 3,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "1px solid #fff",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+            }}
+          >OUT</div>
+        )}
+        {isNewIn && !isGhost && (
+          <div
+            style={{
+              position: "absolute", top: -1, right: -1, zIndex: 4,
+              background: "#10b981", color: "#fff",
+              fontSize: 7, fontWeight: 800,
+              width: 18, height: 13, borderRadius: 3,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "1px solid #fff",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+              cursor: "pointer",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onUndo?.();
+            }}
+          >IN</div>
+        )}
+        {player.isLady && !isGhost && !isNewIn && (
+          <span
+            style={{
+              position: "absolute", top: -1, left: -1, zIndex: 4,
+              background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 8,
+              width: 14, height: 14, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "1.5px solid #fff",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+            }}
+          >★</span>
+        )}
+
+        {/* Kit section — transparent top */}
         <div
           style={{
-            fontSize: 8,
+            background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(100,100,100,0.22) 100%)",
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "2px 4px 0",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          {/* Price badge */}
+          <div style={{
+            fontSize: 7,
             fontWeight: 700,
             color: isGhost ? "#9ca3af" : "#fff",
-            background: isGhost ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.45)",
-            padding: "1px 6px",
-            borderRadius: 8,
-            marginBottom: 2,
+            background: "rgba(0,0,0,0.45)",
+            padding: "1px 5px",
+            borderRadius: 5,
+            marginBottom: 1,
             textAlign: "center",
-          }}
-        >
-          {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
-        </div>
-        <div
-          className="relative"
-          style={{
-            background: isGhost
-              ? "linear-gradient(150deg, #888 15%, #555 85%)"
-              : `linear-gradient(150deg, ${kitColor} 15%, ${darkenColor(kitColor, 0.35)} 85%)`,
-            borderRadius: 6,
-            padding: "5px 4px 1px",
-            width: 54,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "visible",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-          }}
-        >
-          {/* Decorative circle */}
-          <div style={{
-            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            width: 28, height: 28, borderRadius: "50%",
-            background: "rgba(255,255,255,0.08)",
-          }} />
+          }}>
+            {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
+          </div>
           <Kit color={isGhost ? "#888" : kitColor} isGK={isGK} size={38} />
-          {isGhost && (
-            <div
-              style={{
-                position: "absolute",
-                top: -3,
-                right: -3,
-                zIndex: 2,
-                background: "#ef4444",
-                color: "#fff",
-                fontSize: 7,
-                fontWeight: 800,
-                width: 18,
-                height: 13,
-                borderRadius: 3,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: "1px solid #fff",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-              }}
-            >
-              OUT
-            </div>
-          )}
-          {isNewIn && !isGhost && (
-            <div
-              style={{
-                position: "absolute",
-                top: -3,
-                right: -3,
-                zIndex: 2,
-                background: "#10b981",
-                color: "#fff",
-                fontSize: 7,
-                fontWeight: 800,
-                width: 18,
-                height: 13,
-                borderRadius: 3,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: "1px solid #fff",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                cursor: "pointer",
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onUndo?.();
-              }}
-            >
-              IN
-            </div>
-          )}
-          {player.isLady && !isGhost && !isNewIn && (
-            <span
-              style={{
-                position: "absolute", top: -3, left: -3, zIndex: 2,
-                background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 8,
-                width: 14, height: 14, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: "1.5px solid #fff",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
-              }}
-            >★</span>
-          )}
         </div>
+
+        {/* Name plate */}
         <div
           style={{
             background: isGhost
-              ? "linear-gradient(180deg, #d1d5db, #c0c4c8)"
+              ? "#d1d5db"
               : isNewIn
-                ? "linear-gradient(180deg, #a7f3d0, #6ee7b7)"
-                : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
+                ? "#a7f3d0"
+                : "#f5e6c8",
             color: isGhost ? "#6b7280" : "#1a1a2e",
             fontSize: 9,
             fontWeight: 700,
             padding: "2px 4px",
-            borderRadius: "3px 3px 0 0",
-            marginTop: -3,
             textAlign: "center",
-            width: 62,
+            width: "100%",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            boxShadow: "0 -1px 2px rgba(0,0,0,0.12)",
-            borderTop: "1px solid rgba(255,255,255,0.8)",
           }}
         >
           {displayName}
         </div>
+
+        {/* Team plate */}
         <div
           style={{
             background: isGhost
-              ? "linear-gradient(180deg, #6b7280, #4b5563)"
+              ? "#6b7280"
               : isNewIn
-                ? "linear-gradient(180deg, #059669, #047857)"
-                : "linear-gradient(180deg, #37003C, #2d0032)",
+                ? "#059669"
+                : "#37003C",
             color: "#fff",
             fontSize: 8,
             fontWeight: 600,
             padding: "1px 4px",
-            borderRadius: "0 0 3px 3px",
             textAlign: "center",
-            width: 62,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            width: "100%",
           }}
         >
           {player.teamShort ?? "--"}

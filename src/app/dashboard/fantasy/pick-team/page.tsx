@@ -85,7 +85,6 @@ import {
   splitStartingAndBench,
   Kit,
   EmptySlot,
-  darkenColor,
 } from "@/lib/pitch-helpers";
 
 function loadIds(key: string) {
@@ -1879,118 +1878,130 @@ export default function PickTeamPage() {
 
   /* ── FPL Style Player Card ── */
   function PlayerCard({ player, isGK = false, small = false }: {
-    player: { name: string; team: string; fixture: string; color: string; captain?: boolean; viceCaptain?: boolean; star?: boolean; warning?: boolean };
+    player: { name: string; team: string; fixture: string; color: string; price?: number | null; captain?: boolean; viceCaptain?: boolean; star?: boolean; warning?: boolean };
     isGK?: boolean;
     small?: boolean;
   }) {
     const sz = small ? 48 : 56;
     const cardW = small ? 64 : 72;
-    const dark = darkenColor(player.color, 0.35);
     return (
-      <div className="flex flex-col items-center" style={{ width: cardW }}>
+      <div
+        className="relative flex flex-col items-center"
+        style={{
+          width: cardW,
+          borderRadius: small ? 6 : 8,
+          overflow: "hidden",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+        }}
+      >
+        {/* Badges — positioned over the whole card */}
+        {player.captain && (
+          <span
+            style={{
+              position: "absolute", top: -2, left: -2, zIndex: 4,
+              background: activeChip === "triple_captain"
+                ? "linear-gradient(135deg, #C8102E, #8B0000)"
+                : "linear-gradient(135deg, #FFD700, #FFA500)",
+              color: activeChip === "triple_captain" ? "#fff" : "#000",
+              fontSize: activeChip === "triple_captain" ? 8 : 10,
+              fontWeight: 900,
+              width: 18, height: 18, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: activeChip === "triple_captain" ? "2px solid #FFD700" : "2px solid #fff",
+              boxShadow: activeChip === "triple_captain"
+                ? "0 2px 6px rgba(200,16,46,0.6)"
+                : "0 2px 4px rgba(0,0,0,0.4)",
+            }}
+          >{activeChip === "triple_captain" ? "TC" : "C"}</span>
+        )}
+        {player.viceCaptain && (
+          <span
+            style={{
+              position: "absolute", top: -2, left: -2, zIndex: 4,
+              background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)", color: "#000", fontSize: 9, fontWeight: 900,
+              width: 18, height: 18, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "2px solid #37003C",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
+            }}
+          >V</span>
+        )}
+        {player.star && (
+          <span
+            style={{
+              position: "absolute", top: -2, right: -2, zIndex: 4,
+              background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 11,
+              width: 18, height: 18, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "2px solid #fff",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
+            }}
+          >★</span>
+        )}
+        {player.warning && (
+          <span
+            style={{
+              position: "absolute", top: -2, right: -2, zIndex: 4,
+              background: "linear-gradient(135deg, #FFD700, #FFA500)", color: "#000", fontSize: 11, fontWeight: 900,
+              width: 18, height: 18, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "2px solid #fff",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
+            }}
+          >!</span>
+        )}
+
+        {/* Kit section — transparent top */}
         <div
-          className="relative"
           style={{
-            background: `linear-gradient(150deg, ${player.color} 15%, ${dark} 85%)`,
-            borderRadius: small ? 6 : 8,
-            padding: small ? "6px 4px 2px" : "8px 6px 2px",
-            width: cardW,
+            background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(100,100,100,0.22) 100%)",
+            width: "100%",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            overflow: "visible",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            padding: small ? "3px 4px 0" : "3px 6px 0",
+            backdropFilter: "blur(2px)",
           }}
         >
-          {/* Decorative circle for depth */}
+          {/* Price badge */}
           <div style={{
-            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            width: small ? 36 : 44, height: small ? 36 : 44, borderRadius: "50%",
-            background: "rgba(255,255,255,0.08)",
-          }} />
-          {player.captain && (
-            <span
-              style={{
-                position: "absolute", top: -4, left: -4, zIndex: 2,
-                background: activeChip === "triple_captain"
-                  ? "linear-gradient(135deg, #C8102E, #8B0000)"
-                  : "linear-gradient(135deg, #FFD700, #FFA500)",
-                color: activeChip === "triple_captain" ? "#fff" : "#000",
-                fontSize: activeChip === "triple_captain" ? 8 : 10,
-                fontWeight: 900,
-                width: 18, height: 18, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: activeChip === "triple_captain" ? "2px solid #FFD700" : "2px solid #fff",
-                boxShadow: activeChip === "triple_captain"
-                  ? "0 2px 6px rgba(200,16,46,0.6)"
-                  : "0 2px 4px rgba(0,0,0,0.4)",
-              }}
-            >{activeChip === "triple_captain" ? "TC" : "C"}</span>
-          )}
-          {player.viceCaptain && (
-            <span
-              style={{
-                position: "absolute", top: -4, left: -4, zIndex: 2,
-                background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)", color: "#000", fontSize: 9, fontWeight: 900,
-                width: 18, height: 18, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: "2px solid #37003C",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
-              }}
-            >V</span>
-          )}
-          {player.star && (
-            <span
-              style={{
-                position: "absolute", top: -4, right: -4, zIndex: 2,
-                background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 11,
-                width: 18, height: 18, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: "2px solid #fff",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
-              }}
-            >★</span>
-          )}
-          {player.warning && (
-            <span
-              style={{
-                position: "absolute", top: -4, right: -4, zIndex: 2,
-                background: "linear-gradient(135deg, #FFD700, #FFA500)", color: "#000", fontSize: 11, fontWeight: 900,
-                width: 18, height: 18, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: "2px solid #fff",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
-              }}
-            >!</span>
-          )}
+            fontSize: small ? 7 : 8,
+            fontWeight: 700,
+            color: "#fff",
+            background: "rgba(0,0,0,0.45)",
+            padding: "1px 6px",
+            borderRadius: 6,
+            marginBottom: small ? 1 : 2,
+            textAlign: "center",
+          }}>
+            {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
+          </div>
           <Kit color={player.color} isGK={isGK} size={sz} />
         </div>
+
+        {/* Name plate */}
         <div
           style={{
             background: player.captain && activeChip === "triple_captain"
               ? "linear-gradient(135deg, #C8102E, #8B0000)"
               : player.captain
               ? "linear-gradient(135deg, #FFD700, #FFA500)"
-              : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
+              : "#f5e6c8",
             color: player.captain && activeChip === "triple_captain" ? "#fff" : "#1a1a2e",
             fontSize: small ? 10 : 11,
             fontWeight: 700,
-            padding: "3px 4px",
-            borderRadius: "4px 4px 0 0",
-            marginTop: -4,
+            padding: "2px 4px",
             textAlign: "center",
-            width: small ? 64 : 72,
+            width: "100%",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            boxShadow: player.captain && activeChip === "triple_captain"
-              ? "0 -1px 6px rgba(200,16,46,0.4)"
-              : "0 -1px 3px rgba(0,0,0,0.15)",
-            borderTop: "1px solid rgba(255,255,255,0.8)",
           }}
         >
           {player.name}
         </div>
+
+        {/* Fixture plate */}
         <div
           style={{
             background: player.captain && activeChip === "triple_captain"
@@ -2002,10 +2013,8 @@ export default function PickTeamPage() {
             fontSize: small ? 9 : 10,
             fontWeight: 600,
             padding: "2px 4px",
-            borderRadius: "0 0 4px 4px",
             textAlign: "center",
-            width: small ? 64 : 72,
-            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+            width: "100%",
           }}
         >
           {player.fixture}
@@ -2041,6 +2050,7 @@ export default function PickTeamPage() {
       team: teamShort,
       fixture: fixture,
       color: kitColor,
+      price: player.price,
       captain: isCaptain,
       viceCaptain: isVice,
       star: player.isLady, // Show star for lady players
