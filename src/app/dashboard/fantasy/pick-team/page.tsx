@@ -1811,7 +1811,7 @@ export default function PickTeamPage() {
   }) {
     const sz = small ? 48 : 56;
     return (
-      <div className="flex flex-col items-center" style={{ minWidth: small ? 64 : 72 }}>
+      <div className="flex flex-col items-center" style={{ width: small ? 64 : 72 }}>
         <div className="relative">
           {player.captain && (
             <span
@@ -1869,15 +1869,14 @@ export default function PickTeamPage() {
             color: "#1a1a2e",
             fontSize: small ? 10 : 11,
             fontWeight: 700,
-            padding: "3px 10px",
+            padding: "3px 4px",
             borderRadius: "4px 4px 0 0",
             marginTop: -4,
             textAlign: "center",
-            minWidth: small ? 62 : 72,
+            width: small ? 64 : 72,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            maxWidth: small ? 72 : 88,
             boxShadow: "0 -1px 3px rgba(0,0,0,0.15)",
             borderTop: "1px solid rgba(255,255,255,0.8)",
           }}
@@ -1890,10 +1889,10 @@ export default function PickTeamPage() {
             color: player.captain ? "#1a1a2e" : "#fff",
             fontSize: small ? 9 : 10,
             fontWeight: 600,
-            padding: "2px 10px",
+            padding: "2px 4px",
             borderRadius: "0 0 4px 4px",
             textAlign: "center",
-            minWidth: small ? 62 : 72,
+            width: small ? 64 : 72,
             boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
           }}
         >
@@ -2032,8 +2031,8 @@ export default function PickTeamPage() {
           style={{
             background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 8%, #2d8b4e 8%, #37a35c 16%, #2d8b4e 16%, #37a35c 24%, #2d8b4e 24%, #37a35c 32%, #2d8b4e 32%, #37a35c 40%, #2d8b4e 40%, #37a35c 48%, #2d8b4e 48%, #37a35c 56%, #2d8b4e 56%, #37a35c 64%, #2d8b4e 64%, #37a35c 72%, #2d8b4e 72%, #37a35c 80%, #2d8b4e 80%, #37a35c 88%, #2d8b4e 88%, #37a35c 96%, #2d8b4e 96%, #37a35c 100%)",
             position: "relative",
-            padding: "8px 0 16px",
-            overflow: "hidden",
+            padding: "8px 6px 16px",
+            overflow: "visible",
           }}
         >
           {/* Goal line - top */}
@@ -2237,7 +2236,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* DEF Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 4px 8px", position: "relative", zIndex: 1 }}>
             {g.Defenders.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
@@ -2262,7 +2261,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* MID Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 0 8px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 4px 8px", position: "relative", zIndex: 1 }}>
             {g.Midfielders.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
@@ -2288,7 +2287,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* FWD Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 0 4px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 4px 4px", position: "relative", zIndex: 1 }}>
             {g.Forwards.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
@@ -2701,7 +2700,7 @@ export default function PickTeamPage() {
 
       {/* List view — FPL style */}
       {tab === "list" && (
-        <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="-mx-4 rounded-none border-y bg-card overflow-hidden">
           {/* Column Headers */}
           <div
             style={{

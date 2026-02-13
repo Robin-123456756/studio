@@ -869,7 +869,22 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
       )}
       style={isGhost ? { opacity: 0.4, filter: "grayscale(0.8)" } : undefined}
     >
-      <div className="flex flex-col items-center" style={{ minWidth: 50 }}>
+      <div className="flex flex-col items-center" style={{ width: 62 }}>
+        {/* Price above kit */}
+        <div
+          style={{
+            fontSize: 8,
+            fontWeight: 700,
+            color: isGhost ? "#9ca3af" : "#fff",
+            background: isGhost ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.45)",
+            padding: "1px 6px",
+            borderRadius: 8,
+            marginBottom: 2,
+            textAlign: "center",
+          }}
+        >
+          {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
+        </div>
         <div className="relative">
           <Kit color={isGhost ? "#888" : kitColor} isGK={isGK} size={38} />
           {isGhost && (
@@ -948,15 +963,14 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
             color: isGhost ? "#6b7280" : "#1a1a2e",
             fontSize: 9,
             fontWeight: 700,
-            padding: "2px 6px",
+            padding: "2px 4px",
             borderRadius: "3px 3px 0 0",
             marginTop: -3,
             textAlign: "center",
-            minWidth: 50,
+            width: 62,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            maxWidth: 62,
             boxShadow: "0 -1px 2px rgba(0,0,0,0.12)",
             borderTop: "1px solid rgba(255,255,255,0.8)",
           }}
@@ -973,14 +987,14 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
             color: "#fff",
             fontSize: 8,
             fontWeight: 600,
-            padding: "1px 6px",
+            padding: "1px 4px",
             borderRadius: "0 0 3px 3px",
             textAlign: "center",
-            minWidth: 50,
+            width: 62,
             boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
           }}
         >
-          {player.teamShort ?? "--"} • {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
+          {player.teamShort ?? "--"}
         </div>
       </div>
     </button>
