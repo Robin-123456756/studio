@@ -2230,7 +2230,9 @@ export default function PickTeamPage() {
                   </div>
                 ))
               ) : (
-                <EmptySlot position="GK" />
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="GK" />
+                </Link>
               )}
             </div>
           </div>
@@ -2254,8 +2256,12 @@ export default function PickTeamPage() {
             ))}
             {g.Defenders.length === 0 && (
               <>
-                <EmptySlot position="DEF" />
-                <EmptySlot position="DEF" />
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="DEF" />
+                </Link>
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="DEF" />
+                </Link>
               </>
             )}
           </div>
@@ -2279,9 +2285,15 @@ export default function PickTeamPage() {
             ))}
             {g.Midfielders.length === 0 && (
               <>
-                <EmptySlot position="MID" />
-                <EmptySlot position="MID" />
-                <EmptySlot position="MID" />
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="MID" />
+                </Link>
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="MID" />
+                </Link>
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="MID" />
+                </Link>
               </>
             )}
           </div>
@@ -2305,8 +2317,12 @@ export default function PickTeamPage() {
             ))}
             {g.Forwards.length === 0 && (
               <>
-                <EmptySlot position="FWD" />
-                <EmptySlot position="FWD" />
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="FWD" />
+                </Link>
+                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                  <EmptySlot position="FWD" />
+                </Link>
               </>
             )}
           </div>
