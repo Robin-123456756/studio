@@ -85,6 +85,7 @@ import {
   splitStartingAndBench,
   Kit,
   EmptySlot,
+  darkenColor,
 } from "@/lib/pitch-helpers";
 
 function loadIds(key: string) {
@@ -201,6 +202,7 @@ function PlayerDetailModal({
   onSetCaptain,
   onSetVice,
   onCompare,
+  activeChip,
 }: {
   player: Player;
   onClose: () => void;
@@ -214,6 +216,7 @@ function PlayerDetailModal({
   onSetCaptain: () => void;
   onSetVice: () => void;
   onCompare: () => void;
+  activeChip?: string | null;
 }) {
   const displayName = shortName(player.name, player.webName);
   const logo = getTeamLogo(player.teamName, player.teamShort);
@@ -342,9 +345,9 @@ function PlayerDetailModal({
                     <Button
                       onClick={onSetCaptain}
                       variant={isCaptain ? "default" : "outline"}
-                      className={cn("rounded-xl", isCaptain && "bg-amber-500 hover:bg-amber-600")}
+                      className={cn("rounded-xl", isCaptain && activeChip === "triple_captain" ? "bg-red-600 hover:bg-red-700" : isCaptain && "bg-amber-500 hover:bg-amber-600")}
                     >
-                      {isCaptain ? "Captain" : "Make Captain"}
+                      {isCaptain ? (activeChip === "triple_captain" ? "Triple Captain" : "Captain") : "Make Captain"}
                     </Button>
                     <Button
                       onClick={onSetVice}
@@ -487,6 +490,7 @@ function PlayerInfoSheet({
   onSetCaptain,
   onSetVice,
   onSubstitute,
+  activeChip,
 }: {
   player: Player;
   open: boolean;
@@ -497,6 +501,7 @@ function PlayerInfoSheet({
   onSetCaptain: () => void;
   onSetVice: () => void;
   onSubstitute: () => void;
+  activeChip?: string | null;
 }) {
   const displayName = shortName(player.name, player.webName);
   const logo = getTeamLogo(player.teamName, player.teamShort);
@@ -593,16 +598,18 @@ function PlayerInfoSheet({
               onClick={onSetCaptain}
               className={cn(
                 "flex items-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-semibold transition-colors",
-                isCaptain ? "border-amber-500 bg-amber-50" : "border-border"
+                isCaptain && activeChip === "triple_captain" ? "border-red-500 bg-red-50" : isCaptain ? "border-amber-500 bg-amber-50" : "border-border"
               )}
             >
               <div className={cn(
-                "h-6 w-6 rounded-full grid place-items-center text-xs font-black",
-                isCaptain ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
-              )}>C</div>
+                "h-6 w-6 rounded-full grid place-items-center font-black",
+                isCaptain && activeChip === "triple_captain" ? "text-white text-[9px]" : isCaptain ? "bg-amber-500 text-white text-xs" : "bg-muted text-muted-foreground text-xs"
+              )} style={isCaptain && activeChip === "triple_captain" ? { background: "linear-gradient(135deg, #C8102E, #8B0000)" } : undefined}>
+                {activeChip === "triple_captain" ? "TC" : "C"}
+              </div>
               <div className="text-left">
-                <div className="text-sm font-bold">Captain</div>
-                <div className="text-[10px] text-muted-foreground">Double points</div>
+                <div className="text-sm font-bold">{activeChip === "triple_captain" ? "Triple Captain" : "Captain"}</div>
+                <div className="text-[10px] text-muted-foreground">{activeChip === "triple_captain" ? "Triple points" : "Double points"}</div>
               </div>
             </button>
             <button
@@ -694,8 +701,13 @@ export default function PickTeamPage() {
   type ChipKey = "bench_boost" | "triple_captain" | "wildcard" | "free_hit";
   const LS_ACTIVE_CHIP = "tbl_active_chip";
   const LS_USED_CHIPS = "tbl_used_chips";
+  const LS_FREE_HIT_BACKUP = "tbl_free_hit_backup";
+  const LS_FREE_HIT_GW = "tbl_free_hit_gw";
   const [activeChip, setActiveChip] = React.useState<ChipKey | null>(null);
   const [usedChips, setUsedChips] = React.useState<ChipKey[]>([]);
+  const [showFreeHitModal, setShowFreeHitModal] = React.useState(false);
+  const [showBenchBoostModal, setShowBenchBoostModal] = React.useState(false);
+  const [showTripleCaptainModal, setShowTripleCaptainModal] = React.useState(false);
 
   // Load chip state from localStorage
   React.useEffect(() => {
@@ -712,8 +724,37 @@ export default function PickTeamPage() {
       toast({ description: `${chip.replace("_", " ")} has already been used this season.`, variant: "destructive" });
       return;
     }
+    // Free Hit gets a confirmation modal
+    if (chip === "free_hit" && activeChip !== chip) {
+      setShowFreeHitModal(true);
+      return;
+    }
+    // Bench Boost gets a confirmation modal
+    if (chip === "bench_boost" && activeChip !== chip) {
+      setShowBenchBoostModal(true);
+      return;
+    }
+    // Triple Captain gets a confirmation modal
+    if (chip === "triple_captain" && activeChip !== chip) {
+      setShowTripleCaptainModal(true);
+      return;
+    }
     if (activeChip === chip) {
       // Deactivate
+      if (chip === "free_hit") {
+        // Restore backup squad
+        try {
+          const backup = localStorage.getItem(LS_FREE_HIT_BACKUP);
+          if (backup) {
+            const backupIds: string[] = JSON.parse(backup);
+            localStorage.setItem(LS_SQUAD, JSON.stringify(backupIds));
+            localStorage.setItem(LS_PICKS, JSON.stringify(backupIds));
+            localStorage.removeItem(LS_FREE_HIT_BACKUP);
+            localStorage.removeItem(LS_FREE_HIT_GW);
+            window.dispatchEvent(new Event("tbl_squad_updated"));
+          }
+        } catch { /* ignore */ }
+      }
       setActiveChip(null);
       localStorage.removeItem(LS_ACTIVE_CHIP);
       toast({ description: `${chipLabel(chip)} deactivated` });
@@ -723,6 +764,39 @@ export default function PickTeamPage() {
       localStorage.setItem(LS_ACTIVE_CHIP, chip);
       toast({ description: `${chipLabel(chip)} activated!` });
     }
+  }
+
+  function activateFreeHit() {
+    // Backup current squad before activating
+    try {
+      const currentSquad = localStorage.getItem(LS_SQUAD);
+      if (currentSquad) {
+        localStorage.setItem(LS_FREE_HIT_BACKUP, currentSquad);
+      }
+      const gw = nextGW?.id ?? currentGW?.id ?? null;
+      if (gw) localStorage.setItem(LS_FREE_HIT_GW, String(gw));
+    } catch { /* ignore */ }
+    setActiveChip("free_hit");
+    localStorage.setItem(LS_ACTIVE_CHIP, "free_hit");
+    setShowFreeHitModal(false);
+    toast({ description: "Free Hit activated! Head to Transfers to rebuild your squad for this gameweek." });
+  }
+
+  function activateBenchBoost() {
+    setActiveChip("bench_boost");
+    localStorage.setItem(LS_ACTIVE_CHIP, "bench_boost");
+    setShowBenchBoostModal(false);
+    toast({ description: "Bench Boost activated! All 17 players will score this gameweek. Save your team to confirm." });
+  }
+
+  function activateTripleCaptain() {
+    setActiveChip("triple_captain");
+    localStorage.setItem(LS_ACTIVE_CHIP, "triple_captain");
+    setShowTripleCaptainModal(false);
+    const capName = captainId && playerById.get(captainId)
+      ? shortName(playerById.get(captainId)?.name, playerById.get(captainId)?.webName)
+      : "Your captain";
+    toast({ description: `Triple Captain activated! ${capName}'s points will be tripled. Save your team to confirm.` });
   }
 
   function chipLabel(chip: ChipKey): string {
@@ -1810,20 +1884,48 @@ export default function PickTeamPage() {
     small?: boolean;
   }) {
     const sz = small ? 48 : 56;
+    const cardW = small ? 64 : 72;
+    const dark = darkenColor(player.color, 0.35);
     return (
-      <div className="flex flex-col items-center" style={{ width: small ? 64 : 72 }}>
-        <div className="relative">
+      <div className="flex flex-col items-center" style={{ width: cardW }}>
+        <div
+          className="relative"
+          style={{
+            background: `linear-gradient(150deg, ${player.color} 15%, ${dark} 85%)`,
+            borderRadius: small ? 6 : 8,
+            padding: small ? "6px 4px 2px" : "8px 6px 2px",
+            width: cardW,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "visible",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+          }}
+        >
+          {/* Decorative circle for depth */}
+          <div style={{
+            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            width: small ? 36 : 44, height: small ? 36 : 44, borderRadius: "50%",
+            background: "rgba(255,255,255,0.08)",
+          }} />
           {player.captain && (
             <span
               style={{
                 position: "absolute", top: -4, left: -4, zIndex: 2,
-                background: "linear-gradient(135deg, #FFD700, #FFA500)", color: "#000", fontSize: 10, fontWeight: 900,
+                background: activeChip === "triple_captain"
+                  ? "linear-gradient(135deg, #C8102E, #8B0000)"
+                  : "linear-gradient(135deg, #FFD700, #FFA500)",
+                color: activeChip === "triple_captain" ? "#fff" : "#000",
+                fontSize: activeChip === "triple_captain" ? 8 : 10,
+                fontWeight: 900,
                 width: 18, height: 18, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                border: "2px solid #fff",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
+                border: activeChip === "triple_captain" ? "2px solid #FFD700" : "2px solid #fff",
+                boxShadow: activeChip === "triple_captain"
+                  ? "0 2px 6px rgba(200,16,46,0.6)"
+                  : "0 2px 4px rgba(0,0,0,0.4)",
               }}
-            >C</span>
+            >{activeChip === "triple_captain" ? "TC" : "C"}</span>
           )}
           {player.viceCaptain && (
             <span
@@ -1865,8 +1967,12 @@ export default function PickTeamPage() {
         </div>
         <div
           style={{
-            background: player.captain ? "linear-gradient(135deg, #FFD700, #FFA500)" : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
-            color: "#1a1a2e",
+            background: player.captain && activeChip === "triple_captain"
+              ? "linear-gradient(135deg, #C8102E, #8B0000)"
+              : player.captain
+              ? "linear-gradient(135deg, #FFD700, #FFA500)"
+              : "linear-gradient(180deg, #f5e6c8, #e8d9b8)",
+            color: player.captain && activeChip === "triple_captain" ? "#fff" : "#1a1a2e",
             fontSize: small ? 10 : 11,
             fontWeight: 700,
             padding: "3px 4px",
@@ -1877,7 +1983,9 @@ export default function PickTeamPage() {
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            boxShadow: "0 -1px 3px rgba(0,0,0,0.15)",
+            boxShadow: player.captain && activeChip === "triple_captain"
+              ? "0 -1px 6px rgba(200,16,46,0.4)"
+              : "0 -1px 3px rgba(0,0,0,0.15)",
             borderTop: "1px solid rgba(255,255,255,0.8)",
           }}
         >
@@ -1885,8 +1993,12 @@ export default function PickTeamPage() {
         </div>
         <div
           style={{
-            background: player.captain ? "linear-gradient(180deg, #e6c200, #d4a800)" : "linear-gradient(180deg, #37003C, #2d0032)",
-            color: player.captain ? "#1a1a2e" : "#fff",
+            background: player.captain && activeChip === "triple_captain"
+              ? "linear-gradient(180deg, #8B0000, #5c0000)"
+              : player.captain
+              ? "linear-gradient(180deg, #e6c200, #d4a800)"
+              : "linear-gradient(180deg, #37003C, #2d0032)",
+            color: player.captain && activeChip === "triple_captain" ? "#FFD700" : player.captain ? "#1a1a2e" : "#fff",
             fontSize: small ? 9 : 10,
             fontWeight: 600,
             padding: "2px 4px",
@@ -2174,14 +2286,14 @@ export default function PickTeamPage() {
           />
 
           {/* Budo League Fantasy Branding Bar */}
-          <div style={{ display: "flex", height: 28, marginBottom: 4 }}>
+          <div style={{ display: "flex", height: 28, marginBottom: 4, marginLeft: -12, marginRight: -12 }}>
             <div
               style={{
                 flex: 1,
                 background: "linear-gradient(90deg, #C8102E, #8B0000)",
                 display: "flex",
                 alignItems: "center",
-                paddingLeft: 12,
+                paddingLeft: 16,
                 fontSize: 11,
                 fontWeight: 800,
                 color: "#fff",
@@ -2198,7 +2310,7 @@ export default function PickTeamPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "flex-end",
-                paddingRight: 12,
+                paddingRight: 16,
                 fontSize: 11,
                 fontWeight: 800,
                 color: "#fff",
@@ -2332,12 +2444,18 @@ export default function PickTeamPage() {
         {bench.length > 0 ? (
           <div
             style={{
-              background: "linear-gradient(180deg, #e0f7f0, #c8ece0)",
+              background: activeChip === "bench_boost"
+                ? "linear-gradient(180deg, #a7f3d0, #6ee7b7)"
+                : "linear-gradient(180deg, #e0f7f0, #c8ece0)",
               padding: "12px 8px 16px",
+              transition: "background 0.3s",
+              ...(activeChip === "bench_boost" ? { boxShadow: "inset 0 0 20px rgba(16,185,129,0.2)" } : {}),
             }}
           >
             <div style={{ textAlign: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#37003C" }}>SUBSTITUTES</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: activeChip === "bench_boost" ? "#047857" : "#37003C" }}>
+                {activeChip === "bench_boost" ? "BENCH BOOST ACTIVE" : "SUBSTITUTES"}
+              </span>
               {selectedForSwap && (
                 <span style={{ fontSize: 10, color: "#666", marginLeft: 8 }}>
                   Tap a player to swap with starter
@@ -2639,6 +2757,32 @@ export default function PickTeamPage() {
 
       {msg ? <div className="text-sm text-center">{msg}</div> : null}
 
+      {/* Triple Captain Active Banner */}
+      {activeChip === "triple_captain" && (
+        <div className="rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "linear-gradient(90deg, #C8102E, #8B0000)" }}>
+            <div className="flex items-center gap-2 text-white">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2l3 6h6l-5 4 2 7-6-4-6 4 2-7-5-4h6l3-6z" stroke="white" strokeWidth="1.8" strokeLinejoin="round" fill="rgba(255,255,255,0.2)" />
+              </svg>
+              <div>
+                <div className="text-sm font-bold">Triple Captain Active</div>
+                <div className="text-[10px] text-white/70">
+                  {captainName}&apos;s points will be tripled this gameweek
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleChip("triple_captain")}
+              className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/30 shrink-0"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tabs - centered on surface */}
       <div className="flex items-center justify-center">
         <div className="rounded-2xl bg-muted p-1 inline-flex">
@@ -2828,9 +2972,13 @@ export default function PickTeamPage() {
                                   <span style={{
                                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                                     width: 16, height: 16, borderRadius: "50%",
-                                    background: "linear-gradient(135deg, #FFD700, #FFA500)",
-                                    color: "#000", fontSize: 9, fontWeight: 900,
-                                  }}>C</span>
+                                    background: activeChip === "triple_captain"
+                                      ? "linear-gradient(135deg, #C8102E, #8B0000)"
+                                      : "linear-gradient(135deg, #FFD700, #FFA500)",
+                                    color: activeChip === "triple_captain" ? "#fff" : "#000",
+                                    fontSize: activeChip === "triple_captain" ? 7 : 9,
+                                    fontWeight: 900,
+                                  }}>{activeChip === "triple_captain" ? "TC" : "C"}</span>
                                 )}
                                 {isVc && (
                                   <span style={{
@@ -2966,9 +3114,13 @@ export default function PickTeamPage() {
                               <span style={{
                                 display: "inline-flex", alignItems: "center", justifyContent: "center",
                                 width: 16, height: 16, borderRadius: "50%",
-                                background: "linear-gradient(135deg, #FFD700, #FFA500)",
-                                color: "#000", fontSize: 9, fontWeight: 900,
-                              }}>C</span>
+                                background: activeChip === "triple_captain"
+                                  ? "linear-gradient(135deg, #C8102E, #8B0000)"
+                                  : "linear-gradient(135deg, #FFD700, #FFA500)",
+                                color: activeChip === "triple_captain" ? "#fff" : "#000",
+                                fontSize: activeChip === "triple_captain" ? 7 : 9,
+                                fontWeight: 900,
+                              }}>{activeChip === "triple_captain" ? "TC" : "C"}</span>
                             )}
                             {isVc && (
                               <span style={{
@@ -3074,7 +3226,9 @@ export default function PickTeamPage() {
                                     <span className="text-[10px] font-semibold text-pink-600">• Lady</span>
                                   ) : null}
                                   {isCaptain ? (
-                                    <span className="text-[10px] font-semibold text-amber-600">C</span>
+                                    <span className="text-[10px] font-semibold" style={{ color: activeChip === "triple_captain" ? "#C8102E" : "#d97706" }}>
+                                      {activeChip === "triple_captain" ? "TC" : "C"}
+                                    </span>
                                   ) : null}
                                   {isVice ? (
                                     <span className="text-[10px] font-semibold text-sky-600">VC</span>
@@ -3116,13 +3270,13 @@ export default function PickTeamPage() {
                                 type="button"
                                 variant="outline"
                                 className={cn(
-                                  "h-8 w-8 rounded-xl p-0 text-xs",
-                                  isCaptain ? "bg-amber-400 text-black border-amber-400" : ""
+                                  "h-8 w-8 rounded-xl p-0",
+                                  activeChip === "triple_captain" && isCaptain ? "bg-red-600 text-white border-red-600 text-[9px]" : isCaptain ? "bg-amber-400 text-black border-amber-400 text-xs" : "text-xs"
                                 )}
                                 onClick={() => setCaptain(p.id)}
                                 disabled={!isStarting}
                               >
-                                C
+                                {activeChip === "triple_captain" ? "TC" : "C"}
                               </Button>
                               <Button
                                 type="button"
@@ -3210,6 +3364,7 @@ export default function PickTeamPage() {
             setCompareMode(true);
             setSelectedPlayer(null);
           }}
+          activeChip={activeChip}
         />
       )}
 
@@ -3232,6 +3387,7 @@ export default function PickTeamPage() {
             setSelectedForSwap(sheetPlayer.id);
             setSheetPlayer(null);
           }}
+          activeChip={activeChip}
         />
       )}
 
@@ -3252,8 +3408,226 @@ export default function PickTeamPage() {
             className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
             style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
           >
-            <span style={{ color: "#37003C" }}>Save Your Team</span>
+            <span style={{ color: "#37003C" }}>
+              {activeChip === "bench_boost" ? "Save Team (Bench Boost)" : activeChip ? `Save Team (${chipLabel(activeChip)})` : "Save Your Team"}
+            </span>
           </button>
+        </div>
+      )}
+
+      {/* Free Hit Confirmation Modal */}
+      {showFreeHitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-card border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 text-center" style={{ background: "linear-gradient(135deg, #37003C, #5B0050)" }}>
+              <div className="mx-auto mb-2 h-12 w-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.15)" }}>
+                <Zap className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Activate Free Hit</h3>
+              <p className="text-xs text-white/70 mt-1">
+                {nextGW ? `Gameweek ${nextGW.id}` : currentGW ? `Gameweek ${currentGW.id}` : "This Gameweek"}
+                {nextGW?.deadline_time && ` • Deadline: ${new Date(nextGW.deadline_time).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })}`}
+              </p>
+            </div>
+
+            {/* Rules */}
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#10b981" }}>1</div>
+                <div className="text-sm"><span className="font-semibold">Unlimited transfers</span> — make as many changes as you want with zero point cost</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#f59e0b" }}>2</div>
+                <div className="text-sm"><span className="font-semibold">One gameweek only</span> — your new squad is temporary for this gameweek</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#3b82f6" }}>3</div>
+                <div className="text-sm"><span className="font-semibold">Squad restored</span> — your original squad returns after the gameweek</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#ef4444" }}>4</div>
+                <div className="text-sm"><span className="font-semibold">Once per season</span> — you can only use Free Hit once</div>
+              </div>
+
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mt-2">
+                <p className="text-xs text-amber-800 font-medium">
+                  After the deadline passes, this cannot be cancelled and your original squad will be automatically restored next gameweek.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowFreeHitModal(false)}
+                className="flex-1 py-3 rounded-full border-2 text-sm font-bold transition hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={activateFreeHit}
+                className="flex-1 py-3 rounded-full text-sm font-bold text-white transition"
+                style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}
+              >
+                Activate Free Hit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bench Boost Confirmation Modal */}
+      {showBenchBoostModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-card border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 text-center" style={{ background: "linear-gradient(135deg, #047857, #10b981)" }}>
+              <div className="mx-auto mb-2 h-12 w-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white">Activate Bench Boost</h3>
+              <p className="text-xs text-white/70 mt-1">
+                {nextGW ? `Gameweek ${nextGW.id}` : currentGW ? `Gameweek ${currentGW.id}` : "This Gameweek"}
+              </p>
+            </div>
+
+            {/* Rules */}
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#10b981" }}>1</div>
+                <div className="text-sm"><span className="font-semibold">All 17 players score</span> — bench players&apos; points count towards your total</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#f59e0b" }}>2</div>
+                <div className="text-sm"><span className="font-semibold">One gameweek only</span> — Bench Boost applies for this gameweek only</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#3b82f6" }}>3</div>
+                <div className="text-sm"><span className="font-semibold">Captain unaffected</span> — your captain still earns double points as normal</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#8b5cf6" }}>4</div>
+                <div className="text-sm"><span className="font-semibold">No auto-subs</span> — all players are active so auto-substitution is skipped</div>
+              </div>
+
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 mt-2">
+                <p className="text-xs text-emerald-800 font-medium">
+                  You can cancel before the deadline. Once the deadline passes, Bench Boost is locked in and used.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBenchBoostModal(false)}
+                className="flex-1 py-3 rounded-full border-2 text-sm font-bold transition hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={activateBenchBoost}
+                className="flex-1 py-3 rounded-full text-sm font-bold text-white transition"
+                style={{ background: "linear-gradient(135deg, #047857, #10b981)" }}
+              >
+                Activate Bench Boost
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Triple Captain Confirmation Modal */}
+      {showTripleCaptainModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-card border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 text-center" style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}>
+              <div className="mx-auto mb-2 h-12 w-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2l3 6h6l-5 4 2 7-6-4-6 4 2-7-5-4h6l3-6z" stroke="white" strokeWidth="1.8" strokeLinejoin="round" fill="rgba(255,255,255,0.25)" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white">Activate Triple Captain</h3>
+              <p className="text-xs text-white/70 mt-1">
+                {nextGW ? `Gameweek ${nextGW.id}` : currentGW ? `Gameweek ${currentGW.id}` : "This Gameweek"}
+              </p>
+            </div>
+
+            {/* Current Captain */}
+            <div className="px-5 pt-4 pb-2">
+              <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: "linear-gradient(135deg, #fef2f2, #fff1f2)", border: "1px solid #fecaca" }}>
+                <div className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}>
+                  <span className="text-white text-xs font-black">TC</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-muted-foreground font-medium">Current captain</div>
+                  <div className="text-sm font-bold truncate">
+                    {captainId && playerById.get(captainId)
+                      ? playerById.get(captainId)!.name
+                      : "No captain selected"}
+                  </div>
+                  {captainId && playerById.get(captainId)?.teamName && (
+                    <div className="text-xs text-muted-foreground">{playerById.get(captainId)!.teamName}</div>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-lg font-black" style={{ color: "#C8102E" }}>3x</div>
+                  <div className="text-[10px] text-muted-foreground">points</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rules */}
+            <div className="px-5 py-3 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#C8102E" }}>1</div>
+                <div className="text-sm"><span className="font-semibold">Captain earns 3x points</span> — instead of the usual double, your captain&apos;s score is tripled</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#f59e0b" }}>2</div>
+                <div className="text-sm"><span className="font-semibold">One gameweek only</span> — Triple Captain applies for this gameweek only</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#3b82f6" }}>3</div>
+                <div className="text-sm"><span className="font-semibold">Vice captain fallback</span> — if your captain doesn&apos;t play, vice gets 2x (not 3x)</div>
+              </div>
+
+              <div className="rounded-lg border p-3 mt-2" style={{ background: "linear-gradient(135deg, #fef7f0, #fff7ed)", borderColor: "#fed7aa" }}>
+                <p className="text-xs font-medium" style={{ color: "#9a3412" }}>
+                  You can cancel before the deadline. Choose your captain wisely — pick a nailed-on starter!
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTripleCaptainModal(false)}
+                className="flex-1 py-3 rounded-full border-2 text-sm font-bold transition hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={activateTripleCaptain}
+                disabled={!captainId}
+                className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}
+              >
+                Activate Triple Captain
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

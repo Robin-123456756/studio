@@ -91,6 +91,18 @@ export default function TransferNextPage() {
   const [pendingTransfers, setPendingTransfers] = React.useState<PendingTransfer[]>([]);
   const [confirmed, setConfirmed] = React.useState(false);
 
+  // Check if wildcard or free hit is active
+  const [wildcardActive, setWildcardActive] = React.useState(false);
+  const [freeHitActive, setFreeHitActive] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      const chip = localStorage.getItem("tbl_active_chip");
+      setWildcardActive(chip === "wildcard");
+      setFreeHitActive(chip === "free_hit");
+    } catch { /* ignore */ }
+  }, []);
+  const chipFree = wildcardActive || freeHitActive;
+
   // Load gameweeks
   React.useEffect(() => {
     (async () => {
@@ -156,7 +168,7 @@ export default function TransferNextPage() {
   }, []);
 
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
-  const { freeTransfers, usedTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
+  const { freeTransfers, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
 
   const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
 
@@ -186,8 +198,8 @@ export default function TransferNextPage() {
   const budgetRemaining = Math.max(0, BUDGET_TOTAL - newBudgetUsed);
 
   const pendingCount = pendingTransfers.length;
-  const extraTransfers = Math.max(0, pendingCount - freeTransfers);
-  const pendingCost = extraTransfers * 4;
+  const extraTransfers = chipFree ? 0 : Math.max(0, pendingCount - freeTransfers);
+  const pendingCost = chipFree ? 0 : extraTransfers * 4;
 
   const deadlineLabel = formatDeadlineUG(nextGW?.deadline_time ?? currentGW?.deadline_time);
 
@@ -279,10 +291,14 @@ export default function TransferNextPage() {
           {/* Banner */}
           <div
             className="rounded-full py-2.5 px-5 text-center"
-            style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
+            style={{ background: wildcardActive ? "linear-gradient(90deg, #C8102E, #8B0000)" : freeHitActive ? "linear-gradient(90deg, #37003C, #5B0050)" : "linear-gradient(90deg, #00FF87, #04F5FF)" }}
           >
-            <span className="text-sm font-bold" style={{ color: "#37003C" }}>
-              You are about to make {pendingCount} transfer{pendingCount > 1 ? "s" : ""}!
+            <span className="text-sm font-bold" style={{ color: chipFree ? "#fff" : "#37003C" }}>
+              {wildcardActive
+                ? `Wildcard — ${pendingCount} free transfer${pendingCount > 1 ? "s" : ""}!`
+                : freeHitActive
+                ? `Free Hit — ${pendingCount} free transfer${pendingCount > 1 ? "s" : ""}!`
+                : `You are about to make ${pendingCount} transfer${pendingCount > 1 ? "s" : ""}!`}
             </span>
           </div>
 
@@ -363,9 +379,14 @@ export default function TransferNextPage() {
             </p>
           )}
 
-          {pendingCost > 0 && (
+          {pendingCost > 0 && !chipFree && (
             <p className="text-xs text-red-600 font-semibold text-center">
               This will cost you {pendingCost} points
+            </p>
+          )}
+          {chipFree && (
+            <p className="text-xs text-emerald-600 font-semibold text-center">
+              {wildcardActive ? "Wildcard active — all transfers are free!" : "Free Hit active — all transfers are free!"}
             </p>
           )}
         </div>
@@ -376,6 +397,24 @@ export default function TransferNextPage() {
         <div className="rounded-2xl border bg-card p-5 border-l-4 border-l-primary shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
           <h3 className="text-base font-extrabold mb-4">Points Overview</h3>
 
+          {chipFree && (
+            <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3" style={{ background: wildcardActive ? "linear-gradient(90deg, #fef2f2, #fff1f2)" : "linear-gradient(90deg, #f5f3ff, #ede9fe)", border: wildcardActive ? "1px solid #fecaca" : "1px solid #c4b5fd" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                {wildcardActive ? (
+                  <>
+                    <rect x="3" y="3" width="18" height="18" rx="3" stroke="#C8102E" strokeWidth="1.8" />
+                    <circle cx="12" cy="12" r="3" stroke="#C8102E" strokeWidth="1.5" />
+                  </>
+                ) : (
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="#7c3aed" strokeWidth="1.8" strokeLinejoin="round" />
+                )}
+              </svg>
+              <span className="text-xs font-bold" style={{ color: wildcardActive ? "#C8102E" : "#7c3aed" }}>
+                {wildcardActive ? "Wildcard" : "Free Hit"} — 0 point cost
+              </span>
+            </div>
+          )}
+
           <div className="divide-y divide-muted/50">
             <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-muted-foreground font-medium">Total transfers</span>
@@ -384,14 +423,17 @@ export default function TransferNextPage() {
 
             <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-muted-foreground font-medium">Free transfers used</span>
-              <span className="text-lg font-extrabold">{Math.min(pendingCount, freeTransfers)}</span>
+              <span className="text-lg font-extrabold">{chipFree ? "All free" : Math.min(pendingCount, freeTransfers)}</span>
             </div>
 
             <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-muted-foreground font-medium">Additional transfers</span>
               <span className="text-lg font-extrabold">
-                {extraTransfers}{" "}
-                <span className="text-sm font-semibold text-muted-foreground">({pendingCost} pts)</span>
+                {chipFree ? (
+                  <span className="text-emerald-600">0 <span className="text-sm font-semibold">(FREE)</span></span>
+                ) : (
+                  <>{extraTransfers} <span className="text-sm font-semibold text-muted-foreground">({pendingCost} pts)</span></>
+                )}
               </span>
             </div>
 
@@ -427,7 +469,7 @@ export default function TransferNextPage() {
             (!canConfirm() && !confirmed) && "opacity-40 cursor-not-allowed"
           )}
         >
-          {confirmed ? "✓ Confirmed" : "Confirm"}
+          {confirmed ? "✓ Confirmed" : wildcardActive ? "Confirm (Wildcard)" : "Confirm"}
         </button>
       </div>
     </div>

@@ -132,6 +132,14 @@ export function getKitColor(teamShort?: string | null): string {
   return TEAM_KIT_COLORS[teamShort.toUpperCase()] || "#666666";
 }
 
+export function darkenColor(hex: string, amount = 0.3): string {
+  const h = hex.replace("#", "");
+  const r = Math.max(0, Math.round(parseInt(h.slice(0, 2), 16) * (1 - amount)));
+  const g = Math.max(0, Math.round(parseInt(h.slice(2, 4), 16) * (1 - amount)));
+  const b = Math.max(0, Math.round(parseInt(h.slice(4, 6), 16) * (1 - amount)));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 export function groupByPosition<T extends { position?: string | null }>(players: T[]) {
   return {
     Goalkeepers: players.filter((p) => p.position === "Goalkeeper"),

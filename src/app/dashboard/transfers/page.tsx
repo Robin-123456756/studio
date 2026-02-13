@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { loadSquadIds } from "@/lib/fantasyStorage";
 import { type Player } from "./player-card";
 import { useTransfers } from "./use-transfers";
-import { ArrowLeft, MoreVertical, RotateCcw, Search, X } from "lucide-react";
+import { ArrowLeft, MoreVertical, RotateCcw, Search, X, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +23,7 @@ import {
   groupByPosition,
   Kit,
   EmptySlot,
+  darkenColor,
 } from "@/lib/pitch-helpers";
 
 // =====================
@@ -105,6 +106,62 @@ export default function TransfersPage() {
 
   // "Add mode" — for building squad from scratch (no outId, just pick by position)
   const [addPosition, setAddPosition] = React.useState<string | null>(null);
+
+  // Free Hit chip state
+  const [freeHitActive, setFreeHitActive] = React.useState(false);
+  const [showCancelFreeHitModal, setShowCancelFreeHitModal] = React.useState(false);
+
+  // Wildcard chip state
+  const [wildcardActive, setWildcardActive] = React.useState(false);
+  const [showWildcardModal, setShowWildcardModal] = React.useState(false);
+  const [showWildcardOfferModal, setShowWildcardOfferModal] = React.useState(false);
+
+  React.useEffect(() => {
+    try {
+      const chip = localStorage.getItem("tbl_active_chip");
+      setFreeHitActive(chip === "free_hit");
+      setWildcardActive(chip === "wildcard");
+    } catch { /* ignore */ }
+  }, []);
+
+  function cancelFreeHit() {
+    try {
+      // Restore backup squad
+      const backup = localStorage.getItem("tbl_free_hit_backup");
+      if (backup) {
+        const backupIds: string[] = JSON.parse(backup);
+        localStorage.setItem("tbl_squad_player_ids", JSON.stringify(backupIds));
+        localStorage.setItem("tbl_picked_player_ids", JSON.stringify(backupIds));
+        setOriginalSquadIds(backupIds);
+        localStorage.removeItem("tbl_free_hit_backup");
+        localStorage.removeItem("tbl_free_hit_gw");
+      }
+      // Deactivate chip
+      localStorage.removeItem("tbl_active_chip");
+      setFreeHitActive(false);
+      setPendingTransfers([]);
+      setSelectedOutId(null);
+      setSearchQuery("");
+      window.dispatchEvent(new Event("tbl_squad_updated"));
+    } catch { /* ignore */ }
+    setShowCancelFreeHitModal(false);
+  }
+
+  function activateWildcard() {
+    try {
+      localStorage.setItem("tbl_active_chip", "wildcard");
+      // Mark wildcard as used (cannot be cancelled)
+      const raw = localStorage.getItem("tbl_used_chips");
+      const used: string[] = raw ? JSON.parse(raw) : [];
+      if (!used.includes("wildcard")) {
+        used.push("wildcard");
+        localStorage.setItem("tbl_used_chips", JSON.stringify(used));
+      }
+    } catch { /* ignore */ }
+    setWildcardActive(true);
+    setShowWildcardModal(false);
+    setShowWildcardOfferModal(false);
+  }
 
   // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
@@ -235,6 +292,41 @@ export default function TransfersPage() {
     [effectiveSquadIds, byId]
   );
 
+  // Team count map for 3-per-team rule
+  const MAX_PER_TEAM = 3;
+  const teamCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of effectiveSquad) {
+      const team = (p.teamShort ?? "").toUpperCase();
+      if (team) counts.set(team, (counts.get(team) ?? 0) + 1);
+    }
+    return counts;
+  }, [effectiveSquad]);
+
+  function wouldExceedTeamLimit(playerId: string, excludePlayerId?: string): boolean {
+    const player = byId.get(playerId);
+    if (!player) return false;
+    const team = (player.teamShort ?? "").toUpperCase();
+    if (!team) return false;
+    let count = teamCounts.get(team) ?? 0;
+    // If we're replacing someone from the same team, subtract 1
+    if (excludePlayerId) {
+      const outPlayer = byId.get(excludePlayerId);
+      if (outPlayer && (outPlayer.teamShort ?? "").toUpperCase() === team) {
+        count -= 1;
+      }
+    }
+    return count >= MAX_PER_TEAM;
+  }
+
+  // Error toast for team limit
+  const [teamLimitError, setTeamLimitError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!teamLimitError) return;
+    const timer = setTimeout(() => setTeamLimitError(null), 3500);
+    return () => clearTimeout(timer);
+  }, [teamLimitError]);
+
   // Budget based on effective squad
   const budgetUsed = React.useMemo(
     () => effectiveSquad.reduce((sum, p) => sum + (Number(p.price) || 0), 0),
@@ -242,10 +334,20 @@ export default function TransfersPage() {
   );
   const budgetRemaining = Math.max(0, BUDGET_TOTAL - budgetUsed);
 
-  // Transfer cost based on pending count
+  // Transfer cost based on pending count (Free Hit / Wildcard = 0 cost)
   const pendingCount = pendingTransfers.length;
-  const extraTransfers = Math.max(0, pendingCount - freeTransfers);
-  const pendingCost = extraTransfers * 4;
+  const chipFree = freeHitActive || wildcardActive;
+  const extraTransfers = chipFree ? 0 : Math.max(0, pendingCount - freeTransfers);
+  const pendingCost = chipFree ? 0 : extraTransfers * 4;
+
+  // Check if wildcard is available (not already used)
+  const wildcardAvailable = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("tbl_used_chips");
+      const used: string[] = raw ? JSON.parse(raw) : [];
+      return !used.includes("wildcard");
+    } catch { return true; }
+  }, [wildcardActive]);
 
   // The selected out player
   const selectedOutPlayer = selectedOutId ? byId.get(selectedOutId) : null;
@@ -287,6 +389,12 @@ export default function TransfersPage() {
   }, [allPlayers, effectiveSquadIds, addPosition, searchQuery, sortKey]);
 
   function addPlayerToSquad(playerId: string) {
+    if (wouldExceedTeamLimit(playerId)) {
+      const player = byId.get(playerId);
+      const team = player?.teamName ?? player?.teamShort ?? "this team";
+      setTeamLimitError(`You already have ${MAX_PER_TEAM} players from ${team}`);
+      return;
+    }
     const newIds = [...originalSquadIds, playerId];
     setOriginalSquadIds(newIds);
     saveSquadIds(newIds);
@@ -315,6 +423,14 @@ export default function TransfersPage() {
 
   function pickReplacement(inId: string) {
     if (!selectedOutId) return;
+
+    // 3-per-team check (exclude the player being swapped out)
+    if (wouldExceedTeamLimit(inId, selectedOutId)) {
+      const player = byId.get(inId);
+      const team = player?.teamName ?? player?.teamShort ?? "this team";
+      setTeamLimitError(`You already have ${MAX_PER_TEAM} players from ${team}`);
+      return;
+    }
 
     // Check if this player was already swapped in a pending transfer — replace that transfer
     const existingIdx = pendingTransfers.findIndex((t) => t.outId === selectedOutId);
@@ -359,7 +475,20 @@ export default function TransfersPage() {
 
   function handleMakeTransfers() {
     if (pendingTransfers.length === 0) return;
+
+    // Auto-prompt Wildcard when transfers cost points and wildcard is available
+    if (pendingCost > 0 && wildcardAvailable && !wildcardActive && !freeHitActive) {
+      setShowWildcardOfferModal(true);
+      return;
+    }
+
     // Store pending transfers in localStorage for the confirmation page
+    localStorage.setItem("tbl_pending_transfers", JSON.stringify(pendingTransfers));
+    router.push("/dashboard/transfers/next");
+  }
+
+  function proceedWithoutWildcard() {
+    setShowWildcardOfferModal(false);
     localStorage.setItem("tbl_pending_transfers", JSON.stringify(pendingTransfers));
     router.push("/dashboard/transfers/next");
   }
@@ -418,6 +547,19 @@ export default function TransfersPage() {
               <X className="h-4 w-4" />
               Clear Entire Squad
             </DropdownMenuItem>
+            {!wildcardActive && wildcardAvailable && !freeHitActive && (
+              <DropdownMenuItem
+                onClick={() => setShowWildcardModal(true)}
+                className="gap-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12 6v3M12 15v3M6 12h3M15 12h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+                Play Wildcard
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild className="gap-2">
               <Link href="/dashboard/fantasy/pick-team">
                 Pick Team
@@ -438,6 +580,50 @@ export default function TransfersPage() {
       {gwError && <div className="text-xs text-red-600 text-center">Warning: {gwError}</div>}
       {playersError && <div className="text-xs text-red-600 text-center">Warning: {playersError}</div>}
 
+      {/* === FREE HIT BANNER === */}
+      {freeHitActive && (
+        <div className="rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "linear-gradient(90deg, #37003C, #5B0050)" }}>
+            <div className="flex items-center gap-2 text-white">
+              <Zap className="h-4 w-4" />
+              <div>
+                <div className="text-sm font-bold">Free Hit Active</div>
+                <div className="text-[10px] text-white/70">Unlimited transfers — 0 point cost — squad reverts after gameweek</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCancelFreeHitModal(true)}
+              className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/30 shrink-0"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* === WILDCARD BANNER === */}
+      {wildcardActive && (
+        <div className="rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "linear-gradient(90deg, #C8102E, #8B0000)" }}>
+            <div className="flex items-center gap-2 text-white">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="18" height="18" rx="3" stroke="white" strokeWidth="1.8" />
+                <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="1.5" />
+                <path d="M12 6v3M12 15v3M6 12h3M15 12h3" stroke="white" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              <div>
+                <div className="text-sm font-bold">Wildcard Active</div>
+                <div className="text-[10px] text-white/70">Unlimited free transfers — permanent squad changes</div>
+              </div>
+            </div>
+            <div className="rounded-full bg-white/20 px-3 py-1.5 text-xs font-bold text-white shrink-0">
+              Locked In
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* === TRANSFER INFO CARDS === */}
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl border bg-card p-3 text-center">
@@ -445,11 +631,13 @@ export default function TransfersPage() {
           <div className="text-[10px] text-muted-foreground font-medium">Budget</div>
         </div>
         <div className="rounded-xl border bg-card p-3 text-center">
-          <div className="text-lg font-bold tabular-nums">{freeTransfers}</div>
-          <div className="text-[10px] text-muted-foreground font-medium">Free Transfers</div>
+          <div className="text-lg font-bold tabular-nums">{chipFree ? "∞" : freeTransfers}</div>
+          <div className="text-[10px] text-muted-foreground font-medium">{chipFree ? "Unlimited" : "Free Transfers"}</div>
         </div>
         <div className="rounded-xl border bg-card p-3 text-center">
-          <div className={cn("text-lg font-bold tabular-nums", pendingCost > 0 && "text-red-600")}>{pendingCost} pts</div>
+          <div className={cn("text-lg font-bold tabular-nums", !chipFree && pendingCost > 0 && "text-red-600")}>
+            {chipFree ? <span className="text-emerald-600">FREE</span> : `${pendingCost} pts`}
+          </div>
           <div className="text-[10px] text-muted-foreground font-medium">Cost</div>
         </div>
       </div>
@@ -490,11 +678,11 @@ export default function TransfersPage() {
             <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 70, height: 24, borderTop: "2.5px solid rgba(255,255,255,0.3)", borderLeft: "2.5px solid rgba(255,255,255,0.3)", borderRight: "2.5px solid rgba(255,255,255,0.3)" }} />
 
             {/* Budo League Branding Bar */}
-            <div style={{ display: "flex", height: 24, marginBottom: 2 }}>
-              <div style={{ flex: 1, background: "linear-gradient(90deg, #C8102E, #8B0000)", display: "flex", alignItems: "center", paddingLeft: 12, fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
+            <div style={{ display: "flex", height: 24, marginBottom: 2, marginLeft: -12, marginRight: -12 }}>
+              <div style={{ flex: 1, background: "linear-gradient(90deg, #C8102E, #8B0000)", display: "flex", alignItems: "center", paddingLeft: 16, fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
                 Budo League
               </div>
-              <div style={{ flex: 1, background: "linear-gradient(90deg, #8B0000, #C8102E)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 12, fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
+              <div style={{ flex: 1, background: "linear-gradient(90deg, #8B0000, #C8102E)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 16, fontSize: 10, fontWeight: 800, color: "#fff", textTransform: "uppercase" as const, letterSpacing: 1 }}>
                 Fantasy
               </div>
             </div>
@@ -700,6 +888,7 @@ export default function TransfersPage() {
                 player={p}
                 onPick={() => addPlayerToSquad(p.id)}
                 budgetRemaining={budgetRemaining}
+                teamBlocked={wouldExceedTeamLimit(p.id)}
               />
             ))}
             {addPool.length === 0 && (
@@ -780,6 +969,7 @@ export default function TransfersPage() {
                 player={p}
                 onPick={() => pickReplacement(p.id)}
                 budgetRemaining={budgetRemaining + (selectedOutPlayer?.price ?? 0)}
+                teamBlocked={wouldExceedTeamLimit(p.id, selectedOutId ?? undefined)}
               />
             ))}
             {replacementPool.length === 0 && (
@@ -820,7 +1010,7 @@ export default function TransfersPage() {
               style={!locked ? { background: "linear-gradient(90deg, #00FF87, #04F5FF)" } : undefined}
             >
               <span style={!locked ? { color: "#37003C" } : undefined}>
-                Make {pendingCount} Transfer{pendingCount > 1 ? "s" : ""}
+                {wildcardActive ? `Confirm ${pendingCount} Transfer${pendingCount > 1 ? "s" : ""} (Wildcard)` : `Make ${pendingCount} Transfer${pendingCount > 1 ? "s" : ""}`}
               </span>
             </button>
           ) : (
@@ -837,6 +1027,214 @@ export default function TransfersPage() {
               Go to Pick Team →
             </Link>
           )}
+        </div>
+      )}
+
+      {/* === TEAM LIMIT ERROR TOAST === */}
+      {teamLimitError && (
+        <div className="fixed bottom-20 inset-x-0 z-50 flex justify-center px-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-white px-5 py-3.5 shadow-xl max-w-sm w-full">
+            <div className="h-9 w-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}>
+              <X className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-gray-900">Team limit reached</div>
+              <div className="text-xs text-gray-500">{teamLimitError}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTeamLimitError(null)}
+              className="h-7 w-7 rounded-full grid place-items-center hover:bg-gray-100 shrink-0"
+            >
+              <X className="h-3.5 w-3.5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* === CANCEL FREE HIT MODAL === */}
+      {showCancelFreeHitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-card border shadow-2xl overflow-hidden">
+            <div className="px-5 pt-5 pb-3 text-center" style={{ background: "linear-gradient(135deg, #37003C, #5B0050)" }}>
+              <div className="mx-auto mb-2 h-12 w-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.15)" }}>
+                <Zap className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Cancel Free Hit?</h3>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-sm text-center">
+                All transfers made during Free Hit will be <span className="font-bold text-red-600">undone</span> and your original squad will be restored.
+              </p>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                <p className="text-xs text-amber-800 font-medium text-center">
+                  Your Free Hit chip will become available again for future use.
+                </p>
+              </div>
+            </div>
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCancelFreeHitModal(false)}
+                className="flex-1 py-3 rounded-full border-2 text-sm font-bold transition hover:bg-accent"
+              >
+                Keep Active
+              </button>
+              <button
+                type="button"
+                onClick={cancelFreeHit}
+                className="flex-1 py-3 rounded-full text-sm font-bold text-white transition"
+                style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}
+              >
+                Cancel Free Hit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === WILDCARD PROACTIVE MODAL (manual activation) === */}
+      {showWildcardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-card border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 text-center" style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}>
+              <div className="mx-auto mb-2 h-12 w-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="white" strokeWidth="1.8" />
+                  <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="1.5" />
+                  <path d="M12 6v3M12 15v3M6 12h3M15 12h3" stroke="white" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white">Activate Wildcard</h3>
+              <p className="text-xs text-white/70 mt-1">
+                {nextGW ? `Gameweek ${nextGW.id}` : currentGW ? `Gameweek ${currentGW.id}` : "This Gameweek"}
+              </p>
+            </div>
+
+            {/* Rules */}
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#C8102E" }}>1</div>
+                <div className="text-sm"><span className="font-semibold">Unlimited free transfers</span> — make as many changes as you want with zero point cost</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#f59e0b" }}>2</div>
+                <div className="text-sm"><span className="font-semibold">Permanent changes</span> — your new squad is your squad going forward (unlike Free Hit)</div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-white" style={{ background: "#3b82f6" }}>3</div>
+                <div className="text-sm"><span className="font-semibold">Budget & rules apply</span> — team limits and budget constraints still apply</div>
+              </div>
+
+              <div className="rounded-lg border p-3 mt-2" style={{ background: "#fef2f2", borderColor: "#fecaca" }}>
+                <p className="text-xs font-medium" style={{ color: "#991b1b" }}>
+                  Once activated, Wildcard cannot be cancelled. This action is irreversible.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowWildcardModal(false)}
+                className="flex-1 py-3 rounded-full border-2 text-sm font-bold transition hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={activateWildcard}
+                className="flex-1 py-3 rounded-full text-sm font-bold text-white transition"
+                style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}
+              >
+                Activate Wildcard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === WILDCARD OFFER MODAL (auto-prompted when transfers cost points) === */}
+      {showWildcardOfferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-card border shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 text-center" style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}>
+              <div className="mx-auto mb-2 h-12 w-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="white" strokeWidth="1.8" />
+                  <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="1.5" />
+                  <path d="M12 6v3M12 15v3M6 12h3M15 12h3" stroke="white" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white">Play Your Wildcard?</h3>
+            </div>
+
+            {/* Cost warning */}
+            <div className="px-5 py-4 space-y-4">
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 rounded-full px-4 py-2" style={{ background: "#fef2f2", border: "1px solid #fecaca" }}>
+                  <span className="text-2xl font-extrabold text-red-600">-{pendingCost}</span>
+                  <span className="text-sm font-semibold text-red-600">points</span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Your {pendingCount} transfer{pendingCount > 1 ? "s" : ""} will cost <span className="font-bold text-red-600">{pendingCost} points</span>
+                </p>
+              </div>
+
+              <div className="rounded-lg p-3 space-y-2" style={{ background: "linear-gradient(135deg, #fef7f0, #fff7ed)", border: "1px solid #fed7aa" }}>
+                <p className="text-sm font-semibold" style={{ color: "#9a3412" }}>
+                  Play your Wildcard to avoid the point hit!
+                </p>
+                <ul className="text-xs space-y-1" style={{ color: "#9a3412" }}>
+                  <li>All transfers become free — {pendingCost} points saved</li>
+                  <li>Make more changes until the deadline</li>
+                  <li>Squad changes are permanent</li>
+                </ul>
+              </div>
+
+              <div className="rounded-lg border p-3" style={{ background: "#fef2f2", borderColor: "#fecaca" }}>
+                <p className="text-xs font-medium" style={{ color: "#991b1b" }}>
+                  Once played, Wildcard cannot be cancelled.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  activateWildcard();
+                  // After activating, proceed to confirmation
+                  setTimeout(() => {
+                    localStorage.setItem("tbl_pending_transfers", JSON.stringify(pendingTransfers));
+                    router.push("/dashboard/transfers/next");
+                  }, 100);
+                }}
+                className="w-full py-3 rounded-full text-sm font-bold text-white transition"
+                style={{ background: "linear-gradient(135deg, #C8102E, #8B0000)" }}
+              >
+                Play Wildcard (Save {pendingCost} pts)
+              </button>
+              <button
+                type="button"
+                onClick={proceedWithoutWildcard}
+                className="w-full py-3 rounded-full border-2 text-sm font-bold transition hover:bg-accent"
+              >
+                Accept -{pendingCost} Point Hit
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowWildcardOfferModal(false)}
+                className="w-full py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition"
+              >
+                Go back to editing
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -885,7 +1283,28 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
         >
           {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
         </div>
-        <div className="relative">
+        <div
+          className="relative"
+          style={{
+            background: isGhost
+              ? "linear-gradient(150deg, #888 15%, #555 85%)"
+              : `linear-gradient(150deg, ${kitColor} 15%, ${darkenColor(kitColor, 0.35)} 85%)`,
+            borderRadius: 6,
+            padding: "5px 4px 1px",
+            width: 54,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "visible",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+          }}
+        >
+          {/* Decorative circle */}
+          <div style={{
+            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            width: 28, height: 28, borderRadius: "50%",
+            background: "rgba(255,255,255,0.08)",
+          }} />
           <Kit color={isGhost ? "#888" : kitColor} isGK={isGK} size={38} />
           {isGhost && (
             <div
@@ -1001,17 +1420,20 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
   );
 }
 
-function ReplacementRow({ player, onPick, budgetRemaining }: {
+function ReplacementRow({ player, onPick, budgetRemaining, teamBlocked = false }: {
   player: Player;
   onPick: () => void;
   budgetRemaining: number;
+  teamBlocked?: boolean;
 }) {
   const canAfford = (player.price ?? 0) <= budgetRemaining;
+  const blocked = teamBlocked || !canAfford;
+  const reason = teamBlocked ? "Max 3 per team" : !canAfford ? "Over budget" : null;
 
   return (
     <div className={cn(
       "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition",
-      canAfford ? "bg-card hover:bg-accent/50" : "bg-muted/40 opacity-60"
+      blocked ? "bg-muted/40 opacity-60" : "bg-card hover:bg-accent/50"
     )}>
       <Kit color={getKitColor(player.teamShort)} isGK={normalizePosition(player.position) === "Goalkeeper"} size={32} />
       <div className="flex-1 min-w-0">
@@ -1021,6 +1443,7 @@ function ReplacementRow({ player, onPick, budgetRemaining }: {
         </div>
         <div className="text-xs text-muted-foreground truncate">
           {player.teamName ?? player.teamShort ?? "--"}
+          {reason && <span className="ml-1 text-red-500 font-semibold">• {reason}</span>}
         </div>
       </div>
       <div className="text-right shrink-0 mr-1">
@@ -1030,16 +1453,16 @@ function ReplacementRow({ player, onPick, budgetRemaining }: {
       <button
         type="button"
         onClick={onPick}
-        disabled={!canAfford}
+        disabled={blocked}
         className={cn(
           "h-8 w-8 rounded-full grid place-items-center shrink-0 transition font-bold text-sm",
-          canAfford
-            ? "text-white"
-            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+          blocked
+            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+            : "text-white"
         )}
-        style={canAfford ? { background: "linear-gradient(135deg, #00FF87, #04F5FF)" } : undefined}
+        style={!blocked ? { background: "linear-gradient(135deg, #00FF87, #04F5FF)" } : undefined}
       >
-        <span style={canAfford ? { color: "#37003C" } : undefined}>+</span>
+        <span style={!blocked ? { color: "#37003C" } : undefined}>+</span>
       </button>
     </div>
   );
