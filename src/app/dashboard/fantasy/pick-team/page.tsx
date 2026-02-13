@@ -2006,7 +2006,7 @@ export default function PickTeamPage() {
     const swapPlayer = selectedForSwap ? picked.find((p) => p.id === selectedForSwap) : null;
 
     return (
-      <div className="space-y-0 rounded-2xl overflow-hidden">
+      <div className="-mx-4 space-y-0 overflow-visible">
         {/* Swap Mode Banner — FPL purple style */}
         {swapPlayer && (
           <div className="flex items-center justify-between px-4 py-3" style={{ background: "linear-gradient(90deg, #37003C, #5B0050)" }}>
@@ -2031,7 +2031,7 @@ export default function PickTeamPage() {
           style={{
             background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 8%, #2d8b4e 8%, #37a35c 16%, #2d8b4e 16%, #37a35c 24%, #2d8b4e 24%, #37a35c 32%, #2d8b4e 32%, #37a35c 40%, #2d8b4e 40%, #37a35c 48%, #2d8b4e 48%, #37a35c 56%, #2d8b4e 56%, #37a35c 64%, #2d8b4e 64%, #37a35c 72%, #2d8b4e 72%, #37a35c 80%, #2d8b4e 80%, #37a35c 88%, #2d8b4e 88%, #37a35c 96%, #2d8b4e 96%, #37a35c 100%)",
             position: "relative",
-            padding: "8px 6px 16px",
+            padding: "8px 12px 16px",
             overflow: "visible",
           }}
         >
@@ -2236,7 +2236,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* DEF Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 4px 8px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 8px 8px", position: "relative", zIndex: 1 }}>
             {g.Defenders.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
@@ -2261,7 +2261,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* MID Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 4px 8px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 8px 8px", position: "relative", zIndex: 1, flexWrap: "wrap" }}>
             {g.Midfielders.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
@@ -2287,7 +2287,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* FWD Row */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 4px 4px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 8px 4px", position: "relative", zIndex: 1 }}>
             {g.Forwards.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",

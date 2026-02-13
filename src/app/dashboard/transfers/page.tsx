@@ -465,13 +465,13 @@ export default function TransfersPage() {
 
       {/* === PITCH VIEW (Full Width — all 17 players) === */}
       <div className="-mx-4">
-        <div className="space-y-0 rounded-none overflow-hidden">
+        <div className="space-y-0 rounded-none overflow-visible">
           <div
             style={{
               background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 8%, #2d8b4e 8%, #37a35c 16%, #2d8b4e 16%, #37a35c 24%, #2d8b4e 24%, #37a35c 32%, #2d8b4e 32%, #37a35c 40%, #2d8b4e 40%, #37a35c 48%, #2d8b4e 48%, #37a35c 56%, #2d8b4e 56%, #37a35c 64%, #2d8b4e 64%, #37a35c 72%, #2d8b4e 72%, #37a35c 80%, #2d8b4e 80%, #37a35c 88%, #2d8b4e 88%, #37a35c 96%, #2d8b4e 96%, #37a35c 100%)",
               position: "relative",
-              padding: "8px 0 20px",
-              overflow: "hidden",
+              padding: "8px 12px 20px",
+              overflow: "visible",
             }}
           >
 
@@ -500,7 +500,7 @@ export default function TransfersPage() {
             </div>
 
             {/* GK Row — 2 keepers */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "2px 0 4px", position: "relative", zIndex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "2px 8px 4px", position: "relative", zIndex: 1 }}>
               {allGrouped.Goalkeepers.length > 0 ? (
                 allGrouped.Goalkeepers.map((p) => (
                   <SmallPitchCard
@@ -526,7 +526,7 @@ export default function TransfersPage() {
             </div>
 
             {/* DEF Row — 4 defenders */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "4px 0", position: "relative", zIndex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "4px 8px", position: "relative", zIndex: 1 }}>
               {allGrouped.Defenders.map((p) => (
                 <SmallPitchCard
                   key={p.id}
@@ -549,7 +549,7 @@ export default function TransfersPage() {
             </div>
 
             {/* MID Row — 6 midfielders */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 1, padding: "4px 0", position: "relative", zIndex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 1, padding: "4px 8px", position: "relative", zIndex: 1, flexWrap: "wrap" }}>
               {allGrouped.Midfielders.map((p) => (
                 <SmallPitchCard
                   key={p.id}
@@ -572,7 +572,7 @@ export default function TransfersPage() {
             </div>
 
             {/* FWD Row — 3 male forwards */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "4px 0", position: "relative", zIndex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "4px 8px", position: "relative", zIndex: 1 }}>
               {maleFwds.map((p) => (
                 <SmallPitchCard
                   key={p.id}
