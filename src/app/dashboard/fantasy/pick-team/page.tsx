@@ -260,7 +260,7 @@ function PlayerDetailModal({
 
               <div className="flex items-center gap-2 mt-1">
                 {logo && (
-                  <img src={logo} alt="" className="h-5 w-5 rounded-full bg-white/90 object-contain" />
+                  <img src={logo} alt="" className="h-5 w-5 rounded-full object-contain" />
                 )}
                 <span className="text-white/90">{player.teamName ?? player.teamShort}</span>
                 <span className="text-white/60">•</span>
@@ -310,7 +310,7 @@ function PlayerDetailModal({
                   <img
                     src={TEAM_SHORT_LOGOS[player.nextOpponent]}
                     alt=""
-                    className="h-6 w-6 rounded-full bg-card object-contain border"
+                    className="h-6 w-6 rounded-full object-contain"
                   />
                 )}
                 <span className="font-semibold">{player.nextOpponent}</span>
@@ -1857,7 +1857,7 @@ export default function PickTeamPage() {
         <img
           src={logo}
           alt={teamName ?? teamShort ?? "Team badge"}
-          className={cn(sizeClass, "rounded-full border border-white/40 object-contain bg-white/90")}
+          className={cn(sizeClass, "rounded-full object-contain")}
           loading="lazy"
           referrerPolicy="no-referrer"
         />
@@ -1868,7 +1868,7 @@ export default function PickTeamPage() {
       <div
         className={cn(
           sizeClass,
-          "rounded-full border border-white/40 bg-white/10 grid place-items-center text-white/90 font-semibold"
+          "rounded-full bg-white/10 grid place-items-center text-white/90 font-semibold"
         )}
       >
         {label}
@@ -1885,20 +1885,12 @@ export default function PickTeamPage() {
     const sz = small ? 48 : 56;
     const cardW = small ? 64 : 72;
     return (
-      <div
-        className="relative flex flex-col items-center"
-        style={{
-          width: cardW,
-          borderRadius: small ? 6 : 8,
-          overflow: "hidden",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-        }}
-      >
-        {/* Badges — positioned over the whole card */}
+      <div className="relative" style={{ width: cardW }}>
+        {/* Badges — floating above the card */}
         {player.captain && (
           <span
             style={{
-              position: "absolute", top: -2, left: -2, zIndex: 4,
+              position: "absolute", top: -6, left: -6, zIndex: 4,
               background: activeChip === "triple_captain"
                 ? "linear-gradient(135deg, #C8102E, #8B0000)"
                 : "linear-gradient(135deg, #FFD700, #FFA500)",
@@ -1917,7 +1909,7 @@ export default function PickTeamPage() {
         {player.viceCaptain && (
           <span
             style={{
-              position: "absolute", top: -2, left: -2, zIndex: 4,
+              position: "absolute", top: -6, left: -6, zIndex: 4,
               background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)", color: "#000", fontSize: 9, fontWeight: 900,
               width: 18, height: 18, borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1929,7 +1921,7 @@ export default function PickTeamPage() {
         {player.star && (
           <span
             style={{
-              position: "absolute", top: -2, right: -2, zIndex: 4,
+              position: "absolute", top: -6, right: -6, zIndex: 4,
               background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 11,
               width: 18, height: 18, borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1941,7 +1933,7 @@ export default function PickTeamPage() {
         {player.warning && (
           <span
             style={{
-              position: "absolute", top: -2, right: -2, zIndex: 4,
+              position: "absolute", top: -6, right: -6, zIndex: 4,
               background: "linear-gradient(135deg, #FFD700, #FFA500)", color: "#000", fontSize: 11, fontWeight: 900,
               width: 18, height: 18, borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1951,6 +1943,16 @@ export default function PickTeamPage() {
           >!</span>
         )}
 
+        {/* Card body */}
+        <div
+          className="flex flex-col items-center"
+          style={{
+            width: cardW,
+            borderRadius: small ? 6 : 8,
+            overflow: "hidden",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+          }}
+        >
         {/* Kit section — transparent top */}
         <div
           style={{
@@ -2018,6 +2020,7 @@ export default function PickTeamPage() {
           }}
         >
           {player.fixture}
+        </div>
         </div>
       </div>
     );

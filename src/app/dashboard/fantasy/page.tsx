@@ -38,7 +38,7 @@ type ApiPlayer = {
 };
 
 const menuItems = [
-  { label: "Fixtures", href: "/dashboard/schedule" },
+  { label: "Fixtures", href: "/dashboard/fixtures" },
   { label: "Player Statistics", href: "/dashboard/players" },
   { label: "Set Piece Taker", href: "/dashboard/players" },
 ];

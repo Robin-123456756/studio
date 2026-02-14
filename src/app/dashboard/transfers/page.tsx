@@ -901,7 +901,7 @@ export default function TransfersPage() {
 
       {/* === SELECTED PLAYER BANNER === */}
       {selectedOutId && selectedOutPlayer && (
-        <div className="rounded-xl border-2 border-red-400 bg-red-50 p-3 flex items-center gap-3">
+        <div className="rounded-xl border-2 border-red-400 bg-red-50 dark:bg-red-950/40 p-3 flex items-center gap-3">
           <Kit color={getKitColor(selectedOutPlayer.teamShort)} isGK={normalizePosition(selectedOutPlayer.position) === "Goalkeeper"} size={36} />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold truncate">{selectedOutPlayer.name}</div>
@@ -910,13 +910,13 @@ export default function TransfersPage() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-red-600 font-bold">Selling</div>
+            <div className="text-xs text-red-600 dark:text-red-400 font-bold">Selling</div>
             <div className="text-xs text-muted-foreground">{selectedOutPlayer.price ? `${Number(selectedOutPlayer.price).toFixed(1)}m` : "--"}</div>
           </div>
           <button
             type="button"
             onClick={() => { setSelectedOutId(null); setSearchQuery(""); }}
-            className="h-8 w-8 rounded-full border bg-white grid place-items-center hover:bg-red-100 shrink-0"
+            className="h-8 w-8 rounded-full border bg-background grid place-items-center hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500 shrink-0"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -1266,20 +1266,12 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
       )}
       style={isGhost ? { opacity: 0.4, filter: "grayscale(0.8)" } : undefined}
     >
-      <div
-        className="relative flex flex-col items-center"
-        style={{
-          width: 62,
-          borderRadius: 6,
-          overflow: "hidden",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.22)",
-        }}
-      >
-        {/* Badges — positioned over the whole card */}
+      <div className="relative" style={{ width: 62 }}>
+        {/* Badges — floating above the card */}
         {isGhost && (
           <div
             style={{
-              position: "absolute", top: -1, right: -1, zIndex: 4,
+              position: "absolute", top: -4, right: -4, zIndex: 4,
               background: "#ef4444", color: "#fff",
               fontSize: 7, fontWeight: 800,
               width: 18, height: 13, borderRadius: 3,
@@ -1292,7 +1284,7 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
         {isNewIn && !isGhost && (
           <div
             style={{
-              position: "absolute", top: -1, right: -1, zIndex: 4,
+              position: "absolute", top: -4, right: -4, zIndex: 4,
               background: "#10b981", color: "#fff",
               fontSize: 7, fontWeight: 800,
               width: 18, height: 13, borderRadius: 3,
@@ -1310,7 +1302,7 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
         {player.isLady && !isGhost && !isNewIn && (
           <span
             style={{
-              position: "absolute", top: -1, left: -1, zIndex: 4,
+              position: "absolute", top: -4, left: -4, zIndex: 4,
               background: "linear-gradient(135deg, #FF69B4, #FF1493)", color: "#fff", fontSize: 8,
               width: 14, height: 14, borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -1320,73 +1312,84 @@ function SmallPitchCard({ player, isSelected, isGhost, isNewIn, onTap, onUndo }:
           >★</span>
         )}
 
-        {/* Kit section — transparent top */}
+        {/* Card body */}
         <div
+          className="flex flex-col items-center"
           style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(100,100,100,0.22) 100%)",
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            padding: "2px 4px 0",
-            backdropFilter: "blur(2px)",
-          }}
-        >
-          {/* Price badge */}
-          <div style={{
-            fontSize: 7,
-            fontWeight: 700,
-            color: isGhost ? "#9ca3af" : "#fff",
-            background: "rgba(0,0,0,0.45)",
-            padding: "1px 5px",
-            borderRadius: 5,
-            marginBottom: 1,
-            textAlign: "center",
-          }}>
-            {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
-          </div>
-          <Kit color={isGhost ? "#888" : kitColor} isGK={isGK} size={38} />
-        </div>
-
-        {/* Name plate */}
-        <div
-          style={{
-            background: isGhost
-              ? "#d1d5db"
-              : isNewIn
-                ? "#a7f3d0"
-                : "#f5e6c8",
-            color: isGhost ? "#6b7280" : "#1a1a2e",
-            fontSize: 9,
-            fontWeight: 700,
-            padding: "2px 4px",
-            textAlign: "center",
-            width: "100%",
-            whiteSpace: "nowrap",
+            width: 62,
+            borderRadius: 6,
             overflow: "hidden",
-            textOverflow: "ellipsis",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.22)",
           }}
         >
-          {displayName}
-        </div>
+          {/* Kit section — transparent top */}
+          <div
+            style={{
+              background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(100,100,100,0.22) 100%)",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "2px 4px 0",
+              backdropFilter: "blur(2px)",
+            }}
+          >
+            {/* Price badge */}
+            <div style={{
+              fontSize: 7,
+              fontWeight: 700,
+              color: isGhost ? "#9ca3af" : "#fff",
+              background: "rgba(0,0,0,0.45)",
+              padding: "1px 5px",
+              borderRadius: 5,
+              marginBottom: 1,
+              textAlign: "center",
+            }}>
+              {player.price ? `${Number(player.price).toFixed(1)}m` : "--"}
+            </div>
+            <Kit color={isGhost ? "#888" : kitColor} isGK={isGK} size={38} />
+          </div>
 
-        {/* Team plate */}
-        <div
-          style={{
-            background: isGhost
-              ? "#6b7280"
-              : isNewIn
-                ? "#059669"
-                : "#37003C",
-            color: "#fff",
-            fontSize: 8,
-            fontWeight: 600,
-            padding: "1px 4px",
-            textAlign: "center",
-            width: "100%",
-          }}
-        >
-          {player.teamShort ?? "--"}
+          {/* Name plate */}
+          <div
+            style={{
+              background: isGhost
+                ? "#d1d5db"
+                : isNewIn
+                  ? "#a7f3d0"
+                  : "#f5e6c8",
+              color: isGhost ? "#6b7280" : "#1a1a2e",
+              fontSize: 9,
+              fontWeight: 700,
+              padding: "2px 4px",
+              textAlign: "center",
+              width: "100%",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {displayName}
+          </div>
+
+          {/* Team plate */}
+          <div
+            style={{
+              background: isGhost
+                ? "#6b7280"
+                : isNewIn
+                  ? "#059669"
+                  : "#37003C",
+              color: "#fff",
+              fontSize: 8,
+              fontWeight: 600,
+              padding: "1px 4px",
+              textAlign: "center",
+              width: "100%",
+            }}
+          >
+            {player.teamShort ?? "--"}
+          </div>
         </div>
       </div>
     </button>

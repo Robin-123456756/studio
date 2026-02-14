@@ -198,7 +198,7 @@ export default function DashboardPage() {
             alt="The Budo League"
             width={280}
             height={130}
-            className="h-auto w-[240px] sm:w-[280px] object-contain"
+            className="h-auto w-[240px] sm:w-[280px] object-contain dark:brightness-0 dark:invert"
             priority
           />
           <span className="mt-2 inline-block rounded-full bg-foreground/10 px-4 py-1 text-[11px] font-bold tracking-widest text-foreground/70 uppercase">
