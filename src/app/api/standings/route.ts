@@ -15,6 +15,7 @@ type Row = {
   GF: number;
   GA: number;
   GD: number;
+  LP: number;
   Pts: number;
 };
 
@@ -69,6 +70,7 @@ export async function GET(req: Request) {
         GF: 0,
         GA: 0,
         GD: 0,
+        LP: 0,
         Pts: 0,
       });
     }
@@ -107,6 +109,61 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: matchesErr.message }, { status: 500 });
     }
 
+    // ── Lady points detection ──
+    // Fetch player_stats to find which players played in which gameweeks
+    const { data: playerStats } = await supabase
+      .from("player_stats")
+      .select("gameweek_id, player_id");
+
+    const statPlayerIds = [
+      ...new Set((playerStats ?? []).map((s: any) => s.player_id)),
+    ];
+    const playerLadyLookup = new Map<
+      string,
+      { isLady: boolean; teamUuid: string | null }
+    >();
+
+    if (statPlayerIds.length > 0) {
+      const { data: playersData } = await supabase
+        .from("players")
+        .select("id, is_lady, team_id")
+        .in("id", statPlayerIds);
+
+      const teamIds = [
+        ...new Set(
+          (playersData ?? []).map((p: any) => p.team_id).filter(Boolean)
+        ),
+      ];
+      const teamIdToUuid = new Map<number, string>();
+
+      if (teamIds.length > 0) {
+        const { data: teamsData } = await supabase
+          .from("teams")
+          .select("id, team_uuid")
+          .in("id", teamIds);
+
+        for (const t of teamsData ?? []) {
+          teamIdToUuid.set(t.id, t.team_uuid);
+        }
+      }
+
+      for (const p of playersData ?? []) {
+        playerLadyLookup.set(p.id, {
+          isLady: p.is_lady ?? false,
+          teamUuid: teamIdToUuid.get(p.team_id) ?? null,
+        });
+      }
+    }
+
+    // Build a set of "gwId:teamUuid" keys where a lady player was fielded
+    const ladyPlayedSet = new Set<string>();
+    for (const s of playerStats ?? []) {
+      const p = playerLadyLookup.get(s.player_id);
+      if (p?.isLady && p.teamUuid) {
+        ladyPlayedSet.add(`${s.gameweek_id}:${p.teamUuid}`);
+      }
+    }
+
     for (const m of matches ?? []) {
       const homeId = m.home_team_uuid;
       const awayId = m.away_team_uuid;
@@ -138,11 +195,15 @@ export async function GET(req: Request) {
         home.D += 1;
         away.D += 1;
       }
+
+      // Lady points: +1 if a lady player was fielded for that team in that gameweek
+      if (ladyPlayedSet.has(`${m.gameweek_id}:${homeId}`)) home.LP += 1;
+      if (ladyPlayedSet.has(`${m.gameweek_id}:${awayId}`)) away.LP += 1;
     }
 
     for (const r of rowsMap.values()) {
       r.GD = r.GF - r.GA;
-      r.Pts = r.W * 3 + r.D;
+      r.Pts = r.W * 3 + r.D + r.LP;
     }
 
     const rows = Array.from(rowsMap.values()).sort((a, b) => {

@@ -28,6 +28,7 @@ type Row = {
   GF: number;
   GA: number;
   GD: number;
+  LP: number;
   Pts: number;
 };
 
@@ -289,6 +290,7 @@ export default function DashboardPage() {
                     <TableHead className="w-[28px] px-1 text-center">PL</TableHead>
                     <TableHead className="w-[28px] px-1 text-center">W</TableHead>
                     <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                    <TableHead className="w-[28px] px-1 text-center">LP</TableHead>
                     <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -332,6 +334,9 @@ export default function DashboardPage() {
                         </TableCell>
                         <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
                           {r.GD}
+                        </TableCell>
+                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-pink-600">
+                          {r.LP}
                         </TableCell>
                         <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">
                           {r.Pts}

@@ -89,6 +89,7 @@ type StandingsRow = {
   GF: number;
   GA: number;
   GD: number;
+  LP: number;
   Pts: number;
 };
 
@@ -774,6 +775,7 @@ export default function MatchesPage() {
                             <TableHead className="w-[28px] px-1 text-center">D</TableHead>
                             <TableHead className="w-[28px] px-1 text-center">L</TableHead>
                             <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                            <TableHead className="w-[28px] px-1 text-center">LP</TableHead>
                             <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -799,6 +801,7 @@ export default function MatchesPage() {
                                 <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.D}</TableCell>
                                 <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.L}</TableCell>
                                 <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.GD}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-pink-600">{r.LP}</TableCell>
                                 <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">{r.Pts}</TableCell>
                               </TableRow>
                             );
@@ -823,6 +826,7 @@ export default function MatchesPage() {
                             <TableHead className="w-[32px] px-1 text-center">GF</TableHead>
                             <TableHead className="w-[32px] px-1 text-center">GA</TableHead>
                             <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                            <TableHead className="w-[28px] px-1 text-center">LP</TableHead>
                             <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
                             <TableHead className="px-2 text-center">Next</TableHead>
                           </TableRow>
@@ -853,6 +857,7 @@ export default function MatchesPage() {
                                 <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.GF}</TableCell>
                                 <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.GA}</TableCell>
                                 <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px]">{r.GD}</TableCell>
+                                <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-[11px] text-pink-600">{r.LP}</TableCell>
                                 <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums text-[11px]">{r.Pts}</TableCell>
                                 <TableCell className="py-2 px-2 text-center whitespace-nowrap">
                                   {oppInfo ? (
