@@ -1,17 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { VOICE_ADMIN_SYSTEM_PROMPT } from "./system-prompt";
 import type { AIInterpretation, StatAction } from "./types";
 
-let _anthropic: Anthropic | null = null;
-function getAnthropic() {
-  if (!_anthropic) {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY environment variable is not set");
-    }
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return _anthropic;
-}
+// Uses OPENAI_API_KEY from environment
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const VALID_ACTIONS = new Set<StatAction>([
   "appearance", "goal", "assist", "clean_sheet",
@@ -21,34 +13,36 @@ const VALID_ACTIONS = new Set<StatAction>([
 
 /**
  * Parse a voice transcript into structured fantasy soccer stat entries.
- * Uses Claude (Anthropic) for natural language understanding.
+ * 
+ * Uses GPT-4o Mini with JSON mode — much cheaper than GPT-4o
+ * and more than capable of extracting player names + actions.
+ * 
+ * Cost: ~$0.0003 per command (vs $0.01 with GPT-4o)
  */
 export async function interpretTranscript(
   transcript: string
 ): Promise<AIInterpretation> {
-  const response = await getAnthropic().messages.create({
-    model: "claude-sonnet-4-20250514",
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",           // ← Cheap & fast, perfect for extraction
+    temperature: 0.0,
     max_tokens: 2000,
-    temperature: 0,
-    system: VOICE_ADMIN_SYSTEM_PROMPT,
+    response_format: { type: "json_object" },
     messages: [
+      { role: "system", content: VOICE_ADMIN_SYSTEM_PROMPT },
       { role: "user", content: transcript },
     ],
   });
 
-  const raw = response.content[0].type === "text" ? response.content[0].text : "";
-
-  // Strip markdown code fences if present
-  const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  const raw = response.choices[0].message.content || "{}";
 
   let parsed: any;
   try {
-    parsed = JSON.parse(cleaned);
+    parsed = JSON.parse(raw);
   } catch {
-    throw new Error(`AI returned invalid JSON: ${cleaned.substring(0, 200)}`);
+    throw new Error(`AI returned invalid JSON: ${raw.substring(0, 200)}`);
   }
 
-  // Validate structure
+  // ── Validate response structure ─────────────────────────
   if (typeof parsed.confidence !== "number" || parsed.confidence < 0 || parsed.confidence > 1) {
     throw new Error("AI response missing valid confidence score");
   }
