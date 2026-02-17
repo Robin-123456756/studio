@@ -4,6 +4,8 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import AuthGate from "@/components/AuthGate";
 import { loadSquadIds } from "@/lib/fantasyStorage";
 import { normalizePosition } from "@/lib/pitch-helpers";
 import { PlayerCard, type Player } from "../player-card";
@@ -22,7 +24,7 @@ type ApiPlayer = {
   teamName?: string | null;
 };
 
-export default function AddPlayerPage() {
+function AddPlayerPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -221,4 +223,34 @@ export default function AddPlayerPage() {
       </div>
     </div>
   );
+}
+
+// ── Auth wrapper ──
+export default function AddPlayerRoute() {
+  const [checking, setChecking] = React.useState(true);
+  const [authed, setAuthed] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setAuthed(!!data.session?.user?.email_confirmed_at);
+      setChecking(false);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session?.user?.email_confirmed_at);
+    });
+
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  if (checking) {
+    return <div className="mx-auto w-full max-w-md px-4 pt-10 text-sm text-muted-foreground">Checking session...</div>;
+  }
+  if (!authed) {
+    return <AuthGate onAuthed={() => setAuthed(true)} />;
+  }
+  return <AddPlayerPageInner />;
 }

@@ -567,12 +567,12 @@ export default function FantasyRoute() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      setAuthed(!!data.session);
+      setAuthed(!!data.session?.user?.email_confirmed_at);
       setChecking(false);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthed(!!session);
+      setAuthed(!!session?.user?.email_confirmed_at);
     });
 
     return () => {
@@ -593,5 +593,21 @@ export default function FantasyRoute() {
     return <AuthGate onAuthed={() => setAuthed(true)} />;
   }
 
-  return <FantasyPage />;
+  return (
+    <>
+      <div className="flex justify-end px-4 pt-2">
+        <button
+          type="button"
+          onClick={async () => {
+            await supabase.auth.signOut();
+            setAuthed(false);
+          }}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+      <FantasyPage />
+    </>
+  );
 }

@@ -4,6 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
+import AuthGate from "@/components/AuthGate";
 import { loadSquadIds } from "@/lib/fantasyStorage";
 import { type Player } from "./player-card";
 import { useTransfers } from "./use-transfers";
@@ -80,7 +82,7 @@ function isLocked(deadlineIso?: string | null) {
 // =====================
 // PAGE
 // =====================
-export default function TransfersPage() {
+function TransfersPageInner() {
   const router = useRouter();
 
   const [currentGW, setCurrentGW] = React.useState<ApiGameweek | null>(null);
@@ -1442,4 +1444,34 @@ function ReplacementRow({ player, onPick, budgetRemaining, teamBlocked = false }
       </button>
     </div>
   );
+}
+
+// ── Auth wrapper ──
+export default function TransfersRoute() {
+  const [checking, setChecking] = React.useState(true);
+  const [authed, setAuthed] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setAuthed(!!data.session?.user?.email_confirmed_at);
+      setChecking(false);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session?.user?.email_confirmed_at);
+    });
+
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  if (checking) {
+    return <div className="mx-auto w-full max-w-md px-4 pt-10 text-sm text-muted-foreground">Checking session...</div>;
+  }
+  if (!authed) {
+    return <AuthGate onAuthed={() => setAuthed(true)} />;
+  }
+  return <TransfersPageInner />;
 }

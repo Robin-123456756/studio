@@ -832,10 +832,10 @@ export default function PickTeamPage() {
   // auth state
   // ----------------------------
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session));
+    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session?.user?.email_confirmed_at));
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthed(!!session);
+      setAuthed(!!session?.user?.email_confirmed_at);
     });
 
     return () => sub.subscription.unsubscribe();
