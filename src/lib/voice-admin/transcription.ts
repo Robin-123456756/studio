@@ -1,7 +1,11 @@
 import OpenAI, { toFile } from "openai";
 
-// Uses OPENAI_API_KEY from environment
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy init — avoid crashing at build time when env var is missing
+let _openai: OpenAI | null = null;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 interface TranscriptionResult {
   text: string;
@@ -42,7 +46,7 @@ export async function transcribeAudio(
   // Convert Buffer to a File-like object using the SDK helper
   const file = await toFile(audioBuffer, filename, { type: mimeType });
 
-  const response = await openai.audio.transcriptions.create({
+  const response = await getOpenAI().audio.transcriptions.create({
     model: "whisper-1",
     file,
     language: "en",

@@ -2,8 +2,12 @@ import OpenAI from "openai";
 import { VOICE_ADMIN_SYSTEM_PROMPT } from "./system-prompt";
 import type { AIInterpretation, StatAction } from "./types";
 
-// Uses OPENAI_API_KEY from environment
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy init — avoid crashing at build time when env var is missing
+let _openai: OpenAI | null = null;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 const VALID_ACTIONS = new Set<StatAction>([
   "appearance", "goal", "assist", "clean_sheet",
@@ -22,7 +26,7 @@ const VALID_ACTIONS = new Set<StatAction>([
 export async function interpretTranscript(
   transcript: string
 ): Promise<AIInterpretation> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",           // ← Cheap & fast, perfect for extraction
     temperature: 0.0,
     max_tokens: 2000,
