@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     }
 
     // 3. Map response
-    const stats = (data ?? []).map((s: any) => {
+    const stats: any[] = (data ?? []).map((s: any) => {
       const p = playersMap.get(s.player_id);
       return {
         id: s.id,
@@ -91,6 +91,88 @@ export async function GET(req: Request) {
           : null,
       };
     });
+
+    // 4. Derive GK clean sheets from played match results
+    //    If a team conceded 0 goals, their goalkeeper(s) get a clean sheet.
+    let matchesQ = supabase
+      .from("matches")
+      .select("id, gameweek_id, home_team_uuid, away_team_uuid, home_goals, away_goals")
+      .or("is_played.eq.true,is_final.eq.true");
+    if (gwId) matchesQ = matchesQ.eq("gameweek_id", Number(gwId));
+    const { data: playedMatches } = await matchesQ;
+
+    const csEvents: { teamUuid: string; gameweekId: number; matchId: number }[] = [];
+    for (const m of playedMatches ?? []) {
+      // Away scored 0 → home team kept a clean sheet
+      if ((m.away_goals ?? 0) === 0 && m.home_team_uuid) {
+        csEvents.push({ teamUuid: m.home_team_uuid, gameweekId: m.gameweek_id, matchId: m.id });
+      }
+      // Home scored 0 → away team kept a clean sheet
+      if ((m.home_goals ?? 0) === 0 && m.away_team_uuid) {
+        csEvents.push({ teamUuid: m.away_team_uuid, gameweekId: m.gameweek_id, matchId: m.id });
+      }
+    }
+
+    if (csEvents.length > 0) {
+      // Fetch all GK players with team info via FK join
+      const { data: gkPlayers } = await supabase
+        .from("players")
+        .select(
+          "id, name, web_name, position, is_lady, avatar_url, team_id, teams:teams!players_team_id_fkey (id, team_uuid, name, short_name, logo_url)"
+        )
+        .eq("position", "Goalkeeper");
+
+      // Group GKs by their team_uuid
+      const gkByTeamUuid = new Map<string, any[]>();
+      for (const gk of gkPlayers ?? []) {
+        const teamUuid = (gk as any).teams?.team_uuid;
+        if (!teamUuid) continue;
+        if (!gkByTeamUuid.has(teamUuid)) gkByTeamUuid.set(teamUuid, []);
+        gkByTeamUuid.get(teamUuid)!.push(gk);
+      }
+
+      // Track existing clean sheet entries to avoid duplicates
+      const existingCsKeys = new Set(
+        stats.filter((s: any) => s.cleanSheet).map((s: any) => `${s.playerId}__${s.gameweekId}`)
+      );
+
+      for (const ev of csEvents) {
+        const gks = gkByTeamUuid.get(ev.teamUuid) ?? [];
+        for (const gk of gks) {
+          const key = `${gk.id}__${ev.gameweekId}`;
+          if (existingCsKeys.has(key)) continue;
+          if (playerId && gk.id !== playerId) continue;
+          existingCsKeys.add(key);
+
+          const team = (gk as any).teams;
+          stats.push({
+            id: `cs-${ev.matchId}-${gk.id}`,
+            playerId: gk.id,
+            gameweekId: ev.gameweekId,
+            points: 0,
+            goals: 0,
+            assists: 0,
+            cleanSheet: true,
+            yellowCards: 0,
+            redCards: 0,
+            ownGoals: 0,
+            playerName: gk.web_name ?? gk.name ?? "—",
+            player: {
+              id: gk.id,
+              name: gk.name,
+              webName: gk.web_name ?? null,
+              position: gk.position ?? null,
+              isLady: gk.is_lady ?? false,
+              avatarUrl: gk.avatar_url ?? null,
+              teamName: team?.name ?? null,
+              teamShort: team?.short_name ?? null,
+              teamUuid: team?.team_uuid ?? null,
+              logoUrl: team?.logo_url ?? null,
+            },
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ stats });
   } catch (e: any) {

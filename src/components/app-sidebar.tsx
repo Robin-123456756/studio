@@ -92,7 +92,7 @@ export function AppSidebar() {
                 Budo League
               </div>
               <div className="text-xs text-muted-foreground truncate">
-                Sunday League Dashboard
+                 Dashboard
               </div>
             </div>
           </Link>
