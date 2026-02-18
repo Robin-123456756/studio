@@ -2,6 +2,27 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import type { MatchedPlayer, FuzzyMatchResult } from "./types";
 
 /**
+ * Look up `is_lady` for matched players from RPC strategies
+ * (the RPC functions don't return is_lady, so we enrich after).
+ */
+async function enrichIsLady(
+  players: MatchedPlayer[]
+): Promise<MatchedPlayer[]> {
+  if (players.length === 0) return players;
+  const supabase = getSupabaseServerOrThrow();
+  const ids = players.map((p) => p.id);
+  const { data } = await supabase
+    .from("players")
+    .select("id, is_lady")
+    .in("id", ids);
+  const ladyMap = new Map<string, boolean>();
+  if (data) {
+    for (const row of data) ladyMap.set(row.id, row.is_lady ?? false);
+  }
+  return players.map((p) => ({ ...p, is_lady: ladyMap.get(p.id) ?? false }));
+}
+
+/**
  * Find the best matching player for a spoken name.
  * Uses YOUR existing Supabase client and players/teams tables.
  *
@@ -22,8 +43,9 @@ export async function matchPlayer(
     .rpc("match_player_exact", { search_name: normalized });
 
   if (exactMatches && exactMatches.length === 1) {
+    const [enriched] = await enrichIsLady(exactMatches as MatchedPlayer[]);
     return {
-      match: exactMatches[0] as MatchedPlayer,
+      match: enriched,
       candidates: [],
       confidence: 1.0,
       strategy: "exact",
@@ -31,9 +53,10 @@ export async function matchPlayer(
   }
 
   if (exactMatches && exactMatches.length > 1) {
+    const enriched = await enrichIsLady(exactMatches as MatchedPlayer[]);
     return {
       match: null,
-      candidates: exactMatches as MatchedPlayer[],
+      candidates: enriched,
       confidence: 0.5,
       strategy: "exact_ambiguous",
     };
@@ -44,8 +67,9 @@ export async function matchPlayer(
     .rpc("match_player_alias", { search_name: normalized });
 
   if (aliasMatches && aliasMatches.length === 1) {
+    const [enriched] = await enrichIsLady(aliasMatches as MatchedPlayer[]);
     return {
-      match: aliasMatches[0] as MatchedPlayer,
+      match: enriched,
       candidates: [],
       confidence: 0.95,
       strategy: "alias",
@@ -58,10 +82,11 @@ export async function matchPlayer(
 
   if (trigramMatches && trigramMatches.length > 0) {
     const best = trigramMatches[0];
+    const enrichedAll = await enrichIsLady(trigramMatches as MatchedPlayer[]);
     if (best.sim_score > 0.6) {
       return {
-        match: best as MatchedPlayer,
-        candidates: trigramMatches.slice(1) as MatchedPlayer[],
+        match: enrichedAll[0],
+        candidates: enrichedAll.slice(1),
         confidence: best.sim_score,
         strategy: "trigram",
       };
@@ -70,7 +95,7 @@ export async function matchPlayer(
     // Low confidence — return as candidates
     return {
       match: null,
-      candidates: trigramMatches as MatchedPlayer[],
+      candidates: enrichedAll,
       confidence: best.sim_score,
       strategy: "trigram_low_confidence",
     };
@@ -84,6 +109,7 @@ export async function matchPlayer(
       name,
       web_name,
       position,
+      is_lady,
       teams!inner(name)
     `)
     .or(`name.ilike.%${spokenName}%,web_name.ilike.%${spokenName}%`)
@@ -96,6 +122,7 @@ export async function matchPlayer(
       web_name: p.web_name,
       position: p.position,
       team_name: p.teams?.name || "",
+      is_lady: p.is_lady ?? false,
     }));
 
     return {

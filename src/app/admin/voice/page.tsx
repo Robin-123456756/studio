@@ -53,7 +53,7 @@ type Match = {
   is_final: boolean;
 };
 
-type ViewState = "capture" | "confirm" | "history";
+type ViewState = "capture" | "confirm" | "history" | "scoring";
 
 function validate(entries: any[], matchId: number | null) {
   const warnings: { message: string }[] = [];
@@ -162,10 +162,10 @@ export default function VoiceAdminPage() {
           </div>
         )}
         <div style={{ display: "flex", gap: 4 }}>
-          {(["capture", "history"] as ViewState[]).map(tab => (
+          {(["capture", "history", "scoring"] as ViewState[]).map(tab => (
             <button key={tab} onClick={() => { if (view !== "confirm") setView(tab); }}
               style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${view === tab ? ACCENT + "40" : BORDER}`, backgroundColor: view === tab ? `${ACCENT}15` : "transparent", color: view === tab ? ACCENT : TEXT_MUTED, fontSize: 12, fontWeight: 600, cursor: view === "confirm" ? "not-allowed" : "pointer", fontFamily: "inherit", textTransform: "capitalize", opacity: view === "confirm" ? 0.5 : 1 }}>
-              {tab === "capture" ? "🎤 Capture" : "📋 History"}
+              {tab === "capture" ? "🎤 Capture" : tab === "history" ? "📋 History" : "🧮 Scoring"}
             </button>
           ))}
           {view === "confirm" && <span style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${WARNING}40`, backgroundColor: `${WARNING}15`, color: WARNING, fontSize: 12, fontWeight: 600 }}>✓ Confirming</span>}
@@ -211,6 +211,7 @@ export default function VoiceAdminPage() {
         {view === "capture" && <CaptureView matchId={selectedMatchId} onResult={handleResult} />}
         {view === "confirm" && pipelineResult && <ConfirmView pipelineResult={pipelineResult} matchId={selectedMatchId} onConfirm={handleConfirm} onCancel={handleCancel} />}
         {view === "history" && <HistoryView history={history} />}
+        {view === "scoring" && <ScoringView matchesByGw={matchesByGw} />}
       </main>
     </div>
   );
@@ -490,6 +491,7 @@ function ConfirmView({ pipelineResult, matchId, onConfirm, onCancel }: { pipelin
 
   const validation = useMemo(() => validate(entries, matchId), [entries, matchId]);
   const totalPoints = useMemo(() => entries.reduce((sum: number, e: any) => sum + (e.totalPoints || 0), 0), [entries]);
+  const ladyCount = useMemo(() => entries.filter((e: any) => e.player?.is_lady).length, [entries]);
 
   const removeEntry = useCallback((idx: number) => {
     setEntries(prev => prev.filter((_: any, i: number) => i !== idx));
@@ -547,7 +549,7 @@ function ConfirmView({ pipelineResult, matchId, onConfirm, onCancel }: { pipelin
         {[
           { label: "Players", value: entries.length, color: TEXT_PRIMARY },
           { label: "Total Pts", value: totalPoints, color: ACCENT },
-          { label: "Warnings", value: validation.warnings.length, color: validation.warnings.length > 0 ? WARNING : TEXT_MUTED },
+          { label: "Ladies", value: ladyCount, color: ladyCount > 0 ? "#EC4899" : TEXT_MUTED },
           { label: "Unresolved", value: unresolved.length, color: unresolved.length > 0 ? WARNING : TEXT_MUTED },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ flex: 1, textAlign: "center" }}>
@@ -576,7 +578,12 @@ function ConfirmView({ pipelineResult, matchId, onConfirm, onCancel }: { pipelin
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 8, backgroundColor: (POS_COLORS[position] || TEXT_MUTED) + "20", color: POS_COLORS[position] || TEXT_MUTED, fontSize: 12, fontWeight: 700, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{position}</span>
                   <div>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{name}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{name}</p>
+                      {entry.player?.is_lady && (
+                        <span style={{ padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, backgroundColor: "#EC489920", color: "#EC4899", border: "1px solid #EC489940" }}>♀ Lady</span>
+                      )}
+                    </div>
                     <p style={{ margin: 0, fontSize: 11, color: TEXT_MUTED }}>{entry.player?.team_name || ""}</p>
                   </div>
                 </div>
@@ -713,6 +720,162 @@ function HistoryView({ history }: { history: any[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// SCORING VIEW
+// ═══════════════════════════════════════════════════════════
+function ScoringView({ matchesByGw }: { matchesByGw: { gw: number; matches: Match[] }[] }) {
+  const [selectedGw, setSelectedGw] = useState<number | null>(
+    matchesByGw.length > 0 ? matchesByGw[0].gw : null
+  );
+  const [calculating, setCalculating] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState("");
+
+  const gwOptions = matchesByGw.map(g => g.gw);
+
+  const handleCalculate = useCallback(async () => {
+    if (!selectedGw) return;
+    setCalculating(true);
+    setError("");
+    setResult(null);
+    try {
+      const res = await fetch("/api/voice-admin/calculate-scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameweekId: selectedGw }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setResult(data);
+    } catch (err: any) {
+      setError(err?.message || "Failed to calculate scores");
+    }
+    setCalculating(false);
+  }, [selectedGw]);
+
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px" }}>
+      <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700 }}>Calculate Scores</h2>
+      <p style={{ margin: "0 0 16px", fontSize: 13, color: TEXT_MUTED }}>
+        Select a gameweek and calculate fantasy scores for all users.
+      </p>
+
+      {/* GW Selector */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <select
+          value={selectedGw ?? ""}
+          onChange={e => setSelectedGw(e.target.value ? parseInt(e.target.value) : null)}
+          style={{
+            flex: 1, padding: "10px 12px", backgroundColor: BG_DARK, color: TEXT_PRIMARY,
+            border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit",
+            outline: "none", cursor: "pointer",
+            WebkitAppearance: "none", appearance: "none",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32,
+          }}
+        >
+          <option value="" style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY }}>Select gameweek...</option>
+          {gwOptions.map(gw => (
+            <option key={gw} value={gw} style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY }}>
+              Gameweek {gw}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={handleCalculate}
+          disabled={!selectedGw || calculating}
+          style={{
+            padding: "10px 20px", borderRadius: 8, border: "none",
+            backgroundColor: selectedGw && !calculating ? ACCENT : TEXT_MUTED,
+            color: "#fff", fontSize: 13, fontWeight: 700, cursor: selectedGw && !calculating ? "pointer" : "not-allowed",
+            fontFamily: "inherit", opacity: calculating ? 0.7 : 1, whiteSpace: "nowrap",
+          }}
+        >
+          {calculating ? "Calculating..." : "Calculate"}
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{ padding: "12px 14px", borderRadius: 10, marginBottom: 16, backgroundColor: `${ERROR}10`, border: `1px solid ${ERROR}30`, fontSize: 13, color: ERROR }}>
+          {error}
+        </div>
+      )}
+
+      {/* Success */}
+      {result && (
+        <>
+          <div style={{ padding: "12px 14px", borderRadius: 10, marginBottom: 16, backgroundColor: `${SUCCESS}10`, border: `1px solid ${SUCCESS}30`, fontSize: 13, color: SUCCESS, fontWeight: 600 }}>
+            {result.message}
+          </div>
+
+          {/* Leaderboard */}
+          {result.leaderboard && result.leaderboard.length > 0 && (
+            <div style={{ backgroundColor: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ padding: "10px 14px", borderBottom: `1px solid ${BORDER}` }}>
+                <span style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>
+                  GW{result.gameweekId} Leaderboard
+                </span>
+              </div>
+              {result.leaderboard.map((entry: any, i: number) => (
+                <div key={entry.user_id} style={{
+                  padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                  borderBottom: i < result.leaderboard.length - 1 ? `1px solid ${BORDER}` : "none",
+                  backgroundColor: i === 0 ? `${ACCENT}08` : "transparent",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{
+                      width: 24, height: 24, borderRadius: 6,
+                      backgroundColor: i === 0 ? `${ACCENT}20` : BG_SURFACE,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 700, color: i === 0 ? ACCENT : TEXT_MUTED,
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    }}>
+                      {i + 1}
+                    </span>
+                    <span style={{ fontSize: 13, color: TEXT_PRIMARY, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
+                      {entry.user_id.slice(0, 8)}...
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: ACCENT, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
+                    {entry.total_weekly_points}pts
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Breakdown (collapsible) */}
+          {result.breakdown && result.breakdown.length > 0 && (
+            <details style={{ marginTop: 16 }}>
+              <summary style={{ fontSize: 12, color: TEXT_MUTED, cursor: "pointer", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                Detailed Breakdown ({result.breakdown.length} entries)
+              </summary>
+              <pre style={{
+                backgroundColor: BG_SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8,
+                padding: 12, fontSize: 11, color: TEXT_SECONDARY, overflowX: "auto", maxHeight: 300,
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              }}>
+                {JSON.stringify(result.breakdown, null, 2)}
+              </pre>
+            </details>
+          )}
+        </>
+      )}
+
+      {/* Empty state */}
+      {!calculating && !result && !error && (
+        <div style={{ textAlign: "center", padding: "40px 0", color: TEXT_MUTED }}>
+          <p style={{ fontSize: 40, marginBottom: 12 }}>🧮</p>
+          <p style={{ fontSize: 13 }}>Select a gameweek and calculate fantasy scores.</p>
+          <p style={{ fontSize: 11, marginTop: 4 }}>This runs scoring RPCs and updates the leaderboard.</p>
+        </div>
+      )}
     </div>
   );
 }

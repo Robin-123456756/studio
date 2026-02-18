@@ -10,13 +10,13 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
 
     const gwIdRaw = url.searchParams.get("gw_id");
-    const statusParam = url.searchParams.get("status");
+    const playedParam = url.searchParams.get("played"); // "1" played, "0" upcoming
     const teamUuid = url.searchParams.get("team_uuid");
 
     let query = supabase
-      .from("fixtures")
+      .from("matches")
       .select(
-        "id, home_team_uuid, away_team_uuid, gameweek_id, kickoff_time, venue, match_day_label, status, created_at"
+        "id, home_team_uuid, away_team_uuid, gameweek_id, kickoff_time, home_goals, away_goals, is_played, is_final"
       )
       .order("kickoff_time", { ascending: true });
 
@@ -27,7 +27,8 @@ export async function GET(req: Request) {
       query = query.eq("gameweek_id", gwId);
     }
 
-    if (statusParam) query = query.eq("status", statusParam);
+    if (playedParam === "1") query = query.eq("is_played", true);
+    if (playedParam === "0") query = query.or("is_played.eq.false,is_played.is.null");
 
     if (teamUuid) {
       query = query.or(
@@ -75,19 +76,30 @@ export async function GET(req: Request) {
     const gwMap = new Map<number, any>();
     for (const g of gameweeks ?? []) gwMap.set(g.id, g);
 
-    const fixtures = rows.map((f: any) => ({
-      id: String(f.id),
-      home_team_uuid: f.home_team_uuid,
-      away_team_uuid: f.away_team_uuid,
-      gameweek_id: Number(f.gameweek_id),
-      kickoff_time: f.kickoff_time,
-      venue: f.venue ?? "",
-      match_day_label: f.match_day_label ?? null,
-      status: f.status ?? "scheduled",
-      home_team: teamMap.get(f.home_team_uuid) ?? null,
-      away_team: teamMap.get(f.away_team_uuid) ?? null,
-      gameweek: gwMap.get(f.gameweek_id) ?? null,
-    }));
+    // Derive status from is_played / is_final
+    const fixtures = rows.map((f: any) => {
+      const isPlayed = Boolean(f.is_played);
+      const isFinal = Boolean(f.is_final);
+      const status = isFinal ? "final" : isPlayed ? "played" : "scheduled";
+
+      return {
+        id: String(f.id),
+        home_team_uuid: f.home_team_uuid,
+        away_team_uuid: f.away_team_uuid,
+        gameweek_id: Number(f.gameweek_id),
+        kickoff_time: f.kickoff_time,
+        home_goals: f.home_goals ?? null,
+        away_goals: f.away_goals ?? null,
+        is_played: isPlayed,
+        is_final: isFinal,
+        status,
+        venue: "",
+        match_day_label: null,
+        home_team: teamMap.get(f.home_team_uuid) ?? null,
+        away_team: teamMap.get(f.away_team_uuid) ?? null,
+        gameweek: gwMap.get(f.gameweek_id) ?? null,
+      };
+    });
 
     return NextResponse.json({ fixtures });
   } catch (e: any) {

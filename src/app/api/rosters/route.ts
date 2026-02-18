@@ -114,17 +114,25 @@ export async function POST(req: Request) {
   const startingSet = new Set(startingIds);
 
   const cap = body?.captainId ?? null;
-const vice = body?.viceId ?? null;
+  const vice = body?.viceId ?? null;
 
-const rows = squadIds.map((playerId) => ({
-  user_id: userId,
-  player_id: playerId,
-  gameweek_id: gwId,
-  is_starting_9: startingSet.has(playerId),
-  is_captain: cap === playerId,
-  is_vice_captain: vice === playerId,
-  multiplier: cap === playerId ? 2 : 1, // optional
-}));
+  // Look up which players are ladies for auto-double
+  const { data: ladyData } = await supabase
+    .from("players")
+    .select("id, is_lady")
+    .in("id", squadIds)
+    .eq("is_lady", true);
+  const ladyIds = new Set((ladyData ?? []).map((p: any) => p.id));
+
+  const rows = squadIds.map((playerId) => ({
+    user_id: userId,
+    player_id: playerId,
+    gameweek_id: gwId,
+    is_starting_9: startingSet.has(playerId),
+    is_captain: cap === playerId,
+    is_vice_captain: vice === playerId,
+    multiplier: (cap === playerId || ladyIds.has(playerId)) ? 2 : 1,
+  }));
 
   const { error: insErr } = await supabase.from("user_rosters").insert(rows);
 

@@ -47,6 +47,7 @@ export interface MatchedPlayer {
   web_name: string | null;
   position: string;
   team_name: string;
+  is_lady: boolean;
 }
 
 export interface FuzzyMatchResult {

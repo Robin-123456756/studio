@@ -631,6 +631,18 @@ function PlayerInfoSheet({
           </div>
         )}
 
+        {/* Lady 2x info */}
+        {player.isLady && (
+          <div className="mx-5 mt-2 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm"
+            style={{ background: "linear-gradient(135deg, rgba(236,72,153,0.1), rgba(219,39,119,0.1))", border: "1px solid rgba(236,72,153,0.25)" }}>
+            <span style={{ background: "linear-gradient(135deg, #FF69B4, #FF1493)", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", flexShrink: 0 }}>★</span>
+            <div>
+              <div className="font-bold text-pink-500 text-xs">Lady Player — 2x Points</div>
+              <div className="text-[10px] text-muted-foreground">Points automatically doubled like a captain</div>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="px-5 pb-6 pt-2 space-y-2">
           <Button

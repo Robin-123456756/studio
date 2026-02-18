@@ -593,21 +593,5 @@ export default function FantasyRoute() {
     return <AuthGate onAuthed={() => setAuthed(true)} />;
   }
 
-  return (
-    <>
-      <div className="flex justify-end px-4 pt-2">
-        <button
-          type="button"
-          onClick={async () => {
-            await supabase.auth.signOut();
-            setAuthed(false);
-          }}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Sign out
-        </button>
-      </div>
-      <FantasyPage />
-    </>
-  );
+  return <FantasyPage />;
 }
