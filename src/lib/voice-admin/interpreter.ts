@@ -1,11 +1,12 @@
 import OpenAI from "openai";
 import { VOICE_ADMIN_SYSTEM_PROMPT } from "./system-prompt";
 import type { AIInterpretation, StatAction } from "./types";
+import { getOpenAIApiKey } from "@/lib/openai/api-key";
 
 // Lazy init — avoid crashing at build time when env var is missing
 let _openai: OpenAI | null = null;
 function getOpenAI() {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  if (!_openai) _openai = new OpenAI({ apiKey: getOpenAIApiKey() });
   return _openai;
 }
 

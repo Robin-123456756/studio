@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { processTextInput } from "@/lib/voice-admin/pipeline";
+import { getOpenAIApiKey } from "@/lib/openai/api-key";
 
 export async function POST(request: Request) {
   try {
+    const openAIApiKey = getOpenAIApiKey();
+
     const formData = await request.formData();
     const audio = formData.get("audio") as Blob | null;
     const matchId = formData.get("matchId") as string | null;
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
     const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${openAIApiKey}`,
       },
       body: whisperForm,
     });
