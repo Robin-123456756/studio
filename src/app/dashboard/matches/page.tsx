@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+import { normalizePosition } from "@/lib/pitch-helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -537,7 +538,7 @@ export default function MatchesPage() {
         team,
       });
     }
-    if (s.cleanSheet && s.player?.position === "Goalkeeper") {
+    if (s.cleanSheet && normalizePosition(s.player?.position) === "Goalkeeper") {
       const existing = csMap.get(s.playerId);
       csMap.set(s.playerId, {
         name,
@@ -576,7 +577,7 @@ export default function MatchesPage() {
     if (existing) {
       existing.goals += s.goals;
       existing.assists += s.assists;
-      existing.cleanSheets += (s.cleanSheet && s.player?.position === "Goalkeeper") ? 1 : 0;
+      existing.cleanSheets += (s.cleanSheet && normalizePosition(s.player?.position) === "Goalkeeper") ? 1 : 0;
       existing.yellowCards += s.yellowCards;
       existing.redCards += s.redCards;
     } else {
@@ -586,7 +587,7 @@ export default function MatchesPage() {
         logoUrl: row?.logoUrl ?? "/placeholder-team.png",
         goals: s.goals,
         assists: s.assists,
-        cleanSheets: (s.cleanSheet && s.player?.position === "Goalkeeper") ? 1 : 0,
+        cleanSheets: (s.cleanSheet && normalizePosition(s.player?.position) === "Goalkeeper") ? 1 : 0,
         yellowCards: s.yellowCards,
         redCards: s.redCards,
       });

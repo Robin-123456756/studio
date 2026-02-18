@@ -120,7 +120,7 @@ export async function GET(req: Request) {
         .select(
           "id, name, web_name, position, is_lady, avatar_url, team_id, teams:teams!players_team_id_fkey (id, team_uuid, name, short_name, logo_url)"
         )
-        .eq("position", "Goalkeeper");
+        .in("position", ["Goalkeeper", "GK", "keeper"]);
 
       // Group GKs by their team_uuid
       const gkByTeamUuid = new Map<string, any[]>();
