@@ -158,17 +158,26 @@ export default function AdminDashboard() {
         a { text-decoration: none; color: inherit; }
         .admin-card { transition: all 0.2s ease; cursor: pointer; }
         .admin-card:hover { transform: translateY(-2px); border-color: ${ACCENT}40 !important; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        @media (max-width: 700px) {
+          .admin-header { padding: 14px 16px !important; }
+          .admin-user-name { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        }
       `}</style>
 
       {/* Header */}
-      <header style={{
-        padding: "16px 24px",
-        borderBottom: `1px solid ${BORDER}`,
-        backgroundColor: BG_CARD,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}>
+      <header
+        className="admin-header"
+        style={{
+          padding: "16px 24px",
+          borderBottom: `1px solid ${BORDER}`,
+          backgroundColor: BG_CARD,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
             width: 40, height: 40, borderRadius: 10,
@@ -185,9 +194,9 @@ export default function AdminDashboard() {
             </p>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, marginLeft: "auto" }}>
           {session?.user?.name && (
-            <span style={{ fontSize: 13, color: TEXT_MUTED }}>
+            <span className="admin-user-name" style={{ fontSize: 13, color: TEXT_MUTED }}>
               👋 {session.user.name}
             </span>
           )}

@@ -141,10 +141,26 @@ export default function VoiceAdminPage() {
         * { box-sizing: border-box; }
         body { margin: 0; background: ${BG_DARK}; }
         @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
+        @media (max-width: 700px) {
+          .voice-admin-nav { padding: 12px 16px !important; }
+          .voice-admin-user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        }
       `}</style>
 
       {/* Nav */}
-      <nav style={{ padding: "12px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: BG_CARD }}>
+      <nav
+        className="voice-admin-nav"
+        style={{
+          padding: "12px 24px",
+          borderBottom: `1px solid ${BORDER}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 8,
+          backgroundColor: BG_CARD,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${ACCENT}, #8B0000)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🎙️</div>
           <div>
@@ -153,18 +169,18 @@ export default function VoiceAdminPage() {
           </div>
         </div>
         {session?.user?.name && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: TEXT_MUTED }}>{session.user.name}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span className="voice-admin-user-name" style={{ fontSize: 12, color: TEXT_MUTED }}>{session.user.name}</span>
             <button onClick={() => signOut({ callbackUrl: "/admin/login" })}
               style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${BORDER}`, backgroundColor: "transparent", color: TEXT_MUTED, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               Logout
             </button>
           </div>
         )}
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", width: "100%" }}>
           {(["capture", "history", "scoring"] as ViewState[]).map(tab => (
             <button key={tab} onClick={() => { if (view !== "confirm") setView(tab); }}
-              style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${view === tab ? ACCENT + "40" : BORDER}`, backgroundColor: view === tab ? `${ACCENT}15` : "transparent", color: view === tab ? ACCENT : TEXT_MUTED, fontSize: 12, fontWeight: 600, cursor: view === "confirm" ? "not-allowed" : "pointer", fontFamily: "inherit", textTransform: "capitalize", opacity: view === "confirm" ? 0.5 : 1 }}>
+              style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${view === tab ? ACCENT + "40" : BORDER}`, backgroundColor: view === tab ? `${ACCENT}15` : "transparent", color: view === tab ? ACCENT : TEXT_MUTED, fontSize: 12, fontWeight: 600, cursor: view === "confirm" ? "not-allowed" : "pointer", fontFamily: "inherit", textTransform: "capitalize", opacity: view === "confirm" ? 0.5 : 1, whiteSpace: "nowrap" }}>
               {tab === "capture" ? "🎤 Capture" : tab === "history" ? "📋 History" : "🧮 Scoring"}
             </button>
           ))}
@@ -174,7 +190,7 @@ export default function VoiceAdminPage() {
 
       {/* Match selector */}
       <div style={{ padding: "12px 24px", borderBottom: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE, maxWidth: 600, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
   <label style={{ fontSize: 11, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" }}>Match</label>
   {selectedMatchId && (
     <a
@@ -195,7 +211,7 @@ export default function VoiceAdminPage() {
             : matchError ? <span style={{ fontSize: 13, color: ERROR }}>{matchError}</span>
             : (
               <select value={selectedMatchId ?? ""} onChange={e => setSelectedMatchId(e.target.value ? parseInt(e.target.value) : null)}
-                style={{ flex: 1, padding: "8px 12px", backgroundColor: BG_DARK, color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", outline: "none", cursor: "pointer", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 }}>
+                style={{ flex: "1 1 260px", minWidth: 0, padding: "8px 12px", backgroundColor: BG_DARK, color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", outline: "none", cursor: "pointer", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 }}>
                 <option value="" style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY }}>Select a match...</option>
                 {matchesByGw.map(({ gw, matches: gwMatches }) => (
                   <optgroup key={gw} label={`Gameweek ${gw}`} style={{ backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontWeight: 700 }}>
