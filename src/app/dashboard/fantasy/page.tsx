@@ -396,9 +396,9 @@ function FantasyPage() {
     return () => window.clearInterval(timer);
   }, [loadStats]);
 
-  const gwPointsValue = statsLoading ? "--" : stats.gwPoints ?? "--";
-  const avgPointsValue = statsLoading ? "--" : stats.avgPoints ?? "--";
-  const highestPointsValue = statsLoading ? "--" : stats.highestPoints ?? "--";
+  const gwPointsValue = statsLoading ? "—" : stats.gwPoints ?? 0;
+  const avgPointsValue = statsLoading ? "—" : stats.avgPoints ?? 0;
+  const highestPointsValue = statsLoading ? "—" : stats.highestPoints ?? 0;
 
   const deadlinePillClass =
     deadlineCountdown.tone === "critical"
@@ -445,7 +445,7 @@ function FantasyPage() {
           <div className="mx-auto my-4 h-0.5 w-14 rounded-full bg-white/20" />
 
           <div className="text-center text-xs font-semibold text-white/70">
-            {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? "--"}`}
+            {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? 0}`}
           </div>
 
           <div className="flex items-end justify-center gap-0 px-5 pb-4 pt-2">
@@ -483,7 +483,7 @@ function FantasyPage() {
           <div className="text-center text-xs font-semibold text-white/70">
             {gwLoading
               ? ""
-              : `Gameweek ${nextGW?.id ?? (currentGW?.id ? currentGW.id + 1 : "--")}`}
+              : `Gameweek ${nextGW?.id ?? (currentGW?.id ? currentGW.id + 1 : 0)}`}
           </div>
           <div className="mt-1 text-center text-sm font-bold">
             {gwLoading

@@ -104,6 +104,7 @@ export async function GET(req: Request) {
         teamId: p.team_id,
         teamName: p.teams?.name ?? "—",
         teamShort: p.teams?.short_name ?? "—",
+        teamUuid: p.teams?.team_uuid ?? null,
         ...(totals ? {
           totalGoals: totals.goals,
           totalAssists: totals.assists,

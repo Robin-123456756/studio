@@ -7,7 +7,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function ReviewsPage() {
+type Review = {
+  id: number;
+  name: string | null;
+  rating: number | null;
+  message: string;
+  created_at: string;
+};
+
+export default function FeedbackPage() {
   const [message, setMessage] = React.useState("");
   const [rating, setRating] = React.useState<number | null>(null);
   const [name, setName] = React.useState("");
@@ -17,12 +25,29 @@ export default function ReviewsPage() {
 
   const [userId, setUserId] = React.useState<string | null>(null);
 
+  const [reviews, setReviews] = React.useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = React.useState(true);
+
   React.useEffect(() => {
-    // if logged in, attach userId (optional)
     supabase.auth.getSession().then(({ data }) => {
       setUserId(data.session?.user?.id ?? null);
     });
+
+    fetchReviews();
   }, []);
+
+  async function fetchReviews() {
+    try {
+      setLoadingReviews(true);
+      const res = await fetch("/api/reviews", { cache: "no-store" });
+      const json = await res.json();
+      setReviews(json.reviews ?? []);
+    } catch {
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  }
 
   async function submit() {
     setMsg(null);
@@ -42,7 +67,7 @@ export default function ReviewsPage() {
           name: name.trim() || null,
           email: email.trim() || null,
           userId,
-          page: "More > Reviews",
+          page: "More > Feedback",
           device: typeof window !== "undefined" && window.innerWidth < 768 ? "mobile" : "desktop",
         }),
       });
@@ -54,7 +79,10 @@ export default function ReviewsPage() {
       setRating(null);
       setName("");
       setEmail("");
-      setMsg("Thanks ✅ Your feedback was sent.");
+      setMsg("Thanks! Your feedback was sent.");
+
+      // Refresh the list so user sees their new feedback
+      fetchReviews();
     } catch (e: any) {
       setMsg(e?.message ?? "Failed to send feedback");
     } finally {
@@ -66,9 +94,9 @@ export default function ReviewsPage() {
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-2xl font-extrabold tracking-tight">Reviews</div>
+          <div className="text-2xl font-extrabold tracking-tight">Feedback</div>
           <div className="text-sm text-muted-foreground">
-            Send your opinion / feedback to the admin.
+            Share your thoughts with the admin.
           </div>
         </div>
 
@@ -77,6 +105,7 @@ export default function ReviewsPage() {
         </Button>
       </div>
 
+      {/* ── Submission form ── */}
       <Card className="rounded-2xl">
         <CardContent className="p-4 space-y-3">
           {!userId ? (
@@ -84,8 +113,11 @@ export default function ReviewsPage() {
               Optional: add your name/email so admin can reply.
             </div>
           ) : (
-            <div className="text-xs text-muted-foreground">
-              Signed in ✅ (feedback will include your user id)
+            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-600">
+                Signed in
+              </span>
+              <span>Feedback will include your user id</span>
             </div>
           )}
 
@@ -140,6 +172,58 @@ export default function ReviewsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* ── Existing feedback ── */}
+      <div className="space-y-2">
+        <h2 className="text-lg font-bold">Community Feedback</h2>
+
+        {loadingReviews ? (
+          <div className="text-sm text-muted-foreground">Loading...</div>
+        ) : reviews.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            No feedback yet. Be the first to share!
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reviews.map((r) => (
+              <Card key={r.id} className="rounded-2xl">
+                <CardContent className="p-4 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">
+                      {r.name || "Anonymous"}
+                    </span>
+                    {r.rating ? (
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={cn(
+                              "text-sm",
+                              i < r.rating! ? "text-amber-500" : "text-muted-foreground/30"
+                            )}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {r.message}
+                  </p>
+                  <div className="text-[11px] text-muted-foreground/60">
+                    {new Date(r.created_at).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

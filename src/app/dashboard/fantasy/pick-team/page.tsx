@@ -2850,16 +2850,61 @@ export default function PickTeamPage() {
       {/* Pitch view - full width edge to edge like FPL */}
       {tab === "pitch" && (
         <div className="-mx-4 space-y-3">
-          <div className="mx-4 rounded-2xl border bg-card p-3">
-            <div className="text-sm font-semibold">Formation Rules</div>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-              <div>GK: <span className="font-semibold text-foreground">1</span></div>
-              <div>DEF: <span className="font-semibold text-foreground">2-3</span></div>
-              <div>MID: <span className="font-semibold text-foreground">3-5</span></div>
-              <div>FWD: <span className="font-semibold text-foreground">2-3</span></div>
-              <div className="col-span-2">Lady: <span className="font-semibold text-foreground">must be Forward</span></div>
+          {picked.length === 0 ? (
+            <div className="mx-4 rounded-2xl border bg-card overflow-hidden">
+              <div
+                className="relative flex flex-col items-center justify-center text-center"
+                style={{
+                  minHeight: 320,
+                  background: "linear-gradient(180deg, #1a6b37 0%, #228B3B 40%, #1a6b37 100%)",
+                }}
+              >
+                {/* Pitch lines decoration */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-24 h-24 rounded-full border-2 border-white/20" />
+                </div>
+                <div className="absolute top-0 left-0 right-0 h-px bg-white/20" />
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-white/20" />
+                <div className="absolute top-1/2 left-0 right-0 h-px bg-white/15" />
+
+                <div className="relative z-10 space-y-4 px-6">
+                  <div className="text-5xl animate-bounce" style={{ animationDuration: "2s" }}>&#9917;</div>
+                  <div>
+                    <div className="text-lg font-extrabold text-white">Build your dream team!</div>
+                    <div className="text-sm text-white/70 mt-1.5 leading-relaxed">
+                      Pick 17 players to compete in the<br />Budo League Fantasy
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard/transfers"
+                    className="inline-flex items-center gap-2 rounded-full bg-white text-emerald-800 px-6 py-2.5 text-sm font-bold hover:bg-white/90 transition-colors shadow-lg"
+                  >
+                    <ArrowLeftRight size={14} />
+                    Go to Transfers
+                  </Link>
+                  <div className="grid grid-cols-4 gap-3 pt-4 text-[11px] text-white/60">
+                    <div><span className="block text-white font-bold">1</span>GK</div>
+                    <div><span className="block text-white font-bold">2-3</span>DEF</div>
+                    <div><span className="block text-white font-bold">3-5</span>MID</div>
+                    <div><span className="block text-white font-bold">2-3</span>FWD</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="mx-4 rounded-2xl border bg-card p-3">
+                <div className="text-sm font-semibold">Formation Rules</div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div>GK: <span className="font-semibold text-foreground">1</span></div>
+                  <div>DEF: <span className="font-semibold text-foreground">2-3</span></div>
+                  <div>MID: <span className="font-semibold text-foreground">3-5</span></div>
+                  <div>FWD: <span className="font-semibold text-foreground">2-3</span></div>
+                  <div className="col-span-2">Lady: <span className="font-semibold text-foreground">must be Forward</span></div>
+                </div>
+              </div>
+            </>
+          )}
 
           <PickPitch
             picked={picked}
@@ -2904,8 +2949,34 @@ export default function PickTeamPage() {
           </div>
 
           {picked.length === 0 ? (
-            <div style={{ padding: 16, textAlign: "center", color: "hsl(var(--muted-foreground))" }}>
-              Pick players from the Transfers page first.
+            <div style={{ padding: "40px 24px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, lineHeight: 1, marginBottom: 12 }}>
+                <span role="img" aria-label="football">&#9917;</span>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "hsl(var(--foreground))", marginBottom: 6 }}>
+                Build your dream team!
+              </div>
+              <div style={{ fontSize: 13, color: "hsl(var(--muted-foreground))", marginBottom: 20, lineHeight: 1.5 }}>
+                Pick 17 players to compete in the<br />Budo League Fantasy
+              </div>
+              <Link
+                href="/dashboard/transfers"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 24px",
+                  borderRadius: 9999,
+                  background: "hsl(var(--primary))",
+                  color: "hsl(var(--primary-foreground))",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                }}
+              >
+                <ArrowLeftRight size={14} />
+                Go to Transfers
+              </Link>
             </div>
           ) : (
             <>
@@ -3214,8 +3285,16 @@ export default function PickTeamPage() {
                 </div>
 
                 {picked.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
-                    No players yet. Go to <Link href="/dashboard/transfers" className="text-primary font-semibold hover:underline">Transfers</Link> to pick your squad.
+                  <div className="flex flex-col items-center text-center py-6 space-y-3">
+                    <div className="text-4xl">&#9917;</div>
+                    <div>
+                      <div className="text-sm font-bold">Build your dream team!</div>
+                      <div className="text-xs text-muted-foreground mt-1">Pick 17 players to compete in the Budo League Fantasy</div>
+                    </div>
+                    <Link href="/dashboard/transfers" className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold hover:opacity-90 transition-opacity">
+                      <ArrowLeftRight size={12} />
+                      Go to Transfers
+                    </Link>
                   </div>
                 ) : (
                   <div className="space-y-2">

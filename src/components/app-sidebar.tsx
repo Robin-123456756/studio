@@ -50,7 +50,7 @@ const navItems: NavItem[] = [
   { href:"/dashboard/players", icon: Users, label: "Players" },
   { href: "/dashboard/scores", icon: Medal, label: "Results" },
   { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
-  { href: "/dashboard/reviews", icon: Star, label: "Reviews" },
+  { href: "/dashboard/reviews", icon: Star, label: "Feedback" },
 ];
 
 // Active if exactly equal OR a child route (keeps highlight when deep in a section)

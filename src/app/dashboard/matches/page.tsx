@@ -598,22 +598,21 @@ export default function MatchesPage() {
     .map((r) => ({ team: r.name, logoUrl: r.logoUrl, goals: r.GF }))
     .sort((a, b) => b.goals - a.goals)
     .slice(0, 5);
-  const teamsByAssists = [...teamStatsMap.values()].sort((a, b) => b.assists - a.assists).slice(0, 5);
-  const teamsByCS = [...teamStatsMap.values()].sort((a, b) => b.cleanSheets - a.cleanSheets).slice(0, 5);
-  const teamsByYC = [...teamStatsMap.values()].sort((a, b) => b.yellowCards - a.yellowCards).slice(0, 5);
-  const teamsByRC = [...teamStatsMap.values()].sort((a, b) => b.redCards - a.redCards).slice(0, 5);
+  const teamsByAssists = [...teamStatsMap.values()].filter((t) => t.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 5);
+  const teamsByCS = [...teamStatsMap.values()].filter((t) => t.cleanSheets > 0).sort((a, b) => b.cleanSheets - a.cleanSheets).slice(0, 5);
+  const teamsByYC = [...teamStatsMap.values()].filter((t) => t.yellowCards > 0).sort((a, b) => b.yellowCards - a.yellowCards).slice(0, 5);
+  const teamsByRC = [...teamStatsMap.values()].filter((t) => t.redCards > 0).sort((a, b) => b.redCards - a.redCards).slice(0, 5);
 
   return (
     <div className="animate-in fade-in-50 space-y-4">
-      {/* Season card — themed with app primary */}
+      {/* Season card — slim teal banner */}
       <Card className="rounded-3xl overflow-hidden border-none">
         <CardContent className="p-0">
-          <div className="relative overflow-hidden p-5 bg-[#0D5C63]">
-            <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
-            <div className="pointer-events-none absolute -left-6 -bottom-6 h-24 w-24 rounded-full bg-white/5" />
-            <div className="relative">
-              <div className="text-sm/none text-primary-foreground/60">Season</div>
-              <div className="mt-2 text-2xl font-extrabold tracking-tight text-primary-foreground">
+          <div className="relative overflow-hidden px-5 py-2 bg-[#0D5C63] flex items-center" style={{ height: 40 }}>
+            <div className="pointer-events-none absolute -right-10 -top-6 h-20 w-20 rounded-full bg-white/5" />
+            <div className="relative flex items-center gap-3">
+              <div className="text-xs text-primary-foreground/60">Season</div>
+              <div className="text-base font-extrabold tracking-tight text-primary-foreground">
                 TBL9
               </div>
             </div>
@@ -1240,7 +1239,7 @@ export default function MatchesPage() {
                       )}
 
                       {/* Team Discipline */}
-                      {teamsByYC.length > 0 && (
+                      {(teamsByYC.length > 0 || teamsByRC.length > 0) && (
                         <div className="sm:col-span-2">
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Discipline
@@ -1274,31 +1273,35 @@ export default function MatchesPage() {
 
                           {disciplineTab === "yellow" && (
                             <div className="space-y-1">
-                              {teamsByYC.map((t, i) => (
-                                <div
-                                  key={t.team}
-                                  className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                    <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
-                                    <span className="text-sm font-medium">{t.team}</span>
+                              {teamsByYC.length === 0 ? (
+                                <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
+                              ) : (
+                                teamsByYC.map((t, i) => (
+                                  <div
+                                    key={t.team}
+                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
+                                      <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
+                                      <span className="text-sm font-medium">{t.team}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-sm font-bold tabular-nums">{t.yellowCards}</span>
+                                      <div className="w-3 h-4 rounded-[2px] bg-yellow-400" />
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-sm font-bold tabular-nums">{t.yellowCards}</span>
-                                    <div className="w-3 h-4 rounded-[2px] bg-yellow-400" />
-                                  </div>
-                                </div>
-                              ))}
+                                ))
+                              )}
                             </div>
                           )}
 
                           {disciplineTab === "red" && (
                             <div className="space-y-1">
-                              {teamsByRC.filter((t) => t.redCards > 0).length === 0 ? (
+                              {teamsByRC.length === 0 ? (
                                 <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
                               ) : (
-                                teamsByRC.filter((t) => t.redCards > 0).map((t, i) => (
+                                teamsByRC.map((t, i) => (
                                   <div
                                     key={t.team}
                                     className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"

@@ -4,6 +4,29 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+export async function GET() {
+  try {
+    const supabase = getSupabaseServerOrThrow();
+
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("id, name, rating, message, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ reviews: data ?? [] });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Route crashed" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseServerOrThrow();
