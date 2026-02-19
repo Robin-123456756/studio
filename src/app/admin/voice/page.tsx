@@ -168,20 +168,34 @@ export default function VoiceAdminPage() {
             <p style={{ margin: 0, fontSize: 10, color: TEXT_MUTED, letterSpacing: 1, textTransform: "uppercase" }}>Budo League</p>
           </div>
         </div>
-        {session?.user?.name && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          {session?.user?.name && (
             <span className="voice-admin-user-name" style={{ fontSize: 12, color: TEXT_MUTED }}>{session.user.name}</span>
-            <button onClick={() => signOut({ callbackUrl: "/admin/login" })}
-              style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${BORDER}`, backgroundColor: "transparent", color: TEXT_MUTED, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-              Logout
-            </button>
-          </div>
-        )}
+          )}
+          <button
+            onClick={() => { if (view !== "confirm") setView("scoring"); }}
+            style={{
+              padding: "4px 10px",
+              borderRadius: 6,
+              border: `1px solid ${view === "scoring" ? ACCENT + "40" : BORDER}`,
+              backgroundColor: view === "scoring" ? `${ACCENT}15` : "transparent",
+              color: view === "scoring" ? ACCENT : TEXT_MUTED,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: view === "confirm" ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+              opacity: view === "confirm" ? 0.5 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Scoring
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", width: "100%" }}>
-          {(["capture", "history", "scoring"] as ViewState[]).map(tab => (
+          {(["capture", "history"] as ViewState[]).map(tab => (
             <button key={tab} onClick={() => { if (view !== "confirm") setView(tab); }}
               style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${view === tab ? ACCENT + "40" : BORDER}`, backgroundColor: view === tab ? `${ACCENT}15` : "transparent", color: view === tab ? ACCENT : TEXT_MUTED, fontSize: 12, fontWeight: 600, cursor: view === "confirm" ? "not-allowed" : "pointer", fontFamily: "inherit", textTransform: "capitalize", opacity: view === "confirm" ? 0.5 : 1, whiteSpace: "nowrap" }}>
-              {tab === "capture" ? "🎤 Capture" : tab === "history" ? "📋 History" : "🧮 Scoring"}
+              {tab === "capture" ? "🎤 Capture" : "📋 History"}
             </button>
           ))}
           {view === "confirm" && <span style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${WARNING}40`, backgroundColor: `${WARNING}15`, color: WARNING, fontSize: 12, fontWeight: 600 }}>✓ Confirming</span>}
@@ -224,7 +238,7 @@ export default function VoiceAdminPage() {
       </div>
 
       <main>
-        {view === "capture" && <CaptureView matchId={selectedMatchId} onResult={handleResult} />}
+        {view === "capture" && <CaptureView matchId={selectedMatchId} onResult={handleResult} showLogout={!!session?.user} />}
         {view === "confirm" && pipelineResult && <ConfirmView pipelineResult={pipelineResult} matchId={selectedMatchId} onConfirm={handleConfirm} onCancel={handleCancel} />}
         {view === "history" && <HistoryView history={history} />}
         {view === "scoring" && <ScoringView matchesByGw={matchesByGw} />}
@@ -236,7 +250,7 @@ export default function VoiceAdminPage() {
 // ═══════════════════════════════════════════════════════════
 // CAPTURE VIEW
 // ═══════════════════════════════════════════════════════════
-function CaptureView({ matchId, onResult }: { matchId: number | null; onResult: (r: any) => void }) {
+function CaptureView({ matchId, onResult, showLogout }: { matchId: number | null; onResult: (r: any) => void; showLogout?: boolean }) {
   const [status, setStatus] = useState("idle");
   const [log, setLog] = useState<any[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
@@ -455,6 +469,27 @@ function CaptureView({ matchId, onResult }: { matchId: number | null; onResult: 
           ))}
         </div>
       </div>
+
+      {showLogout && (
+        <div style={{ marginBottom: 20 }}>
+          <button
+            onClick={() => signOut({ callbackUrl: "/admin/login" })}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: `1px solid ${BORDER}`,
+              backgroundColor: "transparent",
+              color: TEXT_MUTED,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      )}
 
       {/* Processing skeleton */}
       {isProcessing && (
