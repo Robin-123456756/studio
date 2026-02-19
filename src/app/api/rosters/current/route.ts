@@ -38,11 +38,16 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const rows = data ?? [];
+  const multiplierByPlayer = Object.fromEntries(
+    rows.map((r) => [String(r.player_id), Number(r.multiplier ?? 1)])
+  );
+
   return NextResponse.json({
     gwId,
     squadIds: rows.map((r) => r.player_id),
     startingIds: rows.filter((r) => r.is_starting_9).map((r) => r.player_id),
     captainId: rows.find((r) => r.is_captain)?.player_id ?? null,
     viceId: rows.find((r) => r.is_vice_captain)?.player_id ?? null,
+    multiplierByPlayer,
   });
 }

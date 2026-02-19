@@ -77,7 +77,11 @@ export async function processVoiceInput(
     const matchResult = matchResults[entry.player_name];
 
     if (matchResult.match && matchResult.confidence >= 0.6) {
-      const points = await calcTotalPoints(entry.actions, matchResult.match.position);
+      const points = await calcTotalPoints(
+        entry.actions,
+        matchResult.match.position,
+        matchResult.match.is_lady
+      );
 
       resolved.push({
         spoken_name: entry.player_name,
@@ -159,7 +163,11 @@ export async function processTextInput(
     const matchResult = matchResults[entry.player_name];
 
     if (matchResult.match && matchResult.confidence >= 0.6) {
-      const points = await calcTotalPoints(entry.actions, matchResult.match.position);
+      const points = await calcTotalPoints(
+        entry.actions,
+        matchResult.match.position,
+        matchResult.match.is_lady
+      );
       resolved.push({
         spoken_name: entry.player_name,
         player: matchResult.match,

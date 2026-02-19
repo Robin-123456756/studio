@@ -174,6 +174,121 @@ export async function GET(req: Request) {
       }
     }
 
+    // 5. Derive yellow/red cards from player_match_events
+    //    Voice admin stores cards as actions ("yellow", "red") in player_match_events.
+    //    Merge these into stats so the matches page can show discipline leaders.
+    let eventsQ = supabase
+      .from("player_match_events")
+      .select("player_id, match_id, action, quantity")
+      .in("action", ["yellow", "red", "yellow_card", "red_card"]);
+    if (playerId) eventsQ = eventsQ.eq("player_id", playerId);
+    const { data: cardEvents } = await eventsQ;
+
+    if (cardEvents && cardEvents.length > 0) {
+      // Fetch any players from card events not already in playersMap
+      const cardPlayerIds = [...new Set(cardEvents.map((e: any) => e.player_id))];
+      const missingPlayerIds = cardPlayerIds.filter((id: string) => !playersMap.has(id));
+      if (missingPlayerIds.length > 0) {
+        const { data: extraPlayers } = await supabase
+          .from("players")
+          .select("id, name, web_name, position, is_lady, avatar_url, team_id")
+          .in("id", missingPlayerIds);
+        const extraTeamUuids = [...new Set((extraPlayers ?? []).map((p: any) => p.team_id).filter(Boolean))];
+        let extraTeamsMap = new Map<string, any>();
+        if (extraTeamUuids.length > 0) {
+          const { data: extraTeams } = await supabase
+            .from("teams")
+            .select("id, team_uuid, name, short_name, logo_url")
+            .in("team_uuid", extraTeamUuids);
+          for (const t of extraTeams ?? []) extraTeamsMap.set(t.team_uuid, t);
+        }
+        for (const p of extraPlayers ?? []) {
+          const team = extraTeamsMap.get(p.team_id);
+          playersMap.set(p.id, { ...p, team });
+        }
+      }
+
+      // Get match → gameweek mapping from already-fetched playedMatches + any remaining
+      const matchGwMap = new Map<number, number>();
+      for (const m of playedMatches ?? []) {
+        matchGwMap.set(m.id, m.gameweek_id);
+      }
+      // Fetch any match IDs we don't already have
+      const missingMatchIds = [
+        ...new Set(
+          cardEvents
+            .map((e: any) => e.match_id)
+            .filter((id: number) => !matchGwMap.has(id))
+        ),
+      ];
+      if (missingMatchIds.length > 0) {
+        const { data: extraMatches } = await supabase
+          .from("matches")
+          .select("id, gameweek_id")
+          .in("id", missingMatchIds);
+        for (const m of extraMatches ?? []) {
+          matchGwMap.set(m.id, m.gameweek_id);
+        }
+      }
+
+      // Build a lookup of existing stats by playerId+gameweekId
+      const statsLookup = new Map<string, any>();
+      for (const s of stats) {
+        const key = `${s.playerId}__${s.gameweekId}`;
+        statsLookup.set(key, s);
+      }
+
+      for (const ev of cardEvents) {
+        const gameweekId = matchGwMap.get(ev.match_id);
+        if (!gameweekId) continue;
+        if (gwId && gameweekId !== Number(gwId)) continue;
+
+        const isYellow = ev.action === "yellow" || ev.action === "yellow_card";
+        const isRed = ev.action === "red" || ev.action === "red_card";
+        const qty = ev.quantity ?? 1;
+        const key = `${ev.player_id}__${gameweekId}`;
+        const existing = statsLookup.get(key);
+
+        if (existing) {
+          // Merge into existing stat row
+          if (isYellow) existing.yellowCards = (existing.yellowCards || 0) + qty;
+          if (isRed) existing.redCards = (existing.redCards || 0) + qty;
+        } else {
+          // Create a new stat entry for this player+gameweek
+          const p = playersMap.get(ev.player_id);
+          const newStat = {
+            id: `card-${ev.match_id}-${ev.player_id}`,
+            playerId: ev.player_id,
+            gameweekId,
+            points: 0,
+            goals: 0,
+            assists: 0,
+            cleanSheet: false,
+            yellowCards: isYellow ? qty : 0,
+            redCards: isRed ? qty : 0,
+            ownGoals: 0,
+            playerName: p?.web_name ?? p?.name ?? "—",
+            player: p
+              ? {
+                  id: p.id,
+                  name: p.name,
+                  webName: p.web_name ?? null,
+                  position: p.position ?? null,
+                  isLady: p.is_lady ?? false,
+                  avatarUrl: p.avatar_url ?? null,
+                  teamName: p.team?.name ?? null,
+                  teamShort: p.team?.short_name ?? null,
+                  teamUuid: p.team?.team_uuid ?? null,
+                  logoUrl: p.team?.logo_url ?? null,
+                }
+              : null,
+          };
+          stats.push(newStat);
+          statsLookup.set(key, newStat);
+        }
+      }
+    }
+
     return NextResponse.json({ stats });
   } catch (e: any) {
     return NextResponse.json(

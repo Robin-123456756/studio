@@ -34,7 +34,7 @@ export async function writeToDatabase({
     for (const action of entry.pointsBreakdown) {
       const { data, error } = await supabase
         .from("player_match_events")
-        .insert({
+        .upsert({
           match_id: matchId,
           player_id: entry.player.id,
           action: action.action,
@@ -43,6 +43,8 @@ export async function writeToDatabase({
           input_method: inputMethod,
           entered_by: adminId,
           voice_transcript: transcript,
+        }, {
+          onConflict: 'player_id,match_id,action',
         })
         .select("id")
         .single();
@@ -84,12 +86,7 @@ export async function writeToDatabase({
     });
   }
 
-  // 5. Refresh materialized view
-  try {
-    await supabase.rpc("refresh_match_totals");
-  } catch (err) {
-    console.warn("[DB] Could not refresh materialized view:", err);
-  }
+  // 5. Materialized view is auto-refreshed by DB trigger on player_match_events
 
   return {
     success: true,
@@ -145,12 +142,7 @@ export async function undoEntry(
     .update({ was_undone: true })
     .eq("id", auditLogId);
 
-  // 6. Refresh view
-  try {
-    await supabase.rpc("refresh_match_totals");
-  } catch (err) {
-    console.warn("[DB] Could not refresh materialized view:", err);
-  }
+  // 6. Materialized view is auto-refreshed by DB trigger on player_match_events
 
   return { success: true, deletedCount: count || 0 };
 }

@@ -314,13 +314,19 @@ function FantasyPage() {
         players.map((p) => [String(p.id), Number(p.points ?? 0)])
       );
 
-      const baseGwPoints = startingIds.reduce(
-        (sum, id) => sum + (pointsById.get(String(id)) ?? 0),
-        0
-      );
-      const captainId = rosterJson?.captainId ?? null;
-      const gwPoints =
-        baseGwPoints + (captainId ? pointsById.get(String(captainId)) ?? 0 : 0);
+      const multiplierByPlayer: Record<string, number> =
+        rosterJson?.multiplierByPlayer ?? {};
+      const gwPoints = startingIds.reduce((sum, id) => {
+        const playerId = String(id);
+        const points = pointsById.get(playerId) ?? 0;
+        const rawMultiplier = Number(
+          multiplierByPlayer[playerId] ??
+            (String(rosterJson?.captainId ?? "") === playerId ? 2 : 1)
+        );
+        const multiplier =
+          Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
+        return sum + points * multiplier;
+      }, 0);
 
       let totalPoints = squadIds.reduce(
         (sum, id) => sum + (pointsById.get(String(id)) ?? 0),

@@ -33,8 +33,12 @@ async function loadRules(): Promise<Record<string, number>> {
  */
 export async function calcPoints(
   action: string,
-  position: string
+  position: string,
+  isLady = false
 ): Promise<number> {
+  // Business rule: ladies get 2 points for appearance.
+  if (action === "appearance" && isLady) return 2;
+
   const rules = await loadRules();
 
   // Position-specific rule first
@@ -54,13 +58,14 @@ export async function calcPoints(
  */
 export async function calcTotalPoints(
   actions: AIAction[],
-  position: string
+  position: string,
+  isLady = false
 ): Promise<{ total: number; breakdown: PointsBreakdownItem[] }> {
   const breakdown: PointsBreakdownItem[] = [];
   let total = 0;
 
   for (const { action, quantity } of actions) {
-    const pointsPerUnit = await calcPoints(action, position);
+    const pointsPerUnit = await calcPoints(action, position, isLady);
     const subtotal = pointsPerUnit * quantity;
 
     breakdown.push({

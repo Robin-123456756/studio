@@ -23,6 +23,13 @@ export async function POST(request: Request) {
 
     if (finalizeError) throw finalizeError;
 
+    // Refresh materialized view after score calculation
+    try {
+      await supabase.rpc("refresh_match_totals");
+    } catch (_) {
+      // Non-fatal — trigger may have already refreshed it
+    }
+
     // Get summary
     const { data: scores } = await supabase
       .from("user_weekly_scores")

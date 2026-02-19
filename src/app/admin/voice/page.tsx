@@ -168,34 +168,14 @@ export default function VoiceAdminPage() {
             <p style={{ margin: 0, fontSize: 10, color: TEXT_MUTED, letterSpacing: 1, textTransform: "uppercase" }}>Budo League</p>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          {session?.user?.name && (
-            <span className="voice-admin-user-name" style={{ fontSize: 12, color: TEXT_MUTED }}>{session.user.name}</span>
-          )}
-          <button
-            onClick={() => { if (view !== "confirm") setView("scoring"); }}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 6,
-              border: `1px solid ${view === "scoring" ? ACCENT + "40" : BORDER}`,
-              backgroundColor: view === "scoring" ? `${ACCENT}15` : "transparent",
-              color: view === "scoring" ? ACCENT : TEXT_MUTED,
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: view === "confirm" ? "not-allowed" : "pointer",
-              fontFamily: "inherit",
-              opacity: view === "confirm" ? 0.5 : 1,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Scoring
-          </button>
-        </div>
+        {session?.user?.name && (
+          <span className="voice-admin-user-name" style={{ fontSize: 12, color: TEXT_MUTED, marginLeft: "auto" }}>{session.user.name}</span>
+        )}
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", width: "100%" }}>
-          {(["capture", "history"] as ViewState[]).map(tab => (
+          {(["capture", "history", "scoring"] as ViewState[]).map(tab => (
             <button key={tab} onClick={() => { if (view !== "confirm") setView(tab); }}
               style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${view === tab ? ACCENT + "40" : BORDER}`, backgroundColor: view === tab ? `${ACCENT}15` : "transparent", color: view === tab ? ACCENT : TEXT_MUTED, fontSize: 12, fontWeight: 600, cursor: view === "confirm" ? "not-allowed" : "pointer", fontFamily: "inherit", textTransform: "capitalize", opacity: view === "confirm" ? 0.5 : 1, whiteSpace: "nowrap" }}>
-              {tab === "capture" ? "🎤 Capture" : "📋 History"}
+              {tab === "capture" ? "🎤 Capture" : tab === "history" ? "📋 History" : "🧮 Scoring"}
             </button>
           ))}
           {view === "confirm" && <span style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${WARNING}40`, backgroundColor: `${WARNING}15`, color: WARNING, fontSize: 12, fontWeight: 600 }}>✓ Confirming</span>}
