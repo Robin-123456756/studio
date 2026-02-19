@@ -20,7 +20,7 @@ async function loadRules(): Promise<Record<string, number>> {
 
   rulesCache = {};
   for (const row of data || []) {
-    rulesCache[`${row.action}:${row.position}`] = row.points;
+    rulesCache[`${row.action}:${row.position || "ALL"}`] = row.points;
   }
 
   console.log(`[Points] Loaded ${data?.length || 0} scoring rules`);
