@@ -122,3 +122,44 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const body = await req.json();
+
+    const { name, web_name, position, now_cost, team_id, is_lady } = body;
+
+    if (!name || !position || !team_id) {
+      return NextResponse.json(
+        { error: "name, position, and team_id are required" },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("players")
+      .insert({
+        name,
+        web_name: web_name || name.split(" ").pop(),
+        position,
+        now_cost: now_cost || 5.0,
+        team_id: parseInt(team_id),
+        is_lady: is_lady || false,
+        total_points: 0,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to add player" },
+      { status: 500 }
+    );
+  }
+}
