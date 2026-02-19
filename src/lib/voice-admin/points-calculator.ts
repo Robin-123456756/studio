@@ -36,21 +36,21 @@ export async function calcPoints(
   position: string,
   isLady = false
 ): Promise<number> {
-  // Business rule: ladies get 2 points for appearance.
-  if (action === "appearance" && isLady) return 2;
-
   const rules = await loadRules();
 
-  // Position-specific rule first
+  // Position-specific rule first, then fall back to ALL
   const specific = rules[`${action}:${position}`];
-  if (specific !== undefined) return specific;
+  const basePoints =
+    specific !== undefined
+      ? specific
+      : rules[`${action}:ALL`] ?? 0;
 
-  // Fall back to ALL
-  const all = rules[`${action}:ALL`];
-  if (all !== undefined) return all;
+  if (basePoints === 0 && specific === undefined && rules[`${action}:ALL`] === undefined) {
+    console.warn(`[Points] No rule for action="${action}" position="${position}"`);
+  }
 
-  console.warn(`[Points] No rule for action="${action}" position="${position}"`);
-  return 0;
+  // Business rule: lady players get 2x on ALL actions
+  return isLady ? basePoints * 2 : basePoints;
 }
 
 /**

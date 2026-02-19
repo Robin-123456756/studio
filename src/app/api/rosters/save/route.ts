@@ -32,15 +32,8 @@ export async function POST(req: Request) {
 
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
 
-  // Look up which players are ladies for auto-double
-  const { data: ladyData } = await supabase
-    .from("players")
-    .select("id, is_lady")
-    .in("id", squadIds)
-    .eq("is_lady", true);
-  const ladyIds = new Set((ladyData ?? []).map((p: any) => p.id));
-
-  // insert new roster — ladies get multiplier 2 (same as captain)
+  // insert new roster — captain gets 2x multiplier
+  // (lady 2x is already applied at the base scoring level, not here)
   const rows = squadIds.map((playerId) => ({
     user_id: userId,
     player_id: playerId,
@@ -48,7 +41,7 @@ export async function POST(req: Request) {
     is_starting_9: startingIds.includes(playerId),
     is_captain: captainId === playerId,
     is_vice_captain: viceId === playerId,
-    multiplier: (captainId === playerId || ladyIds.has(playerId)) ? 2 : 1,
+    multiplier: captainId === playerId ? 2 : 1,
   }));
 
   const { error: insErr } = await supabase.from("user_rosters").insert(rows);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Users, Zap, Trophy, Coins, ArrowLeftRight, Calendar, Shield, Star } from "lucide-react";
+import { ArrowLeft, Users, Zap, Trophy, Coins, ArrowLeftRight, Calendar, Crown, Shield, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type RuleSection = {
@@ -29,7 +29,7 @@ const ruleSections: RuleSection[] = [
       "Your starting lineup must contain exactly 10 players",
       "Exactly 1 Goalkeeper must start",
       "Formation rules: 2–3 DEF, 3–4 MID, 2–3 FWD",
-      "Lady forward is optional (if you field her, your team earns +1 LP in the table)",
+      "Lady forward is optional (if you field her, her points are 2x AND your team earns +1 LP)",
       "Only starting players earn points for your team",
     ],
   },
@@ -75,6 +75,18 @@ const ruleSections: RuleSection[] = [
     ],
   },
   {
+    title: "Lady Player Bonus",
+    icon: <Crown className="h-5 w-5" />,
+    rules: [
+      "Lady players earn 2x points on ALL actions (goals, assists, clean sheets, etc.)",
+      "Example: A lady Forward scores a goal (4pts) \u2192 she earns 8pts (4 \u00d7 2)",
+      "Example: A lady Forward gets an assist (3pts) \u2192 she earns 6pts (3 \u00d7 2)",
+      "The 2x multiplier is applied automatically \u2014 no action needed from managers",
+      "If a lady player is also your Captain, she earns 4x points (2x lady \u00d7 2x captain)",
+      "Fielding a lady forward also earns your league team +1 LP in the standings table",
+    ],
+  },
+  {
     title: "Chips",
     icon: <Star className="h-5 w-5" />,
     rules: [
@@ -97,6 +109,7 @@ const ruleSections: RuleSection[] = [
       "Yellow Card: -1pt, Red Card: -3pts",
       "Own Goal: -2pts, Penalty Miss: -2pts",
       "LP: +1 league point if a team fields a lady forward in a match",
+      "Lady Player: All points are doubled (2x) for lady players",
     ],
   },
 ];
