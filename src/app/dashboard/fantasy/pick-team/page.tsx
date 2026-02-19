@@ -287,7 +287,7 @@ function PlayerDetailModal({
               <div className="text-xs text-muted-foreground">GW Pts</div>
             </div>
             <div className="rounded-xl bg-muted/50 p-3 text-center">
-              <div className="text-2xl font-bold">{player.ownership ?? "--"}%</div>
+              <div className="text-2xl font-bold">{formatOwnership(player.ownership)}</div>
               <div className="text-xs text-muted-foreground">Owned By</div>
             </div>
           </div>
@@ -929,22 +929,28 @@ export default function PickTeamPage() {
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load players");
 
-        // Generate mock data for FPL-inspired features if not from API
-        const allTeamShorts = ["ACC", "BAS", "BIF", "TRO", "DUJ", "NIG", "PEA", "KOM", "MAS", "MID", "CEN", "JUB", "END", "ABA", "THA", "QUA"];
-
         setPlayers(
           (json.players ?? []).map((p: any) => {
-            const pts = Number(p.points ?? p.total_points ?? 0);
-            // Generate mock ownership based on points (higher points = higher ownership)
-            const mockOwnership = p.ownership ?? Math.min(95, Math.max(1, Math.round(pts * 0.8 + Math.random() * 20)));
-            // Generate mock price change (-0.2 to +0.2)
-            const mockPriceChange = p.priceChange ?? p.price_change ?? (Math.random() > 0.7 ? (Math.random() - 0.5) * 0.4 : 0);
-            // Generate mock points history (last 5 GWs)
-            const mockHistory = p.pointsHistory ?? p.points_history ?? Array.from({ length: 5 }, () => Math.floor(Math.random() * 15));
-            // Generate mock next opponent
-            const playerTeam = (p.teamShort ?? p.team_short ?? "").toUpperCase();
-            const opponents = allTeamShorts.filter(t => t !== playerTeam);
-            const mockNextOpp = p.nextOpponent ?? p.next_opponent ?? opponents[Math.floor(Math.random() * opponents.length)];
+            const ownershipRaw = Number(p.ownership);
+            const ownership = Number.isFinite(ownershipRaw)
+              ? Math.round(ownershipRaw * 10) / 10
+              : 0;
+            const priceChangeRaw = Number(p.priceChange ?? p.price_change);
+            const priceChange = Number.isFinite(priceChangeRaw)
+              ? Math.round(priceChangeRaw * 10) / 10
+              : null;
+            const pointsHistoryRaw = p.pointsHistory ?? p.points_history;
+            const pointsHistory =
+              Array.isArray(pointsHistoryRaw)
+                ? pointsHistoryRaw
+                    .map((v: any) => Number(v))
+                    .filter((v: number) => Number.isFinite(v))
+                : null;
+            const nextOpponentRaw = p.nextOpponent ?? p.next_opponent ?? null;
+            const nextOpponent =
+              typeof nextOpponentRaw === "string" && nextOpponentRaw.trim().length > 0
+                ? nextOpponentRaw.trim().toUpperCase()
+                : null;
 
             return {
               id: String(p.id),
@@ -962,11 +968,11 @@ export default function PickTeamPage() {
               formLast5: p.form_last5 ?? p.form_last_5 ?? null,
               isLady: Boolean(p.isLady ?? p.is_lady),
 
-              // FPL-inspired fields
-              ownership: mockOwnership,
-              priceChange: Math.round(mockPriceChange * 10) / 10,
-              pointsHistory: mockHistory,
-              nextOpponent: mockNextOpp,
+              // Data-driven fields
+              ownership,
+              priceChange,
+              pointsHistory: pointsHistory && pointsHistory.length > 0 ? pointsHistory : null,
+              nextOpponent,
             };
           })
         );

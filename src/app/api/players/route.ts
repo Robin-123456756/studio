@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 function getSupabaseAdmin() {
-  // ✅ Use the URL env you already use across the app
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
@@ -19,7 +18,7 @@ function getSupabaseAdmin() {
 
 export async function GET(req: Request) {
   try {
-    const supabase = getSupabaseAdmin(); // ✅ created at request-time
+    const supabase = getSupabaseAdmin();
 
     const url = new URL(req.url);
     const teamId = url.searchParams.get("team_id");
@@ -61,17 +60,77 @@ export async function GET(req: Request) {
     const { data, error } = await query;
 
     if (error) {
-      console.log("❌ SUPABASE ERROR", error);
+      console.log("SUPABASE ERROR /api/players", error);
       return NextResponse.json(
         { error: error.message, details: error },
         { status: 500 }
       );
     }
 
-    // Optionally compute dynamic total_points from player_stats
-    let totalsMap = new Map<string, { points: number; goals: number; assists: number; appearances: number }>();
+    const playerIds = (data ?? []).map((p: any) => String(p.id));
+    const ownershipMap = new Map<string, number>();
+
+    const { count: managerCount } = await supabase
+      .from("fantasy_teams")
+      .select("user_id", { count: "exact", head: true });
+    const registeredManagers = typeof managerCount === "number" ? managerCount : 0;
+
+    if (playerIds.length > 0) {
+      let currentGwId: number | null = null;
+
+      const { data: currentGw } = await supabase
+        .from("gameweeks")
+        .select("id")
+        .eq("is_current", true)
+        .maybeSingle();
+
+      if (currentGw?.id) {
+        currentGwId = Number(currentGw.id);
+      } else {
+        const { data: latestGw } = await supabase
+          .from("gameweeks")
+          .select("id")
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        currentGwId = latestGw?.id ? Number(latestGw.id) : null;
+      }
+
+      if (currentGwId) {
+        const { data: rosterRows } = await supabase
+          .from("user_rosters")
+          .select("player_id,user_id")
+          .eq("gameweek_id", currentGwId)
+          .in("player_id", playerIds);
+
+        const ownersByPlayer = new Map<string, Set<string>>();
+        const activeUsers = new Set<string>();
+
+        for (const row of rosterRows ?? []) {
+          const pid = String((row as any).player_id);
+          const uid = String((row as any).user_id);
+          if (!ownersByPlayer.has(pid)) ownersByPlayer.set(pid, new Set<string>());
+          ownersByPlayer.get(pid)!.add(uid);
+          activeUsers.add(uid);
+        }
+
+        // If nobody has fully registered a fantasy team yet, use active roster users.
+        const denominator = registeredManagers > 0 ? registeredManagers : activeUsers.size;
+
+        for (const pid of playerIds) {
+          const selectedCount = ownersByPlayer.get(pid)?.size ?? 0;
+          const ownershipPct =
+            denominator > 0 ? Math.round((selectedCount / denominator) * 1000) / 10 : 0;
+          ownershipMap.set(pid, ownershipPct);
+        }
+      }
+    }
+
+    let totalsMap = new Map<
+      string,
+      { points: number; goals: number; assists: number; appearances: number }
+    >();
     if (dynamicPoints) {
-      const playerIds = (data ?? []).map((p: any) => p.id);
       if (playerIds.length > 0) {
         const { data: statsData } = await supabase
           .from("player_stats")
@@ -79,11 +138,16 @@ export async function GET(req: Request) {
           .in("player_id", playerIds);
 
         for (const s of statsData ?? []) {
-          const pid = s.player_id;
-          const existing = totalsMap.get(pid) ?? { points: 0, goals: 0, assists: 0, appearances: 0 };
-          existing.points += s.points ?? 0;
-          existing.goals += s.goals ?? 0;
-          existing.assists += s.assists ?? 0;
+          const pid = String((s as any).player_id);
+          const existing = totalsMap.get(pid) ?? {
+            points: 0,
+            goals: 0,
+            assists: 0,
+            appearances: 0,
+          };
+          existing.points += (s as any).points ?? 0;
+          existing.goals += (s as any).goals ?? 0;
+          existing.assists += (s as any).assists ?? 0;
           existing.appearances += 1;
           totalsMap.set(pid, existing);
         }
@@ -91,31 +155,35 @@ export async function GET(req: Request) {
     }
 
     const players = (data ?? []).map((p: any) => {
-      const totals = dynamicPoints ? totalsMap.get(p.id) : null;
+      const pid = String(p.id);
+      const totals = dynamicPoints ? totalsMap.get(pid) : null;
       return {
         id: p.id,
-        name: p.name ?? p.web_name ?? "—",
+        name: p.name ?? p.web_name ?? "--",
         webName: p.web_name ?? null,
         position: p.position,
         price: p.now_cost ?? null,
-        points: totals ? totals.points : (p.total_points ?? null),
+        points: totals ? totals.points : p.total_points ?? null,
         avatarUrl: p.avatar_url ?? null,
         isLady: p.is_lady ?? null,
         teamId: p.team_id,
-        teamName: p.teams?.name ?? "—",
-        teamShort: p.teams?.short_name ?? "—",
+        teamName: p.teams?.name ?? "--",
+        teamShort: p.teams?.short_name ?? "--",
         teamUuid: p.teams?.team_uuid ?? null,
-        ...(totals ? {
-          totalGoals: totals.goals,
-          totalAssists: totals.assists,
-          appearances: totals.appearances,
-        } : {}),
+        ownership: ownershipMap.get(pid) ?? 0,
+        ...(totals
+          ? {
+              totalGoals: totals.goals,
+              totalAssists: totals.assists,
+              appearances: totals.appearances,
+            }
+          : {}),
       };
     });
 
     return NextResponse.json({ players });
   } catch (e: any) {
-    console.log("❌ ROUTE CRASH", e);
+    console.log("ROUTE CRASH /api/players", e);
     return NextResponse.json(
       { error: String(e?.message ?? e), stack: e?.stack ?? null },
       { status: 500 }

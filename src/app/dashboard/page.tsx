@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Calendar, ChevronDown, ChevronUp, History, Users } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Crown, History, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -104,6 +104,16 @@ export default function DashboardPage() {
   const [recentMatches, setRecentMatches] = React.useState<ApiMatch[]>([]);
   const [showAllResults, setShowAllResults] = React.useState(false);
   const [upcomingMatches, setUpcomingMatches] = React.useState<ApiMatch[]>([]);
+  const [topLady, setTopLady] = React.useState<{
+    name: string;
+    points: number;
+    teamName: string;
+    avatarUrl: string | null;
+    position: string | null;
+    goals: number;
+    assists: number;
+    playerId: string;
+  } | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [resultIdx, setResultIdx] = React.useState(0);
   const [fixtureIdx, setFixtureIdx] = React.useState(0);
@@ -113,19 +123,38 @@ export default function DashboardPage() {
       try {
         setLoading(true);
 
-        // 1. Fetch teams + standings + gameweeks in parallel
-        const [teamsRes, standingsRes, gwRes] = await Promise.all([
+        // 1. Fetch teams + standings + gameweeks + players in parallel
+        const [teamsRes, standingsRes, gwRes, playersRes] = await Promise.all([
           fetch("/api/teams", { cache: "no-store" }),
           fetch("/api/standings", { cache: "no-store" }),
           fetch("/api/gameweeks/current", { cache: "no-store" }),
+          fetch("/api/players?dynamic_points=1", { cache: "no-store" }),
         ]);
 
         const teamsJson = await teamsRes.json();
         const standingsJson = await standingsRes.json();
         const gwJson = await gwRes.json();
+        const playersJson = await playersRes.json();
 
         setTeams(teamsJson.teams ?? []);
         setTable((standingsJson.rows ?? []) as Row[]);
+
+        // Find best performing lady player
+        const allPlayers = playersJson.players ?? [];
+        const ladies = allPlayers.filter((p: any) => p.isLady && (p.points ?? 0) > 0);
+        if (ladies.length > 0) {
+          const best = ladies.sort((a: any, b: any) => (b.points ?? 0) - (a.points ?? 0))[0];
+          setTopLady({
+            name: best.name,
+            points: best.points ?? 0,
+            teamName: best.teamName ?? "—",
+            avatarUrl: best.avatarUrl ?? null,
+            position: best.position ?? null,
+            goals: best.totalGoals ?? 0,
+            assists: best.totalAssists ?? 0,
+            playerId: best.id,
+          });
+        }
 
         const currentGwId = gwJson.current?.id;
         const allGws: number[] = (gwJson.all ?? []).map((g: any) => g.id);
@@ -446,6 +475,75 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-sm text-muted-foreground">
                   Fixtures will appear here once scheduled.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Best Lady Player */}
+          <Card className="rounded-3xl overflow-hidden border-pink-200/40 dark:border-pink-500/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base font-headline">
+                <Crown className="h-4 w-4 text-pink-500" />
+                Best Lady Player
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              ) : topLady ? (
+                <Link
+                  href={`/dashboard/players/${topLady.playerId}`}
+                  className="flex items-center gap-4 group"
+                >
+                  {/* Avatar / placeholder */}
+                  <div className="relative shrink-0">
+                    {topLady.avatarUrl ? (
+                      <img
+                        src={topLady.avatarUrl}
+                        alt={topLady.name}
+                        className="h-16 w-16 rounded-2xl object-cover border-2 border-pink-300/50"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/40 dark:to-pink-800/30 border-2 border-pink-300/50 flex items-center justify-center">
+                        <span className="text-2xl font-bold text-pink-500/70">
+                          {topLady.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 flex items-center justify-center">
+                      <Crown className="h-3 w-3 text-white" />
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold truncate group-hover:text-pink-500 transition-colors">
+                      {topLady.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {topLady.teamName} &middot; {topLady.position ?? "—"}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
+                      <span className="font-bold text-pink-600 dark:text-pink-400 tabular-nums">
+                        {topLady.points} pts
+                      </span>
+                      {topLady.goals > 0 && (
+                        <span className="text-muted-foreground tabular-nums">
+                          {topLady.goals}G
+                        </span>
+                      )}
+                      {topLady.assists > 0 && (
+                        <span className="text-muted-foreground tabular-nums">
+                          {topLady.assists}A
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Lady player stats will appear once matches are played.
                 </div>
               )}
             </CardContent>
