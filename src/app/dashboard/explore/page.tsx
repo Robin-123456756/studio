@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { normalizePosition } from "@/lib/pitch-helpers";
 
 type TeamResult = {
   team_uuid: string;
@@ -34,6 +35,15 @@ type MatchResult = {
   away_team: { name: string; logo_url: string | null } | null;
 };
 
+type TopCard = {
+  playerId: string;
+  name: string;
+  value: number;
+  label: string;
+  team: string;
+  avatarUrl: string | null;
+};
+
 function useDebouncedValue<T>(value: T, delay = 250) {
   const [v, setV] = React.useState(value);
   React.useEffect(() => {
@@ -53,6 +63,71 @@ export default function ExplorePage() {
   const [teams, setTeams] = React.useState<TeamResult[]>([]);
   const [players, setPlayers] = React.useState<PlayerResult[]>([]);
   const [matches, setMatches] = React.useState<MatchResult[]>([]);
+
+  // Top performer cards
+  const [topScorer, setTopScorer] = React.useState<TopCard | null>(null);
+  const [topAssister, setTopAssister] = React.useState<TopCard | null>(null);
+  const [topCleanSheet, setTopCleanSheet] = React.useState<TopCard | null>(null);
+  const [bestLady, setBestLady] = React.useState<TopCard | null>(null);
+  const [cardsLoading, setCardsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setCardsLoading(true);
+        const res = await fetch("/api/player-stats", { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error);
+
+        const stats: any[] = json.stats ?? [];
+
+        // Aggregate goals per player
+        const goalMap = new Map<string, { name: string; goals: number; team: string; avatarUrl: string | null; id: string }>();
+        const assistMap = new Map<string, { name: string; assists: number; team: string; avatarUrl: string | null; id: string }>();
+        const csMap = new Map<string, { name: string; cs: number; team: string; avatarUrl: string | null; id: string }>();
+        const ladyMap = new Map<string, { name: string; points: number; team: string; avatarUrl: string | null; id: string }>();
+
+        for (const s of stats) {
+          const id = s.playerId;
+          const name = s.playerName ?? "—";
+          const team = s.player?.teamShort ?? s.player?.teamName ?? "—";
+          const avatarUrl = s.player?.avatarUrl ?? null;
+          const pos = normalizePosition(s.player?.position);
+
+          if (s.goals > 0) {
+            const e = goalMap.get(id);
+            goalMap.set(id, { name, goals: (e?.goals ?? 0) + s.goals, team, avatarUrl, id });
+          }
+          if (s.assists > 0) {
+            const e = assistMap.get(id);
+            assistMap.set(id, { name, assists: (e?.assists ?? 0) + s.assists, team, avatarUrl, id });
+          }
+          if (s.cleanSheet && pos === "Goalkeeper") {
+            const e = csMap.get(id);
+            csMap.set(id, { name, cs: (e?.cs ?? 0) + 1, team, avatarUrl, id });
+          }
+          if (s.player?.isLady) {
+            const e = ladyMap.get(id);
+            ladyMap.set(id, { name, points: (e?.points ?? 0) + (s.points ?? 0), team, avatarUrl, id });
+          }
+        }
+
+        const topG = [...goalMap.values()].sort((a, b) => b.goals - a.goals)[0];
+        const topA = [...assistMap.values()].sort((a, b) => b.assists - a.assists)[0];
+        const topCS = [...csMap.values()].sort((a, b) => b.cs - a.cs)[0];
+        const topL = [...ladyMap.values()].sort((a, b) => b.points - a.points)[0];
+
+        if (topG) setTopScorer({ playerId: topG.id, name: topG.name, value: topG.goals, label: topG.goals === 1 ? "goal" : "goals", team: topG.team, avatarUrl: topG.avatarUrl });
+        if (topA) setTopAssister({ playerId: topA.id, name: topA.name, value: topA.assists, label: topA.assists === 1 ? "assist" : "assists", team: topA.team, avatarUrl: topA.avatarUrl });
+        if (topCS) setTopCleanSheet({ playerId: topCS.id, name: topCS.name, value: topCS.cs, label: topCS.cs === 1 ? "clean sheet" : "clean sheets", team: topCS.team, avatarUrl: topCS.avatarUrl });
+        if (topL) setBestLady({ playerId: topL.id, name: topL.name, value: topL.points, label: "pts", team: topL.team, avatarUrl: topL.avatarUrl });
+      } catch {
+        // silent — cards just won't show
+      } finally {
+        setCardsLoading(false);
+      }
+    })();
+  }, []);
 
   React.useEffect(() => {
     (async () => {
@@ -103,6 +178,60 @@ export default function ExplorePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Top Performer Cards */}
+      {!cardsLoading && (topScorer || topAssister || topCleanSheet || bestLady) && (
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { data: topScorer, title: "Top Scorer", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+            { data: topAssister, title: "Top Assists", color: "text-blue-500", bg: "bg-blue-500/10" },
+            { data: topCleanSheet, title: "Top Clean Sheets", color: "text-amber-500", bg: "bg-amber-500/10" },
+            { data: bestLady, title: "Best Lady Player", color: "text-pink-500", bg: "bg-pink-500/10" },
+          ].map(({ data: card, title, color, bg }) =>
+            card ? (
+              <Link
+                key={title}
+                href={`/dashboard/players/${card.playerId}`}
+                className="block"
+              >
+                <Card className="rounded-2xl hover:-translate-y-0.5 hover:shadow-md transition-all">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                      {title}
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn("h-9 w-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center", bg)}>
+                        {card.avatarUrl ? (
+                          <img
+                            src={card.avatarUrl}
+                            alt={card.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className={cn("text-sm font-bold", color)}>
+                            {card.name.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate leading-tight">
+                          {card.name}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          {card.team}
+                        </div>
+                      </div>
+                    </div>
+                    <div className={cn("text-lg font-extrabold tabular-nums font-mono", color)}>
+                      {card.value} <span className="text-xs font-semibold">{card.label}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ) : null
+          )}
+        </div>
+      )}
 
       {error ? <div className="text-sm text-red-600">⚠ {error}</div> : null}
       {loading ? <div className="text-sm text-muted-foreground">Searching…</div> : null}

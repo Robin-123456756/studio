@@ -93,31 +93,31 @@ export default function AdminDashboard() {
 
   const managementTools = [
     {
-      title: "Manage Teams",
-      description: "Add, edit, or remove teams from the league.",
+      title: "Add New Club",
+      description: "Add a new club to the Budo League.",
       icon: "🏟️",
-      href: "/dashboard/teams",
+      href: "/dashboard/admin/teams/new",
       color: "#8B5CF6",
     },
     {
-      title: "Manage Players",
-      description: "Add or edit players, set prices and positions.",
+      title: "Add New Player",
+      description: "Add a new player, set price and position.",
       icon: "👤",
-      href: "/dashboard/players",
+      href: "/dashboard/admin/players/new",
       color: "#EC4899",
     },
     {
-      title: "Manage Matches",
-      description: "Schedule matches, set gameweeks, and update results.",
+      title: "Schedule Match",
+      description: "Add a new match or generate the full schedule.",
       icon: "📋",
-      href: "/dashboard/matches",
+      href: "/dashboard/admin/matches/new",
       color: "#F97316",
     },
     {
-      title: "Notifications",
+      title: "Send Notifications",
       description: "Send notifications to players and team members.",
       icon: "🔔",
-      href: "/dashboard/notifications",
+      href: "/admin/notifications",
       color: "#14B8A6",
     },
   ];
@@ -383,9 +383,10 @@ export default function AdminDashboard() {
               { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
               { label: "🧮 Calculate GW Scores", href: "/admin/voice" },
               { label: "📥 Export CSV", href: "/admin/voice" },
-              { label: "➕ Add New Team", href: "/dashboard/teams" },
-              { label: "➕ Add New Player", href: "/dashboard/players" },
-              { label: "📋 Schedule Match", href: "/dashboard/matches" },
+              { label: "➕ Add New Club", href: "/dashboard/admin/teams/new" },
+              { label: "➕ Add New Player", href: "/dashboard/admin/players/new" },
+              { label: "📋 Schedule Match", href: "/dashboard/admin/matches/new" },
+              { label: "🔔 Send Notification", href: "/admin/notifications" },
             ].map((action, i) => (
               <button
                 key={i}

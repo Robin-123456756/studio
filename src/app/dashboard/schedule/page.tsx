@@ -1,8 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { CalendarPlus } from "lucide-react";
 import { schedule } from "@/lib/data";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,9 +39,6 @@ export default function SchedulePage() {
     <div className="space-y-6 animate-in fade-in-50">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-headline font-semibold">Game Schedule</h2>
-        <Button>
-          <CalendarPlus className="mr-2 h-4 w-4" /> Generate
-        </Button>
       </div>
 
       {grouped.map(([date, games]) => (

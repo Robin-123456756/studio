@@ -139,28 +139,11 @@ export async function GET(req: Request) {
         .select("id, is_lady, team_id")
         .in("id", [...allPlayerIds]);
 
-      const teamIds = [
-        ...new Set(
-          (playersData ?? []).map((p: any) => p.team_id).filter(Boolean)
-        ),
-      ];
-      const teamIdToUuid = new Map<number, string>();
-
-      if (teamIds.length > 0) {
-        const { data: teamsData } = await supabase
-          .from("teams")
-          .select("id, team_uuid")
-          .in("id", teamIds);
-
-        for (const t of teamsData ?? []) {
-          teamIdToUuid.set(t.id, t.team_uuid);
-        }
-      }
-
+      // players.team_id stores UUIDs matching teams.team_uuid (not integer teams.id)
       for (const p of playersData ?? []) {
         playerLadyLookup.set(p.id, {
           isLady: p.is_lady ?? false,
-          teamUuid: teamIdToUuid.get(p.team_id) ?? null,
+          teamUuid: p.team_id ?? null,
         });
       }
     }

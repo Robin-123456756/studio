@@ -3,8 +3,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type TeamRow = {
@@ -32,7 +30,6 @@ type LastResult = {
 };
 
 export default function TeamsPage() {
-  const [isAdmin, setIsAdmin] = React.useState(false);
   const [teams, setTeams] = React.useState<TeamRow[]>([]);
   const [counts, setCounts] = React.useState<Record<string, number>>({});
   const [standings, setStandings] = React.useState<Map<string, StandingRow & { pos: number }>>(new Map());
@@ -48,12 +45,11 @@ export default function TeamsPage() {
         setLoading(true);
         setErrorMsg(null);
 
-        const [teamsRes, countsRes, standingsRes, fixturesRes, authRes] = await Promise.all([
+        const [teamsRes, countsRes, standingsRes, fixturesRes] = await Promise.all([
           fetch("/api/teams", { cache: "no-store" }),
           fetch("/api/teams/player-counts", { cache: "no-store" }),
           fetch("/api/standings", { cache: "no-store" }),
           fetch("/api/fixtures?played=1", { cache: "no-store" }),
-          fetch("/api/auth/session", { cache: "no-store" }),
         ]);
 
         const teamsJson = await teamsRes.json();
@@ -61,13 +57,10 @@ export default function TeamsPage() {
         const standingsJson = await standingsRes.json();
         const fixturesJson = await fixturesRes.json();
 
-        const authJson = await authRes.json().catch(() => ({}));
-
         if (!teamsRes.ok) throw new Error(teamsJson?.error || "Failed to load teams");
         if (!countsRes.ok) throw new Error(countsJson?.error || "Failed to load player counts");
 
         if (!cancelled) {
-          setIsAdmin(!!authJson?.user);
           setTeams(teamsJson.teams ?? []);
           setCounts(countsJson.counts ?? {});
 
@@ -125,11 +118,6 @@ export default function TeamsPage() {
     <div className="space-y-6 animate-in fade-in-50">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-headline font-semibold">Clubs</h2>
-        {isAdmin && (
-          <Button type="button">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Club
-          </Button>
-        )}
       </div>
 
       {errorMsg ? (
