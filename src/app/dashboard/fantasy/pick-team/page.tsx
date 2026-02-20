@@ -2938,7 +2938,7 @@ export default function PickTeamPage() {
 
       {/* List view — FPL style */}
       {tab === "list" && (
-        <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="-mx-4 rounded-none border-y bg-card overflow-hidden">
           {/* Column Headers */}
           <div
             style={{
@@ -3133,7 +3133,7 @@ export default function PickTeamPage() {
 
                             {/* Expanded inline detail panel */}
                             {isExpanded && (
-                              <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))", borderRadius: "0 0 16px 16px" }}>
+                              <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))" }}>
                                 {/* Stats Grid */}
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                                   <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
@@ -3421,7 +3421,7 @@ export default function PickTeamPage() {
 
                         {/* Expanded inline detail panel */}
                         {isExpanded && (
-                          <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))", borderRadius: "0 0 16px 16px" }}>
+                          <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))" }}>
                             {/* Stats Grid */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                               <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
@@ -3518,8 +3518,8 @@ export default function PickTeamPage() {
                 </>
               )}
 
-              {/* Bottom spacer — enough room for rounded corners to show */}
-              <div style={{ height: 4 }} />
+              {/* Bottom spacer */}
+              <div style={{ height: 12 }} />
             </>
           )}
         </div>
