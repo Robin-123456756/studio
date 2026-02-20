@@ -11,6 +11,8 @@ export type Player = {
   isLady?: boolean;
   teamName?: string | null;
   teamShort?: string | null;
+  formLast5?: string | null;
+  ownership?: number | null;
 };
 
 function formatUGX(value?: number | null) {

@@ -50,6 +50,9 @@ type ApiPlayer = {
   isLady?: boolean | null;
   teamShort?: string | null;
   teamName?: string | null;
+  form_last5?: string | null;
+  form_last_5?: string | null;
+  ownership?: number | null;
 };
 
 type PendingTransfer = {
@@ -246,6 +249,8 @@ function TransfersPageInner() {
           isLady: Boolean(p.isLady),
           teamShort: p.teamShort ?? null,
           teamName: p.teamName ?? null,
+          formLast5: p.form_last5 ?? p.form_last_5 ?? null,
+          ownership: typeof p.ownership === "number" ? Math.round(p.ownership * 10) / 10 : 0,
         }));
 
         setAllPlayers(mapped);
@@ -887,12 +892,12 @@ function TransfersPageInner() {
               borderBottom: "1px solid hsl(var(--border))",
             }}
           >
-            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Player</div>
-            <div style={{ width: 36, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Pts</div>
-            <div style={{ width: 48, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
-              Price
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))", textAlign: "left" }}>Player</div>
+            <div style={{ width: 32, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
+            <div style={{ width: 44, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
+              CP
             </div>
-            <div style={{ width: 42, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Status</div>
+            <div style={{ width: 38, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Sel.</div>
           </div>
 
           {effectiveSquad.length === 0 ? (
@@ -929,6 +934,7 @@ function TransfersPageInner() {
                         const displayName = shortName(p.name);
                         const isGK = normalizePosition(p.position) === "Goalkeeper";
                         const kitColor = getKitColor(p.teamShort);
+                        const formVal = p.formLast5 ? parseFloat(p.formLast5) : 0;
                         const isExpanded = expandedListId === p.id;
                         const isNewIn = pendingInIds.has(p.id);
                         const isSelected = selectedOutId === p.id;
@@ -1026,27 +1032,24 @@ function TransfersPageInner() {
                                 </div>
                               </div>
 
-                              {/* Points */}
-                              <div style={{ width: 36, textAlign: "center", flexShrink: 0 }}>
+                              {/* Form */}
+                              <div style={{ width: 32, textAlign: "center", flexShrink: 0 }}>
                                 <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
-                                  {p.points ?? 0}
+                                  {formVal > 0 ? formVal.toFixed(1) : "--"}
                                 </span>
                               </div>
 
-                              {/* Price */}
-                              <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
+                              {/* Current Price */}
+                              <div style={{ width: 44, textAlign: "center", flexShrink: 0 }}>
                                 <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formatUGX(p.price)}
                                 </span>
                               </div>
 
-                              {/* Status */}
-                              <div style={{ width: 42, textAlign: "right", flexShrink: 0 }}>
-                                <span style={{
-                                  fontSize: 11, fontWeight: 600,
-                                  color: isNewIn ? "#10b981" : isSelected ? "#ef4444" : "hsl(var(--muted-foreground))",
-                                }}>
-                                  {isNewIn ? "New" : isSelected ? "Selling" : ""}
+                              {/* Selected (ownership %) */}
+                              <div style={{ width: 38, textAlign: "right", flexShrink: 0 }}>
+                                <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                                  {p.ownership != null && p.ownership > 0 ? `${p.ownership}%` : "--"}
                                 </span>
                               </div>
                             </button>
