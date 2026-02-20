@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
-import { saveSquadIds, loadSquadIds } from "@/lib/fantasyStorage";
+import { saveSquadIds, loadSquadIds, loadIds, LS_STARTING } from "@/lib/fantasyStorage";
+import { saveRosterToDb } from "@/lib/fantasyDb";
 import { normalizePosition, BUDGET_TOTAL, Kit, getKitColor } from "@/lib/pitch-helpers";
 import { type Player } from "../player-card";
 import { useTransfers } from "../use-transfers";
@@ -250,8 +251,27 @@ function TransferNextPageInner() {
     // Clear pending transfers from localStorage
     localStorage.removeItem("tbl_pending_transfers");
 
+    // Persist updated squad to database
+    if (gwId) {
+      try {
+        const startingIds = loadIds(LS_STARTING);
+        const captainId = localStorage.getItem("tbl_captain_id") || null;
+        const viceId = localStorage.getItem("tbl_vice_captain_id") || null;
+
+        await saveRosterToDb({
+          gameweekId: gwId,
+          squadIds: next,
+          startingIds,
+          captainId,
+          viceId,
+        });
+      } catch {
+        // DB save failed — squad is still saved locally, Pick Team will persist it
+      }
+    }
+
     setConfirmed(true);
-    setTimeout(() => router.push("/dashboard/transfers"), 1200);
+    setTimeout(() => router.push("/dashboard/fantasy/pick-team"), 1200);
   }
 
   const loading = gwLoading || playersLoading;
@@ -471,7 +491,7 @@ function TransferNextPageInner() {
             (!canConfirm() && !confirmed) && "opacity-40 cursor-not-allowed"
           )}
         >
-          {confirmed ? "✓ Confirmed" : wildcardActive ? "Confirm (Wildcard)" : "Confirm"}
+          {confirmed ? "✓ Confirmed — Pick Team →" : wildcardActive ? "Confirm (Wildcard)" : "Confirm"}
         </button>
       </div>
     </div>
