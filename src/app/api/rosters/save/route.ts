@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const pid = String(playerId);
     return {
       user_id: userId,
-      player_id: Number(playerId),
+      player_id: playerId,
       gameweek_id: gameweekId,
       is_starting_9: startingSet.has(pid),
       is_captain: capStr === pid,
