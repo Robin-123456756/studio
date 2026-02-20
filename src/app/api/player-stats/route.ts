@@ -36,26 +36,13 @@ export async function GET(req: Request) {
     if (playerIds.length > 0) {
       const { data: playersData } = await supabase
         .from("players")
-        .select("id, name, web_name, position, is_lady, avatar_url, team_id")
+        .select(
+          "id, name, web_name, position, is_lady, avatar_url, team_id, teams:teams!players_team_id_fkey(id, team_uuid, name, short_name, logo_url)"
+        )
         .in("id", playerIds);
 
-      // Fetch teams for these players (team_id stores UUIDs matching teams.team_uuid)
-      const teamUuids = [...new Set((playersData ?? []).map((p: any) => p.team_id).filter(Boolean))];
-      let teamsMap = new Map<string, any>();
-
-      if (teamUuids.length > 0) {
-        const { data: teamsData } = await supabase
-          .from("teams")
-          .select("id, team_uuid, name, short_name, logo_url")
-          .in("team_uuid", teamUuids);
-
-        for (const t of teamsData ?? []) {
-          teamsMap.set(t.team_uuid, t);
-        }
-      }
-
       for (const p of playersData ?? []) {
-        const team = teamsMap.get(p.team_id);
+        const team = (p as any).teams ?? null;
         playersMap.set(p.id, { ...p, team });
       }
     }
@@ -191,19 +178,12 @@ export async function GET(req: Request) {
       if (missingPlayerIds.length > 0) {
         const { data: extraPlayers } = await supabase
           .from("players")
-          .select("id, name, web_name, position, is_lady, avatar_url, team_id")
+          .select(
+            "id, name, web_name, position, is_lady, avatar_url, team_id, teams:teams!players_team_id_fkey(id, team_uuid, name, short_name, logo_url)"
+          )
           .in("id", missingPlayerIds);
-        const extraTeamUuids = [...new Set((extraPlayers ?? []).map((p: any) => p.team_id).filter(Boolean))];
-        let extraTeamsMap = new Map<string, any>();
-        if (extraTeamUuids.length > 0) {
-          const { data: extraTeams } = await supabase
-            .from("teams")
-            .select("id, team_uuid, name, short_name, logo_url")
-            .in("team_uuid", extraTeamUuids);
-          for (const t of extraTeams ?? []) extraTeamsMap.set(t.team_uuid, t);
-        }
         for (const p of extraPlayers ?? []) {
-          const team = extraTeamsMap.get(p.team_id);
+          const team = (p as any).teams ?? null;
           playersMap.set(p.id, { ...p, team });
         }
       }

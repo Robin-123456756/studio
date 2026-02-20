@@ -136,14 +136,14 @@ export async function GET(req: Request) {
     if (allPlayerIds.size > 0) {
       const { data: playersData } = await supabase
         .from("players")
-        .select("id, is_lady, team_id")
+        .select("id, is_lady, teams:teams!players_team_id_fkey(team_uuid)")
         .in("id", [...allPlayerIds]);
 
-      // players.team_id stores UUIDs matching teams.team_uuid (not integer teams.id)
       for (const p of playersData ?? []) {
+        const teamUuid = (p as any).teams?.team_uuid ?? null;
         playerLadyLookup.set(p.id, {
           isLady: p.is_lady ?? false,
-          teamUuid: p.team_id ?? null,
+          teamUuid,
         });
       }
     }
