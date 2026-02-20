@@ -994,7 +994,7 @@ function TransfersPageInner() {
         </button>
       )}
 
-      {/* === MAKE TRANSFERS BUTTON === */}
+      {/* === MAKE TRANSFERS / SAVE SQUAD BUTTON === */}
       {!selectedOutId && (
         <div className="space-y-2">
           {pendingTransfers.length > 0 ? (
@@ -1014,19 +1014,27 @@ function TransfersPageInner() {
                 {wildcardActive ? `Confirm ${pendingCount} Transfer${pendingCount > 1 ? "s" : ""} (Wildcard)` : `Make ${pendingCount} Transfer${pendingCount > 1 ? "s" : ""}`}
               </span>
             </button>
+          ) : effectiveSquad.length >= 17 ? (
+            <Link
+              href="/dashboard/fantasy/pick-team"
+              className={cn(
+                "block w-full py-3.5 rounded-full text-sm font-bold text-center text-white transition",
+                "hover:opacity-90"
+              )}
+              style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)", color: "#37003C" }}
+            >
+              Save Squad & Pick Team
+            </Link>
           ) : (
             <div className="text-center text-xs text-muted-foreground py-2">
               Tap a player on the pitch to start a transfer
             </div>
           )}
 
-          {effectiveSquad.length >= 17 && (
-            <Link
-              href="/dashboard/fantasy/pick-team"
-              className="block text-center text-xs font-semibold text-emerald-600 hover:text-emerald-700 py-1"
-            >
-              Go to Pick Team →
-            </Link>
+          {effectiveSquad.length < 17 && effectiveSquad.length > 0 && (
+            <div className="text-center text-xs text-muted-foreground">
+              {17 - effectiveSquad.length} player{17 - effectiveSquad.length !== 1 ? "s" : ""} remaining
+            </div>
           )}
         </div>
       )}
