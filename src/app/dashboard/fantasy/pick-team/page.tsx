@@ -2944,16 +2944,16 @@ export default function PickTeamPage() {
             style={{
               display: "flex",
               alignItems: "flex-end",
-              padding: "14px 16px 8px 76px",
+              padding: "14px 12px 8px 62px",
               borderBottom: "1px solid hsl(var(--border))",
             }}
           >
             <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Player</div>
-            <div style={{ width: 46, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
-            <div style={{ width: 56, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
-              Current<br />Price
+            <div style={{ width: 36, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
+            <div style={{ width: 48, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
+              Price
             </div>
-            <div style={{ width: 54, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Selected</div>
+            <div style={{ width: 42, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Sel.</div>
           </div>
 
           {picked.length === 0 ? (
@@ -3026,7 +3026,7 @@ export default function PickTeamPage() {
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                padding: "12px 16px 12px 12px",
+                                padding: "12px 12px 12px 8px",
                                 background: isExpanded ? "hsl(var(--accent))" : "transparent",
                                 width: "100%",
                                 cursor: "pointer",
@@ -3051,16 +3051,16 @@ export default function PickTeamPage() {
                               </div>
 
                               {/* Kit */}
-                              <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
-                                <Kit color={kitColor} isGK={isGK} size={42} />
+                              <div style={{ marginLeft: 4, marginRight: 8, flexShrink: 0 }}>
+                                <Kit color={kitColor} isGK={isGK} size={36} />
                               </div>
 
                               {/* Player name + team + pos */}
                               <div style={{
                                 flex: 1, minWidth: 0,
-                                paddingRight: 10,
+                                paddingRight: 6,
                                 borderRight: "1px solid hsl(var(--border))",
-                                marginRight: 10,
+                                marginRight: 6,
                               }}>
                                 <div style={{
                                   fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
@@ -3110,22 +3110,22 @@ export default function PickTeamPage() {
                               </div>
 
                               {/* Form */}
-                              <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
+                              <div style={{ width: 36, textAlign: "center", flexShrink: 0 }}>
                                 <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formVal > 0 ? formVal.toFixed(1) : "--"}
                                 </span>
                               </div>
 
                               {/* Price */}
-                              <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                              <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
+                                <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formatUGX(p.price)}
                                 </span>
                               </div>
 
                               {/* Selected */}
-                              <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                              <div style={{ width: 42, textAlign: "right", flexShrink: 0 }}>
+                                <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formatOwnership(p.ownership)}
                                 </span>
                               </div>
@@ -3314,7 +3314,7 @@ export default function PickTeamPage() {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            padding: "12px 16px 12px 12px",
+                            padding: "12px 12px 12px 8px",
                             background: isExpanded ? "hsl(var(--accent))" : "transparent",
                             width: "100%",
                             cursor: "pointer",
@@ -3339,16 +3339,16 @@ export default function PickTeamPage() {
                           </div>
 
                           {/* Kit */}
-                          <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
-                            <Kit color={kitColor} isGK={isGK} size={42} />
+                          <div style={{ marginLeft: 4, marginRight: 8, flexShrink: 0 }}>
+                            <Kit color={kitColor} isGK={isGK} size={36} />
                           </div>
 
                           {/* Player name + team + pos */}
                           <div style={{
                             flex: 1, minWidth: 0,
-                            paddingRight: 10,
+                            paddingRight: 6,
                             borderRight: "1px solid hsl(var(--border))",
-                            marginRight: 10,
+                            marginRight: 6,
                           }}>
                             <div style={{
                               fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
@@ -3398,22 +3398,22 @@ export default function PickTeamPage() {
                           </div>
 
                           {/* Form */}
-                          <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
+                          <div style={{ width: 36, textAlign: "center", flexShrink: 0 }}>
                             <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                               {formVal > 0 ? formVal.toFixed(1) : "--"}
                             </span>
                           </div>
 
                           {/* Price */}
-                          <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
-                            <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                          <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                               {formatUGX(p.price)}
                             </span>
                           </div>
 
                           {/* Selected */}
-                          <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
-                            <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                          <div style={{ width: 42, textAlign: "right", flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                               {formatOwnership(p.ownership)}
                             </span>
                           </div>

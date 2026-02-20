@@ -883,16 +883,16 @@ function TransfersPageInner() {
             style={{
               display: "flex",
               alignItems: "flex-end",
-              padding: "14px 16px 8px 76px",
+              padding: "14px 12px 8px 62px",
               borderBottom: "1px solid hsl(var(--border))",
             }}
           >
             <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Player</div>
-            <div style={{ width: 46, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Pts</div>
-            <div style={{ width: 56, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
+            <div style={{ width: 36, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Pts</div>
+            <div style={{ width: 48, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
               Price
             </div>
-            <div style={{ width: 54, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Status</div>
+            <div style={{ width: 42, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Status</div>
           </div>
 
           {effectiveSquad.length === 0 ? (
@@ -942,7 +942,7 @@ function TransfersPageInner() {
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                padding: "12px 16px 12px 12px",
+                                padding: "12px 12px 12px 8px",
                                 background: isExpanded
                                   ? "hsl(var(--accent))"
                                   : isSelected
@@ -973,16 +973,16 @@ function TransfersPageInner() {
                               </div>
 
                               {/* Kit */}
-                              <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
-                                <Kit color={isSelected ? "#888" : kitColor} isGK={isGK} size={42} />
+                              <div style={{ marginLeft: 4, marginRight: 8, flexShrink: 0 }}>
+                                <Kit color={isSelected ? "#888" : kitColor} isGK={isGK} size={36} />
                               </div>
 
                               {/* Player name + team + pos */}
                               <div style={{
                                 flex: 1, minWidth: 0,
-                                paddingRight: 10,
+                                paddingRight: 6,
                                 borderRight: "1px solid hsl(var(--border))",
-                                marginRight: 10,
+                                marginRight: 6,
                               }}>
                                 <div style={{
                                   fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
@@ -1027,21 +1027,21 @@ function TransfersPageInner() {
                               </div>
 
                               {/* Points */}
-                              <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
+                              <div style={{ width: 36, textAlign: "center", flexShrink: 0 }}>
                                 <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {p.points ?? 0}
                                 </span>
                               </div>
 
                               {/* Price */}
-                              <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                              <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
+                                <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formatUGX(p.price)}
                                 </span>
                               </div>
 
                               {/* Status */}
-                              <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
+                              <div style={{ width: 42, textAlign: "right", flexShrink: 0 }}>
                                 <span style={{
                                   fontSize: 11, fontWeight: 600,
                                   color: isNewIn ? "#10b981" : isSelected ? "#ef4444" : "hsl(var(--muted-foreground))",
