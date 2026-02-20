@@ -56,7 +56,6 @@ export default function PlayersPage() {
   const [players, setPlayers] = React.useState<UiPlayer[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState<PosFilter>("All");
   const [sortBy, setSortBy] = React.useState<SortKey>("points");
@@ -68,17 +67,12 @@ export default function PlayersPage() {
         setLoading(true);
         setError(null);
 
-        const [res, authRes] = await Promise.all([
-          fetch("/api/players", { cache: "no-store" }),
-          fetch("/api/auth/session", { cache: "no-store" }),
-        ]);
+        const res = await fetch("/api/players", { cache: "no-store" });
         const json = await res.json();
-        const authJson = await authRes.json().catch(() => ({}));
 
         if (!res.ok) throw new Error(json?.error || "Failed to load players");
 
         setPlayers((json.players ?? []) as UiPlayer[]);
-        setIsAdmin(!!authJson?.user);
       } catch (e: any) {
         setError(e?.message || "Failed to load players");
         setPlayers([]);
@@ -131,11 +125,6 @@ export default function PlayersPage() {
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold tracking-tight">Players</h1>
-        {isAdmin && (
-          <Button asChild className="rounded-2xl">
-            <Link href="/dashboard/admin/players/new">Add</Link>
-          </Button>
-        )}
       </div>
 
       <input

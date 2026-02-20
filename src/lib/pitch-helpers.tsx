@@ -42,7 +42,6 @@ export const TEAM_LOGOS: Record<string, string> = {
   abacuba: "/logos/t-abachuba.png",
   thazobalo: "/logos/t-thazobalo.png",
   thazoballo: "/logos/t-thazobalo.png",
-  quadballo: "/logos/t-quadballo.png",
 };
 
 export const TEAM_SHORT_LOGOS: Record<string, string> = {
@@ -61,7 +60,6 @@ export const TEAM_SHORT_LOGOS: Record<string, string> = {
   END: "/logos/t-endgame.png",
   ABA: "/logos/t-abachuba.png",
   THA: "/logos/t-thazobalo.png",
-  QUA: "/logos/t-quadballo.png",
 };
 
 export const TEAM_KIT_COLORS: Record<string, string> = {
@@ -78,7 +76,6 @@ export const TEAM_KIT_COLORS: Record<string, string> = {
   MID: "#FFD700",      // Midnight Express — yellow
   NIG: "#301934",      // Night Prep — dark purple
   PEA: "#800000",      // Peaky Blinders — maroon
-  QUA: "#808080",      // Quadballo — grey
   THA: "#1A1A1A",      // Thazoballo — black
   TRO: "#228B22",      // Trotballo — green
 };

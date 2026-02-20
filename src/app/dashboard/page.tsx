@@ -264,6 +264,72 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Best Lady Player */}
+          <Card className="rounded-3xl overflow-hidden border-pink-200/40 dark:border-pink-500/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base font-headline">
+                <Crown className="h-4 w-4 text-pink-500" />
+                Best Lady Player
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              ) : topLady ? (
+                <Link
+                  href={`/dashboard/players/${topLady.playerId}`}
+                  className="flex items-center gap-4 group"
+                >
+                  <div className="relative shrink-0">
+                    {topLady.avatarUrl ? (
+                      <img
+                        src={topLady.avatarUrl}
+                        alt={topLady.name}
+                        className="h-16 w-16 rounded-2xl object-cover border-2 border-pink-300/50"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/40 dark:to-pink-800/30 border-2 border-pink-300/50 flex items-center justify-center">
+                        <span className="text-2xl font-bold text-pink-500/70">
+                          {topLady.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 flex items-center justify-center">
+                      <Crown className="h-3 w-3 text-white" />
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold truncate group-hover:text-pink-500 transition-colors">
+                      {topLady.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {topLady.teamName} &middot; {topLady.position ?? "—"}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
+                      <span className="font-bold text-pink-600 dark:text-pink-400 tabular-nums">
+                        {topLady.points} pts
+                      </span>
+                      {topLady.goals > 0 && (
+                        <span className="text-muted-foreground tabular-nums">
+                          {topLady.goals}G
+                        </span>
+                      )}
+                      {topLady.assists > 0 && (
+                        <span className="text-muted-foreground tabular-nums">
+                          {topLady.assists}A
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Lady player stats will appear once matches are played.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Button asChild className="rounded-2xl w-full">
               <Link href="/dashboard/more/tbl-rules">TBL fantasy rules</Link>
@@ -480,74 +546,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Best Lady Player */}
-          <Card className="rounded-3xl overflow-hidden border-pink-200/40 dark:border-pink-500/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-headline">
-                <Crown className="h-4 w-4 text-pink-500" />
-                Best Lady Player
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
-              ) : topLady ? (
-                <Link
-                  href={`/dashboard/players/${topLady.playerId}`}
-                  className="flex items-center gap-4 group"
-                >
-                  {/* Avatar / placeholder */}
-                  <div className="relative shrink-0">
-                    {topLady.avatarUrl ? (
-                      <img
-                        src={topLady.avatarUrl}
-                        alt={topLady.name}
-                        className="h-16 w-16 rounded-2xl object-cover border-2 border-pink-300/50"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/40 dark:to-pink-800/30 border-2 border-pink-300/50 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-pink-500/70">
-                          {topLady.name.charAt(0)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 flex items-center justify-center">
-                      <Crown className="h-3 w-3 text-white" />
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate group-hover:text-pink-500 transition-colors">
-                      {topLady.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {topLady.teamName} &middot; {topLady.position ?? "—"}
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-3 text-xs">
-                      <span className="font-bold text-pink-600 dark:text-pink-400 tabular-nums">
-                        {topLady.points} pts
-                      </span>
-                      {topLady.goals > 0 && (
-                        <span className="text-muted-foreground tabular-nums">
-                          {topLady.goals}G
-                        </span>
-                      )}
-                      {topLady.assists > 0 && (
-                        <span className="text-muted-foreground tabular-nums">
-                          {topLady.assists}A
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Lady player stats will appear once matches are played.
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
 

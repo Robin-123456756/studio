@@ -334,8 +334,6 @@ const teamDefs = [
   { id: "t-endgame", name: "Endgame", shortName: "END", dbId: "9ccc3f8d-d9a1-4f26-ad59-a6ada4af8ba6", logoUrl: "/logos/t-endgame.png" },
   { id: "t-abacuba", name: "Abacuba", shortName: "ABA", dbId: "5c5c8d3f-d293-497d-9c97-814368021972", logoUrl: "/logos/t-abacuba.png" },
   { id: "t-thazoballo", name: "Thazoballo", shortName: "THA", dbId: "2a3b1a03-6b2a-450c-84a4-641e17bb5b0c", logoUrl: "/logos/t-thazoballo.png" },
-
-  { id: "t-quadballo", name: "Quadballo", shortName: "QUA", dbId: "8283b272-4205-4e1e-b80c-562a290d9808", logoUrl: "/logos/t-quadballo.png" },
 ] as const;
 
 const playersByTeam = groupPlayersByTeam(allPlayers);
