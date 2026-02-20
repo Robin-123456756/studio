@@ -1111,33 +1111,49 @@ export default function PickTeamPage() {
         setMsg(null);
         const data = await loadRosterFromDb(gwId);
 
-        if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
-          setPickedIds(data.squadIds);
-          setStartingIds(data.startingIds ?? []);
-          // Also set saved state for change tracking
-          setSavedPickedIds(data.squadIds);
-          setSavedStartingIds(data.startingIds ?? []);
+        // Only use DB data if localStorage doesn't already have a full 17-player squad.
+        // Transfers writes to localStorage before redirecting here, and the DB save
+        // may have failed (e.g. trigger issues), so localStorage is the fresher source.
+        const localSquad = loadIds(LS_SQUAD);
+        const localHasFullSquad = localSquad.length === 17;
 
-          localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
-          localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
-          localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds ?? []));
+        if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
+          if (!localHasFullSquad) {
+            setPickedIds(data.squadIds);
+            setStartingIds(data.startingIds ?? []);
+            setSavedPickedIds(data.squadIds);
+            setSavedStartingIds(data.startingIds ?? []);
+
+            localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
+            localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
+            localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds ?? []));
+          } else {
+            // localStorage has a full squad (likely from Transfers) — keep it,
+            // but still record the DB saved state for change tracking
+            setSavedPickedIds(data.squadIds);
+            setSavedStartingIds(data.startingIds ?? []);
+          }
         }
 
         if (data.captainId) {
-          setCaptainId(data.captainId);
+          if (!localHasFullSquad) {
+            setCaptainId(data.captainId);
+            localStorage.setItem(LS_CAPTAIN, data.captainId);
+          }
           setSavedCaptainId(data.captainId);
-          localStorage.setItem(LS_CAPTAIN, data.captainId);
         }
         if (data.viceId) {
-          setViceId(data.viceId);
+          if (!localHasFullSquad) {
+            setViceId(data.viceId);
+            localStorage.setItem(LS_VICE, data.viceId);
+          }
           setSavedViceId(data.viceId);
-          localStorage.setItem(LS_VICE, data.viceId);
         }
 
         if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
 
-        // If we have a valid squad from DB, we're done
-        if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
+        // If we have a valid squad from either source, we're done
+        if ((Array.isArray(data.squadIds) && data.squadIds.length > 0) || localHasFullSquad) {
           setDbLoaded(true);
           return;
         }
