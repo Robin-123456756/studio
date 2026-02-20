@@ -21,6 +21,8 @@ import {
   BUDGET_TOTAL,
   normalizePosition,
   shortName,
+  shortPos,
+  formatUGX,
   getKitColor,
   groupByPosition,
   Kit,
@@ -104,6 +106,11 @@ function TransfersPageInner() {
   // Replacement list search/sort
   const [searchQuery, setSearchQuery] = React.useState("");
   const [sortKey, setSortKey] = React.useState<"points" | "price" | "name">("points");
+
+  // Pitch / List view toggle
+  const [tab, setTab] = React.useState<"pitch" | "list">("pitch");
+  // List view: expanded player detail
+  const [expandedListId, setExpandedListId] = React.useState<string | null>(null);
 
   // "Add mode" — for building squad from scratch (no outId, just pick by position)
   const [addPosition, setAddPosition] = React.useState<string | null>(null);
@@ -505,6 +512,14 @@ function TransfersPageInner() {
   const maleFwds = allGrouped.Forwards.filter((p) => !p.isLady);
   const ladyPlayers = normalizedSquad.filter((p) => p.isLady);
 
+  // List view sections — all players grouped by position (no starter/sub split)
+  const listSections = [
+    { title: "Goalkeepers", players: allGrouped.Goalkeepers },
+    { title: "Defenders", players: allGrouped.Defenders },
+    { title: "Midfielders", players: allGrouped.Midfielders },
+    { title: "Forwards", players: [...allGrouped.Forwards] },
+  ];
+
   // Check if a player on the pitch is a "new in" (from pending transfer)
   const pendingInIds = new Set(pendingTransfers.map((t) => t.inId));
   const pendingOutIds = new Set(pendingTransfers.map((t) => t.outId));
@@ -652,7 +667,35 @@ function TransfersPageInner() {
         </div>
       )}
 
+      {/* === PITCH / LIST TOGGLE === */}
+      <div className="flex items-center justify-center">
+        <div className="rounded-2xl bg-muted p-1 inline-flex">
+          <button
+            type="button"
+            onClick={() => setTab("pitch")}
+            className={cn(
+              "px-6 py-2 rounded-2xl text-sm font-semibold transition",
+              tab === "pitch" ? "bg-background shadow" : "text-muted-foreground"
+            )}
+          >
+            Pitch
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("list")}
+            className={cn(
+              "px-6 py-2 rounded-2xl text-sm font-semibold transition",
+              tab === "list" ? "bg-background shadow" : "text-muted-foreground"
+            )}
+          >
+            List
+          </button>
+        </div>
+      </div>
+
       {/* === PITCH VIEW (Full Width — all 17 players) === */}
+      {tab === "pitch" && (
+      <>
       <div className="-mx-4">
         <div className="space-y-0 rounded-none overflow-visible">
           <div
@@ -827,6 +870,294 @@ function TransfersPageInner() {
       {effectiveSquad.length < 17 && (
         <div className="text-center text-xs text-amber-600 font-medium">
           {effectiveSquad.length}/17 players • Add {17 - effectiveSquad.length} more
+        </div>
+      )}
+      </>
+      )}
+
+      {/* === LIST VIEW — FPL style, all players by position === */}
+      {tab === "list" && (
+        <div className="rounded-2xl border bg-card overflow-hidden">
+          {/* Column Headers */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              padding: "14px 16px 8px 76px",
+              borderBottom: "1px solid hsl(var(--border))",
+            }}
+          >
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Player</div>
+            <div style={{ width: 46, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Pts</div>
+            <div style={{ width: 56, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
+              Price
+            </div>
+            <div style={{ width: 54, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Status</div>
+          </div>
+
+          {effectiveSquad.length === 0 ? (
+            <div style={{ padding: "40px 24px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, lineHeight: 1, marginBottom: 12 }}>
+                <span role="img" aria-label="football">&#9917;</span>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "hsl(var(--foreground))", marginBottom: 6 }}>
+                No players yet
+              </div>
+              <div style={{ fontSize: 13, color: "hsl(var(--muted-foreground))", lineHeight: 1.5 }}>
+                Tap empty slots on the pitch view to start building your squad
+              </div>
+            </div>
+          ) : (
+            <>
+              {listSections.map((section) => (
+                <div key={section.title}>
+                  {section.players.length > 0 && (
+                    <>
+                      {/* Section header */}
+                      <div style={{ padding: "16px 16px 8px" }}>
+                        <h2 style={{
+                          margin: 0,
+                          fontSize: 16,
+                          fontWeight: 700,
+                          color: "hsl(var(--foreground))",
+                        }}>
+                          {section.title}
+                        </h2>
+                      </div>
+                      {/* Player rows */}
+                      {section.players.map((p) => {
+                        const displayName = shortName(p.name);
+                        const isGK = normalizePosition(p.position) === "Goalkeeper";
+                        const kitColor = getKitColor(p.teamShort);
+                        const isExpanded = expandedListId === p.id;
+                        const isNewIn = pendingInIds.has(p.id);
+                        const isSelected = selectedOutId === p.id;
+
+                        return (
+                          <div key={p.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+                            {/* Clickable row header */}
+                            <button
+                              type="button"
+                              onClick={() => setExpandedListId(isExpanded ? null : p.id)}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                padding: "12px 16px 12px 12px",
+                                background: isExpanded
+                                  ? "hsl(var(--accent))"
+                                  : isSelected
+                                    ? "hsl(0 80% 96%)"
+                                    : isNewIn
+                                      ? "hsl(150 60% 96%)"
+                                      : "transparent",
+                                width: "100%",
+                                cursor: "pointer",
+                                border: "none",
+                                textAlign: "left",
+                              }}
+                            >
+                              {/* Status icon (info "i") */}
+                              <div style={{
+                                width: 18, height: 18, flexShrink: 0,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                <span style={{
+                                  fontFamily: "Georgia, 'Times New Roman', serif",
+                                  fontStyle: "italic",
+                                  fontSize: 14,
+                                  fontWeight: 400,
+                                  color: isExpanded ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+                                  opacity: isExpanded ? 1 : 0.7,
+                                  lineHeight: 1,
+                                }}>i</span>
+                              </div>
+
+                              {/* Kit */}
+                              <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
+                                <Kit color={isSelected ? "#888" : kitColor} isGK={isGK} size={42} />
+                              </div>
+
+                              {/* Player name + team + pos */}
+                              <div style={{
+                                flex: 1, minWidth: 0,
+                                paddingRight: 10,
+                                borderRight: "1px solid hsl(var(--border))",
+                                marginRight: 10,
+                              }}>
+                                <div style={{
+                                  fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
+                                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                  lineHeight: 1.3,
+                                  display: "flex", alignItems: "center", gap: 4,
+                                }}>
+                                  {displayName}
+                                  {p.isLady && (
+                                    <span style={{
+                                      display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                                      background: "#FF69B4", border: "1px solid #FF1493",
+                                      marginLeft: 3, verticalAlign: "middle",
+                                    }} />
+                                  )}
+                                  {isNewIn && (
+                                    <span style={{
+                                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                      padding: "1px 5px", borderRadius: 4,
+                                      background: "#10b981", color: "#fff",
+                                      fontSize: 8, fontWeight: 800,
+                                    }}>IN</span>
+                                  )}
+                                  {isSelected && (
+                                    <span style={{
+                                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                      padding: "1px 5px", borderRadius: 4,
+                                      background: "#ef4444", color: "#fff",
+                                      fontSize: 8, fontWeight: 800,
+                                    }}>OUT</span>
+                                  )}
+                                </div>
+                                <div style={{
+                                  fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
+                                  marginTop: 1, display: "flex", gap: 6,
+                                }}>
+                                  <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    {p.teamShort ?? p.teamName ?? "--"}
+                                  </span>
+                                  <span>{shortPos(p.position)}</span>
+                                </div>
+                              </div>
+
+                              {/* Points */}
+                              <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
+                                <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                                  {p.points ?? 0}
+                                </span>
+                              </div>
+
+                              {/* Price */}
+                              <div style={{ width: 56, textAlign: "center", flexShrink: 0 }}>
+                                <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                                  {formatUGX(p.price)}
+                                </span>
+                              </div>
+
+                              {/* Status */}
+                              <div style={{ width: 54, textAlign: "right", flexShrink: 0 }}>
+                                <span style={{
+                                  fontSize: 11, fontWeight: 600,
+                                  color: isNewIn ? "#10b981" : isSelected ? "#ef4444" : "hsl(var(--muted-foreground))",
+                                }}>
+                                  {isNewIn ? "New" : isSelected ? "Selling" : ""}
+                                </span>
+                              </div>
+                            </button>
+
+                            {/* Expanded inline detail panel */}
+                            {isExpanded && (
+                              <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))" }}>
+                                {/* Stats Grid */}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                                  <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
+                                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Price</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: "hsl(var(--primary))" }}>{formatUGX(p.price)}</div>
+                                  </div>
+                                  <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
+                                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Total Pts</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700 }}>{p.points ?? 0}</div>
+                                  </div>
+                                  <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
+                                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Position</div>
+                                    <div style={{ fontSize: 15, fontWeight: 700 }}>{shortPos(p.position)}</div>
+                                  </div>
+                                </div>
+
+                                {/* Lady 2x info */}
+                                {p.isLady && (
+                                  <div style={{
+                                    marginTop: 10, display: "flex", alignItems: "center", gap: 8,
+                                    borderRadius: 12, padding: "10px 12px",
+                                    background: "linear-gradient(135deg, rgba(236,72,153,0.1), rgba(219,39,119,0.1))",
+                                    border: "1px solid rgba(236,72,153,0.25)",
+                                  }}>
+                                    <span style={{ background: "linear-gradient(135deg, #FF69B4, #FF1493)", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", flexShrink: 0 }}>★</span>
+                                    <div>
+                                      <div style={{ fontWeight: 700, color: "#ec4899", fontSize: 12 }}>Lady Player — 2x Points</div>
+                                      <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))" }}>All points doubled automatically</div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                                  {isNewIn ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const t = pendingTransfers.find((t) => t.inId === p.id);
+                                        if (t) undoTransfer(t.outId);
+                                        setExpandedListId(null);
+                                      }}
+                                      style={{
+                                        flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                        padding: "10px 12px", borderRadius: 12,
+                                        background: "#ef4444", color: "#fff",
+                                        fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+                                      }}
+                                    >
+                                      <RotateCcw className="h-4 w-4" />
+                                      Undo Transfer
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        selectForRemoval(p.id);
+                                        setExpandedListId(null);
+                                        setTab("pitch");
+                                      }}
+                                      disabled={locked}
+                                      style={{
+                                        flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                        padding: "10px 12px", borderRadius: 12,
+                                        background: locked ? "#9ca3af" : "linear-gradient(135deg, #C8102E, #8B0000)",
+                                        color: "#fff",
+                                        fontSize: 13, fontWeight: 700, border: "none",
+                                        cursor: locked ? "not-allowed" : "pointer",
+                                      }}
+                                    >
+                                      <ArrowLeft className="h-4 w-4" style={{ transform: "rotate(180deg)" }} />
+                                      Transfer Out
+                                    </button>
+                                  )}
+                                  <Link
+                                    href={`/dashboard/players/${p.id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                                      padding: "10px 12px", borderRadius: 12,
+                                      border: "1px solid hsl(var(--border))",
+                                      background: "transparent", color: "hsl(var(--foreground))",
+                                      fontSize: 13, fontWeight: 700, textDecoration: "none", cursor: "pointer",
+                                    }}
+                                  >
+                                    Full Profile
+                                  </Link>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              ))}
+
+              {/* Bottom spacer */}
+              <div style={{ height: 12 }} />
+            </>
+          )}
         </div>
       )}
 
