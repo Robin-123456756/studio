@@ -28,24 +28,37 @@ export async function POST(req: Request) {
     .from("user_rosters")
     .delete()
     .eq("user_id", userId)
-    .eq("gameweek_id", gameweekId);
+    .eq("gameweek_id", Number(gameweekId));
 
-  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+  if (delErr) {
+    console.log("DELETE ERROR /api/rosters/save", delErr);
+    return NextResponse.json({ error: delErr.message }, { status: 500 });
+  }
 
   // insert new roster — captain gets 2x multiplier
   // (lady 2x is already applied at the base scoring level, not here)
-  const rows = squadIds.map((playerId) => ({
-    user_id: userId,
-    player_id: playerId,
-    gameweek_id: gameweekId,
-    is_starting_9: startingIds.includes(playerId),
-    is_captain: captainId === playerId,
-    is_vice_captain: viceId === playerId,
-    multiplier: captainId === playerId ? 2 : 1,
-  }));
+  const startingSet = new Set(startingIds.map(String));
+  const capStr = captainId ? String(captainId) : null;
+  const viceStr = viceId ? String(viceId) : null;
+
+  const rows = squadIds.map((playerId) => {
+    const pid = String(playerId);
+    return {
+      user_id: userId,
+      player_id: Number(playerId),
+      gameweek_id: gameweekId,
+      is_starting_9: startingSet.has(pid),
+      is_captain: capStr === pid,
+      is_vice_captain: viceStr === pid,
+      multiplier: capStr === pid ? 2 : 1,
+    };
+  });
 
   const { error: insErr } = await supabase.from("user_rosters").insert(rows);
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+  if (insErr) {
+    console.log("INSERT ERROR /api/rosters/save", insErr);
+    return NextResponse.json({ error: insErr.message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, inserted: rows.length });
 }

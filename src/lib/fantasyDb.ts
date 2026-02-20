@@ -30,10 +30,20 @@ export async function saveRosterToDb(payload: {
   const userId = data.session?.user.id;
   if (!userId) throw new Error("Not signed in");
 
+  // Ensure IDs are consistently typed
+  const body = {
+    userId,
+    gameweekId: Number(payload.gameweekId),
+    squadIds: payload.squadIds.map(String),
+    startingIds: payload.startingIds.map(String),
+    captainId: payload.captainId ? String(payload.captainId) : null,
+    viceId: payload.viceId ? String(payload.viceId) : null,
+  };
+
   const res = await fetch("/api/rosters/save", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, ...payload }),
+    body: JSON.stringify(body),
   });
 
   const json = await res.json();
