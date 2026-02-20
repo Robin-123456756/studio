@@ -2655,7 +2655,7 @@ export default function PickTeamPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
+    <div className="mx-auto w-full max-w-appWide px-4 pt-4 pb-28 space-y-4">
       {/* Page header - directly on surface */}
       <div className="flex items-center justify-between">
         {hasUnsavedChanges ? (
@@ -2954,11 +2954,11 @@ export default function PickTeamPage() {
             style={{
               display: "flex",
               alignItems: "flex-end",
-              padding: "14px 12px 8px 62px",
+              padding: "20px 12px 8px 12px",
               borderBottom: "1px solid hsl(var(--border))",
             }}
           >
-            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Player</div>
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))", textAlign: "left" }}>Player</div>
             <div style={{ width: 36, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
             <div style={{ width: 48, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
               Price
