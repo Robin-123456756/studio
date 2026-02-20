@@ -2355,7 +2355,7 @@ export default function PickTeamPage() {
             </div>
           </div>
 
-          {/* GK Row */}
+          {/* GK Row — 1 slot */}
           <div style={{ position: "relative", padding: "4px 0 8px" }}>
             <div style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
               {g.Goalkeepers.length > 0 ? (
@@ -2382,7 +2382,7 @@ export default function PickTeamPage() {
             </div>
           </div>
 
-          {/* DEF Row */}
+          {/* DEF Row — 3 slots */}
           <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 8px 8px", position: "relative", zIndex: 1 }}>
             {g.Defenders.map((p) => (
               <div key={p.id} className={cn(
@@ -2401,17 +2401,16 @@ export default function PickTeamPage() {
             ))}
             {g.Defenders.length === 0 && (
               <>
-                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
-                  <EmptySlot position="DEF" />
-                </Link>
-                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
-                  <EmptySlot position="DEF" />
-                </Link>
+                {[0, 1, 2].map((i) => (
+                  <Link key={`def-empty-${i}`} href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                    <EmptySlot position="DEF" />
+                  </Link>
+                ))}
               </>
             )}
           </div>
 
-          {/* MID Row */}
+          {/* MID Row — 4 slots */}
           <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 8px 8px", position: "relative", zIndex: 1, flexWrap: "wrap" }}>
             {g.Midfielders.map((p) => (
               <div key={p.id} className={cn(
@@ -2430,20 +2429,16 @@ export default function PickTeamPage() {
             ))}
             {g.Midfielders.length === 0 && (
               <>
-                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
-                  <EmptySlot position="MID" />
-                </Link>
-                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
-                  <EmptySlot position="MID" />
-                </Link>
-                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
-                  <EmptySlot position="MID" />
-                </Link>
+                {[0, 1, 2, 3].map((i) => (
+                  <Link key={`mid-empty-${i}`} href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                    <EmptySlot position="MID" />
+                  </Link>
+                ))}
               </>
             )}
           </div>
 
-          {/* FWD Row */}
+          {/* FWD Row — 2 slots */}
           <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 8px 4px", position: "relative", zIndex: 1 }}>
             {g.Forwards.map((p) => (
               <div key={p.id} className={cn(
@@ -2462,12 +2457,11 @@ export default function PickTeamPage() {
             ))}
             {g.Forwards.length === 0 && (
               <>
-                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
-                  <EmptySlot position="FWD" />
-                </Link>
-                <Link href="/dashboard/transfers" className="active:scale-95 transition-transform">
-                  <EmptySlot position="FWD" />
-                </Link>
+                {[0, 1].map((i) => (
+                  <Link key={`fwd-empty-${i}`} href="/dashboard/transfers" className="active:scale-95 transition-transform">
+                    <EmptySlot position="FWD" />
+                  </Link>
+                ))}
               </>
             )}
           </div>
