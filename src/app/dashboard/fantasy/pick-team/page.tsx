@@ -3004,7 +3004,7 @@ export default function PickTeamPage() {
                   {section.players.length > 0 && (
                     <>
                       {/* Section header — serif style like FPL */}
-                      <div style={{ padding: "16px 16px 8px", background: "#fff" }}>
+                      <div style={{ padding: "16px 16px 8px" }}>
                         <h2 style={{
                           margin: 0,
                           fontSize: 16,
@@ -3103,7 +3103,7 @@ export default function PickTeamPage() {
                                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                                       width: 16, height: 16, borderRadius: "50%",
                                       background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)",
-                                      border: "1px solid #37003C",
+                                      border: "1px solid hsl(var(--border))",
                                       color: "#000", fontSize: 9, fontWeight: 900,
                                     }}>V</span>
                                   )}
@@ -3293,13 +3293,12 @@ export default function PickTeamPage() {
               {/* Substitutes */}
               {bench.length > 0 && (
                 <>
-                  <div style={{ padding: "16px 16px 8px", background: "#fff" }}>
+                  <div style={{ padding: "16px 16px 8px" }}>
                     <h2 style={{
                       margin: 0,
-                      fontSize: 22,
+                      fontSize: 16,
                       fontWeight: 700,
-                      color: "#37003C",
-                      fontFamily: "Georgia, 'Times New Roman', serif",
+                      color: "hsl(var(--foreground))",
                     }}>
                       Substitutes
                     </h2>
@@ -3342,7 +3341,7 @@ export default function PickTeamPage() {
                               fontStyle: "italic",
                               fontSize: 14,
                               fontWeight: 400,
-                              color: isExpanded ? "hsl(var(--primary))" : "#37003C",
+                              color: isExpanded ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
                               opacity: isExpanded ? 1 : 0.5,
                               lineHeight: 1,
                             }}>i</span>
@@ -3391,7 +3390,7 @@ export default function PickTeamPage() {
                                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                                   width: 16, height: 16, borderRadius: "50%",
                                   background: "linear-gradient(135deg, #f5e6c8, #ddd0b0)",
-                                  border: "1px solid #37003C",
+                                  border: "1px solid hsl(var(--border))",
                                   color: "#000", fontSize: 9, fontWeight: 900,
                                 }}>V</span>
                               )}
