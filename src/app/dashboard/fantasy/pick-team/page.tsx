@@ -3834,7 +3834,17 @@ export default function PickTeamPage() {
               </div>
               <div className="p-4 space-y-2 overflow-y-auto max-h-[60vh]">
                 {players
-                  .filter((p) => !comparePlayerIds.includes(p.id))
+                  .filter((p) => {
+                    if (comparePlayerIds.includes(p.id)) return false;
+                    const firstPlayer = comparePlayerIds.length > 0 ? playerById.get(comparePlayerIds[0]) : null;
+                    if (firstPlayer && normalizePosition(firstPlayer.position) === "Goalkeeper") {
+                      return normalizePosition(p.position) === "Goalkeeper";
+                    }
+                    if (firstPlayer && normalizePosition(p.position) === "Goalkeeper") {
+                      return false;
+                    }
+                    return true;
+                  })
                   .slice(0, 50)
                   .map((p) => (
                     <button
