@@ -3057,13 +3057,12 @@ export default function PickTeamPage() {
                   {section.players.length > 0 && (
                     <>
                       {/* Section header — FPL style */}
-                      <div style={{ padding: "20px 16px 10px", borderTop: "1px solid hsl(var(--border))" }}>
+                      <div style={{ padding: "16px 16px 8px", borderTop: "1px solid hsl(var(--border))" }}>
                         <h2 style={{
                           margin: 0,
-                          fontSize: 20,
-                          fontWeight: 800,
+                          fontSize: 16,
+                          fontWeight: 700,
                           color: "hsl(var(--foreground))",
-                          letterSpacing: "-0.01em",
                         }}>
                           {section.title}
                         </h2>
@@ -3160,12 +3159,10 @@ export default function PickTeamPage() {
                                 </div>
                                 <div style={{
                                   fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
-                                  marginTop: 2, display: "flex", gap: 6,
+                                  marginTop: 2,
+                                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                 }}>
-                                  <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    {p.teamShort ?? p.teamName ?? "--"}
-                                  </span>
-                                  <span>{shortPos(p.position)}</span>
+                                  {p.teamName ?? p.teamShort ?? "--"}
                                 </div>
                               </div>
 
@@ -3214,13 +3211,12 @@ export default function PickTeamPage() {
               {/* Substitutes */}
               {bench.length > 0 && (
                 <>
-                  <div style={{ padding: "20px 16px 10px", borderTop: "1px solid hsl(var(--border))" }}>
+                  <div style={{ padding: "16px 16px 8px", borderTop: "1px solid hsl(var(--border))" }}>
                     <h2 style={{
                       margin: 0,
-                      fontSize: 20,
-                      fontWeight: 800,
+                      fontSize: 16,
+                      fontWeight: 700,
                       color: "hsl(var(--foreground))",
-                      letterSpacing: "-0.01em",
                     }}>
                       Substitutes
                     </h2>
@@ -3316,12 +3312,10 @@ export default function PickTeamPage() {
                             </div>
                             <div style={{
                               fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
-                              marginTop: 2, display: "flex", gap: 6,
+                              marginTop: 2,
+                              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                             }}>
-                              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {p.teamShort ?? p.teamName ?? "--"}
-                              </span>
-                              <span>{shortPos(p.position)}</span>
+                              {p.teamName ?? p.teamShort ?? "--"}
                             </div>
                           </div>
 
