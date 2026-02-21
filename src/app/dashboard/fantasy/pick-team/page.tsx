@@ -3001,7 +3001,7 @@ export default function PickTeamPage() {
 
       {/* List view — FPL style */}
       {tab === "list" && (
-        <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="-mx-2 rounded-xl border bg-card overflow-hidden">
           {/* Column Headers */}
           <div
             style={{
