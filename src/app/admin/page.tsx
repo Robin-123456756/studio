@@ -73,6 +73,14 @@ export default function AdminDashboard() {
       badge: "CORE",
     },
     {
+      title: "Match Scores",
+      description: "Update match results and scores for each gameweek.",
+      icon: "📊",
+      href: "/admin/scores",
+      color: "#3B82F6",
+      badge: "SCORES",
+    },
+    {
       title: "Calculate Scores",
       description: "Run the scoring engine to calculate fantasy points for a gameweek.",
       icon: "🧮",
