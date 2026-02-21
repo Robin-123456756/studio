@@ -3757,29 +3757,35 @@ export default function PickTeamPage() {
         />
       )}
 
-      {/* Sticky Save Your Team Bar */}
-      {hasUnsavedChanges && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t px-4 py-3 flex gap-3 max-w-app mx-auto">
-          <button
-            type="button"
-            onClick={cancelChanges}
-            className="flex-1 py-3 rounded-full border-2 border-foreground text-sm font-bold hover:bg-accent transition"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={loading}
-            className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
-            style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
-          >
-            <span style={{ color: "#37003C" }}>
-              {activeChip === "bench_boost" ? "Save Team (Bench Boost)" : activeChip ? `Save Team (${chipLabel(activeChip)})` : "Save Your Team"}
-            </span>
-          </button>
-        </div>
-      )}
+      {/* Sticky Bottom Bar — always visible */}
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t px-4 py-3 flex gap-3 max-w-appWide mx-auto">
+        {hasUnsavedChanges ? (
+          <>
+            <button
+              type="button"
+              onClick={cancelChanges}
+              className="flex-1 py-3 rounded-full border-2 border-foreground text-sm font-bold hover:bg-accent transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={loading}
+              className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
+              style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
+            >
+              <span style={{ color: "#37003C" }}>
+                {activeChip === "bench_boost" ? "Save Team (Bench Boost)" : activeChip ? `Save Team (${chipLabel(activeChip)})` : "Save Your Team"}
+              </span>
+            </button>
+          </>
+        ) : (
+          <div className="flex-1 py-3 rounded-full text-sm font-bold text-center text-muted-foreground border-2 border-muted">
+            Team Saved
+          </div>
+        )}
+      </div>
 
       {/* Free Hit Confirmation Modal */}
       {showFreeHitModal && (
