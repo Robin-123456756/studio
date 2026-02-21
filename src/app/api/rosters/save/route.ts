@@ -20,8 +20,8 @@ export async function POST(req: Request) {
 
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   if (!gameweekId) return NextResponse.json({ error: "Missing gameweekId" }, { status: 400 });
-  if (!Array.isArray(squadIds) || squadIds.length !== 17)
-    return NextResponse.json({ error: "Squad must be exactly 17" }, { status: 400 });
+  if (!Array.isArray(squadIds) || squadIds.length < 1)
+    return NextResponse.json({ error: "Squad cannot be empty" }, { status: 400 });
 
   // wipe old roster
   const { error: delErr } = await supabase
@@ -41,20 +41,22 @@ export async function POST(req: Request) {
   const capStr = captainId ? String(captainId) : null;
   const viceStr = viceId ? String(viceId) : null;
 
-  const rows = squadIds.map((playerId) => {
-    const pid = String(playerId);
-    return {
-      user_id: userId,
-      player_id: playerId,
-      gameweek_id: gameweekId,
-      is_starting_9: startingSet.has(pid),
-      is_captain: capStr === pid,
-      is_vice_captain: viceStr === pid,
-      multiplier: capStr === pid ? 2 : 1,
-    };
-  });
+  // Deduplicate squadIds to avoid unique constraint violations
+  const uniqueSquadIds = [...new Set(squadIds.map(String))];
 
-  const { error: insErr } = await supabase.from("user_rosters").insert(rows);
+  const rows = uniqueSquadIds.map((pid) => ({
+    user_id: userId,
+    player_id: pid,
+    gameweek_id: gameweekId,
+    is_starting_9: startingSet.has(pid),
+    is_captain: capStr === pid,
+    is_vice_captain: viceStr === pid,
+    multiplier: capStr === pid ? 2 : 1,
+  }));
+
+  const { error: insErr } = await supabase
+    .from("user_rosters")
+    .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
   if (insErr) {
     console.log("INSERT ERROR /api/rosters/save", insErr);
     return NextResponse.json({ error: insErr.message }, { status: 500 });
