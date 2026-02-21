@@ -2655,7 +2655,7 @@ export default function PickTeamPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-appWide px-4 pt-4 pb-28 space-y-4">
+    <div className="mx-auto w-full max-w-appWide px-4 pt-4 pb-6 space-y-4">
       {/* Page header - directly on surface */}
       <div className="flex items-center justify-between">
         {hasUnsavedChanges ? (
@@ -3757,8 +3757,8 @@ export default function PickTeamPage() {
         />
       )}
 
-      {/* Sticky Bottom Bar — always visible */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t px-4 py-3 flex gap-3 max-w-appWide mx-auto">
+      {/* Action Bar — inline after substitutes */}
+      <div className="flex gap-3 pt-2 pb-4">
         {hasUnsavedChanges ? (
           <>
             <button
