@@ -23,20 +23,6 @@ export async function POST(req: Request) {
   if (!Array.isArray(squadIds) || squadIds.length < 1)
     return NextResponse.json({ error: "Squad cannot be empty" }, { status: 400 });
 
-  // wipe old roster
-  const { error: delErr } = await supabase
-    .from("user_rosters")
-    .delete()
-    .eq("user_id", userId)
-    .eq("gameweek_id", Number(gameweekId));
-
-  if (delErr) {
-    console.log("DELETE ERROR /api/rosters/save", delErr);
-    return NextResponse.json({ error: delErr.message }, { status: 500 });
-  }
-
-  // insert new roster — captain gets 2x multiplier
-  // (lady 2x is already applied at the base scoring level, not here)
   const startingSet = new Set(startingIds.map(String));
   const capStr = captainId ? String(captainId) : null;
   const viceStr = viceId ? String(viceId) : null;
@@ -54,12 +40,25 @@ export async function POST(req: Request) {
     multiplier: capStr === pid ? 2 : 1,
   }));
 
-  const { error: insErr } = await supabase
+  // Step 1: Upsert all current squad players (insert or update)
+  const { error: upsertErr } = await supabase
     .from("user_rosters")
     .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
-  if (insErr) {
-    console.log("INSERT ERROR /api/rosters/save", insErr);
-    return NextResponse.json({ error: insErr.message }, { status: 500 });
+  if (upsertErr) {
+    console.log("UPSERT ERROR /api/rosters/save", upsertErr);
+    return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+  }
+
+  // Step 2: Remove any players no longer in the squad
+  const { error: delErr } = await supabase
+    .from("user_rosters")
+    .delete()
+    .eq("user_id", userId)
+    .eq("gameweek_id", Number(gameweekId))
+    .not("player_id", "in", `(${uniqueSquadIds.join(",")})`);
+  if (delErr) {
+    console.log("CLEANUP ERROR /api/rosters/save", delErr);
+    // Non-fatal — squad was saved, just stale rows remain
   }
 
   return NextResponse.json({ ok: true, inserted: rows.length });
