@@ -3842,6 +3842,10 @@ export default function PickTeamPage() {
                       return normalizePosition(p.position) === "Goalkeeper";
                     }
                     if (normalizePosition(p.position) === "Goalkeeper") return false;
+                    if (normalizePosition(firstPlayer.position) === "Defender") {
+                      return normalizePosition(p.position) === "Defender";
+                    }
+                    if (normalizePosition(p.position) === "Defender") return false;
                     if (firstPlayer.isLady) return !!p.isLady;
                     if (p.isLady) return false;
                     return true;
