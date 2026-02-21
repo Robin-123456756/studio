@@ -704,6 +704,13 @@ export default function PickTeamPage() {
     if (msgTimer.current) clearTimeout(msgTimer.current);
     msgTimer.current = setTimeout(() => setMsg(null), duration);
   }
+  const [swapMsg, setSwapMsg] = React.useState<string | null>(null);
+  const swapMsgTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showSwapMsg(text: string, duration = 3500) {
+    setSwapMsg(text);
+    if (swapMsgTimer.current) clearTimeout(swapMsgTimer.current);
+    swapMsgTimer.current = setTimeout(() => setSwapMsg(null), duration);
+  }
   const [tab, setTab] = React.useState<TabKey>("pitch");
 
   // Player detail modal
@@ -2138,8 +2145,7 @@ export default function PickTeamPage() {
     selectedBenchSwap,
     onSelectBenchSwap,
     onSwapBench,
-    msg: pitchMsg,
-    msgType: pitchMsgType,
+    swapMsg,
   }: {
     picked: Player[];
     startingIds: string[];
@@ -2153,8 +2159,7 @@ export default function PickTeamPage() {
     selectedBenchSwap: string | null;
     onSelectBenchSwap: (id: string | null) => void;
     onSwapBench: (id1: string, id2: string) => void;
-    msg: string | null;
-    msgType: "error" | "success" | "info";
+    swapMsg: string | null;
   }) {
     const { starting, bench } = splitStartingAndBench(picked, startingIds);
     const g = groupByPosition(starting);
@@ -2502,21 +2507,16 @@ export default function PickTeamPage() {
           </div>
         </div>
 
-        {/* Message bar — above bench */}
-        {pitchMsg && (
+        {/* Swap notification — above bench */}
+        {swapMsg && (
           <div
             className="rounded-xl px-4 py-2.5 text-sm font-medium text-center animate-slide-up mx-2"
             style={{
-              background:
-                pitchMsgType === "error"
-                  ? "linear-gradient(90deg, #dc2626, #b91c1c)"
-                  : pitchMsgType === "success"
-                  ? "linear-gradient(90deg, #059669, #047857)"
-                  : "linear-gradient(90deg, #37003C, #5B0050)",
+              background: "linear-gradient(90deg, #059669, #047857)",
               color: "#fff",
             }}
           >
-            {pitchMsg}
+            {swapMsg}
           </div>
         )}
 
@@ -2835,6 +2835,23 @@ export default function PickTeamPage() {
         })}
       </div>
 
+      {msg && (
+        <div
+          className="rounded-xl px-4 py-2.5 text-sm font-medium text-center animate-slide-up"
+          style={{
+            background:
+              msgType === "error"
+                ? "linear-gradient(90deg, #dc2626, #b91c1c)"
+                : msgType === "success"
+                ? "linear-gradient(90deg, #059669, #047857)"
+                : "linear-gradient(90deg, #37003C, #5B0050)",
+            color: "#fff",
+          }}
+        >
+          {msg}
+        </div>
+      )}
+
       {/* Triple Captain Active Banner */}
       {activeChip === "triple_captain" && (
         <div className="rounded-xl overflow-hidden">
@@ -2965,7 +2982,7 @@ export default function PickTeamPage() {
             onSwapPlayers={(id1, id2) => {
               const ok = swapPlayers(id1, id2);
               if (ok) {
-                showMsg("Swap completed", "success");
+                showSwapMsg("Swap completed");
               }
             }}
             captainId={captainId}
@@ -2977,8 +2994,7 @@ export default function PickTeamPage() {
             selectedBenchSwap={selectedBenchSwap}
             onSelectBenchSwap={setSelectedBenchSwap}
             onSwapBench={swapBenchOrder}
-            msg={msg}
-            msgType={msgType}
+            swapMsg={swapMsg}
           />
         </div>
       )}
@@ -3181,21 +3197,16 @@ export default function PickTeamPage() {
                 </div>
               ))}
 
-              {/* Message bar — above substitutes */}
-              {msg && (
+              {/* Swap notification — above substitutes */}
+              {swapMsg && (
                 <div
                   className="rounded-xl px-4 py-2.5 text-sm font-medium text-center animate-slide-up mx-3 mt-3"
                   style={{
-                    background:
-                      msgType === "error"
-                        ? "linear-gradient(90deg, #dc2626, #b91c1c)"
-                        : msgType === "success"
-                        ? "linear-gradient(90deg, #059669, #047857)"
-                        : "linear-gradient(90deg, #37003C, #5B0050)",
+                    background: "linear-gradient(90deg, #059669, #047857)",
                     color: "#fff",
                   }}
                 >
-                  {msg}
+                  {swapMsg}
                 </div>
               )}
 
