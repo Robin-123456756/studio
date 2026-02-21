@@ -121,6 +121,13 @@ export default function AdminDashboard() {
       href: "/dashboard/admin/matches/new",
       color: "#F97316",
     },
+        {
+      title: "Fixtures & Events",
+      description: "Schedule matches, tournaments, cups, and friendlies.",
+      icon: "📅",
+      href: "/admin/fixtures",
+      color: "#F97316",
+    },
     {
       title: "Send Notifications",
       description: "Send notifications to players and team members.",
