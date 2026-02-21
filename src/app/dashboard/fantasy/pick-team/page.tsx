@@ -3757,35 +3757,6 @@ export default function PickTeamPage() {
         />
       )}
 
-      {/* Action Bar — inline after substitutes */}
-      <div className="flex gap-3 pt-2 pb-4">
-        {hasUnsavedChanges ? (
-          <>
-            <button
-              type="button"
-              onClick={cancelChanges}
-              className="flex-1 py-3 rounded-full border-2 border-foreground text-sm font-bold hover:bg-accent transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={loading}
-              className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
-              style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
-            >
-              <span style={{ color: "#37003C" }}>
-                {activeChip === "bench_boost" ? "Save Team (Bench Boost)" : activeChip ? `Save Team (${chipLabel(activeChip)})` : "Save Your Team"}
-              </span>
-            </button>
-          </>
-        ) : (
-          <div className="flex-1 py-3 rounded-full text-sm font-bold text-center text-muted-foreground border-2 border-muted">
-            Team Saved
-          </div>
-        )}
-      </div>
 
       {/* Free Hit Confirmation Modal */}
       {showFreeHitModal && (
