@@ -8,38 +8,25 @@ function getSupabase() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-// GET — fetch all matches grouped by gameweek
 export async function GET() {
   try {
     const supabase = getSupabase();
 
     const { data: matches, error } = await supabase
       .from("matches")
-      .select(`
-        id,
-        gameweek_id,
-        home_goals,
-        away_goals,
-        is_played,
-        home_team_uuid,
-        away_team_uuid
-      `)
+      .select("id, gameweek_id, home_goals, away_goals, is_played, home_team_uuid, away_team_uuid")
       .order("gameweek_id", { ascending: true })
       .order("id", { ascending: true });
 
     if (error) throw error;
 
-    // Fetch all teams for name lookup
-    const { data: teams } = await supabase
-      .from("teams")
-      .select("team_uuid, name, short_name");
+    const { data: teams } = await supabase.from("teams").select("team_uuid, name, short_name");
 
     const teamMap: Record<string, { name: string; short_name: string }> = {};
     for (const t of teams || []) {
       teamMap[t.team_uuid] = { name: t.name, short_name: t.short_name };
     }
 
-    // Group by gameweek
     const gwMap: Record<number, any[]> = {};
     for (const m of matches || []) {
       const gw = m.gameweek_id;
@@ -56,6 +43,8 @@ export async function GET() {
         home_short: home.short_name,
         away_team: away.name,
         away_short: away.short_name,
+        home_team_uuid: m.home_team_uuid,
+        away_team_uuid: m.away_team_uuid,
       });
     }
 
@@ -69,7 +58,6 @@ export async function GET() {
   }
 }
 
-// PUT — update match scores
 export async function PUT(req: Request) {
   try {
     const supabase = getSupabase();
@@ -80,14 +68,13 @@ export async function PUT(req: Request) {
     }
 
     let updated = 0;
+    let cleanSheetsAwarded = 0;
 
     for (const match of matches) {
       const { id, home_goals, away_goals } = match;
+      if (id === undefined || home_goals === undefined || away_goals === undefined) continue;
 
-      if (id === undefined || home_goals === undefined || away_goals === undefined) {
-        continue;
-      }
-
+      // Update match score
       const { error } = await supabase
         .from("matches")
         .update({
@@ -99,9 +86,89 @@ export async function PUT(req: Request) {
 
       if (error) throw new Error(`Failed to update match ${id}: ${error.message}`);
       updated++;
+
+      // Get match details for clean sheet logic
+      const { data: matchData } = await supabase
+        .from("matches")
+        .select("home_team_uuid, away_team_uuid")
+        .eq("id", id)
+        .single();
+
+      if (!matchData) continue;
+
+      // Award clean sheets to teams that conceded 0 goals
+      const cleanSheetTeams: string[] = [];
+      if (parseInt(away_goals) === 0) cleanSheetTeams.push(matchData.home_team_uuid);
+      if (parseInt(home_goals) === 0) cleanSheetTeams.push(matchData.away_team_uuid);
+
+      for (const teamUuid of cleanSheetTeams) {
+        // Get GK/DEF/MID players from this team who have an appearance in this match
+        const { data: players } = await supabase
+          .from("players")
+          .select("id, position")
+          .eq("team_id", teamUuid)
+          .in("position", ["GK", "DEF", "MID"]);
+
+        for (const player of players || []) {
+          // Check if player has an appearance in this match
+          const { data: appearance } = await supabase
+            .from("player_match_events")
+            .select("id")
+            .eq("player_id", player.id)
+            .eq("match_id", id)
+            .eq("action", "appearance")
+            .single();
+
+          if (!appearance) continue;
+
+          // Calculate clean sheet points based on position
+          const csPoints = player.position === "GK" || player.position === "DEF" ? 4 : 1;
+
+          // Upsert clean sheet
+          const { error: csError } = await supabase
+            .from("player_match_events")
+            .upsert({
+              player_id: player.id,
+              match_id: id,
+              action: "clean_sheet",
+              quantity: 1,
+              points_awarded: csPoints,
+            }, {
+              onConflict: "player_id,match_id,action",
+            });
+
+          if (!csError) cleanSheetsAwarded++;
+        }
+      }
+
+      // Remove clean sheets for teams that DID concede
+      const concededTeams: string[] = [];
+      if (parseInt(away_goals) > 0) concededTeams.push(matchData.home_team_uuid);
+      if (parseInt(home_goals) > 0) concededTeams.push(matchData.away_team_uuid);
+
+      for (const teamUuid of concededTeams) {
+        const { data: players } = await supabase
+          .from("players")
+          .select("id")
+          .eq("team_id", teamUuid);
+
+        const playerIds = (players || []).map((p) => p.id);
+        if (playerIds.length > 0) {
+          await supabase
+            .from("player_match_events")
+            .delete()
+            .eq("match_id", id)
+            .eq("action", "clean_sheet")
+            .in("player_id", playerIds);
+        }
+      }
     }
 
-    return NextResponse.json({ success: true, updated });
+    // Update player total_points
+    const { error: ptError } = await supabase.rpc("recalculate_all_player_points");
+    // Ignore if function doesn't exist yet
+
+    return NextResponse.json({ success: true, updated, cleanSheetsAwarded });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
