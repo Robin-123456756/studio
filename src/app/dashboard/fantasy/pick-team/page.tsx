@@ -721,8 +721,6 @@ export default function PickTeamPage() {
   // Substitution mode - track player selected for swap
   const [selectedForSwap, setSelectedForSwap] = React.useState<string | null>(null);
   const [sheetPlayer, setSheetPlayer] = React.useState<Player | null>(null);
-  // List view: expanded player detail (inline instead of bottom sheet)
-  const [expandedListId, setExpandedListId] = React.useState<string | null>(null);
   // Bench reorder: custom bench ordering (array of player IDs in desired order)
   const [benchOrder, setBenchOrder] = React.useState<string[]>([]);
   const [selectedBenchSwap, setSelectedBenchSwap] = React.useState<string | null>(null);
@@ -3054,22 +3052,18 @@ export default function PickTeamPage() {
                         const isGK = normalizePosition(p.position) === "Goalkeeper";
                         const kitColor = getKitColor(p.teamShort);
                         const formVal = p.formLast5 ? parseFloat(p.formLast5) : 0;
-                        const isExpanded = expandedListId === p.id;
-                        const history = p.pointsHistory ?? [];
-                        const maxPts = Math.max(...history, 1);
-                        const isStarter = startingIds.includes(p.id);
 
                         return (
                           <div key={p.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
                             {/* Clickable row header */}
                             <button
                               type="button"
-                              onClick={() => setExpandedListId(isExpanded ? null : p.id)}
+                              onClick={() => setSheetPlayer(p)}
                               style={{
                                 display: "flex",
                                 alignItems: "center",
                                 padding: "12px 12px 12px 8px",
-                                background: isExpanded ? "hsl(var(--accent))" : "transparent",
+                                background: "transparent",
                                 width: "100%",
                                 cursor: "pointer",
                                 border: "none",
@@ -3086,8 +3080,8 @@ export default function PickTeamPage() {
                                   fontStyle: "italic",
                                   fontSize: 14,
                                   fontWeight: 400,
-                                  color: isExpanded ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                                  opacity: isExpanded ? 1 : 0.7,
+                                  color: "hsl(var(--muted-foreground))",
+                                  opacity: 0.7,
                                   lineHeight: 1,
                                 }}>i</span>
                               </div>
@@ -3172,165 +3166,6 @@ export default function PickTeamPage() {
                                 </span>
                               </div>
                             </button>
-                         
-                            {/* Expanded inline detail panel */}
-                            {isExpanded && (
-                              <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))" }}>
-                                {/* Stats Grid */}
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                                  <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Price</div>
-                                    <div style={{ fontSize: 15, fontWeight: 700, color: "hsl(var(--primary))" }}>{formatUGX(p.price)}</div>
-                                  </div>
-                                  <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Total Pts</div>
-                                    <div style={{ fontSize: 15, fontWeight: 700 }}>{formatNumber(p.points)}</div>
-                                  </div>
-                                  <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Form</div>
-                                    <div style={{ fontSize: 15, fontWeight: 700 }}>{formatForm(p.formLast5)}</div>
-                                  </div>
-                                  <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Owned</div>
-                                    <div style={{ fontSize: 15, fontWeight: 700 }}>{formatOwnership(p.ownership)}</div>
-                                  </div>
-                                </div>
-
-                                {/* GW History Bar Chart */}
-                                {history.length > 0 && (
-                                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid hsl(var(--border))" }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "hsl(var(--muted-foreground))", marginBottom: 8 }}>
-                                      Gameweek History
-                                    </div>
-                                    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 72 }}>
-                                      {history.map((pts, i) => {
-                                        const h = Math.max(4, (pts / maxPts) * 56);
-                                        return (
-                                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                                            <span style={{ fontSize: 9, fontWeight: 700 }}>{pts}</span>
-                                            <div
-                                              style={{
-                                                width: "100%",
-                                                borderRadius: "3px 3px 0 0",
-                                                height: h,
-                                                background: pts >= 8 ? "#10b981" : pts >= 5 ? "#38bdf8" : pts >= 3 ? "#fbbf24" : "hsl(var(--muted))",
-                                              }}
-                                            />
-                                            <span style={{ fontSize: 7, color: "hsl(var(--muted-foreground))" }}>GW{i + 1}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Captain / Vice Captain buttons */}
-                                {isStarter && (
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid hsl(var(--border))" }}>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); setCaptain(p.id); }}
-                                      style={{
-                                        display: "flex", alignItems: "center", gap: 8,
-                                        borderRadius: 12, border: `2px solid ${isCap ? (activeChip === "triple_captain" ? "#ef4444" : "#f59e0b") : "hsl(var(--border))"}`,
-                                        background: isCap ? (activeChip === "triple_captain" ? "#fef2f2" : "#fffbeb") : "transparent",
-                                        padding: "10px 12px", cursor: "pointer", textAlign: "left",
-                                      }}
-                                    >
-                                      <div style={{
-                                        width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
-                                        fontWeight: 900, fontSize: activeChip === "triple_captain" ? 9 : 12,
-                                        background: isCap ? (activeChip === "triple_captain" ? "linear-gradient(135deg, #C8102E, #8B0000)" : "#f59e0b") : "hsl(var(--muted))",
-                                        color: isCap ? "#fff" : "hsl(var(--muted-foreground))",
-                                      }}>{activeChip === "triple_captain" ? "TC" : "C"}</div>
-                                      <div>
-                                        <div style={{ fontSize: 13, fontWeight: 700 }}>{activeChip === "triple_captain" ? "Triple Captain" : "Captain"}</div>
-                                        <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))" }}>{activeChip === "triple_captain" ? "Triple points" : "Double points"}</div>
-                                      </div>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); setVice(p.id); }}
-                                      style={{
-                                        display: "flex", alignItems: "center", gap: 8,
-                                        borderRadius: 12, border: `2px solid ${isVc ? "#3b82f6" : "hsl(var(--border))"}`,
-                                        background: isVc ? "#eff6ff" : "transparent",
-                                        padding: "10px 12px", cursor: "pointer", textAlign: "left",
-                                      }}
-                                    >
-                                      <div style={{
-                                        width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
-                                        fontWeight: 900, fontSize: 12,
-                                        background: isVc ? "#3b82f6" : "hsl(var(--muted))",
-                                        color: isVc ? "#fff" : "hsl(var(--muted-foreground))",
-                                      }}>V</div>
-                                      <div>
-                                        <div style={{ fontSize: 13, fontWeight: 700 }}>Vice Captain</div>
-                                        <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))" }}>Backup captain</div>
-                                      </div>
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* Lady 2x info */}
-                                {p.isLady && (
-                                  <div style={{
-                                    marginTop: 10, display: "flex", alignItems: "center", gap: 8,
-                                    borderRadius: 12, padding: "10px 12px",
-                                    background: "linear-gradient(135deg, rgba(236,72,153,0.1), rgba(219,39,119,0.1))",
-                                    border: "1px solid rgba(236,72,153,0.25)",
-                                  }}>
-                                    <span style={{ background: "linear-gradient(135deg, #FF69B4, #FF1493)", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", flexShrink: 0 }}>★</span>
-                                    <div>
-                                      <div style={{ fontWeight: 700, color: "#ec4899", fontSize: 12 }}>Lady Player — 2x Points</div>
-                                      <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))" }}>All points doubled automatically. Captain stacks to 4x!</div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Action Buttons */}
-                                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                                  <Button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setSelectedForSwap(p.id); setExpandedListId(null); }}
-                                    className="flex-1 rounded-xl gap-2"
-                                    size="sm"
-                                  >
-                                    <ArrowUpDown className="h-4 w-4" />
-                                    Substitute
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="flex-1 rounded-xl gap-2"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setComparePlayerIds([p.id]);
-                                      setCompareMode(true);
-                                      setExpandedListId(null);
-                                    }}
-                                  >
-                                    <Scale className="h-4 w-4" />
-                                    Compare
-                                  </Button>
-                                </div>
-                                <div style={{ marginTop: 8 }}>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full rounded-xl gap-2"
-                                    size="sm"
-                                    asChild
-                                  >
-                                    <Link href={`/dashboard/players/${p.id}`}>
-                                      <Info className="h-4 w-4" />
-                                      Full Profile
-                                    </Link>
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -3359,21 +3194,18 @@ export default function PickTeamPage() {
                     const isGK = normalizePosition(p.position) === "Goalkeeper";
                     const kitColor = getKitColor(p.teamShort);
                     const formVal = p.formLast5 ? parseFloat(p.formLast5) : 0;
-                    const isExpanded = expandedListId === p.id;
-                    const history = p.pointsHistory ?? [];
-                    const maxPts = Math.max(...history, 1);
 
                     return (
                       <div key={p.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
                         {/* Clickable row header */}
                         <button
                           type="button"
-                          onClick={() => setExpandedListId(isExpanded ? null : p.id)}
+                          onClick={() => setSheetPlayer(p)}
                           style={{
                             display: "flex",
                             alignItems: "center",
                             padding: "12px 12px 12px 8px",
-                            background: isExpanded ? "hsl(var(--accent))" : "transparent",
+                            background: "transparent",
                             width: "100%",
                             cursor: "pointer",
                             border: "none",
@@ -3390,8 +3222,8 @@ export default function PickTeamPage() {
                               fontStyle: "italic",
                               fontSize: 14,
                               fontWeight: 400,
-                              color: isExpanded ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                              opacity: isExpanded ? 1 : 0.5,
+                              color: "hsl(var(--muted-foreground))",
+                              opacity: 0.5,
                               lineHeight: 1,
                             }}>i</span>
                           </div>
@@ -3476,117 +3308,6 @@ export default function PickTeamPage() {
                             </span>
                           </div>
                         </button>
-
-                        {/* Expanded inline detail panel */}
-                        {isExpanded && (
-                          <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))" }}>
-                            {/* Stats Grid */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                              <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Price</div>
-                                <div style={{ fontSize: 15, fontWeight: 700, color: "hsl(var(--primary))" }}>{formatUGX(p.price)}</div>
-                              </div>
-                              <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Total Pts</div>
-                                <div style={{ fontSize: 15, fontWeight: 700 }}>{formatNumber(p.points)}</div>
-                              </div>
-                              <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Form</div>
-                                <div style={{ fontSize: 15, fontWeight: 700 }}>{formatForm(p.formLast5)}</div>
-                              </div>
-                              <div style={{ borderRadius: 12, background: "hsl(var(--muted)/0.5)", padding: "8px 4px", textAlign: "center" }}>
-                                <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", fontWeight: 600, textTransform: "uppercase" }}>Owned</div>
-                                <div style={{ fontSize: 15, fontWeight: 700 }}>{formatOwnership(p.ownership)}</div>
-                              </div>
-                            </div>
-
-                            {/* GW History Bar Chart */}
-                            {history.length > 0 && (
-                              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid hsl(var(--border))" }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "hsl(var(--muted-foreground))", marginBottom: 8 }}>
-                                  Gameweek History
-                                </div>
-                                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 72 }}>
-                                  {history.map((pts, i) => {
-                                    const h = Math.max(4, (pts / maxPts) * 56);
-                                    return (
-                                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                                        <span style={{ fontSize: 9, fontWeight: 700 }}>{pts}</span>
-                                        <div
-                                          style={{
-                                            width: "100%",
-                                            borderRadius: "3px 3px 0 0",
-                                            height: h,
-                                            background: pts >= 8 ? "#10b981" : pts >= 5 ? "#38bdf8" : pts >= 3 ? "#fbbf24" : "hsl(var(--muted))",
-                                          }}
-                                        />
-                                        <span style={{ fontSize: 7, color: "hsl(var(--muted-foreground))" }}>GW{i + 1}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Lady 2x info */}
-                            {p.isLady && (
-                              <div style={{
-                                marginTop: 10, display: "flex", alignItems: "center", gap: 8,
-                                borderRadius: 12, padding: "10px 12px",
-                                background: "linear-gradient(135deg, rgba(236,72,153,0.1), rgba(219,39,119,0.1))",
-                                border: "1px solid rgba(236,72,153,0.25)",
-                              }}>
-                                <span style={{ background: "linear-gradient(135deg, #FF69B4, #FF1493)", width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", flexShrink: 0 }}>★</span>
-                                <div>
-                                  <div style={{ fontWeight: 700, color: "#ec4899", fontSize: 12 }}>Lady Player — 2x Points</div>
-                                  <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))" }}>All points doubled automatically. Captain stacks to 4x!</div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Action Buttons */}
-                            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                              <Button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setSelectedForSwap(p.id); setExpandedListId(null); }}
-                                className="flex-1 rounded-xl gap-2"
-                                size="sm"
-                              >
-                                <ArrowUpDown className="h-4 w-4" />
-                                Substitute
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="flex-1 rounded-xl gap-2"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setComparePlayerIds([p.id]);
-                                  setCompareMode(true);
-                                  setExpandedListId(null);
-                                }}
-                              >
-                                <Scale className="h-4 w-4" />
-                                Compare
-                              </Button>
-                            </div>
-                            <div style={{ marginTop: 8 }}>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full rounded-xl gap-2"
-                                size="sm"
-                                asChild
-                              >
-                                <Link href={`/dashboard/players/${p.id}`}>
-                                  <Info className="h-4 w-4" />
-                                  Full Profile
-                                </Link>
-                              </Button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
