@@ -487,6 +487,7 @@ function PlayerInfoSheet({
   onSetCaptain,
   onSetVice,
   onSubstitute,
+  onCompare,
   activeChip,
 }: {
   player: Player;
@@ -498,6 +499,7 @@ function PlayerInfoSheet({
   onSetCaptain: () => void;
   onSetVice: () => void;
   onSubstitute: () => void;
+  onCompare: () => void;
   activeChip?: string | null;
 }) {
   const displayName = shortName(player.name, player.webName);
@@ -650,6 +652,15 @@ function PlayerInfoSheet({
           >
             <ArrowUpDown className="h-4 w-4" />
             Substitute
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full rounded-xl gap-2"
+            onClick={onCompare}
+          >
+            <Scale className="h-4 w-4" />
+            Compare
           </Button>
           <Button
             type="button"
@@ -3293,6 +3304,23 @@ export default function PickTeamPage() {
                                     variant="outline"
                                     className="flex-1 rounded-xl gap-2"
                                     size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setComparePlayerIds([p.id]);
+                                      setCompareMode(true);
+                                      setExpandedListId(null);
+                                    }}
+                                  >
+                                    <Scale className="h-4 w-4" />
+                                    Compare
+                                  </Button>
+                                </div>
+                                <div style={{ marginTop: 8 }}>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full rounded-xl gap-2"
+                                    size="sm"
                                     asChild
                                   >
                                     <Link href={`/dashboard/players/${p.id}`}>
@@ -3531,6 +3559,23 @@ export default function PickTeamPage() {
                                 type="button"
                                 variant="outline"
                                 className="flex-1 rounded-xl gap-2"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setComparePlayerIds([p.id]);
+                                  setCompareMode(true);
+                                  setExpandedListId(null);
+                                }}
+                              >
+                                <Scale className="h-4 w-4" />
+                                Compare
+                              </Button>
+                            </div>
+                            <div style={{ marginTop: 8 }}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full rounded-xl gap-2"
                                 size="sm"
                                 asChild
                               >
@@ -3772,6 +3817,11 @@ export default function PickTeamPage() {
           }}
           onSubstitute={() => {
             setSelectedForSwap(sheetPlayer.id);
+            setSheetPlayer(null);
+          }}
+          onCompare={() => {
+            setComparePlayerIds([sheetPlayer.id]);
+            setCompareMode(true);
             setSheetPlayer(null);
           }}
           activeChip={activeChip}
