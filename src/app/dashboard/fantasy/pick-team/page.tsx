@@ -2961,9 +2961,9 @@ export default function PickTeamPage() {
             <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))", textAlign: "left" }}>Player</div>
             <div style={{ width: 36, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
             <div style={{ width: 48, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
-              Price
+              Current Price
             </div>
-            <div style={{ width: 42, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Sel.</div>
+            <div style={{ width: 42, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Selected</div>
           </div>
 
           {picked.length === 0 ? (
@@ -3140,7 +3140,7 @@ export default function PickTeamPage() {
                                 </span>
                               </div>
                             </button>
-
+                         
                             {/* Expanded inline detail panel */}
                             {isExpanded && (
                               <div style={{ padding: "0 16px 12px", background: "hsl(var(--accent))" }}>
@@ -3757,35 +3757,29 @@ export default function PickTeamPage() {
         />
       )}
 
-      {/* Sticky Bottom Bar — always visible */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t px-4 py-3 flex gap-3 max-w-appWide mx-auto">
-        {hasUnsavedChanges ? (
-          <>
-            <button
-              type="button"
-              onClick={cancelChanges}
-              className="flex-1 py-3 rounded-full border-2 border-foreground text-sm font-bold hover:bg-accent transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={loading}
-              className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
-              style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
-            >
-              <span style={{ color: "#37003C" }}>
-                {activeChip === "bench_boost" ? "Save Team (Bench Boost)" : activeChip ? `Save Team (${chipLabel(activeChip)})` : "Save Your Team"}
-              </span>
-            </button>
-          </>
-        ) : (
-          <div className="flex-1 py-3 rounded-full text-sm font-bold text-center text-muted-foreground border-2 border-muted">
-            Team Saved
-          </div>
-        )}
-      </div>
+      {/* Sticky Save Your Team Bar */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t px-4 py-3 flex gap-3 max-w-app mx-auto">
+          <button
+            type="button"
+            onClick={cancelChanges}
+            className="flex-1 py-3 rounded-full border-2 border-foreground text-sm font-bold hover:bg-accent transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={loading}
+            className="flex-1 py-3 rounded-full text-sm font-bold text-white transition disabled:opacity-50"
+            style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)" }}
+          >
+            <span style={{ color: "#37003C" }}>
+              {activeChip === "bench_boost" ? "Save Team (Bench Boost)" : activeChip ? `Save Team (${chipLabel(activeChip)})` : "Save Your Team"}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Free Hit Confirmation Modal */}
       {showFreeHitModal && (
