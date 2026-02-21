@@ -30,8 +30,6 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useToast } from "@/hooks/use-toast";
-import { Toaster } from "@/components/ui/toaster";
 
 // DB helpers (Step 3)
 import { loadRosterFromDb, saveRosterToDb, upsertTeamName } from "@/lib/fantasyDb";
@@ -686,6 +684,15 @@ export default function PickTeamPage() {
   const [savedCaptainId, setSavedCaptainId] = React.useState<string | null>(null);
   const [savedViceId, setSavedViceId] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [msgType, setMsgType] = React.useState<"error" | "success" | "info">("info");
+  const msgTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showMsg(text: string, type: "error" | "success" | "info" = "info", duration = 3500) {
+    setMsg(text);
+    setMsgType(type);
+    if (msgTimer.current) clearTimeout(msgTimer.current);
+    msgTimer.current = setTimeout(() => setMsg(null), duration);
+  }
   const [tab, setTab] = React.useState<TabKey>("pitch");
 
   // Player detail modal
@@ -708,7 +715,6 @@ export default function PickTeamPage() {
   // Bench reorder: custom bench ordering (array of player IDs in desired order)
   const [benchOrder, setBenchOrder] = React.useState<string[]>([]);
   const [selectedBenchSwap, setSelectedBenchSwap] = React.useState<string | null>(null);
-  const { toast } = useToast();
 
   // Chips state
   type ChipKey = "bench_boost" | "triple_captain" | "wildcard" | "free_hit";
@@ -734,7 +740,7 @@ export default function PickTeamPage() {
 
   function toggleChip(chip: ChipKey) {
     if (usedChips.includes(chip)) {
-      toast({ description: `${chip.replace("_", " ")} has already been used this season.`, variant: "destructive" });
+      showMsg(`${chip.replace("_", " ")} has already been used this season.`, "error");
       return;
     }
     // Free Hit gets a confirmation modal
@@ -770,12 +776,12 @@ export default function PickTeamPage() {
       }
       setActiveChip(null);
       localStorage.removeItem(LS_ACTIVE_CHIP);
-      toast({ description: `${chipLabel(chip)} deactivated` });
+      showMsg(`${chipLabel(chip)} deactivated`, "info");
     } else {
       // Activate (only one chip at a time)
       setActiveChip(chip);
       localStorage.setItem(LS_ACTIVE_CHIP, chip);
-      toast({ description: `${chipLabel(chip)} activated!` });
+      showMsg(`${chipLabel(chip)} activated!`, "success");
     }
   }
 
@@ -792,14 +798,14 @@ export default function PickTeamPage() {
     setActiveChip("free_hit");
     localStorage.setItem(LS_ACTIVE_CHIP, "free_hit");
     setShowFreeHitModal(false);
-    toast({ description: "Free Hit activated! Head to Transfers to rebuild your squad for this gameweek." });
+    showMsg("Free Hit activated! Head to Transfers to rebuild your squad for this gameweek.", "success");
   }
 
   function activateBenchBoost() {
     setActiveChip("bench_boost");
     localStorage.setItem(LS_ACTIVE_CHIP, "bench_boost");
     setShowBenchBoostModal(false);
-    toast({ description: "Bench Boost activated! All 17 players will score this gameweek. Save your team to confirm." });
+    showMsg("Bench Boost activated! All 17 players will score this gameweek. Save your team to confirm.", "success");
   }
 
   function activateTripleCaptain() {
@@ -809,7 +815,7 @@ export default function PickTeamPage() {
     const capName = captainId && playerById.get(captainId)
       ? shortName(playerById.get(captainId)?.name, playerById.get(captainId)?.webName)
       : "Your captain";
-    toast({ description: `Triple Captain activated! ${capName}'s points will be tripled. Save your team to confirm.` });
+    showMsg(`Triple Captain activated! ${capName}'s points will be tripled. Save your team to confirm.`, "success");
   }
 
   function chipLabel(chip: ChipKey): string {
@@ -1781,7 +1787,7 @@ export default function PickTeamPage() {
       [order[i1], order[i2]] = [order[i2], order[i1]];
       return order;
     });
-    toast({ description: "Bench order updated" });
+    showMsg("Bench order updated", "info");
   }
 
   async function save() {
@@ -1860,13 +1866,13 @@ export default function PickTeamPage() {
         const chipName = chipLabel(activeChip);
         setActiveChip(null);
         localStorage.removeItem(LS_ACTIVE_CHIP);
-        toast({ description: `Team saved! ${chipName} has been applied.`, duration: 3000 });
+        showMsg(`Team saved! ${chipName} has been applied.`, "success");
       } else {
-        toast({ description: "Your team has been saved!", duration: 3000 });
+        showMsg("Your team has been saved!", "success");
       }
       setMsg(null);
     } catch (e: any) {
-      toast({ description: `Saved locally. DB error: ${e?.message ?? "Unknown"}`, variant: "destructive", duration: 4000 });
+      showMsg(`Saved locally. DB error: ${e?.message ?? "Unknown"}`, "error", 5000);
     }
   }
 
@@ -2798,7 +2804,22 @@ export default function PickTeamPage() {
         })}
       </div>
 
-      {msg ? <div className="text-sm text-center">{msg}</div> : null}
+      {msg && (
+        <div
+          className="rounded-xl px-4 py-2.5 text-sm font-medium text-center animate-slide-up"
+          style={{
+            background:
+              msgType === "error"
+                ? "linear-gradient(90deg, #dc2626, #b91c1c)"
+                : msgType === "success"
+                ? "linear-gradient(90deg, #059669, #047857)"
+                : "linear-gradient(90deg, #37003C, #5B0050)",
+            color: "#fff",
+          }}
+        >
+          {msg}
+        </div>
+      )}
 
       {/* Triple Captain Active Banner */}
       {activeChip === "triple_captain" && (
@@ -2930,7 +2951,7 @@ export default function PickTeamPage() {
             onSwapPlayers={(id1, id2) => {
               const ok = swapPlayers(id1, id2);
               if (ok) {
-                toast({ description: "Swap completed" });
+                showMsg("Swap completed", "success");
               }
             }}
             captainId={captainId}
@@ -3973,8 +3994,6 @@ export default function PickTeamPage() {
           </div>
         </div>
       )}
-
-      <Toaster />
 
       {/* Compare Players Modal */}
       {compareMode && comparePlayerIds.length >= 1 && (
