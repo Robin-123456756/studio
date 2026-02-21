@@ -3007,16 +3007,16 @@ export default function PickTeamPage() {
             style={{
               display: "flex",
               alignItems: "flex-end",
-              padding: "20px 12px 8px 12px",
+              padding: "16px 16px 10px",
               borderBottom: "1px solid hsl(var(--border))",
             }}
           >
-            <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))", textAlign: "left" }}>Player</div>
-            <div style={{ width: 36, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
-            <div style={{ width: 48, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
+            <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "hsl(var(--muted-foreground))", textAlign: "left" }}>Player</div>
+            <div style={{ width: 50, textAlign: "center", fontSize: 13, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Form</div>
+            <div style={{ width: 70, textAlign: "center", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
               Current Price
             </div>
-            <div style={{ width: 42, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Selected</div>
+            <div style={{ width: 60, textAlign: "right", fontSize: 13, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Selected</div>
           </div>
 
           {picked.length === 0 ? (
@@ -3056,13 +3056,14 @@ export default function PickTeamPage() {
                 <div key={section.title}>
                   {section.players.length > 0 && (
                     <>
-                      {/* Section header — serif style like FPL */}
-                      <div style={{ padding: "16px 16px 8px" }}>
+                      {/* Section header — FPL style */}
+                      <div style={{ padding: "20px 16px 10px", borderTop: "1px solid hsl(var(--border))" }}>
                         <h2 style={{
                           margin: 0,
-                          fontSize: 16,
-                          fontWeight: 700,
+                          fontSize: 20,
+                          fontWeight: 800,
                           color: "hsl(var(--foreground))",
+                          letterSpacing: "-0.01em",
                         }}>
                           {section.title}
                         </h2>
@@ -3085,7 +3086,7 @@ export default function PickTeamPage() {
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                padding: "12px 12px 12px 8px",
+                                padding: "14px 16px",
                                 background: "transparent",
                                 width: "100%",
                                 cursor: "pointer",
@@ -3095,37 +3096,37 @@ export default function PickTeamPage() {
                             >
                               {/* Status icon (info "i") */}
                               <div style={{
-                                width: 18, height: 18, flexShrink: 0,
+                                width: 20, height: 20, flexShrink: 0,
                                 display: "flex", alignItems: "center", justifyContent: "center",
                               }}>
                                 <span style={{
                                   fontFamily: "Georgia, 'Times New Roman', serif",
                                   fontStyle: "italic",
-                                  fontSize: 14,
+                                  fontSize: 15,
                                   fontWeight: 400,
                                   color: "hsl(var(--muted-foreground))",
-                                  opacity: 0.7,
+                                  opacity: 0.6,
                                   lineHeight: 1,
                                 }}>i</span>
                               </div>
 
                               {/* Kit */}
-                              <div style={{ marginLeft: 4, marginRight: 8, flexShrink: 0 }}>
-                                <Kit color={kitColor} isGK={isGK} size={36} />
+                              <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
+                                <Kit color={kitColor} isGK={isGK} size={40} />
                               </div>
 
                               {/* Player name + team + pos */}
                               <div style={{
                                 flex: 1, minWidth: 0,
-                                paddingRight: 6,
+                                paddingRight: 10,
                                 borderRight: "1px solid hsl(var(--border))",
-                                marginRight: 6,
+                                marginRight: 10,
                               }}>
                                 <div style={{
-                                  fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
+                                  fontSize: 15, fontWeight: 700, color: "hsl(var(--foreground))",
                                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                                   lineHeight: 1.3,
-                                  display: "flex", alignItems: "center", gap: 4,
+                                  display: "flex", alignItems: "center", gap: 5,
                                 }}>
                                   {displayName}
                                   {p.isLady && (
@@ -3158,8 +3159,8 @@ export default function PickTeamPage() {
                                   )}
                                 </div>
                                 <div style={{
-                                  fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
-                                  marginTop: 1, display: "flex", gap: 6,
+                                  fontSize: 13, color: "hsl(var(--muted-foreground))", fontWeight: 400,
+                                  marginTop: 2, display: "flex", gap: 8,
                                 }}>
                                   <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                     {p.teamShort ?? p.teamName ?? "--"}
@@ -3169,22 +3170,22 @@ export default function PickTeamPage() {
                               </div>
 
                               {/* Form */}
-                              <div style={{ width: 36, textAlign: "center", flexShrink: 0 }}>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                              <div style={{ width: 50, textAlign: "center", flexShrink: 0 }}>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formVal > 0 ? formVal.toFixed(1) : "--"}
                                 </span>
                               </div>
 
                               {/* Price */}
-                              <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
-                                <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                              <div style={{ width: 70, textAlign: "center", flexShrink: 0 }}>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formatUGX(p.price)}
                                 </span>
                               </div>
 
                               {/* Selected */}
-                              <div style={{ width: 42, textAlign: "right", flexShrink: 0 }}>
-                                <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                              <div style={{ width: 60, textAlign: "right", flexShrink: 0 }}>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                                   {formatOwnership(p.ownership)}
                                 </span>
                               </div>
@@ -3213,12 +3214,13 @@ export default function PickTeamPage() {
               {/* Substitutes */}
               {bench.length > 0 && (
                 <>
-                  <div style={{ padding: "16px 16px 8px" }}>
+                  <div style={{ padding: "20px 16px 10px", borderTop: "1px solid hsl(var(--border))" }}>
                     <h2 style={{
                       margin: 0,
-                      fontSize: 16,
-                      fontWeight: 700,
+                      fontSize: 20,
+                      fontWeight: 800,
                       color: "hsl(var(--foreground))",
+                      letterSpacing: "-0.01em",
                     }}>
                       Substitutes
                     </h2>
@@ -3240,7 +3242,7 @@ export default function PickTeamPage() {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            padding: "12px 12px 12px 8px",
+                            padding: "14px 16px",
                             background: "transparent",
                             width: "100%",
                             cursor: "pointer",
@@ -3250,37 +3252,37 @@ export default function PickTeamPage() {
                         >
                           {/* Status icon */}
                           <div style={{
-                            width: 18, height: 18, flexShrink: 0,
+                            width: 20, height: 20, flexShrink: 0,
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}>
                             <span style={{
                               fontFamily: "Georgia, 'Times New Roman', serif",
                               fontStyle: "italic",
-                              fontSize: 14,
+                              fontSize: 15,
                               fontWeight: 400,
                               color: "hsl(var(--muted-foreground))",
-                              opacity: 0.5,
+                              opacity: 0.6,
                               lineHeight: 1,
                             }}>i</span>
                           </div>
 
                           {/* Kit */}
-                          <div style={{ marginLeft: 4, marginRight: 8, flexShrink: 0 }}>
-                            <Kit color={kitColor} isGK={isGK} size={36} />
+                          <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
+                            <Kit color={kitColor} isGK={isGK} size={40} />
                           </div>
 
                           {/* Player name + team + pos */}
                           <div style={{
                             flex: 1, minWidth: 0,
-                            paddingRight: 6,
+                            paddingRight: 10,
                             borderRight: "1px solid hsl(var(--border))",
-                            marginRight: 6,
+                            marginRight: 10,
                           }}>
                             <div style={{
-                              fontSize: 13, fontWeight: 700, color: "hsl(var(--foreground))",
+                              fontSize: 15, fontWeight: 700, color: "hsl(var(--foreground))",
                               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                               lineHeight: 1.3,
-                              display: "flex", alignItems: "center", gap: 4,
+                              display: "flex", alignItems: "center", gap: 5,
                             }}>
                               {displayName}
                               {p.isLady && (
@@ -3313,8 +3315,8 @@ export default function PickTeamPage() {
                               )}
                             </div>
                             <div style={{
-                              fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
-                              marginTop: 1, display: "flex", gap: 6,
+                              fontSize: 13, color: "hsl(var(--muted-foreground))", fontWeight: 400,
+                              marginTop: 2, display: "flex", gap: 8,
                             }}>
                               <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {p.teamShort ?? p.teamName ?? "--"}
@@ -3324,22 +3326,22 @@ export default function PickTeamPage() {
                           </div>
 
                           {/* Form */}
-                          <div style={{ width: 36, textAlign: "center", flexShrink: 0 }}>
-                            <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                          <div style={{ width: 50, textAlign: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                               {formVal > 0 ? formVal.toFixed(1) : "--"}
                             </span>
                           </div>
 
                           {/* Price */}
-                          <div style={{ width: 48, textAlign: "center", flexShrink: 0 }}>
-                            <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                          <div style={{ width: 70, textAlign: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                               {formatUGX(p.price)}
                             </span>
                           </div>
 
                           {/* Selected */}
-                          <div style={{ width: 42, textAlign: "right", flexShrink: 0 }}>
-                            <span style={{ fontSize: 12, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+                          <div style={{ width: 60, textAlign: "right", flexShrink: 0 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: "hsl(var(--foreground))" }}>
                               {formatOwnership(p.ownership)}
                             </span>
                           </div>
