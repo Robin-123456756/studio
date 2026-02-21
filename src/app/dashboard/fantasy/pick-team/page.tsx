@@ -3837,12 +3837,13 @@ export default function PickTeamPage() {
                   .filter((p) => {
                     if (comparePlayerIds.includes(p.id)) return false;
                     const firstPlayer = comparePlayerIds.length > 0 ? playerById.get(comparePlayerIds[0]) : null;
-                    if (firstPlayer && normalizePosition(firstPlayer.position) === "Goalkeeper") {
+                    if (!firstPlayer) return true;
+                    if (normalizePosition(firstPlayer.position) === "Goalkeeper") {
                       return normalizePosition(p.position) === "Goalkeeper";
                     }
-                    if (firstPlayer && normalizePosition(p.position) === "Goalkeeper") {
-                      return false;
-                    }
+                    if (normalizePosition(p.position) === "Goalkeeper") return false;
+                    if (firstPlayer.isLady) return !!p.isLady;
+                    if (p.isLady) return false;
                     return true;
                   })
                   .slice(0, 50)
