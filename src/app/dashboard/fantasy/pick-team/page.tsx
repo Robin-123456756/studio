@@ -2533,13 +2533,13 @@ export default function PickTeamPage() {
               background: activeChip === "bench_boost"
                 ? "linear-gradient(180deg, #a7f3d0, #6ee7b7)"
                 : "linear-gradient(180deg, #e0f7f0, #c8ece0)",
-              padding: "12px 8px 16px",
+              padding: "8px 8px 12px",
               transition: "background 0.3s",
               ...(activeChip === "bench_boost" ? { boxShadow: "inset 0 0 20px rgba(16,185,129,0.2)" } : {}),
             }}
           >
-            <div style={{ textAlign: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: activeChip === "bench_boost" ? "#047857" : "#37003C" }}>
+            <div style={{ textAlign: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: activeChip === "bench_boost" ? "#047857" : "#37003C", letterSpacing: 1 }}>
                 {activeChip === "bench_boost" ? "BENCH BOOST ACTIVE" : "SUBSTITUTES"}
               </span>
               {selectedForSwap && (
@@ -2558,97 +2558,76 @@ export default function PickTeamPage() {
                 </span>
               )}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 8px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 4, padding: "0 4px" }}>
               {bench.map((p, index) => {
                   const pos = normalizePosition(p.position);
-                  const posShort = pos === "Goalkeeper" ? "GK" : pos === "Defender" ? "DEF" : pos === "Midfielder" ? "MID" : "FWD";
                   const selected = isSelected(p.id);
                   const isBenchSelected = selectedBenchSwap === p.id;
-                  const isBenchTarget = selectedBenchSwap && selectedBenchSwap !== p.id && !startingIds.includes(p.id);
 
                   const handleBenchTap = () => {
-                    // If in starter swap mode, use starter swap
                     if (selectedForSwap) {
                       handlePlayerTap(p.id);
                       return;
                     }
-                    // If a bench player is selected for reorder
                     if (selectedBenchSwap) {
                       if (selectedBenchSwap === p.id) {
-                        onSelectBenchSwap(null); // cancel
+                        onSelectBenchSwap(null);
                       } else {
                         onSwapBench(selectedBenchSwap, p.id);
                         onSelectBenchSwap(null);
                       }
                       return;
                     }
-                    // Normal tap — open sheet
                     const player = picked.find((pl) => pl.id === p.id);
                     if (player) onOpenSheet(player);
                   };
 
                   return (
-                    <button
+                    <div
                       key={p.id}
-                      onClick={handleBenchTap}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        if (!selectedForSwap) onSelectBenchSwap(p.id);
-                      }}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        background: isBenchSelected ? "#ede9fe" : selected ? "#fef3c7" : isValidTarget(p.id) ? "rgba(52,211,153,0.15)" : isBenchTarget ? "rgba(139,92,246,0.08)" : "#f8eed8",
-                        borderRadius: 8,
-                        padding: "10px 14px",
-                        border: isBenchSelected ? "2px solid #7c3aed" : selected ? "2px solid #f59e0b" : isValidTarget(p.id) ? "2px solid #34d399" : isBenchTarget ? "2px solid #a78bfa" : "1px solid #ddd0b0",
-                        cursor: isDimmed(p.id) ? "not-allowed" : "pointer",
-                        transition: "all 0.2s",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                        opacity: isDimmed(p.id) ? 0.3 : 1,
-                      }}
+                      className={cn(
+                        "rounded-lg p-0.5 transition-all duration-200 relative",
+                        isBenchSelected && "bg-purple-400/50 ring-2 ring-purple-500",
+                        selected && "bg-amber-400/50 ring-2 ring-amber-500",
+                        isValidTarget(p.id) && "ring-2 ring-emerald-400 bg-emerald-400/20",
+                        isDimmed(p.id) && "opacity-30",
+                      )}
                     >
-                      <div
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: "50%",
-                          background: isBenchSelected ? "#7c3aed" : "#37003C",
-                          color: "#fff",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                      {/* Sub priority badge */}
+                      <span style={{
+                        position: "absolute", top: -4, left: -4, zIndex: 4,
+                        background: isBenchSelected ? "#7c3aed" : "#37003C",
+                        color: "#fff", fontSize: 8, fontWeight: 800,
+                        width: 16, height: 16, borderRadius: "50%",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: "1.5px solid #fff",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                      }}>{index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={handleBenchTap}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (!selectedForSwap) onSelectBenchSwap(p.id);
                         }}
+                        className="active:scale-[0.96] transition-transform duration-150"
                       >
-                        {index + 1}
-                      </div>
-                      <div style={{ width: 36, height: 36 }}>
-                        <Kit color={getKitColor(p.teamShort)} isGK={pos === "Goalkeeper"} size={36} />
-                      </div>
-                      <div style={{ flex: 1, textAlign: "left" }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>
-                          {shortName(p.name, p.webName)}
-                        </div>
-                        <div style={{ fontSize: 10, color: "#666" }}>
-                          {p.teamShort} • {p.nextOpponent ?? "--"}
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          background: posShort === "GK" ? "#f59e0b" : posShort === "DEF" ? "#3b82f6" : posShort === "MID" ? "#22c55e" : "#ef4444",
-                          color: "#fff",
-                          fontSize: 9,
-                          fontWeight: 700,
-                          padding: "3px 8px",
-                          borderRadius: 4,
-                        }}
-                      >
-                        {posShort}
-                      </div>
-                    </button>
+                        <PlayerCard
+                          player={{
+                            name: shortName(p.name, p.webName),
+                            team: p.teamShort ?? "--",
+                            fixture: p.nextOpponent ?? "--",
+                            color: getKitColor(p.teamShort),
+                            price: p.price,
+                            captain: false,
+                            viceCaptain: false,
+                            star: p.isLady,
+                          }}
+                          isGK={pos === "Goalkeeper"}
+                          small
+                        />
+                      </button>
+                    </div>
                   );
                 })}
             </div>
