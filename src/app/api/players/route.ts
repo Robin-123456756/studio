@@ -130,33 +130,40 @@ export async function GET(req: Request) {
       string,
       { points: number; goals: number; assists: number; appearances: number }
     >();
-    // Form: average points over the last 5 gameweeks
+    // Form: average points per gameweek from player_stats (last 5 GWs)
     const formMap = new Map<string, string>();
     if (playerIds.length > 0) {
-      // Get the last 5 gameweek IDs
-      const { data: recentGws } = await supabase
-        .from("gameweeks")
-        .select("id")
-        .order("id", { ascending: false })
-        .limit(5);
-      const recentGwIds = (recentGws ?? []).map((g: any) => g.id);
+      // Fetch all player_stats for these players, ordered by gameweek desc
+      const { data: allStats } = await supabase
+        .from("player_stats")
+        .select("player_id, points, gameweek_id")
+        .in("player_id", playerIds)
+        .order("gameweek_id", { ascending: false });
 
-      if (recentGwIds.length > 0) {
-        const { data: formStats } = await supabase
-          .from("player_stats")
-          .select("player_id, points, gameweek_id")
-          .in("player_id", playerIds)
-          .in("gameweek_id", recentGwIds);
+      if (allStats && allStats.length > 0) {
+        // Group by player, take last 5 GW entries per player
+        const playerGws = new Map<string, { total: number; count: number }>();
+        const playerGwSeen = new Map<string, Set<number>>();
 
-        const formAcc = new Map<string, { total: number; count: number }>();
-        for (const s of formStats ?? []) {
+        for (const s of allStats) {
           const pid = String((s as any).player_id);
-          const existing = formAcc.get(pid) ?? { total: 0, count: 0 };
-          existing.total += (s as any).points ?? 0;
+          const gwId = (s as any).gameweek_id;
+          const pts = (s as any).points ?? 0;
+
+          if (!playerGwSeen.has(pid)) playerGwSeen.set(pid, new Set());
+          const seen = playerGwSeen.get(pid)!;
+
+          // Only count up to 5 distinct gameweeks per player
+          if (seen.size >= 5 && !seen.has(gwId)) continue;
+          seen.add(gwId);
+
+          const existing = playerGws.get(pid) ?? { total: 0, count: 0 };
+          existing.total += pts;
           existing.count += 1;
-          formAcc.set(pid, existing);
+          playerGws.set(pid, existing);
         }
-        for (const [pid, { total, count }] of formAcc) {
+
+        for (const [pid, { total, count }] of playerGws) {
           formMap.set(pid, (total / count).toFixed(1));
         }
       }
