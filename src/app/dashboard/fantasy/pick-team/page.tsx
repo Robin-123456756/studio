@@ -40,6 +40,7 @@ type Player = {
   webName?: string | null; // short display name
   position?: string | null;
 
+  teamId?: string | number | null;
   teamName?: string | null;
   teamShort?: string | null;
 
@@ -983,6 +984,7 @@ export default function PickTeamPage() {
               webName: p.webName ?? p.web_name ?? null,
               position: normalizePosition(p.position),
 
+              teamId: p.teamId ?? p.team_id ?? null,
               teamShort: p.teamShort ?? p.team_short ?? null,
               teamName: p.teamName ?? p.team_name ?? null,
 
@@ -1079,8 +1081,14 @@ export default function PickTeamPage() {
       !p.isLady && normalizePosition(p.position) === "Forward";
     const isLadyFwd = (p: Player) =>
       p.isLady && normalizePosition(p.position) === "Forward";
+    const sameTeamCount = (player: Player) => {
+      const key = teamKeyForPlayer(player);
+      if (!key) return 0;
+      return squad.filter((s) => teamKeyForPlayer(s) === key).length;
+    };
     const addUnique = (p?: Player) => {
       if (!p) return;
+      if (sameTeamCount(p) >= 3) return;
       if (!squad.some((s) => s.id === p.id)) squad.push(p);
     };
 
@@ -1372,6 +1380,16 @@ export default function PickTeamPage() {
     if (viceId && !startingIds.includes(viceId)) setViceId(null);
   }, [startingIds, captainId, viceId]);
 
+  function teamKeyForPlayer(player?: Player | null) {
+    if (!player) return null;
+    if (player.teamId !== null && player.teamId !== undefined) {
+      const key = String(player.teamId).trim();
+      return key.length > 0 ? key : null;
+    }
+    const fallback = String(player.teamShort ?? player.teamName ?? "").trim().toLowerCase();
+    return fallback.length > 0 ? fallback : null;
+  }
+
   // ----------------------------
   // actions
   // ----------------------------
@@ -1399,6 +1417,21 @@ export default function PickTeamPage() {
           return prev;
         }
       }
+
+      if (player) {
+        const teamKey = teamKeyForPlayer(player);
+        if (teamKey) {
+          const sameTeamCount = prev.reduce((count, pickedId) => {
+            const pickedPlayer = playerById.get(pickedId);
+            return teamKeyForPlayer(pickedPlayer) === teamKey ? count + 1 : count;
+          }, 0);
+          if (sameTeamCount >= 3) {
+            setMsg("Max 3 players from the same team are allowed in your full squad.");
+            return prev;
+          }
+        }
+      }
+
       return [...prev, id];
     });
   }
@@ -1846,6 +1879,19 @@ export default function PickTeamPage() {
       return setMsg("Please choose a Captain and Vice-captain.");
     }
 
+    const teamCounts = new Map<string, number>();
+    for (const id of pickedIds) {
+      const player = playerById.get(id);
+      const key = teamKeyForPlayer(player);
+      if (!key) continue;
+      teamCounts.set(key, (teamCounts.get(key) ?? 0) + 1);
+    }
+    for (const [, count] of teamCounts) {
+      if (count > 3) {
+        return setMsg("Max 3 players from the same team are allowed in your full squad.");
+      }
+    }
+
     // local cache
     localStorage.setItem(LS_PICKS, JSON.stringify(pickedIds));
     localStorage.setItem(LS_SQUAD, JSON.stringify(pickedIds));
@@ -1890,8 +1936,8 @@ export default function PickTeamPage() {
       setMsg(null);
     } catch (e: any) {
       const raw = e?.message ?? "";
-      const friendly = raw.includes("Squad Limit")
-        ? "Max 3 players from the same team."
+      const friendly = raw.includes("Squad Limit") || raw.includes("Max 3 players from the same team")
+        ? "Max 3 players from the same team are allowed in your full squad."
         : raw.includes("Not signed in")
         ? "Sign in to save your team."
         : "Could not save. Try again.";
@@ -3172,7 +3218,7 @@ export default function PickTeamPage() {
                               {/* Form */}
                               <div style={{ width: 42, textAlign: "center", flexShrink: 0 }}>
                                 <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
-                                  {formVal > 0 ? formVal.toFixed(1) : "--"}
+                                  {p.formLast5 != null ? formVal.toFixed(1) : "0.0"}
                                 </span>
                               </div>
 
@@ -3325,7 +3371,7 @@ export default function PickTeamPage() {
                           {/* Form */}
                           <div style={{ width: 42, textAlign: "center", flexShrink: 0 }}>
                             <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
-                              {formVal > 0 ? formVal.toFixed(1) : "--"}
+                              {p.formLast5 != null ? formVal.toFixed(1) : "0.0"}
                             </span>
                           </div>
 
