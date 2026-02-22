@@ -205,11 +205,11 @@ export function Kit({ color = "#EF0107", isGK = false, size = 56 }: { color?: st
 // =====================
 export function EmptySlot({ position, small = false }: { position: string; small?: boolean }) {
   const isGK = position === "GK";
-  const sz = small ? 48 : 56;
+  const sz = small ? 36 : 42;
   const ghostColor = isGK ? "#8B7355" : "#4a4a5a";
 
   return (
-    <div className="flex flex-col items-center" style={{ minWidth: small ? 64 : 72 }}>
+    <div className="flex flex-col items-center" style={{ minWidth: small ? 52 : 60 }}>
       <div className="relative" style={{ opacity: 0.85 }}>
         <Kit color={ghostColor} isGK={isGK} size={sz} />
         <div

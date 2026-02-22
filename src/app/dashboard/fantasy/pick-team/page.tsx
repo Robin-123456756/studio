@@ -1946,8 +1946,8 @@ export default function PickTeamPage() {
     isGK?: boolean;
     small?: boolean;
   }) {
-    const sz = small ? 48 : 56;
-    const cardW = small ? 64 : 72;
+    const sz = small ? 36 : 42;
+    const cardW = small ? 52 : 60;
     return (
       <div className="relative" style={{ width: cardW }}>
         {/* Badges — floating above the card */}
@@ -2222,7 +2222,7 @@ export default function PickTeamPage() {
           style={{
             background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 8%, #2d8b4e 8%, #37a35c 16%, #2d8b4e 16%, #37a35c 24%, #2d8b4e 24%, #37a35c 32%, #2d8b4e 32%, #37a35c 40%, #2d8b4e 40%, #37a35c 48%, #2d8b4e 48%, #37a35c 56%, #2d8b4e 56%, #37a35c 64%, #2d8b4e 64%, #37a35c 72%, #2d8b4e 72%, #37a35c 80%, #2d8b4e 80%, #37a35c 88%, #2d8b4e 88%, #37a35c 96%, #2d8b4e 96%, #37a35c 100%)",
             position: "relative",
-            padding: "8px 12px 16px",
+            padding: "4px 8px 8px",
             overflow: "visible",
           }}
         >
@@ -2365,7 +2365,7 @@ export default function PickTeamPage() {
           />
 
           {/* Budo League Fantasy Branding Bar */}
-          <div style={{ display: "flex", height: 28, marginBottom: 4, marginLeft: -12, marginRight: -12 }}>
+          <div style={{ display: "flex", height: 22, marginBottom: 2, marginLeft: -12, marginRight: -12 }}>
             <div
               style={{
                 flex: 1,
@@ -2402,7 +2402,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* GK Row — 1 slot */}
-          <div style={{ position: "relative", padding: "4px 0 8px" }}>
+          <div style={{ position: "relative", padding: "2px 0 4px" }}>
             <div style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
               {g.Goalkeepers.length > 0 ? (
                 g.Goalkeepers.map((p) => (
@@ -2429,7 +2429,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* DEF Row — 3 slots */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "6px 8px 8px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "2px 4px 4px", position: "relative", zIndex: 1 }}>
             {g.Defenders.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
@@ -2456,8 +2456,8 @@ export default function PickTeamPage() {
             )}
           </div>
 
-          {/* MID Row — 4 slots */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "6px 8px 8px", position: "relative", zIndex: 1, flexWrap: "wrap" }}>
+          {/* MID Row */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 2, padding: "2px 4px 4px", position: "relative", zIndex: 1 }}>
             {g.Midfielders.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
@@ -2485,7 +2485,7 @@ export default function PickTeamPage() {
           </div>
 
           {/* FWD Row — 2 slots */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "6px 8px 4px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, padding: "2px 4px 2px", position: "relative", zIndex: 1 }}>
             {g.Forwards.map((p) => (
               <div key={p.id} className={cn(
                 "rounded-lg p-1 transition-all duration-200",
