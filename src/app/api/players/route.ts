@@ -130,41 +130,31 @@ export async function GET(req: Request) {
       string,
       { points: number; goals: number; assists: number; appearances: number }
     >();
-    // Form: average points per gameweek from player_stats (last 5 GWs)
+    // Form = total points / number of gameweeks played
     const formMap = new Map<string, string>();
     if (playerIds.length > 0) {
-      // Fetch all player_stats for these players, ordered by gameweek desc
       const { data: allStats } = await supabase
         .from("player_stats")
         .select("player_id, points, gameweek_id")
-        .in("player_id", playerIds)
-        .order("gameweek_id", { ascending: false });
+        .in("player_id", playerIds);
 
       if (allStats && allStats.length > 0) {
-        // Group by player, take last 5 GW entries per player
-        const playerGws = new Map<string, { total: number; count: number }>();
-        const playerGwSeen = new Map<string, Set<number>>();
+        const playerData = new Map<string, { total: number; gws: Set<number> }>();
 
         for (const s of allStats) {
           const pid = String((s as any).player_id);
           const gwId = (s as any).gameweek_id;
           const pts = (s as any).points ?? 0;
 
-          if (!playerGwSeen.has(pid)) playerGwSeen.set(pid, new Set());
-          const seen = playerGwSeen.get(pid)!;
-
-          // Only count up to 5 distinct gameweeks per player
-          if (seen.size >= 5 && !seen.has(gwId)) continue;
-          seen.add(gwId);
-
-          const existing = playerGws.get(pid) ?? { total: 0, count: 0 };
+          const existing = playerData.get(pid) ?? { total: 0, gws: new Set() };
           existing.total += pts;
-          existing.count += 1;
-          playerGws.set(pid, existing);
+          existing.gws.add(gwId);
+          playerData.set(pid, existing);
         }
 
-        for (const [pid, { total, count }] of playerGws) {
-          formMap.set(pid, (total / count).toFixed(1));
+        for (const [pid, { total, gws }] of playerData) {
+          const gwCount = gws.size;
+          formMap.set(pid, gwCount > 0 ? (total / gwCount).toFixed(1) : "0.0");
         }
       }
     }
