@@ -40,16 +40,8 @@ export async function POST(req: Request) {
     multiplier: capStr === pid ? 2 : 1,
   }));
 
-  // Step 1: Upsert all current squad players (insert or update)
-  const { error: upsertErr } = await supabase
-    .from("user_rosters")
-    .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
-  if (upsertErr) {
-    console.log("UPSERT ERROR /api/rosters/save", upsertErr);
-    return NextResponse.json({ error: upsertErr.message }, { status: 500 });
-  }
-
-  // Step 2: Remove any players no longer in the squad
+  // Step 1: Remove stale players BEFORE upserting to avoid DB trigger
+  // rejecting the insert due to >3 players from the same team
   const { error: delErr } = await supabase
     .from("user_rosters")
     .delete()
@@ -58,7 +50,15 @@ export async function POST(req: Request) {
     .not("player_id", "in", `(${uniqueSquadIds.join(",")})`);
   if (delErr) {
     console.log("CLEANUP ERROR /api/rosters/save", delErr);
-    // Non-fatal — squad was saved, just stale rows remain
+  }
+
+  // Step 2: Upsert all current squad players
+  const { error: upsertErr } = await supabase
+    .from("user_rosters")
+    .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
+  if (upsertErr) {
+    console.log("UPSERT ERROR /api/rosters/save", upsertErr);
+    return NextResponse.json({ error: upsertErr.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, inserted: rows.length });
