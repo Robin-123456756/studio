@@ -742,6 +742,7 @@ export default function PickTeamPage() {
   const [usedChips, setUsedChips] = React.useState<ChipKey[]>([]);
   const [showFreeHitModal, setShowFreeHitModal] = React.useState(false);
   const [showBenchBoostModal, setShowBenchBoostModal] = React.useState(false);
+  const [showFormationRules, setShowFormationRules] = React.useState(false);
   const [showTripleCaptainModal, setShowTripleCaptainModal] = React.useState(false);
 
   // Load chip state from localStorage
@@ -2738,6 +2739,13 @@ export default function PickTeamPage() {
                 <RotateCcw className="h-4 w-4" />
                 Reset Lineup
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setShowFormationRules((v) => !v)}
+                className="gap-2"
+              >
+                <Info className="h-4 w-4" />
+                Formation Rules
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -2819,6 +2827,29 @@ export default function PickTeamPage() {
           );
         })}
       </div>
+
+      {/* Formation Rules — toggled from menu */}
+      {showFormationRules && (
+        <div className="rounded-2xl border bg-card p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">Formation Rules</div>
+            <button
+              type="button"
+              onClick={() => setShowFormationRules(false)}
+              className="h-6 w-6 rounded-full grid place-items-center hover:bg-accent"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div>GK: <span className="font-semibold text-foreground">1</span></div>
+            <div>DEF: <span className="font-semibold text-foreground">2-3</span></div>
+            <div>MID: <span className="font-semibold text-foreground">3-5</span></div>
+            <div>FWD: <span className="font-semibold text-foreground">2-3</span></div>
+            <div className="col-span-2">Lady: <span className="font-semibold text-foreground">must be Forward</span></div>
+          </div>
+        </div>
+      )}
 
       {msg && (
         <div
@@ -2946,20 +2977,7 @@ export default function PickTeamPage() {
                 </div>
               </div>
             </div>
-          ) : (
-            <>
-              <div className="mx-4 rounded-2xl border bg-card p-3">
-                <div className="text-sm font-semibold">Formation Rules</div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <div>GK: <span className="font-semibold text-foreground">1</span></div>
-                  <div>DEF: <span className="font-semibold text-foreground">2-3</span></div>
-                  <div>MID: <span className="font-semibold text-foreground">3-5</span></div>
-                  <div>FWD: <span className="font-semibold text-foreground">2-3</span></div>
-                  <div className="col-span-2">Lady: <span className="font-semibold text-foreground">must be Forward</span></div>
-                </div>
-              </div>
-            </>
-          )}
+          ) : null}}
 
           <PickPitch
             picked={picked}
