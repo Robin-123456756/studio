@@ -35,7 +35,7 @@ export default function AdminDashboard() {
     // Fetch quick stats from your existing tables
     async function loadStats() {
       try {
-        const res = await fetch("/api/admin/dashboard-stats");
+        const res = await fetch("/api/admin/players/dashboard-stats");
         if (res.ok) {
           const data = await res.json();
           setStats([
@@ -84,16 +84,15 @@ export default function AdminDashboard() {
       title: "Calculate Scores",
       description: "Run the scoring engine to calculate fantasy points for a gameweek.",
       icon: "🧮",
-      href: "/admin/voice",
+      href: "/admin/voice#scoring",
       color: WARNING,
       badge: "SCORING",
-      hashTab: "scoring",
     },
     {
       title: "Export CSV",
       description: "Download match event data as CSV for records and analysis.",
       icon: "📥",
-      href: "/admin/voice",
+      href: "/admin/voice#capture",
       color: "#3B82F6",
       badge: "DATA",
     },
@@ -118,7 +117,7 @@ export default function AdminDashboard() {
       title: "Schedule Match",
       description: "Add a new match or generate the full schedule.",
       icon: "📋",
-      href: "/dashboard/admin/matches/new",
+      href: "/admin/fixtures",
       color: "#F97316",
     },
         {
@@ -396,11 +395,11 @@ export default function AdminDashboard() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {[
               { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
-              { label: "🧮 Calculate GW Scores", href: "/admin/voice" },
-              { label: "📥 Export CSV", href: "/admin/voice" },
+              { label: "🧮 Calculate GW Scores", href: "/admin/voice#scoring" },
+              { label: "📥 Export CSV", href: "/admin/voice#capture" },
               { label: "➕ Add New Club", href: "/dashboard/admin/teams/new" },
               { label: "➕ Add New Player", href: "/dashboard/admin/players/new" },
-              { label: "📋 Schedule Match", href: "/dashboard/admin/matches/new" },
+              { label: "📋 Schedule Match", href: "/admin/fixtures" },
               { label: "🔔 Send Notification", href: "/admin/notifications" },
             ].map((action, i) => (
               <button

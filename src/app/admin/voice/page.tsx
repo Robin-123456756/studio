@@ -89,6 +89,14 @@ export default function VoiceAdminPage() {
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [matchError, setMatchError] = useState("");
 
+  // Read URL hash to auto-select tab (e.g. /admin/voice#scoring)
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "") as ViewState;
+    if (["capture", "history", "scoring"].includes(hash)) {
+      setView(hash);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
