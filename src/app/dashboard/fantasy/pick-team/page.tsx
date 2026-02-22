@@ -1853,8 +1853,8 @@ export default function PickTeamPage() {
     if (viceId) localStorage.setItem(LS_VICE, viceId);
 
     // DB save
-    if (!authed) return setMsg("Saved locally. Sign in to save to database.");
-    if (!gwId) return setMsg("Saved locally. (No gameweek yet, DB save skipped).");
+    if (!authed) return setMsg("Sign in to save your team.");
+    if (!gwId) return setMsg("No active gameweek yet.");
 
     try {
       const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
@@ -1888,7 +1888,13 @@ export default function PickTeamPage() {
       }
       setMsg(null);
     } catch (e: any) {
-      showMsg(`Saved locally. DB error: ${e?.message ?? "Unknown"}`, "error", 5000);
+      const raw = e?.message ?? "";
+      const friendly = raw.includes("Squad Limit")
+        ? "Max 3 players from the same team."
+        : raw.includes("Not signed in")
+        ? "Sign in to save your team."
+        : "Could not save. Try again.";
+      showMsg(friendly, "error", 4000);
     }
   }
 
