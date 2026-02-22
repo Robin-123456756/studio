@@ -1197,10 +1197,8 @@ export default function PickTeamPage() {
         setCaptainId(auto.captainId);
         setViceId(auto.viceId);
 
-        setSavedPickedIds(auto.squadIds);
-        setSavedStartingIds(auto.startingIds);
-        setSavedCaptainId(auto.captainId);
-        setSavedViceId(auto.viceId);
+        // Don't set saved* state here — this roster hasn't been
+        // persisted to the DB yet, so hasUnsavedChanges must be true.
 
         localStorage.setItem(LS_PICKS, JSON.stringify(auto.squadIds));
         localStorage.setItem(LS_SQUAD, JSON.stringify(auto.squadIds));
@@ -1224,6 +1222,11 @@ export default function PickTeamPage() {
           captainId: auto.captainId,
           viceId: auto.viceId,
         });
+        // DB save succeeded — mark as saved so Save button hides
+        setSavedPickedIds(auto.squadIds);
+        setSavedStartingIds(auto.startingIds);
+        setSavedCaptainId(auto.captainId);
+        setSavedViceId(auto.viceId);
         setMsg("Auto-picked your squad for this gameweek.");
       } else {
         setMsg("Auto-picked a starter squad. Please review and save.");
