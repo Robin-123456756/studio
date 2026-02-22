@@ -130,6 +130,38 @@ export async function GET(req: Request) {
       string,
       { points: number; goals: number; assists: number; appearances: number }
     >();
+    // Form: average points over the last 5 gameweeks
+    const formMap = new Map<string, string>();
+    if (playerIds.length > 0) {
+      // Get the last 5 gameweek IDs
+      const { data: recentGws } = await supabase
+        .from("gameweeks")
+        .select("id")
+        .order("id", { ascending: false })
+        .limit(5);
+      const recentGwIds = (recentGws ?? []).map((g: any) => g.id);
+
+      if (recentGwIds.length > 0) {
+        const { data: formStats } = await supabase
+          .from("player_stats")
+          .select("player_id, points, gameweek_id")
+          .in("player_id", playerIds)
+          .in("gameweek_id", recentGwIds);
+
+        const formAcc = new Map<string, { total: number; count: number }>();
+        for (const s of formStats ?? []) {
+          const pid = String((s as any).player_id);
+          const existing = formAcc.get(pid) ?? { total: 0, count: 0 };
+          existing.total += (s as any).points ?? 0;
+          existing.count += 1;
+          formAcc.set(pid, existing);
+        }
+        for (const [pid, { total, count }] of formAcc) {
+          formMap.set(pid, (total / count).toFixed(1));
+        }
+      }
+    }
+
     if (dynamicPoints) {
       if (playerIds.length > 0) {
         const { data: statsData } = await supabase
@@ -171,6 +203,7 @@ export async function GET(req: Request) {
         teamShort: p.teams?.short_name ?? "--",
         teamUuid: p.teams?.team_uuid ?? null,
         ownership: ownershipMap.get(pid) ?? 0,
+        form_last5: formMap.get(pid) ?? null,
         ...(totals
           ? {
               totalGoals: totals.goals,
