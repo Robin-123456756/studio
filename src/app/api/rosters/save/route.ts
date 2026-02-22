@@ -30,6 +30,29 @@ export async function POST(req: Request) {
   // Deduplicate squadIds to avoid unique constraint violations
   const uniqueSquadIds = [...new Set(squadIds.map(String))];
 
+  // Validate max 3 players per real-world team (>3 is blocked, exactly 3 is allowed)
+  const MAX_PER_TEAM = 3;
+  const { data: playerRows } = await supabase
+    .from("players")
+    .select("id, team_id")
+    .in("id", uniqueSquadIds);
+  if (playerRows) {
+    const teamCounts = new Map<number, number>();
+    for (const p of playerRows) {
+      if (p.team_id != null) {
+        teamCounts.set(p.team_id, (teamCounts.get(p.team_id) ?? 0) + 1);
+      }
+    }
+    for (const [, count] of teamCounts) {
+      if (count > MAX_PER_TEAM) {
+        return NextResponse.json(
+          { error: `Max ${MAX_PER_TEAM} players from the same team allowed.` },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const rows = uniqueSquadIds.map((pid) => ({
     user_id: userId,
     player_id: pid,
@@ -40,8 +63,7 @@ export async function POST(req: Request) {
     multiplier: capStr === pid ? 2 : 1,
   }));
 
-  // Step 1: Remove stale players BEFORE upserting to avoid DB trigger
-  // rejecting the insert due to >3 players from the same team
+  // Step 1: Remove stale players BEFORE upserting to avoid DB trigger conflicts
   const { error: delErr } = await supabase
     .from("user_rosters")
     .delete()
