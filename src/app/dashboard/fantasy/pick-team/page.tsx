@@ -2977,7 +2977,7 @@ export default function PickTeamPage() {
                 </div>
               </div>
             </div>
-          ) : null}}
+          ) : null}
 
           <PickPitch
             picked={picked}
