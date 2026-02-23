@@ -1796,14 +1796,14 @@ export default function TransfersRoute() {
   React.useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await supabase.auth.getUser();
       if (!mounted) return;
-      setAuthed(!!data.session?.user?.email_confirmed_at);
+      setAuthed(!!data.user);
       setChecking(false);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthed(!!session?.user?.email_confirmed_at);
+      setAuthed(!!session?.user);
     });
 
     return () => { mounted = false; sub.subscription.unsubscribe(); };

@@ -681,6 +681,7 @@ function PlayerInfoSheet({
 }
 
 export default function PickTeamPage() {
+  const [authChecking, setAuthChecking] = React.useState(true);
   const [authed, setAuthed] = React.useState(false);
 
   const [players, setPlayers] = React.useState<Player[]>([]);
@@ -874,10 +875,13 @@ export default function PickTeamPage() {
   // auth state
   // ----------------------------
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session?.user?.email_confirmed_at));
+    supabase.auth.getUser().then(({ data }) => {
+      setAuthed(!!data.user);
+      setAuthChecking(false);
+    });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthed(!!session?.user?.email_confirmed_at);
+      setAuthed(!!session?.user);
     });
 
     return () => sub.subscription.unsubscribe();
@@ -2714,6 +2718,9 @@ export default function PickTeamPage() {
   // ----------------------------
   // auth gate
   // ----------------------------
+  if (authChecking) {
+    return <div className="mx-auto w-full max-w-md px-4 pt-10 text-sm text-muted-foreground">Checking session...</div>;
+  }
   if (!authed) {
     return <AuthGate onAuthed={() => setAuthed(true)} />;
   }
