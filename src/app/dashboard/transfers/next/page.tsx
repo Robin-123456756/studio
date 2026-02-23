@@ -254,9 +254,34 @@ function TransferNextPageInner() {
     // Persist updated squad to database
     if (gwId) {
       try {
-        const startingIds = loadIds(LS_STARTING);
-        const captainId = localStorage.getItem("tbl_captain_id") || null;
-        const viceId = localStorage.getItem("tbl_vice_captain_id") || null;
+        let startingIds = loadIds(LS_STARTING);
+        let captainId = localStorage.getItem("tbl_captain_id") || null;
+        let viceId = localStorage.getItem("tbl_vice_captain_id") || null;
+
+        // If no starting lineup in localStorage, load from DB (e.g. new device)
+        if (startingIds.length === 0) {
+          try {
+            const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
+            const dbRoster = await res.json();
+            if (res.ok && Array.isArray(dbRoster.startingIds)) {
+              startingIds = dbRoster.startingIds;
+              if (dbRoster.captainId) captainId = dbRoster.captainId;
+              if (dbRoster.viceId) viceId = dbRoster.viceId;
+            }
+          } catch { /* proceed with empty */ }
+        }
+
+        // Map outgoing → incoming for starting lineup, captain, vice
+        for (const t of pendingTransfers) {
+          startingIds = startingIds.map((id) => (id === t.outId ? t.inId : id));
+          if (captainId === t.outId) captainId = t.inId;
+          if (viceId === t.outId) viceId = t.inId;
+        }
+
+        // Persist updated starting/captain/vice to localStorage
+        localStorage.setItem(LS_STARTING, JSON.stringify(startingIds));
+        if (captainId) localStorage.setItem("tbl_captain_id", captainId);
+        if (viceId) localStorage.setItem("tbl_vice_captain_id", viceId);
 
         await saveRosterToDb({
           gameweekId: gwId,

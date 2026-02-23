@@ -45,21 +45,49 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const squadIds = (data ?? []).map((r) => String(r.player_id));
-  const startingIds = (data ?? [])
+  // If no roster for this GW, try rolling over from the most recent previous GW
+  let rows = data ?? [];
+  let rolledOverFromGw: number | null = null;
+
+  if (rows.length === 0) {
+    const { data: prev, error: prevErr } = await supabase
+      .from("user_rosters")
+      .select("gameweek_id")
+      .eq("user_id", auth.user.id)
+      .lt("gameweek_id", gwId)
+      .order("gameweek_id", { ascending: false })
+      .limit(1);
+
+    if (!prevErr && prev && prev.length > 0) {
+      const prevGwId = prev[0].gameweek_id;
+      const { data: prevRows, error: prevRowsErr } = await supabase
+        .from("user_rosters")
+        .select("player_id, is_starting_9, is_captain, is_vice_captain")
+        .eq("user_id", auth.user.id)
+        .eq("gameweek_id", prevGwId);
+
+      if (!prevRowsErr && prevRows && prevRows.length > 0) {
+        rows = prevRows;
+        rolledOverFromGw = prevGwId;
+      }
+    }
+  }
+
+  const squadIds = rows.map((r) => String(r.player_id));
+  const startingIds = rows
     .filter((r) => r.is_starting_9)
     .map((r) => String(r.player_id));
 
   const captainId =
-    (data ?? []).find((r) => r.is_captain)?.player_id !== undefined
-      ? String((data ?? []).find((r) => r.is_captain)?.player_id)
+    rows.find((r) => r.is_captain)?.player_id !== undefined
+      ? String(rows.find((r) => r.is_captain)?.player_id)
       : null;
   const viceId =
-    (data ?? []).find((r) => r.is_vice_captain)?.player_id !== undefined
-      ? String((data ?? []).find((r) => r.is_vice_captain)?.player_id)
+    rows.find((r) => r.is_vice_captain)?.player_id !== undefined
+      ? String(rows.find((r) => r.is_vice_captain)?.player_id)
       : null;
 
-  return NextResponse.json({ gwId, squadIds, startingIds, captainId, viceId });
+  return NextResponse.json({ gwId, squadIds, startingIds, captainId, viceId, rolledOverFromGw });
 }
 
 export async function POST(req: Request) {

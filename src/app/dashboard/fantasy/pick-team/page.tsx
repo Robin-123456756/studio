@@ -1065,66 +1065,6 @@ export default function PickTeamPage() {
     return best.map((p) => p.id);
   }
 
-  function buildAutoRoster(pool: Player[]) {
-    const byPoints = [...pool].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
-    const squad: Player[] = [];
-
-    const isGK = (p: Player) => normalizePosition(p.position) === "Goalkeeper";
-    const isDef = (p: Player) => normalizePosition(p.position) === "Defender";
-    const isMid = (p: Player) => normalizePosition(p.position) === "Midfielder";
-    const isMaleFwd = (p: Player) =>
-      !p.isLady && normalizePosition(p.position) === "Forward";
-    const isLadyFwd = (p: Player) =>
-      p.isLady && normalizePosition(p.position) === "Forward";
-    const sameTeamCount = (player: Player) => {
-      const key = teamKeyForPlayer(player);
-      if (!key) return 0;
-      return squad.filter((s) => teamKeyForPlayer(s) === key).length;
-    };
-    const addUnique = (p?: Player) => {
-      if (!p) return;
-      if (sameTeamCount(p) >= 3) return;
-      if (!squad.some((s) => s.id === p.id)) squad.push(p);
-    };
-
-    // Ensure required positions for valid formations:
-    // Need 2 GK, at least 3 DEF, at least 5 MID, 2 lady FWD, at least 2 male FWD
-    for (const p of byPoints) {
-      if (isGK(p) && squad.filter(isGK).length < 2) addUnique(p);
-    }
-    for (const p of byPoints) {
-      if (isLadyFwd(p) && squad.filter(isLadyFwd).length < 2) addUnique(p);
-    }
-    for (const p of byPoints) {
-      if (isDef(p) && squad.filter(isDef).length < 3) addUnique(p);
-    }
-    for (const p of byPoints) {
-      if (isMid(p) && squad.filter(isMid).length < 5) addUnique(p);
-    }
-    for (const p of byPoints) {
-      if (isMaleFwd(p) && squad.filter(isMaleFwd).length < 2) addUnique(p);
-    }
-
-    // Fill remaining slots
-    for (const p of byPoints) {
-      if (squad.length >= 17) break;
-      addUnique(p);
-    }
-
-    const squadIds = squad.slice(0, 17).map((p) => p.id);
-
-    // Build starting 10 based on formation rules
-    const startingIds = buildStartingFromSquad(squad);
-    const startingPlayers = startingIds
-      .map((id) => squad.find((p) => p.id === id))
-      .filter(Boolean) as Player[];
-    const startingByPoints = [...startingPlayers].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
-    const captainId = startingByPoints[0]?.id ?? null;
-    const viceId = startingByPoints[1]?.id ?? null;
-
-    return { squadIds, startingIds, captainId, viceId };
-  }
-
   React.useEffect(() => {
     if (!authed) return;
     if (!gwId) return;
@@ -1178,56 +1118,60 @@ export default function PickTeamPage() {
 
         if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
 
-        // If we have a valid squad from either source, we're done
-        if ((Array.isArray(data.squadIds) && data.squadIds.length > 0) || localHasFullSquad) {
+        // If DB has a full roster with starting lineup, we're done
+        if (Array.isArray(data.squadIds) && data.squadIds.length > 0 &&
+            Array.isArray(data.startingIds) && data.startingIds.length === 10) {
           setDbLoaded(true);
           return;
         }
 
-        // No roster in DB - auto-build a full squad so pitch has no ghost slots
-      const auto = buildAutoRoster(players);
-      if (auto.squadIds.length > 0) {
-        setPickedIds(auto.squadIds);
-        setStartingIds(auto.startingIds);
-        setCaptainId(auto.captainId);
-        setViceId(auto.viceId);
+        // localStorage has a full squad (from Transfers) but no starting lineup yet —
+        // auto-select starting 10, captain, and vice from the squad
+        if (localHasFullSquad && startingIds.length < 10) {
+          const squadPlayers = localSquad
+            .map((id) => players.find((p) => p.id === id))
+            .filter(Boolean) as Player[];
 
-        // Don't set saved* state here — this roster hasn't been
-        // persisted to the DB yet, so hasUnsavedChanges must be true.
+          if (squadPlayers.length === 17) {
+            const autoStarting = buildStartingFromSquad(squadPlayers);
+            if (autoStarting.length === 10) {
+              setStartingIds(autoStarting);
+              localStorage.setItem(LS_STARTING, JSON.stringify(autoStarting));
 
-        localStorage.setItem(LS_PICKS, JSON.stringify(auto.squadIds));
-        localStorage.setItem(LS_SQUAD, JSON.stringify(auto.squadIds));
-        localStorage.setItem(LS_STARTING, JSON.stringify(auto.startingIds));
-        if (auto.captainId) localStorage.setItem(LS_CAPTAIN, auto.captainId);
-        if (auto.viceId) localStorage.setItem(LS_VICE, auto.viceId);
-      }
+              // Auto-pick captain/vice from starting by highest points
+              const startingPlayers = autoStarting
+                .map((id) => squadPlayers.find((p) => p.id === id))
+                .filter(Boolean) as Player[];
+              const byPts = [...startingPlayers].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+              const autoCap = byPts[0]?.id ?? null;
+              const autoVice = byPts[1]?.id ?? null;
 
-      if (
-        auto.squadIds.length === 17 &&
-        auto.startingIds.length === 10 &&
-        auto.captainId &&
-        auto.viceId
-      ) {
-        const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
-        await upsertTeamName(teamName);
-        await saveRosterToDb({
-          gameweekId: gwId,
-          squadIds: auto.squadIds,
-          startingIds: auto.startingIds,
-          captainId: auto.captainId,
-          viceId: auto.viceId,
-        });
-        // DB save succeeded — mark as saved so Save button hides
-        setSavedPickedIds(auto.squadIds);
-        setSavedStartingIds(auto.startingIds);
-        setSavedCaptainId(auto.captainId);
-        setSavedViceId(auto.viceId);
-        setMsg("Auto-picked your squad for this gameweek.");
-      } else {
-        setMsg("Auto-picked a starter squad. Please review and save.");
-      }
+              if (autoCap && !captainId) {
+                setCaptainId(autoCap);
+                localStorage.setItem(LS_CAPTAIN, autoCap);
+              }
+              if (autoVice && !viceId) {
+                setViceId(autoVice);
+                localStorage.setItem(LS_VICE, autoVice);
+              }
 
-      setDbLoaded(true);
+              setMsg("Starting lineup auto-selected. Review and save your team.");
+            }
+          }
+          setDbLoaded(true);
+          return;
+        }
+
+        // If DB has squad but no starting lineup, also auto-select
+        if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
+          setDbLoaded(true);
+          return;
+        }
+
+        // No roster in DB and no localStorage squad — redirect to transfers
+        // so the user picks their own squad instead of getting a random one
+        window.location.href = "/dashboard/transfers";
+        return;
     } catch {
       setDbLoaded(true);
     }
