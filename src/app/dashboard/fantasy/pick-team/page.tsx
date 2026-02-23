@@ -90,7 +90,9 @@ function loadIds(key: string) {
   try {
     const raw = localStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? (arr as string[]) : [];
+    if (!Array.isArray(arr)) return [];
+    // Deduplicate — stale localStorage can contain duplicate IDs
+    return [...new Set(arr.map(String))];
   } catch {
     return [];
   }
@@ -1800,8 +1802,14 @@ export default function PickTeamPage() {
     if (savingRef.current) return; // prevent double-clicks
     setMsg(null);
 
+    // Deduplicate pickedIds in case of stale localStorage
+    const uniquePicked = [...new Set(pickedIds)];
+    if (uniquePicked.length !== pickedIds.length) {
+      setPickedIds(uniquePicked);
+    }
+
     // rules
-    if (pickedIds.length !== 17) return setMsg("Squad must be exactly 17 players.");
+    if (uniquePicked.length !== 17) return setMsg(`Squad must be exactly 17 players (you have ${uniquePicked.length}).`);
     if (pickedGoalkeepers.length !== 2) {
       return setMsg("Squad must include exactly 2 goalkeepers.");
     }
@@ -1836,22 +1844,24 @@ export default function PickTeamPage() {
       return setMsg("Please choose a Captain and Vice-captain.");
     }
 
-    const teamCounts = new Map<string, number>();
-    for (const id of pickedIds) {
+    const teamCounts = new Map<string, { count: number; name: string }>();
+    for (const id of uniquePicked) {
       const player = playerById.get(id);
       const key = teamKeyForPlayer(player);
       if (!key) continue;
-      teamCounts.set(key, (teamCounts.get(key) ?? 0) + 1);
+      const existing = teamCounts.get(key) ?? { count: 0, name: player?.teamName ?? player?.teamShort ?? key };
+      existing.count += 1;
+      teamCounts.set(key, existing);
     }
-    for (const [, count] of teamCounts) {
+    for (const [, { count, name }] of teamCounts) {
       if (count > 3) {
-        return setMsg("Max 3 players from the same team are allowed in your full squad.");
+        return setMsg(`Max 3 players from ${name} allowed. You have ${count}.`);
       }
     }
 
     // local cache
-    localStorage.setItem(LS_PICKS, JSON.stringify(pickedIds));
-    localStorage.setItem(LS_SQUAD, JSON.stringify(pickedIds));
+    localStorage.setItem(LS_PICKS, JSON.stringify(uniquePicked));
+    localStorage.setItem(LS_SQUAD, JSON.stringify(uniquePicked));
     localStorage.setItem(LS_STARTING, JSON.stringify(startingIds));
     if (captainId) localStorage.setItem(LS_CAPTAIN, captainId);
     if (viceId) localStorage.setItem(LS_VICE, viceId);
