@@ -22,7 +22,7 @@ export type PitchPlayer = {
 // =====================
 // CONSTANTS
 // =====================
-export const BUDGET_TOTAL = 100; // UGX 100m
+export { BUDGET_TOTAL } from "@/lib/constants";
 
 export const TEAM_LOGOS: Record<string, string> = {
   accumulators: "/logos/t-accumulators.png",

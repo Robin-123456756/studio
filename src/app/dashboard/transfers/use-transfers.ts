@@ -30,32 +30,7 @@ export type ApiPlayer = {
   teamShort: string;
 };
 
-const DEV_MODE = process.env.NODE_ENV === "development";
-
-const LS_TRANSFERS_LOG = "tbl_transfers_log";
-const LS_FT_BY_GW = (gwId: number) => `tbl_free_transfers_gw_${gwId}`;
-const LS_USED_BY_GW = (gwId: number) => `tbl_transfers_used_gw_${gwId}`;
-
-// OPTIONAL: if you store user/team identifiers locally
-const LS_USER_ID = "tbl_user_id"; // change if yours is different
-const LS_FANTASY_TEAM_ID = "tbl_fantasy_team_id"; // change if yours is different
-
-function loadTransfersLog(): TransferLogItem[] {
-  try {
-    const raw = window.localStorage.getItem(LS_TRANSFERS_LOG);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? (arr as TransferLogItem[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveTransfersLog(items: TransferLogItem[]) {
-  window.localStorage.setItem(LS_TRANSFERS_LOG, JSON.stringify(items));
-}
-
 type UseTransfersResult = {
-  // existing
   transfersThisGW: TransferLogItem[];
   freeTransfers: number;
   usedTransfers: number;
@@ -64,7 +39,7 @@ type UseTransfersResult = {
   recordTransfer: (item: TransferLogItem) => void;
   incrementUsedTransfers: () => void;
 
-  // NEW: squad from DB
+  // Squad from DB
   loadingSquad: boolean;
   squadIds: string[];
   squadPlayers: ApiPlayer[];
@@ -73,66 +48,93 @@ type UseTransfersResult = {
 };
 
 export function useTransfers(gwId: number | null): UseTransfersResult {
-  const [transfersLogVersion, setTransfersLogVersion] = React.useState(0);
+  const [freeTransfers, setFreeTransfersState] = React.useState(1);
+  const [usedTransfers, setUsedTransfersState] = React.useState(0);
+  const [cost, setCost] = React.useState(0);
+  const [transfersThisGW, setTransfersThisGW] = React.useState<TransferLogItem[]>([]);
 
-  // ✅ NEW squad states
+  // Squad states
   const [loadingSquad, setLoadingSquad] = React.useState(true);
   const [squadIds, setSquadIds] = React.useState<string[]>([]);
   const [squadPlayers, setSquadPlayers] = React.useState<ApiPlayer[]>([]);
   const [squadError, setSquadError] = React.useState<string | null>(null);
 
-  const transfersThisGW = React.useMemo(() => {
-    if (!gwId) return [];
-    void transfersLogVersion;
-    return loadTransfersLog().filter((t) => t.gwId === gwId);
-  }, [gwId, transfersLogVersion]);
+  // Load transfer state from API
+  const loadTransferState = React.useCallback(async () => {
+    if (!gwId) return;
+    try {
+      const res = await fetch(`/api/transfers?gw_id=${gwId}`, {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      setFreeTransfersState(json.freeTransfers ?? 1);
+      setUsedTransfersState(json.usedTransfers ?? 0);
+      setCost(json.cost ?? 0);
 
-  const freeTransfers = React.useMemo(() => {
-    if (DEV_MODE) return 999;
-    if (!gwId) return 1;
-    const raw = window.localStorage.getItem(LS_FT_BY_GW(gwId));
-    const n = raw ? Number(raw) : NaN;
-    if (Number.isFinite(n)) return Math.max(1, Math.min(2, n));
-    return 1;
+      // Map server transfers to TransferLogItem format
+      const items: TransferLogItem[] = (json.transfers ?? []).map(
+        (t: { player_out_id: string; player_in_id: string; created_at: string }) => ({
+          gwId,
+          ts: t.created_at,
+          outId: t.player_out_id,
+          inId: t.player_in_id,
+        }),
+      );
+      setTransfersThisGW(items);
+    } catch {
+      // Silently fail — defaults are safe
+    }
   }, [gwId]);
 
-  const usedTransfers = React.useMemo(() => {
-    if (!gwId) return 0;
-    const raw = window.localStorage.getItem(LS_USED_BY_GW(gwId));
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) ? Math.max(0, n) : 0;
-  }, [gwId]);
+  React.useEffect(() => {
+    loadTransferState();
+  }, [loadTransferState]);
 
-  const cost = React.useMemo(() => {
-    if (DEV_MODE) return 0;
-    const paid = Math.max(0, usedTransfers - freeTransfers);
-    return paid * 4;
-  }, [usedTransfers, freeTransfers]);
-
-  const setFreeTransfers = React.useCallback(
-    (value: number) => {
-      if (!gwId) return;
-      const v = DEV_MODE ? value : Math.max(1, Math.min(2, value));
-      window.localStorage.setItem(LS_FT_BY_GW(gwId), String(v));
-    },
-    [gwId]
-  );
-
-  const recordTransfer = React.useCallback((item: TransferLogItem) => {
-    const prev = loadTransfersLog();
-    saveTransfersLog([item, ...prev]);
-    setTransfersLogVersion((v) => v + 1);
+  const setFreeTransfers = React.useCallback((_value: number) => {
+    // No-op: free transfers are now managed server-side
   }, []);
 
-  const incrementUsedTransfers = React.useCallback(() => {
-    if (!gwId) return;
-    const raw = window.localStorage.getItem(LS_USED_BY_GW(gwId));
-    const n = raw ? Number(raw) : 0;
-    const next = Math.max(0, n) + 1;
-    window.localStorage.setItem(LS_USED_BY_GW(gwId), String(next));
-  }, [gwId]);
+  const recordTransfer = React.useCallback(
+    (item: TransferLogItem) => {
+      if (!gwId) return;
 
-  // ✅ NEW: loads roster for CURRENT gw then loads players by IDs
+      // Record on server
+      fetch("/api/transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          gameweekId: gwId,
+          playerOutId: item.outId,
+          playerInId: item.inId,
+        }),
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.ok) {
+            setUsedTransfersState(json.usedTransfers ?? 0);
+            setCost(json.cost ?? 0);
+            setFreeTransfersState(json.freeTransfers ?? 1);
+          }
+        })
+        .catch(() => {
+          // Silently fail
+        });
+
+      // Optimistic local update
+      setTransfersThisGW((prev) => [item, ...prev]);
+      setUsedTransfersState((prev) => prev + 1);
+    },
+    [gwId],
+  );
+
+  const incrementUsedTransfers = React.useCallback(() => {
+    // No-op: incrementing is now done inside recordTransfer via the API
+  }, []);
+
+  // Load roster for current GW then load players by IDs
   const refreshSquad = React.useCallback(async () => {
     try {
       setSquadError(null);
@@ -144,24 +146,14 @@ export function useTransfers(gwId: number | null): UseTransfersResult {
         return;
       }
 
-      // If you have a user id / fantasy team id somewhere, grab it here.
-      // Pick ONE that matches your DB schema.
-      const userId = window.localStorage.getItem(LS_USER_ID);
-      const fantasyTeamId = window.localStorage.getItem(LS_FANTASY_TEAM_ID);
-
-      // If your /api/rosters/current expects user_id OR fantasy_team_id, send it.
-      // (If your route doesn’t need these, it can ignore them.)
-      const qs = new URLSearchParams();
-      qs.set("gw_id", String(gwId));
-      if (userId) qs.set("user_id", userId);
-      if (fantasyTeamId) qs.set("fantasy_team_id", fantasyTeamId);
-
-      const r = await fetch(`/api/rosters/current?${qs.toString()}`, { cache: "no-store" });
+      const r = await fetch(`/api/rosters?gw_id=${gwId}`, {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
       const rosterJson = await r.json();
       if (!r.ok) throw new Error(rosterJson?.error || "Failed to load roster");
 
-      // Expecting: { roster: { squad_ids: string[] } }
-      const ids: string[] = rosterJson?.roster?.squad_ids ?? rosterJson?.roster?.squadIds ?? [];
+      const ids: string[] = rosterJson?.squadIds ?? [];
       setSquadIds(ids);
 
       if (!ids.length) {
@@ -169,10 +161,10 @@ export function useTransfers(gwId: number | null): UseTransfersResult {
         return;
       }
 
-      // Now load actual player objects by ids
-      const p = await fetch(`/api/players?ids=${encodeURIComponent(ids.join(","))}`, {
-        cache: "no-store",
-      });
+      const p = await fetch(
+        `/api/players?ids=${encodeURIComponent(ids.join(","))}`,
+        { cache: "no-store" },
+      );
       const playersJson = await p.json();
       if (!p.ok) throw new Error(playersJson?.error || "Failed to load squad players");
 

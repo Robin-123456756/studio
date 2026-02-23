@@ -746,14 +746,29 @@ export default function PickTeamPage() {
   const [showFormationRules, setShowFormationRules] = React.useState(false);
   const [showTripleCaptainModal, setShowTripleCaptainModal] = React.useState(false);
 
-  // Load chip state from localStorage
+  // Load chip state: used chips from API (server truth), active chip from localStorage (session-only)
   React.useEffect(() => {
+    // Active chip is session-only (not yet saved)
     try {
       const saved = localStorage.getItem(LS_ACTIVE_CHIP);
       if (saved) setActiveChip(saved as ChipKey);
-      const used = localStorage.getItem(LS_USED_CHIPS);
-      if (used) setUsedChips(JSON.parse(used));
     } catch { /* ignore */ }
+
+    // Used chips from server
+    fetch("/api/chips", { credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (Array.isArray(json.usedChips)) {
+          setUsedChips(json.usedChips as ChipKey[]);
+        }
+      })
+      .catch(() => {
+        // Fallback to localStorage if API fails
+        try {
+          const used = localStorage.getItem(LS_USED_CHIPS);
+          if (used) setUsedChips(JSON.parse(used));
+        } catch { /* ignore */ }
+      });
   }, []);
 
   function toggleChip(chip: ChipKey) {
@@ -1916,6 +1931,7 @@ export default function PickTeamPage() {
         startingIds,
         captainId,
         viceId,
+        chip: activeChip,
       });
 
       // Update saved state after successful save
@@ -1924,7 +1940,7 @@ export default function PickTeamPage() {
       setSavedCaptainId(captainId);
       setSavedViceId(viceId);
 
-      // Mark active chip as used after successful save
+      // Mark active chip as used after successful save (server already recorded it)
       if (activeChip) {
         const newUsed = [...usedChips, activeChip];
         setUsedChips(newUsed);

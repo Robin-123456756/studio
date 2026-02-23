@@ -25,24 +25,22 @@ export async function saveRosterToDb(payload: {
   startingIds: string[];
   captainId: string | null;
   viceId: string | null;
+  chip?: string | null;
 }) {
-  const { data } = await supabase.auth.getSession();
-  const userId = data.session?.user.id;
-  if (!userId) throw new Error("Not signed in");
-
-  // Ensure IDs are consistently typed
+  // Ensure IDs are consistently typed — userId derived server-side from cookie
   const body = {
-    userId,
     gameweekId: Number(payload.gameweekId),
     squadIds: payload.squadIds.map(String),
     startingIds: payload.startingIds.map(String),
     captainId: payload.captainId ? String(payload.captainId) : null,
     viceId: payload.viceId ? String(payload.viceId) : null,
+    chip: payload.chip ?? null,
   };
 
   const res = await fetch("/api/rosters/save", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify(body),
   });
 
