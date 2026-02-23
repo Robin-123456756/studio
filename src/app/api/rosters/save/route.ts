@@ -13,6 +13,7 @@ type Body = {
   captainId: string | null;
   viceId: string | null;
   chip?: string | null;    // bench_boost | triple_captain | wildcard | free_hit
+  teamName?: string | null;
 };
 
 const VALID_CHIPS = ["bench_boost", "triple_captain", "wildcard", "free_hit"];
@@ -30,7 +31,15 @@ export async function POST(req: Request) {
   const admin = getSupabaseServerOrThrow();
 
   const body = (await req.json()) as Body;
-  const { gameweekId, squadIds, startingIds, captainId, viceId, chip } = body;
+  const { gameweekId, squadIds, startingIds, captainId, viceId, chip, teamName } = body;
+
+  // Upsert team name if provided
+  if (teamName && typeof teamName === "string") {
+    const name = teamName.trim().slice(0, 30) || "My Team";
+    await admin
+      .from("fantasy_teams")
+      .upsert({ user_id: userId, name }, { onConflict: "user_id" });
+  }
 
   if (!gameweekId) return NextResponse.json({ error: "Missing gameweekId" }, { status: 400 });
   if (!Array.isArray(squadIds) || squadIds.length < 1)

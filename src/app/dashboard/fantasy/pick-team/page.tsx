@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sheet";
 
 // DB helpers (Step 3)
-import { loadRosterFromDb, saveRosterToDb, upsertTeamName } from "@/lib/fantasyDb";
+import { loadRosterFromDb, saveRosterToDb } from "@/lib/fantasyDb";
 
 type Player = {
   id: string;
@@ -1841,13 +1841,16 @@ export default function PickTeamPage() {
     if (captainId) localStorage.setItem(LS_CAPTAIN, captainId);
     if (viceId) localStorage.setItem(LS_VICE, viceId);
 
-    // DB save
-    if (!authed) return setMsg("Sign in to save your team.");
+    // DB save — refresh session first so server cookies are current
+    const { data: { user: freshUser } } = await supabase.auth.getUser();
+    if (!freshUser) {
+      setAuthed(false);
+      return setMsg("Sign in to save your team.");
+    }
     if (!gwId) return setMsg("No active gameweek yet.");
 
     try {
       const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
-      await upsertTeamName(teamName);
 
       await saveRosterToDb({
         gameweekId: gwId,
@@ -1856,6 +1859,7 @@ export default function PickTeamPage() {
         captainId,
         viceId,
         chip: activeChip,
+        teamName,
       });
 
       // Update saved state after successful save

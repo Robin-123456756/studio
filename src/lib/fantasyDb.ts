@@ -26,6 +26,7 @@ export async function saveRosterToDb(payload: {
   captainId: string | null;
   viceId: string | null;
   chip?: string | null;
+  teamName?: string | null;
 }) {
   // Ensure IDs are consistently typed — userId derived server-side from cookie
   const body = {
@@ -35,6 +36,7 @@ export async function saveRosterToDb(payload: {
     captainId: payload.captainId ? String(payload.captainId) : null,
     viceId: payload.viceId ? String(payload.viceId) : null,
     chip: payload.chip ?? null,
+    teamName: payload.teamName ?? null,
   };
 
   const res = await fetch("/api/rosters/save", {
