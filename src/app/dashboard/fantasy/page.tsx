@@ -298,44 +298,100 @@ function FantasyPage() {
       const startingIds: string[] =
         rosterJson?.startingIds?.length > 0 ? rosterJson.startingIds : squadIds;
 
-      if (squadIds.length === 0) {
-        setStatsLoading(false);
-        return;
-      }
+      // Compute GW points from roster (if the user has one for this GW)
+      let gwPoints = 0;
+      let totalPoints = 0;
 
-      const playersRes = await fetch(`/api/players?ids=${squadIds.join(",")}`, {
-        cache: "no-store",
-      });
-      const playersJson = await playersRes.json();
-      if (!playersRes.ok) throw new Error(playersJson?.error || "Failed to load players");
+      if (squadIds.length > 0) {
+        const playersRes = await fetch(`/api/players?ids=${squadIds.join(",")}`, {
+          cache: "no-store",
+        });
+        const playersJson = await playersRes.json();
+        if (!playersRes.ok) throw new Error(playersJson?.error || "Failed to load players");
 
-      const players: ApiPlayer[] = playersJson.players ?? [];
-      const pointsById = new Map(
-        players.map((p) => [String(p.id), Number(p.points ?? 0)])
-      );
-
-      const multiplierByPlayer: Record<string, number> =
-        rosterJson?.multiplierByPlayer ?? {};
-      const gwPoints = startingIds.reduce((sum, id) => {
-        const playerId = String(id);
-        const points = pointsById.get(playerId) ?? 0;
-        const rawMultiplier = Number(
-          multiplierByPlayer[playerId] ??
-            (String(rosterJson?.captainId ?? "") === playerId ? 2 : 1)
+        const players: ApiPlayer[] = playersJson.players ?? [];
+        const pointsById = new Map(
+          players.map((p) => [String(p.id), Number(p.points ?? 0)])
         );
-        const multiplier =
-          Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
-        return sum + points * multiplier;
-      }, 0);
 
-      let totalPoints = squadIds.reduce(
-        (sum, id) => sum + (pointsById.get(String(id)) ?? 0),
-        0
-      );
+        const multiplierByPlayer: Record<string, number> =
+          rosterJson?.multiplierByPlayer ?? {};
+        gwPoints = startingIds.reduce((sum, id) => {
+          const playerId = String(id);
+          const points = pointsById.get(playerId) ?? 0;
+          const rawMultiplier = Number(
+            multiplierByPlayer[playerId] ??
+              (String(rosterJson?.captainId ?? "") === playerId ? 2 : 1)
+          );
+          const multiplier =
+            Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
+          return sum + points * multiplier;
+        }, 0);
+
+        totalPoints = squadIds.reduce(
+          (sum, id) => sum + (pointsById.get(String(id)) ?? 0),
+          0
+        );
+      }
 
       let overallRank: number | null = null;
       let gwRank: number | null = null;
 
+      // Fetch user_weekly_scores — source of truth for GW points, avg, highest
+      let avgPoints: number | null = null;
+      let highestPoints: number | null = null;
+
+      try {
+        const { data: allScores } = await supabase
+          .from("user_weekly_scores")
+          .select("user_id, gameweek_id, total_weekly_points");
+
+        if (allScores && allScores.length > 0) {
+          // Aggregate total points per user across all GWs
+          const totalByUser = new Map<string, number>();
+          for (const s of allScores) {
+            const uid = String((s as any).user_id);
+            const pts = Number((s as any).total_weekly_points ?? 0);
+            totalByUser.set(uid, (totalByUser.get(uid) ?? 0) + pts);
+          }
+
+          // Use the user's own weekly-scores total if available
+          const myTotal = totalByUser.get(userId);
+          if (myTotal != null && Number.isFinite(myTotal)) {
+            totalPoints = myTotal;
+          }
+
+          // If user had no roster for current GW, fall back to their weekly score
+          if (gwPoints === 0) {
+            const currentGwId = rosterJson?.gwId;
+            if (currentGwId) {
+              const myGwRow = allScores.find(
+                (s: any) => String(s.user_id) === userId && s.gameweek_id === currentGwId
+              );
+              if (myGwRow) {
+                gwPoints = Number((myGwRow as any).total_weekly_points ?? 0);
+              }
+            }
+          }
+
+          // Average & highest from other users
+          const otherTotals = [...totalByUser.entries()]
+            .filter(([uid]) => uid !== userId)
+            .map(([, pts]) => pts)
+            .filter((n) => Number.isFinite(n));
+
+          if (otherTotals.length > 0) {
+            avgPoints = Math.round(
+              otherTotals.reduce((a, b) => a + b, 0) / otherTotals.length
+            );
+            highestPoints = Math.max(...otherTotals);
+          }
+        }
+      } catch {
+        // Ignore if table unavailable
+      }
+
+      // Overlay rank info from fantasy_teams if available
       try {
         const { data: teamRow, error: teamErr } = await supabase
           .from("fantasy_teams")
@@ -344,9 +400,6 @@ function FantasyPage() {
           .maybeSingle();
 
         if (!teamErr && teamRow) {
-          const dbTotal =
-            Number((teamRow as any).total_points ?? (teamRow as any).points ?? NaN);
-          if (Number.isFinite(dbTotal)) totalPoints = dbTotal;
           const dbOverall = Number(
             (teamRow as any).overall_rank ?? (teamRow as any).rank ?? NaN
           );
@@ -358,27 +411,6 @@ function FantasyPage() {
         }
       } catch {
         // Ignore if the table/columns aren't available yet.
-      }
-
-      // Fetch all fantasy teams for average & highest
-      let avgPoints: number | null = null;
-      let highestPoints: number | null = null;
-      try {
-        const { data: allTeams } = await supabase
-          .from("fantasy_teams")
-          .select("user_id, total_points, points");
-        if (allTeams && allTeams.length > 0) {
-          const otherPts = allTeams
-            .filter((t: any) => t.user_id !== userId)
-            .map((t: any) => Number(t.total_points ?? t.points ?? 0))
-            .filter((n: number) => Number.isFinite(n));
-          if (otherPts.length > 0) {
-            avgPoints = Math.round(otherPts.reduce((a: number, b: number) => a + b, 0) / otherPts.length);
-            highestPoints = Math.max(...otherPts);
-          }
-        }
-      } catch {
-        // Ignore if table unavailable
       }
 
       setStats({

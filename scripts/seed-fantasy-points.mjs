@@ -258,6 +258,43 @@ async function main() {
 
   console.log(`  Created ${sampleTeams.length} fantasy teams.`);
 
+  // ── 5. Seed user_weekly_scores for REAL registered users ──
+  // (so the fantasy page shows GW points, average, and highest for logged-in users)
+  console.log("Seeding weekly scores for registered users...");
+
+  const { data: realTeams } = await supabase
+    .from("fantasy_teams")
+    .select("user_id, name");
+
+  for (const rt of realTeams ?? []) {
+    const { data: existing } = await supabase
+      .from("user_weekly_scores")
+      .select("id")
+      .eq("user_id", rt.user_id)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      console.log(`  ${rt.name} (${rt.user_id}) — already has scores, skipping`);
+      continue;
+    }
+
+    const rows = gameweeks.map((gw) => ({
+      user_id: rt.user_id,
+      gameweek_id: gw,
+      total_weekly_points: rand(25, 50),
+    }));
+
+    const { error: realErr } = await supabase
+      .from("user_weekly_scores")
+      .insert(rows);
+
+    if (realErr) {
+      console.warn(`  ${rt.name}: insert failed — ${realErr.message}`);
+    } else {
+      console.log(`  ${rt.name}: inserted ${rows.length} GW scores`);
+    }
+  }
+
   // ── Done ──
   console.log("\nSeed complete!");
   console.log("  - player_stats: seeded for GW1–GW3");
