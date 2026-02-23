@@ -4,12 +4,14 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import Header from "@/components/header";
 import MobileBottomNav from "@/components/mobile-bottom-nav";
+import LiveActivityFeed from "@/components/LiveActivityFeed";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
+
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
@@ -32,6 +34,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Mobile bottom nav */}
         <MobileBottomNav />
       </SidebarInset>
+      <LiveActivityFeed gameweekId={3} />
     </SidebarProvider>
   );
 }
