@@ -128,9 +128,9 @@ export default function FixturesPage() {
         const all: ApiGameweek[] = json.all ?? [];
         setAllGws(all);
 
-        // Default to current or next gameweek
+        // Default to next gameweek (upcoming fixtures), fall back to current
         const defaultId =
-          json.current?.id ?? json.next?.id ?? (all.length > 0 ? all[0].id : null);
+          json.next?.id ?? json.current?.id ?? (all.length > 0 ? all[0].id : null);
         setGwId(defaultId);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load gameweeks");

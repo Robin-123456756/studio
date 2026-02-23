@@ -164,6 +164,7 @@ export default function DashboardPage() {
       }
 
       const currentGwId = gwJson.current?.id;
+      const nextGwId = gwJson.next?.id;
       const allGws: number[] = (gwJson.all ?? []).map((g: any) => g.id);
 
       // Recent: fetch played matches from all gameweeks up to current
@@ -175,21 +176,20 @@ export default function DashboardPage() {
           .catch(() => [])
       );
 
-      // Upcoming: current GW unplayed matches
-      let upcomingFetch: Promise<any[]>;
-      if (currentGwId) {
-        upcomingFetch = fetch(`/api/matches?gw_id=${currentGwId}&played=0`, { cache: "no-store" })
+      // Upcoming: unplayed matches from current AND next GW
+      const upcomingGwIds = [...new Set([currentGwId, nextGwId].filter(Boolean))] as number[];
+      const upcomingFetches = upcomingGwIds.map((gw) =>
+        fetch(`/api/matches?gw_id=${gw}&played=0`, { cache: "no-store" })
           .then((r) => r.json())
           .then((j) => j.matches ?? [])
-          .catch(() => []);
-      } else {
-        upcomingFetch = Promise.resolve([]);
-      }
+          .catch(() => [])
+      );
 
-      const [recentArrays, upcoming] = await Promise.all([
+      const [recentArrays, ...upcomingArrays] = await Promise.all([
         Promise.all(recentFetches),
-        upcomingFetch,
+        ...upcomingFetches,
       ]);
+      const upcoming = upcomingArrays.flat();
 
       const newRecent: ApiMatch[] = recentArrays.flat();
 
