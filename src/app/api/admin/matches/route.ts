@@ -29,8 +29,8 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from("matches")
       .insert({
-        home_team_uid: home_team_uuid,
-        away_team_uid: away_team_uuid,
+        home_team_uuid: home_team_uuid,
+        away_team_uuid: away_team_uuid,
         gameweek_id: Number(gameweek_id),
         kickoff_time: kickoff_time || null,
         is_played: false,
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         home_goals: null,
         away_goals: null,
       })
-      .select("id, home_team_uid, away_team_uid, gameweek_id, kickoff_time")
+      .select("id, home_team_uuid, away_team_uuid, gameweek_id, kickoff_time")
       .single();
 
     if (error) {

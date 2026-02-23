@@ -32,7 +32,7 @@ export async function GET(req: Request) {
       .from("matches")
       .select(`
         id,gameweek_id,kickoff_time,home_goals,away_goals,is_played,is_final,
-        home_team_uid,away_team_uid
+        home_team_uuid,away_team_uuid
       `)
       .order("kickoff_time", { ascending: false })
       .limit(10);
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     const matchTeamIds = Array.from(
       new Set(
         matchRows
-          .flatMap((m: any) => [m.home_team_uid, m.away_team_uid])
+          .flatMap((m: any) => [m.home_team_uuid, m.away_team_uuid])
           .filter(Boolean)
       )
     );
@@ -66,8 +66,8 @@ export async function GET(req: Request) {
 
     const matchesWithTeams = matchRows.map((m: any) => ({
       ...m,
-      home_team: teamMap.get(m.home_team_uid) ?? null,
-      away_team: teamMap.get(m.away_team_uid) ?? null,
+      home_team: teamMap.get(m.home_team_uuid) ?? null,
+      away_team: teamMap.get(m.away_team_uuid) ?? null,
     }));
 
     // Filter matches in JS by team name (simple + reliable)

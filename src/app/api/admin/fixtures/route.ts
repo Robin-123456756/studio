@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     // Fetch upcoming matches (not played)
     const { data: matches, error: mError } = await supabase
       .from("matches")
-      .select("id, gameweek_id, home_team_uid, away_team_uid, kickoff_time, is_played")
+      .select("id, gameweek_id, home_team_uuid, away_team_uuid, kickoff_time, is_played")
       .eq("is_played", false)
       .order("kickoff_time", { ascending: true });
 
@@ -53,13 +53,13 @@ export async function GET(req: Request) {
       events.push({
         id: m.id,
         type: "match",
-        title: `${teamMap[m.home_team_uid] || "?"} vs ${teamMap[m.away_team_uid] || "?"}`,
+        title: `${teamMap[m.home_team_uuid] || "?"} vs ${teamMap[m.away_team_uuid] || "?"}`,
         description: null,
         gameweek_id: m.gameweek_id,
-        home_team_uuid: m.home_team_uid,
-        away_team_uuid: m.away_team_uid,
-        home_team: teamMap[m.home_team_uid] || "?",
-        away_team: teamMap[m.away_team_uid] || "?",
+        home_team_uuid: m.home_team_uuid,
+        away_team_uuid: m.away_team_uuid,
+        home_team: teamMap[m.home_team_uuid] || "?",
+        away_team: teamMap[m.away_team_uuid] || "?",
         venue: null,
         kickoff_time: m.kickoff_time,
         is_played: m.is_played,
@@ -115,8 +115,8 @@ export async function POST(req: Request) {
 
       const insertData: any = {
         gameweek_id,
-        home_team_uid: home_team_uuid,
-        away_team_uid: away_team_uuid,
+        home_team_uuid,
+        away_team_uuid,
         home_goals: 0,
         away_goals: 0,
         is_played: false,
