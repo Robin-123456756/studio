@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import NotificationBell from "@/components/NotificationBell";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -97,9 +96,6 @@ export function AppSidebar() {
               </div>
             </div>
           </Link>
-          <div className="group-data-[collapsible=icon]:hidden ml-auto pr-2">
-            <NotificationBell />
-          </div>
         </div>
       </SidebarHeader>
 
