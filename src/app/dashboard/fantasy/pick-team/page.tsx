@@ -1172,7 +1172,8 @@ export default function PickTeamPage() {
         // so the user picks their own squad instead of getting a random one
         window.location.href = "/dashboard/transfers";
         return;
-    } catch {
+    } catch (e: any) {
+      console.error("DB roster load failed:", e?.message ?? e);
       setDbLoaded(true);
     }
     })();
@@ -1883,12 +1884,13 @@ export default function PickTeamPage() {
       setMsg(null);
     } catch (e: any) {
       const raw = e?.message ?? "";
+      console.error("Save failed:", raw, e);
       const friendly = raw.includes("Squad Limit") || raw.includes("Max 3 players from the same team")
         ? "Max 3 players from the same team are allowed in your full squad."
         : raw.includes("Not signed in")
         ? "Sign in to save your team."
-        : "Could not save. Try again.";
-      showMsg(friendly, "error", 4000);
+        : raw || "Could not save. Try again.";
+      showMsg(friendly, "error", 5000);
     }
   }
 
