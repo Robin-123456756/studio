@@ -102,6 +102,7 @@ export default function DashboardPage() {
   const [teams, setTeams] = React.useState<ApiTeam[]>([]);
   const [table, setTable] = React.useState<Row[]>([]);
   const [recentMatches, setRecentMatches] = React.useState<ApiMatch[]>([]);
+  const [allPlayedMatches, setAllPlayedMatches] = React.useState<ApiMatch[]>([]);
   const [showAllResults, setShowAllResults] = React.useState(false);
   const [upcomingMatches, setUpcomingMatches] = React.useState<ApiMatch[]>([]);
   const [topLady, setTopLady] = React.useState<{
@@ -191,7 +192,11 @@ export default function DashboardPage() {
       ]);
       const upcoming = upcomingArrays.flat();
 
-      const newRecent: ApiMatch[] = recentArrays.flat();
+      const allPlayed: ApiMatch[] = recentArrays.flat();
+
+      // For the "Latest result" card, only show the most recent GW's results
+      const maxPlayedGw = allPlayed.reduce((max, m) => Math.max(max, m.gameweek_id ?? 0), 0);
+      const newRecent = allPlayed.filter((m) => m.gameweek_id === maxPlayedGw);
 
       // Detect score changes (skip on first load)
       if (!firstLoad.current) {
@@ -218,6 +223,7 @@ export default function DashboardPage() {
       prevScores.current = nextScores;
 
       setRecentMatches(newRecent);
+      setAllPlayedMatches(allPlayed);
       setUpcomingMatches(upcoming);
       setLastUpdated(new Date());
     } catch (e) {
@@ -641,13 +647,13 @@ export default function DashboardPage() {
               <div className="text-sm text-muted-foreground px-2 py-4">
                 Loading results...
               </div>
-            ) : recentMatches.length === 0 ? (
+            ) : allPlayedMatches.length === 0 ? (
               <div className="text-sm text-muted-foreground px-2 py-4">
                 No results have been recorded yet.
               </div>
             ) : (
               <>
-                {(showAllResults ? recentMatches : recentMatches.slice(0, 3)).map((m) => (
+                {(showAllResults ? allPlayedMatches : allPlayedMatches.slice(0, 3)).map((m) => (
                   <Link
                     key={m.id}
                     href={`/match/${m.id}`}
@@ -683,7 +689,7 @@ export default function DashboardPage() {
                     ) : null}
                   </Link>
                 ))}
-                {recentMatches.length > 3 && (
+                {allPlayedMatches.length > 3 && (
                   <button
                     type="button"
                     onClick={() => setShowAllResults((prev) => !prev)}
