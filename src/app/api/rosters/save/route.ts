@@ -48,14 +48,17 @@ export async function POST(req: Request) {
   // ── Fix 2: Deadline enforcement ──
   const { data: gw, error: gwErr } = await admin
     .from("gameweeks")
-    .select("id, deadline_time, is_current, is_next, finished")
+    .select("*")
     .eq("id", Number(gameweekId))
     .single();
 
   if (gwErr || !gw) {
     return NextResponse.json({ error: "Gameweek not found" }, { status: 404 });
   }
-  if (gw.finished) {
+  const gwFinished = Boolean(
+    (gw as any).finalized ?? (gw as any).is_finished ?? (gw as any).is_final ?? false
+  );
+  if (gwFinished) {
     return NextResponse.json({ error: "Gameweek is finished" }, { status: 403 });
   }
   if (gw.deadline_time) {
