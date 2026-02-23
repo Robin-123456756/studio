@@ -696,6 +696,7 @@ export default function PickTeamPage() {
   const [savedStartingIds, setSavedStartingIds] = React.useState<string[]>([]);
   const [savedCaptainId, setSavedCaptainId] = React.useState<string | null>(null);
   const [savedViceId, setSavedViceId] = React.useState<string | null>(null);
+  const savingRef = React.useRef(false);
   const [msg, setMsg] = React.useState<string | null>(null);
   const [msgType, setMsgType] = React.useState<"error" | "success" | "info">("info");
   const msgTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1083,22 +1084,27 @@ export default function PickTeamPage() {
         const localSquad = loadIds(LS_SQUAD);
         const localHasFullSquad = localSquad.length === 17;
 
+        // If roster was rolled over from a previous GW, there's no actual save
+        // for this GW yet — don't use it as the "saved" baseline.
+        const isRollover = data.rolledOverFromGw != null;
+
         if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
           if (!localHasFullSquad) {
             setPickedIds(data.squadIds);
             setStartingIds(data.startingIds ?? []);
-            setSavedPickedIds(data.squadIds);
-            setSavedStartingIds(data.startingIds ?? []);
 
             localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
             localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
             localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds ?? []));
-          } else {
-            // localStorage has a full squad (likely from Transfers) — keep it,
-            // but still record the DB saved state for change tracking
+          }
+
+          if (!isRollover) {
+            // Actual saved roster for this GW — use as baseline for change tracking
             setSavedPickedIds(data.squadIds);
             setSavedStartingIds(data.startingIds ?? []);
           }
+          // If rollover or localStorage has full squad: savedPickedIds stays as the
+          // current pickedIds (set during localStorage load), so no false "unsaved changes"
         }
 
         if (data.captainId) {
@@ -1106,14 +1112,14 @@ export default function PickTeamPage() {
             setCaptainId(data.captainId);
             localStorage.setItem(LS_CAPTAIN, data.captainId);
           }
-          setSavedCaptainId(data.captainId);
+          if (!isRollover) setSavedCaptainId(data.captainId);
         }
         if (data.viceId) {
           if (!localHasFullSquad) {
             setViceId(data.viceId);
             localStorage.setItem(LS_VICE, data.viceId);
           }
-          setSavedViceId(data.viceId);
+          if (!isRollover) setSavedViceId(data.viceId);
         }
 
         if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
@@ -1784,6 +1790,7 @@ export default function PickTeamPage() {
   }
 
   async function save() {
+    if (savingRef.current) return; // prevent double-clicks
     setMsg(null);
 
     // rules
@@ -1850,6 +1857,7 @@ export default function PickTeamPage() {
     }
     if (!gwId) return setMsg("No active gameweek yet.");
 
+    savingRef.current = true;
     try {
       const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
 
@@ -1891,6 +1899,8 @@ export default function PickTeamPage() {
         ? "Sign in to save your team."
         : raw || "Could not save. Try again.";
       showMsg(friendly, "error", 5000);
+    } finally {
+      savingRef.current = false;
     }
   }
 

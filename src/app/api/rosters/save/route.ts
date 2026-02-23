@@ -170,7 +170,7 @@ export async function POST(req: Request) {
 
   const { error: insertErr } = await admin
     .from("user_rosters")
-    .insert(rows);
+    .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
 
   if (insertErr) {
     console.error("INSERT ERROR /api/rosters/save", insertErr);

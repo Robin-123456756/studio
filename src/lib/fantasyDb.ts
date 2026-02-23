@@ -66,5 +66,6 @@ export async function loadRosterFromDb(gwId: number) {
     captainId: json.captainId ?? null,
     viceId: json.viceId ?? null,
     teamName: json.teamName ?? null,
+    rolledOverFromGw: json.rolledOverFromGw ?? null,
   };
 }
