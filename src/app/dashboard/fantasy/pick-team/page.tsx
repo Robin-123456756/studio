@@ -707,7 +707,7 @@ export default function PickTeamPage() {
   }
   const [swapMsg, setSwapMsg] = React.useState<string | null>(null);
   const swapMsgTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  function showSwapMsg(text: string, duration = 3500) {
+  function showSwapMsg(text: string, duration = 1500) {
     setSwapMsg(text);
     if (swapMsgTimer.current) clearTimeout(swapMsgTimer.current);
     swapMsgTimer.current = setTimeout(() => setSwapMsg(null), duration);
