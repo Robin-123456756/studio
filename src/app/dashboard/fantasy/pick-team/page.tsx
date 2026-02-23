@@ -1880,7 +1880,7 @@ export default function PickTeamPage() {
 
       await saveRosterToDb({
         gameweekId: gwId,
-        squadIds: pickedIds,
+        squadIds: uniquePicked,
         startingIds,
         captainId,
         viceId,
@@ -1889,7 +1889,7 @@ export default function PickTeamPage() {
       });
 
       // Update saved state after successful save
-      setSavedPickedIds(pickedIds);
+      setSavedPickedIds(uniquePicked);
       setSavedStartingIds(startingIds);
       setSavedCaptainId(captainId);
       setSavedViceId(viceId);
