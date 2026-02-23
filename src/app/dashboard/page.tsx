@@ -118,81 +118,136 @@ export default function DashboardPage() {
   const [resultIdx, setResultIdx] = React.useState(0);
   const [fixtureIdx, setFixtureIdx] = React.useState(0);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
+  // Polling: track first load, previous scores, changed match IDs, and last-updated time
+  const firstLoad = React.useRef(true);
+  const prevScores = React.useRef<Map<string, string>>(new Map());
+  const [changedIds, setChangedIds] = React.useState<Set<string>>(new Set());
+  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+  const [ago, setAgo] = React.useState("");
 
-        // 1. Fetch teams + standings + gameweeks + players in parallel
-        const [teamsRes, standingsRes, gwRes, playersRes] = await Promise.all([
-          fetch("/api/teams", { cache: "no-store" }),
-          fetch("/api/standings", { cache: "no-store" }),
-          fetch("/api/gameweeks/current", { cache: "no-store" }),
-          fetch("/api/players?dynamic_points=1", { cache: "no-store" }),
-        ]);
+  const loadDashboard = React.useCallback(async () => {
+    try {
+      // Only show loading skeleton on the very first load
+      if (firstLoad.current) setLoading(true);
 
-        const teamsJson = await teamsRes.json();
-        const standingsJson = await standingsRes.json();
-        const gwJson = await gwRes.json();
-        const playersJson = await playersRes.json();
+      // 1. Fetch teams + standings + gameweeks + players in parallel
+      const [teamsRes, standingsRes, gwRes, playersRes] = await Promise.all([
+        fetch("/api/teams", { cache: "no-store" }),
+        fetch("/api/standings", { cache: "no-store" }),
+        fetch("/api/gameweeks/current", { cache: "no-store" }),
+        fetch("/api/players?dynamic_points=1", { cache: "no-store" }),
+      ]);
 
-        setTeams(teamsJson.teams ?? []);
-        setTable((standingsJson.rows ?? []) as Row[]);
+      const teamsJson = await teamsRes.json();
+      const standingsJson = await standingsRes.json();
+      const gwJson = await gwRes.json();
+      const playersJson = await playersRes.json();
 
-        // Find best performing lady player
-        const allPlayers = playersJson.players ?? [];
-        const ladies = allPlayers.filter((p: any) => p.isLady && (p.points ?? 0) > 0);
-        if (ladies.length > 0) {
-          const best = ladies.sort((a: any, b: any) => (b.points ?? 0) - (a.points ?? 0))[0];
-          setTopLady({
-            name: best.name,
-            points: best.points ?? 0,
-            teamName: best.teamName ?? "—",
-            avatarUrl: best.avatarUrl ?? null,
-            position: best.position ?? null,
-            goals: best.totalGoals ?? 0,
-            assists: best.totalAssists ?? 0,
-            playerId: best.id,
-          });
-        }
+      setTeams(teamsJson.teams ?? []);
+      setTable((standingsJson.rows ?? []) as Row[]);
 
-        const currentGwId = gwJson.current?.id;
-        const allGws: number[] = (gwJson.all ?? []).map((g: any) => g.id);
-
-        // Recent: fetch played matches from all gameweeks up to current
-        const gwsToFetchPlayed = allGws.filter((id: number) => id <= (currentGwId ?? 0));
-        const recentFetches = gwsToFetchPlayed.map((gwId: number) =>
-          fetch(`/api/matches?gw_id=${gwId}&played=1&enrich=1`, { cache: "no-store" })
-            .then((r) => r.json())
-            .then((j) => j.matches ?? [])
-            .catch(() => [])
-        );
-
-        // Upcoming: current GW unplayed matches
-        let upcomingFetch: Promise<any[]>;
-        if (currentGwId) {
-          upcomingFetch = fetch(`/api/matches?gw_id=${currentGwId}&played=0`, { cache: "no-store" })
-            .then((r) => r.json())
-            .then((j) => j.matches ?? [])
-            .catch(() => []);
-        } else {
-          upcomingFetch = Promise.resolve([]);
-        }
-
-        const [recentArrays, upcoming] = await Promise.all([
-          Promise.all(recentFetches),
-          upcomingFetch,
-        ]);
-
-        setRecentMatches(recentArrays.flat());
-        setUpcomingMatches(upcoming);
-      } catch (e) {
-        console.error("Dashboard load error:", e);
-      } finally {
-        setLoading(false);
+      // Find best performing lady player
+      const allPlayers = playersJson.players ?? [];
+      const ladies = allPlayers.filter((p: any) => p.isLady && (p.points ?? 0) > 0);
+      if (ladies.length > 0) {
+        const best = ladies.sort((a: any, b: any) => (b.points ?? 0) - (a.points ?? 0))[0];
+        setTopLady({
+          name: best.name,
+          points: best.points ?? 0,
+          teamName: best.teamName ?? "—",
+          avatarUrl: best.avatarUrl ?? null,
+          position: best.position ?? null,
+          goals: best.totalGoals ?? 0,
+          assists: best.totalAssists ?? 0,
+          playerId: best.id,
+        });
       }
-    })();
+
+      const currentGwId = gwJson.current?.id;
+      const allGws: number[] = (gwJson.all ?? []).map((g: any) => g.id);
+
+      // Recent: fetch played matches from all gameweeks up to current
+      const gwsToFetchPlayed = allGws.filter((id: number) => id <= (currentGwId ?? 0));
+      const recentFetches = gwsToFetchPlayed.map((gwId: number) =>
+        fetch(`/api/matches?gw_id=${gwId}&played=1&enrich=1`, { cache: "no-store" })
+          .then((r) => r.json())
+          .then((j) => j.matches ?? [])
+          .catch(() => [])
+      );
+
+      // Upcoming: current GW unplayed matches
+      let upcomingFetch: Promise<any[]>;
+      if (currentGwId) {
+        upcomingFetch = fetch(`/api/matches?gw_id=${currentGwId}&played=0`, { cache: "no-store" })
+          .then((r) => r.json())
+          .then((j) => j.matches ?? [])
+          .catch(() => []);
+      } else {
+        upcomingFetch = Promise.resolve([]);
+      }
+
+      const [recentArrays, upcoming] = await Promise.all([
+        Promise.all(recentFetches),
+        upcomingFetch,
+      ]);
+
+      const newRecent: ApiMatch[] = recentArrays.flat();
+
+      // Detect score changes (skip on first load)
+      if (!firstLoad.current) {
+        const changed = new Set<string>();
+        for (const m of newRecent) {
+          const key = m.id;
+          const score = `${m.home_goals ?? "-"}-${m.away_goals ?? "-"}`;
+          const prev = prevScores.current.get(key);
+          if (prev !== undefined && prev !== score) {
+            changed.add(key);
+          }
+        }
+        if (changed.size > 0) {
+          setChangedIds(changed);
+          setTimeout(() => setChangedIds(new Set()), 3000);
+        }
+      }
+
+      // Update previous scores map
+      const nextScores = new Map<string, string>();
+      for (const m of newRecent) {
+        nextScores.set(m.id, `${m.home_goals ?? "-"}-${m.away_goals ?? "-"}`);
+      }
+      prevScores.current = nextScores;
+
+      setRecentMatches(newRecent);
+      setUpcomingMatches(upcoming);
+      setLastUpdated(new Date());
+    } catch (e) {
+      console.error("Dashboard load error:", e);
+    } finally {
+      if (firstLoad.current) {
+        setLoading(false);
+        firstLoad.current = false;
+      }
+    }
   }, []);
+
+  // Poll every 30 seconds
+  React.useEffect(() => {
+    loadDashboard();
+    const timer = setInterval(loadDashboard, 30_000);
+    return () => clearInterval(timer);
+  }, [loadDashboard]);
+
+  // "Updated Xs ago" ticker
+  React.useEffect(() => {
+    if (!lastUpdated) return;
+    const tick = () => {
+      const s = Math.round((Date.now() - lastUpdated.getTime()) / 1000);
+      setAgo(s < 5 ? "just now" : `${s}s ago`);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [lastUpdated]);
 
   // Auto-rotate latest result every 15s
   React.useEffect(() => {
@@ -217,8 +272,22 @@ export default function DashboardPage() {
   const latestResult = recentMatches[resultIdx] ?? null;
   const nextFixture = upcomingMatches[fixtureIdx] ?? null;
 
+  // Detect if any match is "live" (kicked off but not finalized)
+  const hasLiveMatch = recentMatches.some(
+    (m) => m.kickoff_time && new Date(m.kickoff_time).getTime() <= Date.now() && !m.is_final
+  ) || upcomingMatches.some(
+    (m) => m.kickoff_time && new Date(m.kickoff_time).getTime() <= Date.now()
+  );
+
   return (
     <div className="space-y-6 animate-in fade-in-50">
+      {/* Last updated indicator */}
+      {lastUpdated && (
+        <div className="text-[11px] text-muted-foreground text-right pr-1 -mb-4">
+          Updated {ago}
+        </div>
+      )}
+
       {/* Hero */}
       <section className="space-y-4">
         {/* Logo + season badge */}
@@ -463,7 +532,18 @@ export default function DashboardPage() {
           <Card className="rounded-3xl overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-headline">Latest result</CardTitle>
+                <CardTitle className="text-base font-headline flex items-center gap-2">
+                  Latest result
+                  {hasLiveMatch && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      </span>
+                      LIVE
+                    </span>
+                  )}
+                </CardTitle>
                 {recentMatches.length > 1 && (
                   <span className="text-[10px] tabular-nums text-muted-foreground">{resultIdx + 1}/{recentMatches.length}</span>
                 )}
@@ -486,7 +566,7 @@ export default function DashboardPage() {
                         {latestResult.home_team?.short_name ?? "—"} - {latestResult.away_team?.short_name ?? "—"}
                       </div>
                     </div>
-                    <div className="shrink-0 text-lg font-bold font-mono tabular-nums">
+                    <div className={`shrink-0 text-lg font-bold font-mono tabular-nums transition-colors duration-300 ${latestResult && changedIds.has(latestResult.id) ? "text-emerald-500 animate-pulse" : ""}`}>
                       {(latestResult.home_goals ?? "-") + " - " + (latestResult.away_goals ?? "-")}
                     </div>
                   </div>
@@ -582,7 +662,7 @@ export default function DashboardPage() {
                           {m.home_team?.name ?? "—"} vs {m.away_team?.name ?? "—"}
                         </div>
                       </div>
-                      <div className="shrink-0 text-sm font-bold font-mono tabular-nums">
+                      <div className={`shrink-0 text-sm font-bold font-mono tabular-nums transition-colors duration-300 ${changedIds.has(m.id) ? "text-emerald-500 animate-pulse" : ""}`}>
                         {(m.home_goals ?? "-") + " - " + (m.away_goals ?? "-")}
                       </div>
                     </div>
