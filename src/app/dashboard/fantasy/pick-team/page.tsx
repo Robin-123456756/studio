@@ -1090,36 +1090,43 @@ export default function PickTeamPage() {
 
         if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
           if (!localHasFullSquad) {
+            // No local squad — use DB data (real save or rollover) as both
+            // the active state AND the baseline for change tracking
             setPickedIds(data.squadIds);
             setStartingIds(data.startingIds ?? []);
+            setSavedPickedIds(data.squadIds);
+            setSavedStartingIds(data.startingIds ?? []);
 
             localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
             localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
             localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds ?? []));
-          }
-
-          if (!isRollover) {
-            // Actual saved roster for this GW — use as baseline for change tracking
+          } else if (!isRollover) {
+            // localStorage has a full squad AND the DB has a real save for this GW.
+            // Use the DB state as the baseline so we can detect unsaved changes.
             setSavedPickedIds(data.squadIds);
             setSavedStartingIds(data.startingIds ?? []);
           }
-          // If rollover or localStorage has full squad: savedPickedIds stays as the
-          // current pickedIds (set during localStorage load), so no false "unsaved changes"
+          // If localStorage has full squad + rollover: savedPickedIds stays as
+          // the current pickedIds (set during localStorage load), no false diff.
         }
 
         if (data.captainId) {
           if (!localHasFullSquad) {
             setCaptainId(data.captainId);
+            setSavedCaptainId(data.captainId);
             localStorage.setItem(LS_CAPTAIN, data.captainId);
+          } else if (!isRollover) {
+            setSavedCaptainId(data.captainId);
           }
-          if (!isRollover) setSavedCaptainId(data.captainId);
         }
         if (data.viceId) {
           if (!localHasFullSquad) {
             setViceId(data.viceId);
+            setSavedViceId(data.viceId);
             localStorage.setItem(LS_VICE, data.viceId);
+          } else if (!isRollover) {
+            setSavedViceId(data.viceId);
           }
-          if (!isRollover) setSavedViceId(data.viceId);
         }
 
         if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
