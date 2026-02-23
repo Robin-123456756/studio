@@ -327,13 +327,7 @@ export default function MatchesPage() {
 
   // Gameweeks that have started (deadline passed) — sorted by id
   const startedGwIds = React.useMemo(() => {
-    const now = Date.now();
     return allGws
-      .filter((g) => {
-        if (g.finalized) return true;
-        const dl = g.deadline_time ? new Date(g.deadline_time).getTime() : NaN;
-        return Number.isFinite(dl) && dl <= now;
-      })
       .map((g) => g.id)
       .sort((a, b) => a - b);
   }, [allGws]);
