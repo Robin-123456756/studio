@@ -869,17 +869,6 @@ export default function PickTeamPage() {
 
   const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
 
-  // Upcoming fixtures for this gameweek
-  type FixtureMatch = {
-    id: string;
-    kickoff_time: string | null;
-    home_team: { name: string; logo_url: string | null } | null;
-    away_team: { name: string; logo_url: string | null } | null;
-    home_goals: number | null;
-    away_goals: number | null;
-    is_played: boolean | null;
-  };
-  const [gwFixtures, setGwFixtures] = React.useState<FixtureMatch[]>([]);
 
   // ----------------------------
   // auth state
@@ -915,19 +904,6 @@ export default function PickTeamPage() {
     })();
   }, []);
 
-  // Fetch fixtures for the current gameweek
-  React.useEffect(() => {
-    if (!gwId) return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/matches?gw_id=${gwId}`, { cache: "no-store" });
-        const json = await res.json();
-        if (res.ok) setGwFixtures(json.matches ?? []);
-      } catch {
-        // non-critical
-      }
-    })();
-  }, [gwId]);
 
   // ----------------------------
   // load local cache + all players
@@ -3554,43 +3530,6 @@ export default function PickTeamPage() {
             </div>
           )}
 
-      {/* Gameweek Fixtures */}
-      {gwFixtures.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            Gameweek {gwId} Fixtures
-          </h3>
-          {gwFixtures.map((m) => (
-            <div key={m.id} className="rounded-2xl border bg-card p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {m.home_team?.logo_url && (
-                    <img src={m.home_team.logo_url} alt="" className="h-7 w-7 shrink-0 object-contain" />
-                  )}
-                  <span className="text-xs font-semibold truncate">{m.home_team?.name ?? "TBD"}</span>
-                </div>
-                <div className="shrink-0 mx-3 text-center min-w-[48px]">
-                  {m.is_played && m.home_goals != null && m.away_goals != null ? (
-                    <span className="text-sm font-bold tabular-nums">{m.home_goals} - {m.away_goals}</span>
-                  ) : m.kickoff_time ? (
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {new Intl.DateTimeFormat("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Africa/Kampala" }).format(new Date(m.kickoff_time)).replace(/\bam\b/i, "AM").replace(/\bpm\b/i, "PM")}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">vs</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                  <span className="text-xs font-semibold truncate text-right">{m.away_team?.name ?? "TBD"}</span>
-                  {m.away_team?.logo_url && (
-                    <img src={m.away_team.logo_url} alt="" className="h-7 w-7 shrink-0 object-contain" />
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Player Detail Modal */}
       {selectedPlayer && (
