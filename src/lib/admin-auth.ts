@@ -2,9 +2,9 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth-options";
 
-// Role constants
+// Role constants (matches DB check constraint values)
 export const ROLES = {
-  SUPER_ADMIN: "super_admin",
+  SUPER_ADMIN: "superadmin",
   SCORER: "scorer",
 } as const;
 

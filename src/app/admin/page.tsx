@@ -105,7 +105,7 @@ export default function AdminDashboard() {
   }, []);
 
   const userRole = (session?.user as any)?.role as string | undefined;
-  const isSuperAdmin = !userRole || userRole === "super_admin";
+  const isSuperAdmin = !userRole || userRole === "superadmin";
 
   const adminTools = [
     {
