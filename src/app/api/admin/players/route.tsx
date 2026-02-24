@@ -29,6 +29,7 @@ export async function GET(req: Request) {
       total_points,
       avatar_url,
       is_lady,
+      status,
       teams:team_id (
         id,
         name,
@@ -55,7 +56,8 @@ export async function GET(req: Request) {
     isLady: !!p.is_lady,
     teamId: p.team_id,
     teamName: p.teams?.name ?? null,       // ✅ full team name for list view
-    teamShort: p.teams?.short_name ?? null // ✅ short code for pitch view
+    teamShort: p.teams?.short_name ?? null, // ✅ short code for pitch view
+    status: p.status ?? "available",
   }));
 
   return NextResponse.json({ players });
@@ -87,6 +89,7 @@ export async function PATCH(req: Request) {
     if (updates.now_cost !== undefined) allowed.now_cost = Number(updates.now_cost);
     if (updates.is_lady !== undefined) allowed.is_lady = !!updates.is_lady;
     if (updates.avatar_url !== undefined) allowed.avatar_url = updates.avatar_url;
+    if (updates.status !== undefined) allowed.status = updates.status;
 
     if (Object.keys(allowed).length === 0) {
       return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });

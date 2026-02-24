@@ -3,6 +3,9 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import dynamic_import from "next/dynamic";
+
+const LiveActivityFeed = dynamic_import(() => import("@/components/LiveActivityFeed"), { ssr: false });
 
 // Theme — matches voice admin
 const BG_DARK = "#0A0F1C";
@@ -45,6 +48,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<QuickStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [gwStatus, setGwStatus] = useState<GwStatus | null>(null);
+  const [healthWarnings, setHealthWarnings] = useState<Array<{ key: string; severity: string; message: string; count: number; link?: string }>>([]);
 
   useEffect(() => {
     // Fetch quick stats from your existing tables
@@ -85,8 +89,19 @@ export default function AdminDashboard() {
       }
     }
 
+    async function loadHealth() {
+      try {
+        const res = await fetch("/api/admin/data-health");
+        if (res.ok) {
+          const json = await res.json();
+          setHealthWarnings(json.warnings ?? []);
+        }
+      } catch { /* non-critical */ }
+    }
+
     loadStats();
     loadGwStatus();
+    loadHealth();
   }, []);
 
   const adminTools = [
@@ -121,6 +136,14 @@ export default function AdminDashboard() {
       href: "/admin/voice#capture",
       color: "#3B82F6",
       badge: "DATA",
+    },
+    {
+      title: "End Gameweek",
+      description: "One-click workflow: calculate scores, finalize, and advance.",
+      icon: "🏁",
+      href: "/admin/end-gameweek",
+      color: "#A855F7",
+      badge: "WORKFLOW",
     },
   ];
 
@@ -159,6 +182,48 @@ export default function AdminDashboard() {
       icon: "🔔",
       href: "/admin/notifications",
       color: "#14B8A6",
+    },
+    {
+      title: "Fantasy Managers",
+      description: "View all users, their teams, points, and picks.",
+      icon: "🧑‍💼",
+      href: "/admin/users",
+      color: "#3B82F6",
+    },
+    {
+      title: "Bonus Points",
+      description: "Award 3-2-1 bonus points to top match performers.",
+      icon: "⭐",
+      href: "/admin/bonus-points",
+      color: "#F59E0B",
+    },
+    {
+      title: "Import Players",
+      description: "Bulk import players from a CSV file.",
+      icon: "📤",
+      href: "/admin/players/import",
+      color: "#6366F1",
+    },
+    {
+      title: "Audit Log",
+      description: "View all admin actions and voice entries.",
+      icon: "📜",
+      href: "/admin/audit-log",
+      color: "#64748B",
+    },
+    {
+      title: "Season",
+      description: "Season overview, archive, and reset for new season.",
+      icon: "🏆",
+      href: "/admin/season",
+      color: "#EF4444",
+    },
+    {
+      title: "Analytics",
+      description: "Stats, reports, and engagement metrics.",
+      icon: "📈",
+      href: "/admin/analytics",
+      color: "#06B6D4",
     },
   ];
 
@@ -385,6 +450,54 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Data Health Warnings */}
+        {healthWarnings.length > 0 ? (
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
+              Data Health
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {healthWarnings.map((w) => (
+                <div
+                  key={w.key}
+                  onClick={() => w.link && router.push(w.link)}
+                  style={{
+                    padding: "12px 16px",
+                    backgroundColor: BG_CARD,
+                    border: `1px solid ${w.severity === "error" ? `${ERROR}30` : `${WARNING}30`}`,
+                    borderLeft: `3px solid ${w.severity === "error" ? ERROR : WARNING}`,
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    cursor: w.link ? "pointer" : "default",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 16 }}>{w.severity === "error" ? "🔴" : "🟡"}</span>
+                    <span style={{ fontSize: 13, color: TEXT_SECONDARY }}>{w.message}</span>
+                  </div>
+                  {w.link && (
+                    <span style={{ fontSize: 11, color: ACCENT, fontWeight: 600, whiteSpace: "nowrap" }}>Fix →</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : !loading && (
+          <div style={{
+            marginBottom: 32, padding: "12px 16px",
+            backgroundColor: `${SUCCESS}08`,
+            border: `1px solid ${SUCCESS}20`,
+            borderRadius: 8,
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ fontSize: 16 }}>✅</span>
+            <span style={{ fontSize: 13, color: SUCCESS, fontWeight: 500 }}>All data checks passed — no issues found</span>
+          </div>
+        )}
+
         {/* Voice Admin & Scoring Tools */}
         <div style={{ marginBottom: 32 }}>
           <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
@@ -520,13 +633,19 @@ export default function AdminDashboard() {
           </h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {[
+              { label: "🏁 End Gameweek", href: "/admin/end-gameweek" },
               { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
               { label: "🧮 Calculate GW Scores", href: "/admin/voice#scoring" },
               { label: "📥 Export CSV", href: "/admin/voice#capture" },
               { label: "🏟️ Manage Clubs", href: "/admin/teams" },
               { label: "👥 Manage Players", href: "/admin/players" },
+              { label: "🧑‍💼 Fantasy Managers", href: "/admin/users" },
               { label: "📅 Manage Gameweeks", href: "/admin/gameweeks" },
               { label: "📋 Schedule Match", href: "/admin/fixtures" },
+              { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
+              { label: "📤 Import Players", href: "/admin/players/import" },
+              { label: "📜 Audit Log", href: "/admin/audit-log" },
+              { label: "📈 Analytics", href: "/admin/analytics" },
               { label: "🔔 Send Notification", href: "/admin/notifications" },
             ].map((action, i) => (
               <button
@@ -546,6 +665,23 @@ export default function AdminDashboard() {
                 {action.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Recent Activity Feed */}
+        <div style={{ marginBottom: 32 }}>
+          <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
+            Recent Activity
+          </h2>
+          <div style={{
+            backgroundColor: BG_CARD,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 12,
+            padding: "16px",
+            maxHeight: 320,
+            overflow: "auto",
+          }}>
+            <LiveActivityFeed />
           </div>
         </div>
 

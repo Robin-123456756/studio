@@ -35,6 +35,7 @@ type Player = {
   teamId: number;
   teamName: string | null;
   teamShort: string | null;
+  status: string;
 };
 
 const POSITIONS = ["GK", "DEF", "MID", "FWD"] as const;
@@ -45,6 +46,15 @@ const POS_COLORS: Record<string, string> = {
   MID: "#10B981",
   FWD: "#EF4444",
 };
+
+const STATUS_COLORS: Record<string, string> = {
+  available: "#10B981",
+  injured: "#EF4444",
+  suspended: "#F59E0B",
+  unavailable: "#64748B",
+};
+
+const STATUS_LABELS = ["available", "injured", "suspended", "unavailable"] as const;
 
 const POS_LABELS: Record<string, string> = {
   GK: "Goalkeeper",
@@ -68,10 +78,11 @@ export default function AdminPlayersPage() {
   const [search, setSearch] = useState("");
   const [filterPos, setFilterPos] = useState<string>("ALL");
   const [filterTeam, setFilterTeam] = useState<string>("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
 
   // Editing
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<Partial<Player & { web_name: string }>>({});
+  const [editData, setEditData] = useState<Partial<Player & { web_name: string; status: string }>>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -115,6 +126,7 @@ export default function AdminPlayersPage() {
   const filtered = players.filter((p) => {
     if (filterPos !== "ALL" && p.position !== filterPos) return false;
     if (filterTeam !== "ALL" && String(p.teamId) !== filterTeam) return false;
+    if (filterStatus !== "ALL" && (p.status || "available") !== filterStatus) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchesName = (p.fullName || p.name || "").toLowerCase().includes(q);
@@ -139,6 +151,7 @@ export default function AdminPlayersPage() {
       price: p.price,
       teamId: p.teamId,
       isLady: p.isLady,
+      status: p.status || "available",
     });
     setSaveMsg(null);
   }
@@ -165,6 +178,7 @@ export default function AdminPlayersPage() {
           now_cost: editData.price,
           team_id: editData.teamId,
           is_lady: editData.isLady,
+          status: editData.status,
         }),
       });
       const json = await res.json();
@@ -324,6 +338,21 @@ export default function AdminPlayersPage() {
               <option key={t.id} value={String(t.id)}>{t.name}</option>
             ))}
           </select>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            style={{
+              padding: "10px 14px", borderRadius: 8,
+              border: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE,
+              color: TEXT_PRIMARY, fontSize: 14, fontFamily: "inherit",
+              outline: "none", minWidth: 140,
+            }}
+          >
+            <option value="ALL">All Status</option>
+            {STATUS_LABELS.map((s) => (
+              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+            ))}
+          </select>
         </div>
 
         {/* Global messages */}
@@ -449,8 +478,23 @@ export default function AdminPlayersPage() {
                           style={inputStyle}
                         />
                       </div>
+                      {/* Status */}
+                      <div>
+                        <label style={{ display: "block", fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Status</label>
+                        <select
+                          value={editData.status || "available"}
+                          onChange={(e) => setEditData({ ...editData, status: e.target.value })}
+                          style={inputStyle}
+                        >
+                          {STATUS_LABELS.map((s) => (
+                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
                       {/* Lady toggle */}
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", paddingBottom: 4 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                         <input
                           type="checkbox"
                           checked={!!editData.isLady}
@@ -516,6 +560,17 @@ export default function AdminPlayersPage() {
                       {p.fullName || p.name}
                       {p.isLady && (
                         <span style={{ marginLeft: 6, fontSize: 10, color: "#EC4899", fontWeight: 700 }}>LADY</span>
+                      )}
+                      {p.status && p.status !== "available" && (
+                        <span style={{
+                          marginLeft: 6, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                          padding: "1px 5px", borderRadius: 3,
+                          backgroundColor: `${STATUS_COLORS[p.status] || TEXT_MUTED}18`,
+                          color: STATUS_COLORS[p.status] || TEXT_MUTED,
+                          textTransform: "uppercase" as const,
+                        }}>
+                          {p.status}
+                        </span>
                       )}
                     </div>
                     {p.fullName && p.name !== p.fullName && (
