@@ -573,12 +573,17 @@ function PointsPage() {
           // API may have fallen back to an earlier GW — update header
           if (rosterJson.gwId) effectiveGwId = rosterJson.gwId;
         } else {
+          // Use /api/rosters which has rollover logic (tries previous GW if none found)
           const rosterRes = await fetch(
-            `/api/rosters/current?user_id=${userId}&gw_id=${selectedGwId}`,
+            `/api/rosters?gw_id=${selectedGwId}`,
             { cache: "no-store" }
           );
           rosterJson = await rosterRes.json();
           if (!rosterRes.ok) throw new Error(rosterJson?.error || "Failed to load roster");
+          // If roster was rolled over from a different GW, update the effective GW
+          if (rosterJson.rolledOverFromGw) {
+            effectiveGwId = rosterJson.rolledOverFromGw;
+          }
         }
 
         if (cancelled) return;

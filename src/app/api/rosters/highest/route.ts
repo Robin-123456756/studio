@@ -48,15 +48,33 @@ export async function GET(req: Request) {
     if (firstTry && firstTry.length > 0) {
       allRosters = firstTry;
     } else {
-      // No rosters for requested GW — find the latest GW that has rosters (≤ gwId)
-      const { data: latestRow } = await supabase
+      // No rosters for requested GW — find the nearest GW that has rosters
+      // Try earlier GWs first, then later GWs
+      const { data: earlier } = await supabase
         .from("user_rosters")
         .select("gameweek_id")
-        .lte("gameweek_id", gwId)
+        .lt("gameweek_id", gwId)
         .order("gameweek_id", { ascending: false })
         .limit(1);
 
-      const fallbackGw = latestRow?.[0]?.gameweek_id;
+      const { data: later } = await supabase
+        .from("user_rosters")
+        .select("gameweek_id")
+        .gt("gameweek_id", gwId)
+        .order("gameweek_id", { ascending: true })
+        .limit(1);
+
+      const earlierGw = earlier?.[0]?.gameweek_id;
+      const laterGw = later?.[0]?.gameweek_id;
+
+      // Pick whichever is closest to the requested GW
+      let fallbackGw: number | undefined;
+      if (earlierGw != null && laterGw != null) {
+        fallbackGw = (gwId - earlierGw) <= (laterGw - gwId) ? earlierGw : laterGw;
+      } else {
+        fallbackGw = earlierGw ?? laterGw;
+      }
+
       if (fallbackGw) {
         effectiveGwId = fallbackGw;
         const { data: fallbackRosters } = await supabase
