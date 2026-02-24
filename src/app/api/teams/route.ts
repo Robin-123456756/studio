@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { data, error } = await supabase
   .from("teams")
-  .select("team_uuid,name,short_name,team_code,logo_url")
+  .select("id,team_uuid,name,short_name,team_code,logo_url")
   .order("name", { ascending: true });
 
   if (error) {

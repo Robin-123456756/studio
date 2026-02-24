@@ -60,3 +60,83 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ players });
 }
+
+/** PATCH /api/admin/players — update a player */
+export async function PATCH(req: Request) {
+  const session = await import("next-auth").then((m) => m.getServerSession());
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = getSupabaseServerOrThrow();
+
+  try {
+    const body = await req.json();
+    const { id, ...updates } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Player ID is required." }, { status: 400 });
+    }
+
+    // Only allow safe fields
+    const allowed: Record<string, any> = {};
+    if (updates.name !== undefined) allowed.name = updates.name;
+    if (updates.web_name !== undefined) allowed.web_name = updates.web_name;
+    if (updates.position !== undefined) allowed.position = updates.position;
+    if (updates.team_id !== undefined) allowed.team_id = Number(updates.team_id);
+    if (updates.now_cost !== undefined) allowed.now_cost = Number(updates.now_cost);
+    if (updates.is_lady !== undefined) allowed.is_lady = !!updates.is_lady;
+    if (updates.avatar_url !== undefined) allowed.avatar_url = updates.avatar_url;
+
+    if (Object.keys(allowed).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from("players")
+      .update(allowed)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ player: data });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Failed to update player" }, { status: 500 });
+  }
+}
+
+/** DELETE /api/admin/players — delete a player */
+export async function DELETE(req: Request) {
+  const session = await import("next-auth").then((m) => m.getServerSession());
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = getSupabaseServerOrThrow();
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Player ID is required." }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from("players")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Failed to delete player" }, { status: 500 });
+  }
+}
