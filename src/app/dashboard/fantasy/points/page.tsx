@@ -559,6 +559,9 @@ function PointsPage() {
         // 1. Fetch roster — for highest view, use dedicated API that computes top scorer
         let rosterJson: any;
 
+        // Track the effective GW (API may fall back to an earlier one)
+        let effectiveGwId = selectedGwId;
+
         if (isHighestView) {
           const highestRes = await fetch(
             `/api/rosters/highest?gw_id=${selectedGwId}`,
@@ -567,11 +570,8 @@ function PointsPage() {
           rosterJson = await highestRes.json();
           if (!highestRes.ok) throw new Error(rosterJson?.error || "No rosters found");
           setHighestUserName(rosterJson.teamName ?? "Top Scorer");
-          // API may have fallen back to an earlier GW — sync the header
-          if (rosterJson.gwId && rosterJson.gwId !== selectedGwId) {
-            setSelectedGwId(rosterJson.gwId);
-            return; // will re-trigger this effect with the correct GW
-          }
+          // API may have fallen back to an earlier GW — update header
+          if (rosterJson.gwId) effectiveGwId = rosterJson.gwId;
         } else {
           const rosterRes = await fetch(
             `/api/rosters/current?user_id=${userId}&gw_id=${selectedGwId}`,
@@ -582,6 +582,11 @@ function PointsPage() {
         }
 
         if (cancelled) return;
+
+        // Sync header if API used a different GW
+        if (effectiveGwId !== selectedGwId) {
+          setSelectedGwId(effectiveGwId);
+        }
 
         const squadIds: string[] = rosterJson?.squadIds ?? [];
         const sIds: string[] = rosterJson?.startingIds?.length > 0
@@ -602,10 +607,10 @@ function PointsPage() {
           return;
         }
 
-        // 2. Fetch player info + stats in parallel
+        // 2. Fetch player info + stats in parallel (use effectiveGwId for stats)
         const [playersRes, statsRes] = await Promise.all([
           fetch(`/api/players?ids=${squadIds.join(",")}`, { cache: "no-store" }),
-          fetch(`/api/player-stats?gw_id=${selectedGwId}`, { cache: "no-store" }),
+          fetch(`/api/player-stats?gw_id=${effectiveGwId}`, { cache: "no-store" }),
         ]);
 
         const playersJson = await playersRes.json();
