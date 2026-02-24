@@ -567,6 +567,11 @@ function PointsPage() {
           rosterJson = await highestRes.json();
           if (!highestRes.ok) throw new Error(rosterJson?.error || "No rosters found");
           setHighestUserName(rosterJson.teamName ?? "Top Scorer");
+          // API may have fallen back to an earlier GW — sync the header
+          if (rosterJson.gwId && rosterJson.gwId !== selectedGwId) {
+            setSelectedGwId(rosterJson.gwId);
+            return; // will re-trigger this effect with the correct GW
+          }
         } else {
           const rosterRes = await fetch(
             `/api/rosters/current?user_id=${userId}&gw_id=${selectedGwId}`,

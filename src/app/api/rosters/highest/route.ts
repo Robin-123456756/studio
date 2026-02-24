@@ -32,8 +32,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No gameweek found" }, { status: 400 });
     }
 
-    // 1. Get ALL user_rosters rows for this GW
-    const { data: allRosters, error: rosterErr } = await supabase
+    // 1. Get ALL user_rosters rows for this GW — fall back to latest GW with data
+    let effectiveGwId = gwId;
+    let allRosters: any[] | null = null;
+
+    const { data: firstTry, error: rosterErr } = await supabase
       .from("user_rosters")
       .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier")
       .eq("gameweek_id", gwId);
@@ -42,9 +45,34 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: rosterErr.message }, { status: 500 });
     }
 
-    if (!allRosters || allRosters.length === 0) {
-      return NextResponse.json({ error: "No rosters found for this gameweek" }, { status: 404 });
+    if (firstTry && firstTry.length > 0) {
+      allRosters = firstTry;
+    } else {
+      // No rosters for requested GW — find the latest GW that has rosters (≤ gwId)
+      const { data: latestRow } = await supabase
+        .from("user_rosters")
+        .select("gameweek_id")
+        .lte("gameweek_id", gwId)
+        .order("gameweek_id", { ascending: false })
+        .limit(1);
+
+      const fallbackGw = latestRow?.[0]?.gameweek_id;
+      if (fallbackGw) {
+        effectiveGwId = fallbackGw;
+        const { data: fallbackRosters } = await supabase
+          .from("user_rosters")
+          .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier")
+          .eq("gameweek_id", effectiveGwId);
+        allRosters = fallbackRosters;
+      }
     }
+
+    if (!allRosters || allRosters.length === 0) {
+      return NextResponse.json({ error: "No rosters found" }, { status: 404 });
+    }
+
+    // Update gwId to the effective one we're using
+    gwId = effectiveGwId;
 
     // 2. Group rosters by user_id
     const byUser = new Map<string, typeof allRosters>();
