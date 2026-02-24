@@ -2,12 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { myFantasyTeam, fantasyStandings } from "@/lib/data";
 import {
-  ArrowDown,
-  ArrowUp,
   ArrowLeftRight,
-  Minus,
   ChevronRight,
   Users,
   Shirt,
@@ -122,67 +118,10 @@ function MiniLeague() {
         <div className="mt-1 text-xs text-muted-foreground">Your rank among rivals.</div>
       </CardContent>
 
-      <div className="space-y-2 px-3 pb-4">
-        {fantasyStandings.map((t) => {
-          const isMe = t.name === myFantasyTeam.name;
-          const delta = t.points - myFantasyTeam.points;
-          const trend = delta > 0 ? "up" : delta < 0 ? "down" : "same";
-          const trendLabel = delta === 0 ? "Even" : `${delta > 0 ? "+" : ""}${delta}`;
-          const trendClass =
-            trend === "up"
-              ? "bg-emerald-500/10 text-emerald-600"
-              : trend === "down"
-              ? "bg-red-500/10 text-red-600"
-              : "bg-muted/70 text-muted-foreground";
-
-          return (
-            <div
-              key={t.rank}
-              className={cn(
-                "flex items-center justify-between rounded-xl border px-3 py-2",
-                isMe ? "border-primary/30 bg-primary/5" : "border-border bg-card"
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="w-7 text-center text-xs font-semibold tabular-nums text-muted-foreground">
-                  #{t.rank}
-                </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
-                  {getInitials(t.name)}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-foreground">
-                    {t.name}
-                  </div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {t.owner}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
-                    trendClass
-                  )}
-                >
-                  {trend === "up" ? (
-                    <ArrowUp className="h-3 w-3" />
-                  ) : trend === "down" ? (
-                    <ArrowDown className="h-3 w-3" />
-                  ) : (
-                    <Minus className="h-3 w-3" />
-                  )}
-                  {trendLabel}
-                </div>
-                <div className="text-sm font-bold tabular-nums text-foreground">
-                  {t.points}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="px-3 pb-4">
+        <div className="text-center py-6 text-sm text-muted-foreground">
+          No league standings yet. Data will appear once gameweeks are played.
+        </div>
       </div>
     </Card>
   );
@@ -240,7 +179,7 @@ function FantasyPage() {
     })();
   }, []);
 
-  const [teamName, setTeamName] = React.useState(myFantasyTeam.name);
+  const [teamName, setTeamName] = React.useState("My Team");
 
   function editTeamName() {
     const next = window.prompt("Enter your team name:", teamName);
@@ -473,7 +412,7 @@ function FantasyPage() {
 
             <div className="flex-1">
               <div className="text-base font-extrabold">{teamName}</div>
-              <div className="mt-1 text-xs text-white/70">{myFantasyTeam.owner}</div>
+              <div className="mt-1 text-xs text-white/70">Fantasy Manager</div>
             </div>
           </button>
 
