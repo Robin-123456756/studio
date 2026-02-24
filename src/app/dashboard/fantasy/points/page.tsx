@@ -556,38 +556,25 @@ function PointsPage() {
         setLoading(true);
         setError(null);
 
-        // Determine which user's roster to show
-        let targetUserId = userId;
+        // 1. Fetch roster — for highest view, use dedicated API that computes top scorer
+        let rosterJson: any;
 
         if (isHighestView) {
-          // Find the user with the highest points this GW
-          const { data: weeklyScores } = await supabase
-            .from("user_weekly_scores")
-            .select("user_id, total_weekly_points")
-            .eq("gameweek_id", selectedGwId)
-            .order("total_weekly_points", { ascending: false })
-            .limit(1);
-
-          if (weeklyScores && weeklyScores.length > 0) {
-            targetUserId = (weeklyScores[0] as any).user_id;
-
-            // Try to get their team name
-            const { data: teamRow } = await supabase
-              .from("fantasy_teams")
-              .select("team_name")
-              .eq("user_id", targetUserId)
-              .maybeSingle();
-            setHighestUserName((teamRow as any)?.team_name ?? "Top Scorer");
-          }
+          const highestRes = await fetch(
+            `/api/rosters/highest?gw_id=${selectedGwId}`,
+            { cache: "no-store" }
+          );
+          rosterJson = await highestRes.json();
+          if (!highestRes.ok) throw new Error(rosterJson?.error || "No rosters found");
+          setHighestUserName(rosterJson.teamName ?? "Top Scorer");
+        } else {
+          const rosterRes = await fetch(
+            `/api/rosters/current?user_id=${userId}&gw_id=${selectedGwId}`,
+            { cache: "no-store" }
+          );
+          rosterJson = await rosterRes.json();
+          if (!rosterRes.ok) throw new Error(rosterJson?.error || "Failed to load roster");
         }
-
-        // 1. Fetch roster
-        const rosterRes = await fetch(
-          `/api/rosters/current?user_id=${targetUserId}&gw_id=${selectedGwId}`,
-          { cache: "no-store" }
-        );
-        const rosterJson = await rosterRes.json();
-        if (!rosterRes.ok) throw new Error(rosterJson?.error || "Failed to load roster");
 
         if (cancelled) return;
 
