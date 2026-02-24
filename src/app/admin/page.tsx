@@ -114,6 +114,13 @@ export default function AdminDashboard() {
       color: "#EC4899",
     },
     {
+      title: "Gameweeks",
+      description: "Create and manage gameweek schedule and deadlines.",
+      icon: "📅",
+      href: "/admin/gameweeks",
+      color: "#F59E0B",
+    },
+    {
       title: "Schedule Match",
       description: "Add a new match or generate the full schedule.",
       icon: "📋",
@@ -399,6 +406,7 @@ export default function AdminDashboard() {
               { label: "📥 Export CSV", href: "/admin/voice#capture" },
               { label: "➕ Add New Club", href: "/dashboard/admin/teams/new" },
               { label: "➕ Add New Player", href: "/dashboard/admin/players/new" },
+              { label: "📅 Manage Gameweeks", href: "/admin/gameweeks" },
               { label: "📋 Schedule Match", href: "/admin/fixtures" },
               { label: "🔔 Send Notification", href: "/admin/notifications" },
             ].map((action, i) => (
