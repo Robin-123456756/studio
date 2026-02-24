@@ -25,11 +25,26 @@ interface QuickStat {
   color: string;
 }
 
+interface GwStatus {
+  hasCurrentGw: boolean;
+  gwId?: number;
+  gwName?: string;
+  deadline?: string | null;
+  finalized?: boolean;
+  totalMatches?: number;
+  scoredMatches?: number;
+  unscoredMatches?: number;
+  allScoresEntered?: boolean;
+  scoresCalculated?: boolean;
+  usersPicked?: number;
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [stats, setStats] = useState<QuickStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gwStatus, setGwStatus] = useState<GwStatus | null>(null);
 
   useEffect(() => {
     // Fetch quick stats from your existing tables
@@ -60,7 +75,18 @@ export default function AdminDashboard() {
       }
       setLoading(false);
     }
+
+    async function loadGwStatus() {
+      try {
+        const res = await fetch("/api/admin/gw-status");
+        if (res.ok) setGwStatus(await res.json());
+      } catch {
+        // GW status is non-critical
+      }
+    }
+
     loadStats();
+    loadGwStatus();
   }, []);
 
   const adminTools = [
@@ -100,10 +126,10 @@ export default function AdminDashboard() {
 
   const managementTools = [
     {
-      title: "Add New Club",
-      description: "Add a new club to the Budo League.",
+      title: "Manage Clubs",
+      description: "Browse, edit and manage league clubs.",
       icon: "🏟️",
-      href: "/dashboard/admin/teams/new",
+      href: "/admin/teams",
       color: "#8B5CF6",
     },
     {
@@ -259,6 +285,106 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* GW Status Widget */}
+        {gwStatus && (
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
+              Gameweek Status
+            </h2>
+            {!gwStatus.hasCurrentGw ? (
+              <div style={{
+                padding: "20px",
+                backgroundColor: BG_CARD,
+                border: `1px solid ${WARNING}30`,
+                borderRadius: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}>
+                <span style={{ fontSize: 24 }}>⚠️</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: WARNING }}>No current gameweek set</div>
+                  <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 2 }}>
+                    Go to <span style={{ color: ACCENT, cursor: "pointer" }} onClick={() => router.push("/admin/gameweeks")}>Gameweeks</span> to set one as current.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                padding: "20px",
+                backgroundColor: BG_CARD,
+                border: `1px solid ${BORDER}`,
+                borderRadius: 12,
+              }}>
+                {/* GW Header */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{
+                      fontSize: 22, fontWeight: 700,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      color: ACCENT,
+                    }}>
+                      GW {gwStatus.gwId}
+                    </span>
+                    {gwStatus.finalized && (
+                      <span style={{
+                        padding: "3px 10px", borderRadius: 4,
+                        backgroundColor: `${SUCCESS}15`, color: SUCCESS,
+                        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                      }}>
+                        FINALIZED
+                      </span>
+                    )}
+                  </div>
+                  {gwStatus.deadline && (
+                    <DeadlineCountdown deadline={gwStatus.deadline} />
+                  )}
+                </div>
+
+                {/* Checklist */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+                  <ChecklistItem
+                    label="Scores entered"
+                    detail={`${gwStatus.scoredMatches}/${gwStatus.totalMatches} matches`}
+                    done={!!gwStatus.allScoresEntered}
+                    href="/admin/scores"
+                    router={router}
+                  />
+                  <ChecklistItem
+                    label="Points calculated"
+                    detail={gwStatus.scoresCalculated ? "Done" : "Not yet"}
+                    done={!!gwStatus.scoresCalculated}
+                    href="/admin/voice#scoring"
+                    router={router}
+                  />
+                  <ChecklistItem
+                    label="GW finalized"
+                    detail={gwStatus.finalized ? "Locked" : "Pending"}
+                    done={!!gwStatus.finalized}
+                    href="/admin/gameweeks"
+                    router={router}
+                  />
+                  <div style={{
+                    padding: "12px 14px",
+                    backgroundColor: BG_SURFACE,
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 8,
+                  }}>
+                    <div style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Users picked</div>
+                    <div style={{
+                      fontSize: 18, fontWeight: 700,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      color: (gwStatus.usersPicked || 0) > 0 ? ACCENT : TEXT_MUTED,
+                    }}>
+                      {gwStatus.usersPicked || 0}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Voice Admin & Scoring Tools */}
         <div style={{ marginBottom: 32 }}>
           <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
@@ -397,7 +523,7 @@ export default function AdminDashboard() {
               { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
               { label: "🧮 Calculate GW Scores", href: "/admin/voice#scoring" },
               { label: "📥 Export CSV", href: "/admin/voice#capture" },
-              { label: "➕ Add New Club", href: "/dashboard/admin/teams/new" },
+              { label: "🏟️ Manage Clubs", href: "/admin/teams" },
               { label: "👥 Manage Players", href: "/admin/players" },
               { label: "📅 Manage Gameweeks", href: "/admin/gameweeks" },
               { label: "📋 Schedule Match", href: "/admin/fixtures" },
@@ -424,6 +550,94 @@ export default function AdminDashboard() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+/* ── Helper Components ── */
+
+function DeadlineCountdown({ deadline }: { deadline: string }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const deadlineMs = new Date(deadline).getTime();
+  const diff = deadlineMs - now;
+
+  if (Number.isNaN(deadlineMs)) {
+    return <span style={{ fontSize: 12, color: TEXT_MUTED }}>Invalid deadline</span>;
+  }
+
+  if (diff <= 0) {
+    return (
+      <span style={{
+        padding: "4px 12px", borderRadius: 6,
+        backgroundColor: `${ERROR}15`, color: ERROR,
+        fontSize: 12, fontWeight: 600,
+      }}>
+        Deadline passed
+      </span>
+    );
+  }
+
+  const days = Math.floor(diff / 86_400_000);
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+  const mins = Math.floor((diff % 3_600_000) / 60_000);
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  parts.push(`${hours}h`);
+  parts.push(`${mins}m`);
+
+  const isUrgent = diff < 3_600_000; // < 1 hour
+
+  return (
+    <span style={{
+      padding: "4px 12px", borderRadius: 6,
+      backgroundColor: isUrgent ? `${ERROR}15` : `${WARNING}15`,
+      color: isUrgent ? ERROR : WARNING,
+      fontSize: 12, fontWeight: 600,
+      fontFamily: "'JetBrains Mono', monospace",
+    }}>
+      {parts.join(" ")} to deadline
+    </span>
+  );
+}
+
+function ChecklistItem({ label, detail, done, href, router }: {
+  label: string;
+  detail: string;
+  done: boolean;
+  href: string;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <div
+      onClick={() => router.push(href)}
+      style={{
+        padding: "12px 14px",
+        backgroundColor: BG_SURFACE,
+        border: `1px solid ${done ? `${SUCCESS}30` : BORDER}`,
+        borderRadius: 8,
+        cursor: "pointer",
+        transition: "all 0.2s",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{
+          width: 18, height: 18, borderRadius: "50%",
+          backgroundColor: done ? SUCCESS : `${TEXT_MUTED}30`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 11, color: done ? "#000" : TEXT_MUTED, fontWeight: 700,
+        }}>
+          {done ? "✓" : ""}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: done ? SUCCESS : TEXT_SECONDARY }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 11, color: TEXT_MUTED, paddingLeft: 26 }}>{detail}</div>
     </div>
   );
 }
