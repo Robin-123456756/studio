@@ -496,7 +496,7 @@ function FantasyPage() {
               </div>
             </div>
 
-            <div className="flex-[1.2] text-center">
+            <Link href="/dashboard/fantasy/points" className="flex-[1.2] text-center active:opacity-80 transition-opacity">
               <div className="text-4xl font-extrabold tabular-nums">
                 {gwPointsValue}
               </div>
@@ -504,16 +504,16 @@ function FantasyPage() {
                 GW points
                 <ChevronRight className="h-3.5 w-3.5 text-white/80" />
               </div>
-            </div>
+            </Link>
 
-            <div className="flex-1 text-center">
+            <Link href="/dashboard/fantasy/points?view=highest" className="flex-1 text-center active:opacity-80 transition-opacity">
               <div className="text-2xl font-bold text-white/80 tabular-nums">
                 {highestPointsValue}
               </div>
               <div className="mt-1 text-[11px] font-semibold text-white/60">
                 Highest
               </div>
-            </div>
+            </Link>
           </div>
 
           <div className="mx-auto mb-3 h-0.5 w-14 rounded-full bg-white/20" />
