@@ -464,8 +464,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Data Health Warnings */}
-        {healthWarnings.length > 0 ? (
+        {/* Data Health Warnings — super admin only */}
+        {isSuperAdmin && healthWarnings.length > 0 ? (
           <div style={{ marginBottom: 32 }}>
             <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
               Data Health
@@ -499,7 +499,7 @@ export default function AdminDashboard() {
               ))}
             </div>
           </div>
-        ) : !loading && (
+        ) : isSuperAdmin && !loading ? (
           <div style={{
             marginBottom: 32, padding: "12px 16px",
             backgroundColor: `${SUCCESS}08`,
@@ -510,7 +510,7 @@ export default function AdminDashboard() {
             <span style={{ fontSize: 16 }}>✅</span>
             <span style={{ fontSize: 13, color: SUCCESS, fontWeight: 500 }}>All data checks passed — no issues found</span>
           </div>
-        )}
+        ) : null}
 
         {/* Voice Admin & Scoring Tools */}
         <div style={{ marginBottom: 32 }}>
@@ -554,140 +554,179 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Management Tools */}
-        <div style={{ marginBottom: 32 }}>
-          <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
-            League Management
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-            {managementTools.filter((tool) => {
-              if (!isSuperAdmin) {
-                const superAdminPages = ["/admin/season", "/admin/players/import"];
-                return !superAdminPages.includes(tool.href);
-              }
-              return true;
-            }).map((tool, i) => (
-              <div
-                key={i}
-                className="admin-card"
-                onClick={() => router.push(tool.href)}
-                style={{
-                  padding: "18px",
-                  backgroundColor: BG_CARD,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 12,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 8,
-                    backgroundColor: `${tool.color}15`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 18,
-                  }}>
-                    {tool.icon}
+        {isSuperAdmin && (
+          <>
+            {/* Management Tools */}
+            <div style={{ marginBottom: 32 }}>
+              <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
+                League Management
+              </h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+                {managementTools.map((tool, i) => (
+                  <div
+                    key={i}
+                    className="admin-card"
+                    onClick={() => router.push(tool.href)}
+                    style={{
+                      padding: "18px",
+                      backgroundColor: BG_CARD,
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 8,
+                        backgroundColor: `${tool.color}15`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 18,
+                      }}>
+                        {tool.icon}
+                      </div>
+                      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{tool.title}</h3>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: TEXT_MUTED, lineHeight: 1.5 }}>
+                      {tool.description}
+                    </p>
                   </div>
-                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{tool.title}</h3>
-                </div>
-                <p style={{ margin: 0, fontSize: 12, color: TEXT_MUTED, lineHeight: 1.5 }}>
-                  {tool.description}
-                </p>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* External Tools */}
-        <div style={{ marginBottom: 32 }}>
-          <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
-            External Tools
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-            {dbTools.map((tool, i) => (
-              <a
-                key={i}
-                href={tool.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="admin-card"
-                style={{
-                  padding: "18px",
-                  backgroundColor: BG_CARD,
-                  border: `1px solid ${BORDER}`,
-                  borderRadius: 12,
-                  display: "block",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 8,
-                    backgroundColor: `${tool.color}15`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 18,
-                  }}>
-                    {tool.icon}
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{tool.title}</h3>
-                    <span style={{ fontSize: 10, color: TEXT_MUTED }}>↗ Opens in new tab</span>
-                  </div>
-                </div>
-                <p style={{ margin: 0, fontSize: 12, color: TEXT_MUTED, lineHeight: 1.5 }}>
-                  {tool.description}
-                </p>
-              </a>
-            ))}
-          </div>
-        </div>
+            {/* External Tools */}
+            <div style={{ marginBottom: 32 }}>
+              <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
+                External Tools
+              </h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+                {dbTools.map((tool, i) => (
+                  <a
+                    key={i}
+                    href={tool.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="admin-card"
+                    style={{
+                      padding: "18px",
+                      backgroundColor: BG_CARD,
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 12,
+                      display: "block",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 8,
+                        backgroundColor: `${tool.color}15`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 18,
+                      }}>
+                        {tool.icon}
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{tool.title}</h3>
+                        <span style={{ fontSize: 10, color: TEXT_MUTED }}>↗ Opens in new tab</span>
+                      </div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: TEXT_MUTED, lineHeight: 1.5 }}>
+                      {tool.description}
+                    </p>
+                  </a>
+                ))}
+              </div>
+            </div>
 
-        {/* Quick Actions */}
-        <div style={{
-          padding: "20px",
-          backgroundColor: BG_CARD,
-          border: `1px solid ${BORDER}`,
-          borderRadius: 12,
-          marginBottom: 32,
-        }}>
-          <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
-            Quick Actions
-          </h2>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {[
-              { label: "🏁 End Gameweek", href: "/admin/end-gameweek" },
-              { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
-              { label: "🧮 Calculate GW Scores", href: "/admin/voice#scoring" },
-              { label: "📥 Export CSV", href: "/admin/voice#capture" },
-              { label: "🏟️ Manage Clubs", href: "/admin/teams" },
-              { label: "👥 Manage Players", href: "/admin/players" },
-              { label: "🧑‍💼 Fantasy Managers", href: "/admin/users" },
-              { label: "📅 Manage Gameweeks", href: "/admin/gameweeks" },
-              { label: "📋 Schedule Match", href: "/admin/fixtures" },
-              { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
-              { label: "📤 Import Players", href: "/admin/players/import", superAdminOnly: true },
-              { label: "📜 Audit Log", href: "/admin/audit-log" },
-              { label: "📈 Analytics", href: "/admin/analytics" },
-              { label: "🔔 Send Notification", href: "/admin/notifications/send" },
-              { label: "🏆 Season", href: "/admin/season", superAdminOnly: true },
-            ].filter((a) => isSuperAdmin || !(a as any).superAdminOnly).map((action, i) => (
-              <button
-                key={i}
-                onClick={() => router.push(action.href)}
-                style={{
-                  padding: "10px 18px", borderRadius: 8,
-                  border: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE,
-                  color: TEXT_SECONDARY, fontSize: 13, fontWeight: 500,
-                  cursor: "pointer", fontFamily: "inherit",
-                  transition: "all 0.2s",
-                  whiteSpace: "nowrap",
-                }}
-                onMouseOver={(e) => { e.currentTarget.style.borderColor = `${ACCENT}40`; e.currentTarget.style.color = ACCENT; }}
-                onMouseOut={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = TEXT_SECONDARY; }}
-              >
-                {action.label}
-              </button>
-            ))}
+            {/* Quick Actions — super admin */}
+            <div style={{
+              padding: "20px",
+              backgroundColor: BG_CARD,
+              border: `1px solid ${BORDER}`,
+              borderRadius: 12,
+              marginBottom: 32,
+            }}>
+              <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
+                Quick Actions
+              </h2>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {[
+                  { label: "🏁 End Gameweek", href: "/admin/end-gameweek" },
+                  { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
+                  { label: "🧮 Calculate GW Scores", href: "/admin/voice#scoring" },
+                  { label: "📥 Export CSV", href: "/admin/voice#capture" },
+                  { label: "🏟️ Manage Clubs", href: "/admin/teams" },
+                  { label: "👥 Manage Players", href: "/admin/players" },
+                  { label: "🧑‍💼 Fantasy Managers", href: "/admin/users" },
+                  { label: "📅 Manage Gameweeks", href: "/admin/gameweeks" },
+                  { label: "📋 Schedule Match", href: "/admin/fixtures" },
+                  { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
+                  { label: "📤 Import Players", href: "/admin/players/import" },
+                  { label: "📜 Audit Log", href: "/admin/audit-log" },
+                  { label: "📈 Analytics", href: "/admin/analytics" },
+                  { label: "🔔 Send Notification", href: "/admin/notifications/send" },
+                  { label: "🏆 Season", href: "/admin/season" },
+                ].map((action, i) => (
+                  <button
+                    key={i}
+                    onClick={() => router.push(action.href)}
+                    style={{
+                      padding: "10px 18px", borderRadius: 8,
+                      border: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE,
+                      color: TEXT_SECONDARY, fontSize: 13, fontWeight: 500,
+                      cursor: "pointer", fontFamily: "inherit",
+                      transition: "all 0.2s",
+                      whiteSpace: "nowrap",
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.borderColor = `${ACCENT}40`; e.currentTarget.style.color = ACCENT; }}
+                    onMouseOut={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = TEXT_SECONDARY; }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Scorer Quick Actions — match-day only */}
+        {!isSuperAdmin && (
+          <div style={{
+            padding: "20px",
+            backgroundColor: BG_CARD,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 12,
+            marginBottom: 32,
+          }}>
+            <h2 style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
+              Quick Actions
+            </h2>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {[
+                { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
+                { label: "📊 Match Scores", href: "/admin/scores" },
+                { label: "🧮 Calculate GW Scores", href: "/admin/voice#scoring" },
+                { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
+                { label: "🏁 End Gameweek", href: "/admin/end-gameweek" },
+              ].map((action, i) => (
+                <button
+                  key={i}
+                  onClick={() => router.push(action.href)}
+                  style={{
+                    padding: "10px 18px", borderRadius: 8,
+                    border: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE,
+                    color: TEXT_SECONDARY, fontSize: 13, fontWeight: 500,
+                    cursor: "pointer", fontFamily: "inherit",
+                    transition: "all 0.2s",
+                    whiteSpace: "nowrap",
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.borderColor = `${ACCENT}40`; e.currentTarget.style.color = ACCENT; }}
+                  onMouseOut={(e) => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = TEXT_SECONDARY; }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Recent Activity Feed */}
         <div style={{ marginBottom: 32 }}>
