@@ -1,6 +1,7 @@
 // src/app/api/players/route.ts
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -65,10 +66,8 @@ export async function GET(req: Request) {
 
 /** PATCH /api/admin/players — update a player */
 export async function PATCH(req: Request) {
-  const session = await import("next-auth").then((m) => m.getServerSession());
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
 
   const supabase = getSupabaseServerOrThrow();
 
@@ -112,12 +111,10 @@ export async function PATCH(req: Request) {
   }
 }
 
-/** DELETE /api/admin/players — delete a player */
+/** DELETE /api/admin/players — delete a player (super_admin only) */
 export async function DELETE(req: Request) {
-  const session = await import("next-auth").then((m) => m.getServerSession());
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error: authErr } = await requireAdminSession(SUPER_ADMIN_ONLY);
+  if (authErr) return authErr;
 
   const supabase = getSupabaseServerOrThrow();
 

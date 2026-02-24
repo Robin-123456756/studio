@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { rateLimitResponse, RATE_LIMIT_STANDARD } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -76,8 +77,12 @@ export async function GET(req: Request) {
 
 /** POST /api/admin/bonus-points — assign bonus points */
 export async function POST(req: Request) {
-  const { error: authErr } = await requireAdminSession();
+  const { session, error: authErr } = await requireAdminSession();
   if (authErr) return authErr;
+
+  const userId = (session!.user as any).userId || session!.user?.name || "unknown";
+  const rlResponse = rateLimitResponse("bonus-points", userId, RATE_LIMIT_STANDARD);
+  if (rlResponse) return rlResponse;
 
   const supabase = getSupabaseServerOrThrow();
 

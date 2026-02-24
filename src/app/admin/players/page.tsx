@@ -90,6 +90,10 @@ export default function AdminPlayersPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Avatar upload
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
   const loadPlayers = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/players");
@@ -492,7 +496,7 @@ export default function AdminPlayersPage() {
                         </select>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
                       {/* Lady toggle */}
                       <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                         <input
@@ -503,7 +507,62 @@ export default function AdminPlayersPage() {
                         />
                         <span style={{ fontSize: 12, color: TEXT_SECONDARY }}>Lady</span>
                       </label>
+
+                      {/* Avatar Upload */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+                        {p.avatarUrl && (
+                          <img
+                            src={p.avatarUrl}
+                            alt=""
+                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", border: `1px solid ${BORDER}` }}
+                          />
+                        )}
+                        <label style={{
+                          padding: "5px 12px", borderRadius: 6,
+                          border: `1px solid ${BORDER}`, backgroundColor: "transparent",
+                          color: TEXT_MUTED, fontSize: 11, fontWeight: 600,
+                          cursor: uploading ? "wait" : "pointer", fontFamily: "inherit",
+                          opacity: uploading ? 0.5 : 1,
+                        }}>
+                          {uploading ? "Uploading..." : "Upload Photo"}
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            style={{ display: "none" }}
+                            disabled={uploading}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setUploading(true);
+                              setUploadMsg(null);
+                              try {
+                                const fd = new FormData();
+                                fd.append("file", file);
+                                fd.append("playerId", p.id);
+                                const res = await fetch("/api/admin/players/upload-avatar", { method: "POST", body: fd });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error || "Upload failed");
+                                setUploadMsg({ type: "ok", text: "Photo uploaded!" });
+                                await loadPlayers();
+                              } catch (err: any) {
+                                setUploadMsg({ type: "err", text: err.message });
+                              } finally {
+                                setUploading(false);
+                                e.target.value = "";
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
                     </div>
+                    {uploadMsg && editingId === p.id && (
+                      <div style={{
+                        marginTop: 6, fontSize: 11, fontWeight: 500,
+                        color: uploadMsg.type === "ok" ? SUCCESS : ERROR,
+                      }}>
+                        {uploadMsg.text}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                       <button onClick={saveEdit} disabled={saving} style={btnGreen}>
                         {saving ? "Saving..." : "Save"}

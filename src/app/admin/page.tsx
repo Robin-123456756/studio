@@ -104,6 +104,9 @@ export default function AdminDashboard() {
     loadHealth();
   }, []);
 
+  const userRole = (session?.user as any)?.role as string | undefined;
+  const isSuperAdmin = !userRole || userRole === "super_admin";
+
   const adminTools = [
     {
       title: "Voice Admin",
@@ -178,9 +181,9 @@ export default function AdminDashboard() {
     },
     {
       title: "Send Notifications",
-      description: "Send notifications to players and team members.",
+      description: "Send notifications to all fantasy managers.",
       icon: "🔔",
-      href: "/admin/notifications",
+      href: "/admin/notifications/send",
       color: "#14B8A6",
     },
     {
@@ -301,8 +304,19 @@ export default function AdminDashboard() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, marginLeft: "auto" }}>
           {session?.user?.name && (
-            <span className="admin-user-name" style={{ fontSize: 13, color: TEXT_MUTED }}>
+            <span className="admin-user-name" style={{ fontSize: 13, color: TEXT_MUTED, display: "flex", alignItems: "center", gap: 6 }}>
               👋 {session.user.name}
+              {userRole && (
+                <span style={{
+                  padding: "2px 8px", borderRadius: 4,
+                  backgroundColor: isSuperAdmin ? `${ACCENT}15` : `${WARNING}15`,
+                  color: isSuperAdmin ? ACCENT : WARNING,
+                  fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                  textTransform: "uppercase" as const,
+                }}>
+                  {userRole.replace("_", " ")}
+                </span>
+              )}
             </span>
           )}
           <button
@@ -546,7 +560,13 @@ export default function AdminDashboard() {
             League Management
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-            {managementTools.map((tool, i) => (
+            {managementTools.filter((tool) => {
+              if (!isSuperAdmin) {
+                const superAdminPages = ["/admin/season", "/admin/players/import"];
+                return !superAdminPages.includes(tool.href);
+              }
+              return true;
+            }).map((tool, i) => (
               <div
                 key={i}
                 className="admin-card"
@@ -643,11 +663,12 @@ export default function AdminDashboard() {
               { label: "📅 Manage Gameweeks", href: "/admin/gameweeks" },
               { label: "📋 Schedule Match", href: "/admin/fixtures" },
               { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
-              { label: "📤 Import Players", href: "/admin/players/import" },
+              { label: "📤 Import Players", href: "/admin/players/import", superAdminOnly: true },
               { label: "📜 Audit Log", href: "/admin/audit-log" },
               { label: "📈 Analytics", href: "/admin/analytics" },
-              { label: "🔔 Send Notification", href: "/admin/notifications" },
-            ].map((action, i) => (
+              { label: "🔔 Send Notification", href: "/admin/notifications/send" },
+              { label: "🏆 Season", href: "/admin/season", superAdminOnly: true },
+            ].filter((a) => isSuperAdmin || !(a as any).superAdminOnly).map((action, i) => (
               <button
                 key={i}
                 onClick={() => router.push(action.href)}

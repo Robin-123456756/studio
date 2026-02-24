@@ -26,6 +26,7 @@ export default function SeasonPage() {
   const [confirmation, setConfirmation] = useState("");
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/season/stats")
@@ -113,6 +114,58 @@ export default function SeasonPage() {
           ) : (
             <div style={{ padding: 40, textAlign: "center", color: ERROR }}>Failed to load stats.</div>
           )}
+
+          {/* Download Backup */}
+          <div style={{
+            padding: 20,
+            borderRadius: 12,
+            background: `${SUCCESS}08`,
+            border: `2px solid ${SUCCESS}33`,
+            marginBottom: 24,
+          }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: SUCCESS, margin: "0 0 8px" }}>Download Season Backup</h2>
+            <p style={{ fontSize: 13, color: TEXT_SECONDARY, margin: "0 0 16px" }}>
+              Download a full backup of all season data as JSON before performing a reset.
+              Includes players, matches, stats, rosters, transfers, and more.
+            </p>
+            <button
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  const res = await fetch("/api/admin/season/backup", { method: "POST" });
+                  if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "Backup failed");
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  const date = new Date().toISOString().split("T")[0];
+                  a.download = `budo-league-backup-${date}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (e: any) {
+                  setResetResult({ success: false, message: e.message });
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+              disabled={downloading}
+              style={{
+                padding: "10px 24px", borderRadius: 8,
+                border: "none",
+                background: `linear-gradient(135deg, ${SUCCESS} 0%, #059669 100%)`,
+                color: "#fff", fontSize: 13, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+                opacity: downloading ? 0.6 : 1,
+              }}
+            >
+              {downloading ? "Downloading..." : "Download Season Backup"}
+            </button>
+          </div>
 
           {/* Danger Zone */}
           <div style={{

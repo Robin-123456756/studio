@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/gw-status — current GW status for dashboard widget */
 export async function GET() {
-  const session = await getServerSession();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
 
   const supabase = getSupabaseServerOrThrow();
 

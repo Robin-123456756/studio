@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -10,6 +11,9 @@ function getSupabase() {
 
 // GET — fetch teams or upcoming events
 export async function GET(req: Request) {
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
+
   try {
     const supabase = getSupabase();
     const { searchParams } = new URL(req.url);
@@ -101,6 +105,9 @@ export async function GET(req: Request) {
 
 // POST — schedule match or create event
 export async function POST(req: Request) {
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
+
   try {
     const supabase = getSupabase();
     const body = await req.json();
@@ -171,6 +178,9 @@ export async function POST(req: Request) {
 
 // DELETE — remove an event
 export async function DELETE(req: Request) {
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
+
   try {
     const supabase = getSupabase();
     const { id } = await req.json();

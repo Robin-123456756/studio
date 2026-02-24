@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/gameweeks — list all gameweeks */
 export async function GET() {
-  const session = await getServerSession();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
 
   const supabase = getSupabaseServerOrThrow();
 
@@ -27,10 +25,8 @@ export async function GET() {
 
 /** POST /api/admin/gameweeks — create a new gameweek */
 export async function POST(req: Request) {
-  const session = await getServerSession();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
 
   const supabase = getSupabaseServerOrThrow();
 
@@ -79,10 +75,8 @@ export async function POST(req: Request) {
 
 /** PATCH /api/admin/gameweeks — update a gameweek (is_current, finalized, deadline) */
 export async function PATCH(req: Request) {
-  const session = await getServerSession();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
 
   const supabase = getSupabaseServerOrThrow();
 

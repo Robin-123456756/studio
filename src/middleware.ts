@@ -44,6 +44,18 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    // Role-based page blocking: scorer cannot access super-admin-only pages
+    const superAdminOnlyPages = ["/admin/season", "/admin/players/import"];
+    const userRole = token.role as string | undefined;
+    if (userRole && userRole !== "super_admin") {
+      const isBlocked = superAdminOnlyPages.some(
+        (page) => pathname === page || pathname.startsWith(page + "/")
+      );
+      if (isBlocked) {
+        return NextResponse.redirect(new URL("/admin", request.url));
+      }
+    }
   }
 
   return supabaseResponse;

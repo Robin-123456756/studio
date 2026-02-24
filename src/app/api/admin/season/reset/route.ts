@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
-import { requireAdminSession } from "@/lib/admin-auth";
+import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { rateLimitResponse, RATE_LIMIT_DESTRUCTIVE } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /** POST /api/admin/season/reset — reset all season data */
 export async function POST(req: Request) {
-  const { error: authErr } = await requireAdminSession();
+  const { session, error: authErr } = await requireAdminSession(SUPER_ADMIN_ONLY);
   if (authErr) return authErr;
+
+  const userId = (session!.user as any).userId || session!.user?.name || "unknown";
+  const rlResponse = rateLimitResponse("season-reset", userId, RATE_LIMIT_DESTRUCTIVE);
+  if (rlResponse) return rlResponse;
 
   const supabase = getSupabaseServerOrThrow();
 

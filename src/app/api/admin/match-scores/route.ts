@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -9,6 +10,9 @@ function getSupabase() {
 }
 
 export async function GET() {
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
+
   try {
     const supabase = getSupabase();
 
@@ -59,6 +63,9 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
+
   try {
     const supabase = getSupabase();
     const { matches } = await req.json();
