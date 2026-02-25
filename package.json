@@ -10,6 +10,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "pwa:assets": "node scripts/generate-pwa-assets.mjs"
   },
   "dependencies": {
@@ -83,7 +85,9 @@
     "genkit-cli": "^1.20.0",
     "postcss": "^8.5.6",
     "pwa-asset-generator": "^8.1.2",
+    "supabase": "^2.76.14",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

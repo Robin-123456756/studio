@@ -25,9 +25,9 @@ function norm(pos: string | null | undefined): string {
 
 // ── Types ─────────────────────────────────────────────────────────────
 
-type AutoSub = { outId: string; inId: string; reason: string };
+export type AutoSub = { outId: string; inId: string; reason: string };
 
-type UserResult = {
+export type UserResult = {
   userId: string;
   totalPoints: number;
   autoSubs: AutoSub[];
@@ -35,12 +35,12 @@ type UserResult = {
   benchBoost: boolean;
 };
 
-type ScoringResult = {
+export type ScoringResult = {
   results: UserResult[];
   summary: { usersScored: number; gameweekId: number };
 };
 
-type RosterRow = {
+export type RosterRow = {
   user_id: string;
   player_id: string;
   is_starting_9: boolean;
@@ -51,13 +51,13 @@ type RosterRow = {
   bench_order: number | null;
 };
 
-type PlayerMeta = {
+export type PlayerMeta = {
   id: string;
   position: string | null;
   is_lady: boolean | null;
 };
 
-type PlayerStat = {
+export type PlayerStat = {
   player_id: string;
   points: number;
   did_play: boolean;
