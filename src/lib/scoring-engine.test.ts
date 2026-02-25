@@ -503,6 +503,79 @@ describe("computeUserScore", () => {
       // But subbing DEF for MID → 1GK+3DEF+3MID+3FWD = 10 → valid ✓
       expect(result.autoSubs).toHaveLength(1);
     });
+
+    it("incremental max-check prevents DEF overflow when multiple starters absent", () => {
+      // Custom roster: Starting 1GK, 3DEF, 3MID, 3FWD
+      // 2 FWDs absent → without max-check, bench DEF could push DEF to 4
+      const customMeta = new Map<string, PlayerMeta>([
+        ["gk1", meta("gk1", "GK")],
+        ["d1", meta("d1", "DEF")],
+        ["d2", meta("d2", "DEF")],
+        ["d3", meta("d3", "DEF")],
+        ["m1", meta("m1", "MID")],
+        ["m2", meta("m2", "MID")],
+        ["m3", meta("m3", "MID")],
+        ["f1", meta("f1", "FWD")],
+        ["f2", meta("f2", "FWD")],
+        ["lady_f", meta("lady_f", "FWD", true)],
+        // Bench
+        ["gk2", meta("gk2", "GK")],
+        ["d4", meta("d4", "DEF")],     // bench_order 1 — would push DEF to 4 if allowed
+        ["m4", meta("m4", "MID")],     // bench_order 2
+        ["m5", meta("m5", "MID")],     // bench_order 3
+        ["f3", meta("f3", "FWD")],     // bench_order 4
+        ["lady_f2", meta("lady_f2", "FWD", true)], // bench_order 5
+        ["d5", meta("d5", "DEF")],     // bench_order 6
+      ]);
+
+      const customSquad: RosterRow[] = [
+        roster("gk1", { is_captain: true, multiplier: 2 }),
+        roster("d1"), roster("d2"), roster("d3"),
+        roster("m1"), roster("m2"), roster("m3"),
+        roster("f1"), roster("f2"),
+        roster("lady_f"),
+        // Bench
+        roster("gk2", { is_starting_9: false, bench_order: 1 }),
+        roster("d4", { is_starting_9: false, bench_order: 2 }),
+        roster("m4", { is_starting_9: false, bench_order: 3 }),
+        roster("m5", { is_starting_9: false, bench_order: 4 }),
+        roster("f3", { is_starting_9: false, bench_order: 5 }),
+        roster("lady_f2", { is_starting_9: false, bench_order: 6 }),
+        roster("d5", { is_starting_9: false, bench_order: 7 }),
+      ];
+
+      const stats = new Map<string, PlayerStat>();
+      for (const [id] of customMeta) stats.set(id, stat(id, 5));
+      // f1 and f2 didn't play
+      stats.set("f1", stat("f1", 0, false));
+      stats.set("f2", stat("f2", 0, false));
+
+      const result = computeUserScore(customSquad, stats, customMeta);
+
+      // d4 (bench_order 2) is first non-GK bench player, but subbing DEF for FWD
+      // would push DEF to 4 (>3 max). Max-check should skip d4 and pick m4 instead.
+      const subIns = result.autoSubs.map((s) => s.inId);
+      expect(subIns).not.toContain("d4"); // DEF overflow blocked
+      expect(subIns).toContain("m4");     // MID is valid (MID ≤ 5)
+      expect(result.autoSubs).toHaveLength(2);
+    });
+
+    it("incremental max-check still allows position at exactly its max", () => {
+      // Starting: 1GK, 2DEF, 4MID, 3FWD. 2 MIDs absent.
+      // def3 (DEF) should be allowed as first sub since it pushes DEF to 3 (= max, not over)
+      const stats = allPlayedStats(5);
+      stats.set("mid1", stat("mid1", 0, false));
+      stats.set("mid2", stat("mid2", 0, false));
+
+      const result = computeUserScore(fullSquad(), stats, META_MAP);
+
+      // def3 (bench_order 2) pushes DEF to 3 (at max but not over) → allowed
+      // mid5 (bench_order 3) pushes MID to 3 → valid at 10: 1GK+3DEF+3MID+3FWD ✓
+      const subIns = result.autoSubs.map((s) => s.inId);
+      expect(subIns).toContain("def3");
+      expect(subIns).toContain("mid5");
+      expect(result.autoSubs).toHaveLength(2);
+    });
   });
 
   // ── Edge cases ─────────────────────────────────────────────────────

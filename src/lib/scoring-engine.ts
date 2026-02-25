@@ -77,6 +77,13 @@ function isValidFormation(positions: string[]): boolean {
   );
 }
 
+/** Check if any position exceeds its maximum (used during incremental auto-sub) */
+function exceedsMaxCounts(positions: string[]): boolean {
+  const counts: Record<string, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  for (const pos of positions) counts[pos] = (counts[pos] ?? 0) + 1;
+  return counts.GK > 1 || counts.DEF > 3 || counts.MID > 5 || counts.FWD > 3;
+}
+
 // ── Per-user score computation (exported for reuse) ───────────────────
 
 export function computeUserScore(
@@ -155,12 +162,9 @@ export function computeUserScore(
       if (outMeta.is_lady && !inMeta.is_lady) continue;
       if (!outMeta.is_lady && inMeta.is_lady) continue;
 
-      // Check if adding this bench player produces a valid formation of 10
+      // Check formation validity
       if (testPositions.length === 10 && !isValidFormation(testPositions)) continue;
-      if (testPositions.length < 10) {
-        // Not yet at 10 starters — we'll validate at the end
-        // For now just check the position swap is reasonable
-      }
+      if (testPositions.length < 10 && exceedsMaxCounts(testPositions)) continue;
 
       // Valid sub found
       effectiveStarting.add(b.player_id);
