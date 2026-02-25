@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { computeUserScore } from "@/lib/scoring-engine";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -8,7 +9,7 @@ export const revalidate = 0;
  * GET /api/rosters/highest?gw_id=3
  *
  * Finds the user with the highest GW points from their starting XI,
- * computed directly from user_rosters + player_stats.
+ * computed using the scoring engine (with auto-sub, vice-captain, bench boost).
  * Returns the same shape as /api/rosters/current plus the user's team name.
  */
 export async function GET(req: Request) {
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 
     const { data: firstTry, error: rosterErr } = await supabase
       .from("user_rosters")
-      .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier")
+      .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier, active_chip, bench_order")
       .eq("gameweek_id", gwId);
 
     if (rosterErr) {
@@ -49,7 +50,6 @@ export async function GET(req: Request) {
       allRosters = firstTry;
     } else {
       // No rosters for requested GW — find the nearest GW that has rosters
-      // Try earlier GWs first, then later GWs
       const { data: earlier } = await supabase
         .from("user_rosters")
         .select("gameweek_id")
@@ -67,7 +67,6 @@ export async function GET(req: Request) {
       const earlierGw = earlier?.[0]?.gameweek_id;
       const laterGw = later?.[0]?.gameweek_id;
 
-      // Pick whichever is closest to the requested GW
       let fallbackGw: number | undefined;
       if (earlierGw != null && laterGw != null) {
         fallbackGw = (gwId - earlierGw) <= (laterGw - gwId) ? earlierGw : laterGw;
@@ -79,7 +78,7 @@ export async function GET(req: Request) {
         effectiveGwId = fallbackGw;
         const { data: fallbackRosters } = await supabase
           .from("user_rosters")
-          .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier")
+          .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier, active_chip, bench_order")
           .eq("gameweek_id", effectiveGwId);
         allRosters = fallbackRosters;
       }
@@ -89,53 +88,59 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No rosters found" }, { status: 404 });
     }
 
-    // Update gwId to the effective one we're using
     gwId = effectiveGwId;
 
     // 2. Group rosters by user_id
-    const byUser = new Map<string, typeof allRosters>();
+    const byUser = new Map<string, any[]>();
     for (const row of allRosters) {
       const uid = String(row.user_id);
       if (!byUser.has(uid)) byUser.set(uid, []);
-      byUser.get(uid)!.push(row);
+      byUser.get(uid)!.push({
+        ...row,
+        user_id: uid,
+        player_id: String(row.player_id),
+      });
     }
 
-    // 3. Get player_stats for this GW (points per player)
+    // 3. Get player_stats for this GW (points + did_play)
     const allPlayerIds = [...new Set(allRosters.map((r) => String(r.player_id)))];
     const { data: statsData } = await supabase
       .from("player_stats")
-      .select("player_id, points")
+      .select("player_id, points, did_play")
       .eq("gameweek_id", gwId)
       .in("player_id", allPlayerIds);
 
-    // Merge multiple stat rows per player (sum points)
-    const pointsMap = new Map<string, number>();
+    const statsMap = new Map<string, { player_id: string; points: number; did_play: boolean }>();
     for (const s of statsData ?? []) {
       const pid = String(s.player_id);
-      pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + (s.points ?? 0));
+      const existing = statsMap.get(pid);
+      if (existing) {
+        existing.points += s.points ?? 0;
+        if (s.did_play) existing.did_play = true;
+      } else {
+        statsMap.set(pid, { player_id: pid, points: s.points ?? 0, did_play: s.did_play ?? false });
+      }
     }
 
-    // 4. Compute each user's total starting XI points
+    // 4. Get player metadata (position, is_lady)
+    const { data: playerMeta } = await supabase
+      .from("players")
+      .select("id, position, is_lady")
+      .in("id", allPlayerIds);
+
+    const metaMap = new Map<string, { id: string; position: string | null; is_lady: boolean | null }>();
+    for (const p of playerMeta ?? []) {
+      metaMap.set(String(p.id), { id: String(p.id), position: p.position, is_lady: p.is_lady });
+    }
+
+    // 5. Compute each user's score using the scoring engine
     let bestUserId: string | null = null;
     let bestTotal = -1;
 
     for (const [uid, rows] of byUser) {
-      const startingRows = rows.filter((r) => r.is_starting_9);
-      // If no starting XI marked, treat all as starting
-      const effectiveStarting = startingRows.length > 0 ? startingRows : rows;
-      const captainRow = rows.find((r) => r.is_captain);
-
-      let total = 0;
-      for (const r of effectiveStarting) {
-        const pid = String(r.player_id);
-        const pts = pointsMap.get(pid) ?? 0;
-        const mult = Number(r.multiplier ?? (captainRow && String(captainRow.player_id) === pid ? 2 : 1));
-        const m = Number.isFinite(mult) && mult > 0 ? mult : 1;
-        total += pts * m;
-      }
-
-      if (total > bestTotal) {
-        bestTotal = total;
+      const result = computeUserScore(rows, statsMap, metaMap);
+      if (result.totalPoints > bestTotal) {
+        bestTotal = result.totalPoints;
         bestUserId = uid;
       }
     }
@@ -144,13 +149,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Could not determine highest scorer" }, { status: 404 });
     }
 
-    // 5. Build roster response for the best user (same shape as /api/rosters/current)
+    // 6. Build roster response for the best user
     const bestRows = byUser.get(bestUserId)!;
     const multiplierByPlayer = Object.fromEntries(
-      bestRows.map((r) => [String(r.player_id), Number(r.multiplier ?? 1)])
+      bestRows.map((r: any) => [String(r.player_id), Number(r.multiplier ?? 1)])
     );
 
-    // 6. Try to get team name
+    // 7. Try to get team name
     let teamName: string | null = null;
     const { data: teamRow } = await supabase
       .from("fantasy_teams")
@@ -164,10 +169,10 @@ export async function GET(req: Request) {
       userId: bestUserId,
       teamName,
       totalPoints: bestTotal,
-      squadIds: bestRows.map((r) => r.player_id),
-      startingIds: bestRows.filter((r) => r.is_starting_9).map((r) => r.player_id),
-      captainId: bestRows.find((r) => r.is_captain)?.player_id ?? null,
-      viceId: bestRows.find((r) => r.is_vice_captain)?.player_id ?? null,
+      squadIds: bestRows.map((r: any) => r.player_id),
+      startingIds: bestRows.filter((r: any) => r.is_starting_9).map((r: any) => r.player_id),
+      captainId: bestRows.find((r: any) => r.is_captain)?.player_id ?? null,
+      viceId: bestRows.find((r: any) => r.is_vice_captain)?.player_id ?? null,
       multiplierByPlayer,
     });
   } catch (e: any) {

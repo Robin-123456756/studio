@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   // Return roster player ids for this GW
   const { data, error } = await supabase
     .from("user_rosters")
-    .select("player_id, is_starting_9, is_captain, is_vice_captain")
+    .select("player_id, is_starting_9, is_captain, is_vice_captain, bench_order")
     .eq("user_id", auth.user.id)
     .eq("gameweek_id", gwId);
 
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
       const prevGwId = prev[0].gameweek_id;
       const { data: prevRows, error: prevRowsErr } = await supabase
         .from("user_rosters")
-        .select("player_id, is_starting_9, is_captain, is_vice_captain")
+        .select("player_id, is_starting_9, is_captain, is_vice_captain, bench_order")
         .eq("user_id", auth.user.id)
         .eq("gameweek_id", prevGwId);
 
@@ -87,7 +87,13 @@ export async function GET(req: Request) {
       ? String(rows.find((r) => r.is_vice_captain)?.player_id)
       : null;
 
-  return NextResponse.json({ gwId, squadIds, startingIds, captainId, viceId, rolledOverFromGw });
+  // Build bench order: sort bench rows by bench_order ASC, return ordered IDs
+  const benchOrder = rows
+    .filter((r: any) => !r.is_starting_9 && r.bench_order != null)
+    .sort((a: any, b: any) => (a.bench_order ?? 99) - (b.bench_order ?? 99))
+    .map((r: any) => String(r.player_id));
+
+  return NextResponse.json({ gwId, squadIds, startingIds, captainId, viceId, rolledOverFromGw, benchOrder });
 }
 
 export async function POST(req: Request) {

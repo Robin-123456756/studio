@@ -1131,6 +1131,13 @@ export default function PickTeamPage() {
           }
         }
 
+        // Restore bench order from DB
+        if (Array.isArray(data.benchOrder) && data.benchOrder.length > 0) {
+          if (!localHasFullSquad) {
+            setBenchOrder(data.benchOrder);
+          }
+        }
+
         if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
 
         // If DB has a full roster with starting lineup, we're done
@@ -1886,6 +1893,7 @@ export default function PickTeamPage() {
         viceId,
         chip: activeChip,
         teamName,
+        benchOrder: bench.map((p) => p.id),
       });
 
       // Update saved state after successful save

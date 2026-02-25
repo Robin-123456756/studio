@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { calculateGameweekScores } from "@/lib/scoring-engine";
 
 export async function POST(request: Request) {
   try {
@@ -9,40 +10,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "gameweekId is required" }, { status: 400 });
     }
 
-    const supabase = getSupabaseServerOrThrow();
-
-    // Get detailed breakdown
-    const { data: breakdown, error: breakdownError } = await supabase
-      .rpc("calculate_gameweek_scores", { gw_id: gameweekId });
-
-    if (breakdownError) throw breakdownError;
-
-    // Finalize scores into user_weekly_scores
-    const { error: finalizeError } = await supabase
-      .rpc("finalize_gameweek_scores", { gw_id: gameweekId });
-
-    if (finalizeError) throw finalizeError;
+    // Run the TypeScript scoring engine (auto-sub, vice-captain, bench boost)
+    const result = await calculateGameweekScores(Number(gameweekId));
 
     // Refresh materialized view after score calculation
     try {
+      const supabase = getSupabaseServerOrThrow();
       await supabase.rpc("refresh_match_totals");
     } catch (_) {
       // Non-fatal — trigger may have already refreshed it
     }
 
-    // Get summary
-    const { data: scores } = await supabase
-      .from("user_weekly_scores")
-      .select("user_id, total_weekly_points")
-      .eq("gameweek_id", gameweekId)
-      .order("total_weekly_points", { ascending: false });
+    // Build leaderboard from engine results
+    const leaderboard = result.results
+      .map((r) => ({ user_id: r.userId, total_weekly_points: r.totalPoints }))
+      .sort((a, b) => b.total_weekly_points - a.total_weekly_points);
 
     return NextResponse.json({
       success: true,
       gameweekId,
-      breakdown,
-      leaderboard: scores,
-      message: `Scores calculated for ${scores?.length || 0} users in GW${gameweekId}`,
+      breakdown: result.results.map((r) => ({
+        userId: r.userId,
+        totalPoints: r.totalPoints,
+        autoSubs: r.autoSubs,
+        captainActivated: r.captainActivated,
+        benchBoost: r.benchBoost,
+      })),
+      leaderboard,
+      message: `Scores calculated for ${result.summary.usersScored} users in GW${gameweekId}`,
     });
   } catch (error: any) {
     console.error("Score calculation error:", error);

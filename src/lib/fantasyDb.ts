@@ -27,6 +27,7 @@ export async function saveRosterToDb(payload: {
   viceId: string | null;
   chip?: string | null;
   teamName?: string | null;
+  benchOrder?: string[];
 }) {
   // Ensure IDs are consistently typed — userId derived server-side from cookie
   const body = {
@@ -37,6 +38,7 @@ export async function saveRosterToDb(payload: {
     viceId: payload.viceId ? String(payload.viceId) : null,
     chip: payload.chip ?? null,
     teamName: payload.teamName ?? null,
+    benchOrder: payload.benchOrder?.map(String) ?? null,
   };
 
   const res = await fetch("/api/rosters/save", {
@@ -67,5 +69,6 @@ export async function loadRosterFromDb(gwId: number) {
     viceId: json.viceId ?? null,
     teamName: json.teamName ?? null,
     rolledOverFromGw: json.rolledOverFromGw ?? null,
+    benchOrder: json.benchOrder ?? [],
   };
 }

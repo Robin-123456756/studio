@@ -14,6 +14,7 @@ type Body = {
   viceId: string | null;
   chip?: string | null;    // bench_boost | triple_captain | wildcard | free_hit
   teamName?: string | null;
+  benchOrder?: string[] | null;  // ordered bench player IDs (1st sub first)
 };
 
 const VALID_CHIPS = ["bench_boost", "triple_captain", "wildcard", "free_hit"];
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
   const admin = getSupabaseServerOrThrow();
 
   const body = (await req.json()) as Body;
-  const { gameweekId, squadIds, startingIds, captainId, viceId, chip, teamName } = body;
+  const { gameweekId, squadIds, startingIds, captainId, viceId, chip, teamName, benchOrder } = body;
 
   // Upsert team name if provided
   if (teamName && typeof teamName === "string") {
@@ -145,16 +146,28 @@ export async function POST(req: Request) {
   const startingSet = new Set(startingStrIds);
   const captainMultiplier = activeChip === "triple_captain" ? 3 : 2;
 
-  const rows = uniqueSquadIds.map((pid) => ({
-    user_id: userId,
-    player_id: pid,
-    gameweek_id: Number(gameweekId),
-    is_starting_9: startingSet.has(pid),
-    is_captain: capStr === pid,
-    is_vice_captain: viceStr === pid,
-    multiplier: capStr === pid ? captainMultiplier : 1,
-    active_chip: activeChip,
-  }));
+  // Build bench_order lookup: benchOrder = ["id_a","id_b",...] → id_a=1, id_b=2, ...
+  const benchOrderArr = Array.isArray(benchOrder) ? benchOrder.map(String) : [];
+
+  const rows = uniqueSquadIds.map((pid) => {
+    const isStarter = startingSet.has(pid);
+    let bench_order: number | null = null;
+    if (!isStarter && benchOrderArr.length > 0) {
+      const idx = benchOrderArr.indexOf(pid);
+      bench_order = idx >= 0 ? idx + 1 : null;
+    }
+    return {
+      user_id: userId,
+      player_id: pid,
+      gameweek_id: Number(gameweekId),
+      is_starting_9: isStarter,
+      is_captain: capStr === pid,
+      is_vice_captain: viceStr === pid,
+      multiplier: capStr === pid ? captainMultiplier : 1,
+      active_chip: activeChip,
+      bench_order,
+    };
+  });
 
   // ── Delete + Insert roster ──
   const { error: delErr } = await admin

@@ -86,7 +86,31 @@ export async function writeToDatabase({
     });
   }
 
-  // 5. Materialized view is auto-refreshed by DB trigger on player_match_events
+  // 5. Mark players as having played (for auto-sub logic in scoring engine)
+  // Derive gameweek_id from the match
+  const { data: matchRow } = await supabase
+    .from("matches")
+    .select("gameweek_id")
+    .eq("id", matchId)
+    .single();
+
+  if (matchRow?.gameweek_id) {
+    const gwId = matchRow.gameweek_id;
+    for (const entry of entries) {
+      await supabase
+        .from("player_stats")
+        .upsert(
+          {
+            player_id: entry.player.id,
+            gameweek_id: gwId,
+            did_play: true,
+          },
+          { onConflict: "player_id,gameweek_id" }
+        );
+    }
+  }
+
+  // 6. Materialized view is auto-refreshed by DB trigger on player_match_events
 
   return {
     success: true,
