@@ -12,10 +12,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const teamIdRaw = (searchParams.get("team_id") || "").trim();
 
-  const teamId = teamIdRaw ? Number(teamIdRaw) : null;
-  if (teamIdRaw && Number.isNaN(teamId)) {
-    return NextResponse.json({ error: "Invalid team_id" }, { status: 400 });
-  }
+  const teamId = teamIdRaw || null;
 
   let query = supabase
     .from("players")
@@ -84,7 +81,7 @@ export async function PATCH(req: Request) {
     if (updates.name !== undefined) allowed.name = updates.name;
     if (updates.web_name !== undefined) allowed.web_name = updates.web_name;
     if (updates.position !== undefined) allowed.position = updates.position;
-    if (updates.team_id !== undefined) allowed.team_id = Number(updates.team_id);
+    if (updates.team_id !== undefined) allowed.team_id = updates.team_id;
     if (updates.now_cost !== undefined) allowed.now_cost = Number(updates.now_cost);
     if (updates.is_lady !== undefined) allowed.is_lady = !!updates.is_lady;
     if (updates.avatar_url !== undefined) allowed.avatar_url = updates.avatar_url;

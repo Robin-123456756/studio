@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       ...new Set(matches.flatMap((m) => [m.home_team_uuid, m.away_team_uuid].filter(Boolean))),
     ];
 
-    // 3. Fetch teams (UUID → name, short_name, integer id)
+    // 3. Fetch teams (UUID → name, short_name)
     const { data: teams } = await supabase
       .from("teams")
       .select("id, team_uuid, name, short_name")
@@ -51,19 +51,19 @@ export async function GET(req: Request) {
       teamByUuid.set(t.team_uuid, t);
     }
 
-    // 4. Fetch players for all teams in these matches (using integer team_id)
-    const teamIntIds = [...new Set((teams ?? []).map((t) => t.id))];
+    // 4. Fetch players for all teams in these matches (team_id is UUID)
     const { data: players } = await supabase
       .from("players")
       .select("id, name, web_name, position, team_id, is_lady")
-      .in("team_id", teamIntIds)
+      .in("team_id", teamUuids)
       .order("position", { ascending: true });
 
-    // Group players by integer team_id
-    const playersByTeamId = new Map<number, typeof players>();
+    // Group players by UUID team_id
+    const playersByTeamId = new Map<string, typeof players>();
     for (const p of players ?? []) {
-      if (!playersByTeamId.has(p.team_id)) playersByTeamId.set(p.team_id, []);
-      playersByTeamId.get(p.team_id)!.push(p);
+      const tid = String(p.team_id);
+      if (!playersByTeamId.has(tid)) playersByTeamId.set(tid, []);
+      playersByTeamId.get(tid)!.push(p);
     }
 
     // 5. Fetch existing player_stats.did_play for this GW
@@ -101,7 +101,7 @@ export async function GET(req: Request) {
 
       function buildTeamPlayers(team: typeof homeTeam, matchId: number) {
         if (!team) return { teamUuid: null, teamName: "Unknown", shortName: "???", players: [] };
-        const teamPlayers = playersByTeamId.get(team.id) ?? [];
+        const teamPlayers = playersByTeamId.get(team.team_uuid) ?? [];
         return {
           teamUuid: team.team_uuid,
           teamName: team.name,

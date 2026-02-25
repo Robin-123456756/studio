@@ -242,7 +242,7 @@ export async function POST(req: Request) {
         web_name: web_name || name.split(" ").pop(),
         position,
         now_cost: now_cost || 5.0,
-        team_id: parseInt(team_id),
+        team_id,
         is_lady: is_lady || false,
         total_points: 0,
       })

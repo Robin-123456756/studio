@@ -12,7 +12,7 @@ type DbPlayer = {
   // may be "GK/DEF/MID/FWD" or full words
   position: string | null;
 
-  team_id: number | string | null;
+  team_id: string | null;
 
   // add these two (from API)
   teamName?: string | null;

@@ -8,7 +8,7 @@ import {
   inputStyle, btnGreen, btnMuted, btnDanger, globalResetCSS,
 } from "@/lib/admin-theme";
 
-interface Team { id: number; name: string; short_name: string }
+interface Team { id: number; team_uuid: string; name: string; short_name: string }
 
 interface ParsedPlayer {
   name: string;
@@ -17,7 +17,7 @@ interface ParsedPlayer {
   team_short: string;
   price: number;
   is_lady: boolean;
-  team_id: number | null;
+  team_id: string | null;
   error: string | null;
 }
 
@@ -42,10 +42,10 @@ export default function ImportPlayersPage() {
     if (lines.length < 2) { setParsed([]); return; }
 
     const header = lines[0].toLowerCase().split(",").map((h) => h.trim());
-    const teamMap = new Map<string, number>();
+    const teamMap = new Map<string, string>();
     for (const t of teams) {
-      teamMap.set(t.short_name.toLowerCase(), t.id);
-      teamMap.set(t.name.toLowerCase(), t.id);
+      teamMap.set(t.short_name.toLowerCase(), t.team_uuid);
+      teamMap.set(t.name.toLowerCase(), t.team_uuid);
     }
 
     const rows: ParsedPlayer[] = [];

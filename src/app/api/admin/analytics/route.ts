@@ -27,7 +27,7 @@ export async function GET() {
       supabase.from("user_chips").select("user_id, chip, gameweek_id"),
       supabase.from("user_rosters").select("user_id, gameweek_id"),
       supabase.from("players").select("id, web_name, name, position, team_id, total_points"),
-      supabase.from("teams").select("id, name, short_name"),
+      supabase.from("teams").select("id, team_uuid, name, short_name"),
     ]);
 
     const scores = scoresRes.data ?? [];
@@ -81,8 +81,8 @@ export async function GET() {
     const playerMap = new Map<string, any>();
     for (const p of players) playerMap.set(p.id, p);
 
-    const teamMap = new Map<number, any>();
-    for (const t of teams) teamMap.set(t.id, t);
+    const teamMap = new Map<string, any>();
+    for (const t of teams) teamMap.set(t.team_uuid, t);
 
     const topScorers = Array.from(playerPtsMap.entries())
       .map(([pid, stats]) => {
@@ -102,9 +102,9 @@ export async function GET() {
     const topCleanSheets = [...topScorers].filter((p) => ["GK", "DEF"].includes(p.position)).sort((a, b) => b.cleanSheets - a.cleanSheets).slice(0, 10);
 
     // --- Teams Tab ---
-    const teamPointsMap = new Map<number, number>();
+    const teamPointsMap = new Map<string, number>();
     for (const p of players) {
-      const tid = p.team_id;
+      const tid = String(p.team_id);
       teamPointsMap.set(tid, (teamPointsMap.get(tid) || 0) + (p.total_points || 0));
     }
 
@@ -112,7 +112,7 @@ export async function GET() {
       teamId: t.id,
       name: t.name,
       shortName: t.short_name,
-      totalPoints: teamPointsMap.get(t.id) || 0,
+      totalPoints: teamPointsMap.get(t.team_uuid) || 0,
     })).sort((a: any, b: any) => b.totalPoints - a.totalPoints);
 
     // --- Engagement Tab ---

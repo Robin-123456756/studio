@@ -7,7 +7,7 @@ type PlayerRow = {
   id: string;
   position: string | null;
   is_lady: boolean | null;
-  team_id: number | null;
+  team_id: string | null;
   now_cost: number | null;
 };
 
@@ -47,7 +47,7 @@ export function validateSquadComposition(
   }
 
   // Max 3 per real team
-  const teamCounts = new Map<number, number>();
+  const teamCounts = new Map<string, number>();
   for (const p of players) {
     if (p.team_id != null) {
       teamCounts.set(p.team_id, (teamCounts.get(p.team_id) ?? 0) + 1);

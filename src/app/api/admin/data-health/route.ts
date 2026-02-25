@@ -63,7 +63,7 @@ export async function GET() {
       // Player counts per team
       supabase.from("players").select("team_id"),
       // All teams
-      supabase.from("teams").select("id, name"),
+      supabase.from("teams").select("id, team_uuid, name"),
     ]);
 
     const warnings: Array<{
@@ -135,13 +135,13 @@ export async function GET() {
     }
 
     // Teams with fewer than 11 players
-    const teamCounts = new Map<number, number>();
+    const teamCounts = new Map<string, number>();
     for (const row of (playersByTeam as any).data ?? []) {
       const tid = (row as any).team_id;
-      if (tid != null) teamCounts.set(tid, (teamCounts.get(tid) || 0) + 1);
+      if (tid != null) teamCounts.set(String(tid), (teamCounts.get(String(tid)) || 0) + 1);
     }
     const teamsData = (allTeams as any).data ?? [];
-    const smallTeams = teamsData.filter((t: any) => (teamCounts.get(t.id) || 0) < 11);
+    const smallTeams = teamsData.filter((t: any) => (teamCounts.get(t.team_uuid) || 0) < 11);
     if (smallTeams.length > 0) {
       warnings.push({
         key: "small-teams",

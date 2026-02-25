@@ -66,6 +66,37 @@ src/lib/           → Utilities, clients, helpers
 - Don't put UI in lib/ that belongs in components/
 - Don't create new folders without discussing first
 
+### Rule 6: Shell Command Formatting
+- NEVER use backslash-escaped spaces in shell commands
+- NEVER use `\ ` (backslash-space) for line continuation in commands
+- Use quotes around paths with spaces: `"path with spaces"` not `path\ with\ spaces`
+- Write commands on a single line whenever possible
+- If a command is long, break it into multiple separate commands
+- For multi-line SQL or scripts, write them to a file first, then execute the file
+
+#### Examples
+```bash
+# BAD — triggers backslash warning
+cd /path/to/my\ project
+npx prisma migrate\ dev
+
+# GOOD
+cd "/path/to/my project"
+npx prisma migrate dev
+
+# BAD — multiline with backslash continuation
+curl -X POST \
+  -H "Content-Type: application/json" \
+  http://localhost:3000/api
+
+# GOOD — single line
+curl -X POST -H "Content-Type: application/json" http://localhost:3000/api
+
+# GOOD — if truly complex, write to a file first
+echo 'SELECT * FROM players;' > /tmp/query.sql
+psql -f /tmp/query.sql
+```
+
 ---
 
 ## Tech Stack (Know This Cold)

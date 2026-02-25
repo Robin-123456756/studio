@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         name: p.name.trim(),
         web_name: p.web_name.trim(),
         position: p.position,
-        team_id: Number(p.team_id),
+        team_id: p.team_id,
         now_cost: Number(p.now_cost ?? 5.0),
         is_lady: !!p.is_lady,
         total_points: 0,
