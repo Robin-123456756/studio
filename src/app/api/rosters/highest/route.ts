@@ -102,24 +102,47 @@ export async function GET(req: Request) {
       });
     }
 
-    // 3. Get player_stats for this GW (points + did_play)
+    // 3. Compute points from player_match_events (source of truth)
     const allPlayerIds = [...new Set(allRosters.map((r) => String(r.player_id)))];
+
+    const { data: gwMatches } = await supabase
+      .from("matches")
+      .select("id")
+      .eq("gameweek_id", gwId);
+    const gwMatchIds = (gwMatches ?? []).map((m: any) => m.id);
+
+    const pointsMap = new Map<string, number>();
+    const playedFromEvents = new Set<string>();
+
+    if (gwMatchIds.length > 0) {
+      const { data: events } = await supabase
+        .from("player_match_events")
+        .select("player_id, points_awarded, quantity")
+        .in("match_id", gwMatchIds)
+        .in("player_id", allPlayerIds);
+
+      for (const e of events ?? []) {
+        const pid = String(e.player_id);
+        const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
+        pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
+        playedFromEvents.add(pid);
+      }
+    }
+
     const { data: statsData } = await supabase
       .from("player_stats")
-      .select("player_id, points, did_play")
+      .select("player_id, did_play")
       .eq("gameweek_id", gwId)
       .in("player_id", allPlayerIds);
 
     const statsMap = new Map<string, { player_id: string; points: number; did_play: boolean }>();
-    for (const s of statsData ?? []) {
-      const pid = String(s.player_id);
-      const existing = statsMap.get(pid);
-      if (existing) {
-        existing.points += s.points ?? 0;
-        if (s.did_play) existing.did_play = true;
-      } else {
-        statsMap.set(pid, { player_id: pid, points: s.points ?? 0, did_play: s.did_play ?? false });
-      }
+    for (const pid of allPlayerIds) {
+      const didPlayFromStats = (statsData ?? []).some((s: any) => String(s.player_id) === pid && s.did_play);
+      statsMap.set(pid, {
+        player_id: pid,
+        points: pointsMap.get(pid) ?? 0,
+        did_play: playedFromEvents.has(pid) || didPlayFromStats,
+      });
     }
 
     // 4. Get player metadata (position, is_lady)

@@ -77,40 +77,6 @@ function isValidFormation(positions: string[]): boolean {
   );
 }
 
-/**
- * Check whether substituting `outPlayer` with `inPlayer` keeps a valid formation
- * and respects positional swap rules (GK↔GK, lady↔lady).
- */
-function canSubstitute(
-  outPlayer: PlayerMeta,
-  inPlayer: PlayerMeta,
-  currentStartingPositions: string[],
-): boolean {
-  const outPos = norm(outPlayer.position);
-  const inPos = norm(inPlayer.position);
-
-  // GK can only swap with GK
-  if (outPos === "GK" && inPos !== "GK") return false;
-  if (outPos !== "GK" && inPos === "GK") return false;
-
-  // Lady can only swap with lady
-  if (outPlayer.is_lady && !inPlayer.is_lady) return false;
-  if (!outPlayer.is_lady && inPlayer.is_lady) return false;
-
-  // Check formation remains valid after the swap
-  const newPositions = currentStartingPositions
-    .filter((p) => p !== outPos || !currentStartingPositions.includes(outPos))
-    // Replace the first occurrence of outPos with inPos
-    .slice(); // safety copy
-
-  const idx = currentStartingPositions.indexOf(outPos);
-  if (idx === -1) return false;
-  const proposed = [...currentStartingPositions];
-  proposed[idx] = inPos;
-
-  return isValidFormation(proposed);
-}
-
 // ── Per-user score computation (exported for reuse) ───────────────────
 
 export function computeUserScore(
@@ -281,30 +247,57 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
   // 2. Collect all player IDs
   const allPlayerIds = [...new Set(rosters.map((r) => String(r.player_id)))];
 
-  // 3. Fetch player_stats for this GW
-  const { data: stats, error: statsErr } = await supabase
+  // 3a. Get match IDs for this GW
+  const { data: gwMatches, error: gwMatchErr } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("gameweek_id", gameweekId);
+
+  if (gwMatchErr) throw new Error(`Failed to fetch GW matches: ${gwMatchErr.message}`);
+  const gwMatchIds = (gwMatches ?? []).map((m) => m.id);
+
+  // 3b. Compute points from player_match_events (source of truth)
+  //     Points per event = points_awarded * quantity
+  const pointsMap = new Map<string, number>();
+  const playedFromEvents = new Set<string>();
+
+  if (gwMatchIds.length > 0) {
+    const { data: events, error: eventsErr } = await supabase
+      .from("player_match_events")
+      .select("player_id, points_awarded, quantity")
+      .in("match_id", gwMatchIds)
+      .in("player_id", allPlayerIds);
+
+    if (eventsErr) throw new Error(`Failed to fetch events: ${eventsErr.message}`);
+
+    for (const e of events ?? []) {
+      const pid = String(e.player_id);
+      const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
+      pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
+      playedFromEvents.add(pid);
+    }
+  }
+
+  // 3c. Also check player_stats.did_play (set by voice admin for explicit appearances)
+  const { data: stats } = await supabase
     .from("player_stats")
-    .select("player_id, points, did_play")
+    .select("player_id, did_play")
     .eq("gameweek_id", gameweekId)
     .in("player_id", allPlayerIds);
 
-  if (statsErr) throw new Error(`Failed to fetch player_stats: ${statsErr.message}`);
-
-  // Build stats map (sum points if multiple rows — shouldn't happen but be safe)
-  const statsMap = new Map<string, PlayerStat>();
+  const playedFromStats = new Set<string>();
   for (const s of stats ?? []) {
-    const pid = String(s.player_id);
-    const existing = statsMap.get(pid);
-    if (existing) {
-      existing.points += s.points ?? 0;
-      if (s.did_play) existing.did_play = true;
-    } else {
-      statsMap.set(pid, {
-        player_id: pid,
-        points: s.points ?? 0,
-        did_play: s.did_play ?? false,
-      });
-    }
+    if (s.did_play) playedFromStats.add(String(s.player_id));
+  }
+
+  // 3d. Build unified stats map: did_play = events exist OR player_stats.did_play
+  const statsMap = new Map<string, PlayerStat>();
+  for (const pid of allPlayerIds) {
+    statsMap.set(pid, {
+      player_id: pid,
+      points: pointsMap.get(pid) ?? 0,
+      did_play: playedFromEvents.has(pid) || playedFromStats.has(pid),
+    });
   }
 
   // 4. Fetch player metadata (position, is_lady)
