@@ -84,6 +84,46 @@ function exceedsMaxCounts(positions: string[]): boolean {
   return counts.GK > 1 || counts.DEF > 3 || counts.MID > 5 || counts.FWD > 3;
 }
 
+// ── Scoring rules helpers ─────────────────────────────────────────────
+
+type ScoringRules = Record<string, number>;
+
+/**
+ * Load scoring rules from the scoring_rules table.
+ * Returns a map of "action:POSITION" → points (e.g. "goal:FWD" → 4).
+ * Fresh load on every call (no stale cache between gameweeks).
+ */
+async function loadScoringRules(): Promise<ScoringRules> {
+  const supabase = getSupabaseServerOrThrow();
+  const { data, error } = await supabase
+    .from("scoring_rules")
+    .select("action, position, points");
+
+  if (error) throw new Error(`Failed to load scoring rules: ${error.message}`);
+
+  const rules: ScoringRules = {};
+  for (const row of data ?? []) {
+    rules[`${row.action}:${row.position || "ALL"}`] = row.points;
+  }
+  return rules;
+}
+
+/**
+ * Look up points for a single action given position and lady status.
+ * Checks position-specific rule first, falls back to "ALL".
+ * Lady players get 2x on all actions.
+ */
+function lookupPoints(
+  rules: ScoringRules,
+  action: string,
+  position: string,
+  isLady: boolean,
+): number {
+  const specific = rules[`${action}:${position}`];
+  const base = specific !== undefined ? specific : (rules[`${action}:ALL`] ?? 0);
+  return isLady ? base * 2 : base;
+}
+
 // ── Per-user score computation (exported for reuse) ───────────────────
 
 export function computeUserScore(
@@ -260,15 +300,32 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
   if (gwMatchErr) throw new Error(`Failed to fetch GW matches: ${gwMatchErr.message}`);
   const gwMatchIds = (gwMatches ?? []).map((m) => m.id);
 
-  // 3b. Compute points from player_match_events (source of truth)
-  //     Points per event = points_awarded * quantity
+  // 3b. Fetch player metadata (position, is_lady) — needed for rules-based recalculation
+  const { data: players, error: playersErr } = await supabase
+    .from("players")
+    .select("id, position, is_lady")
+    .in("id", allPlayerIds);
+
+  if (playersErr) throw new Error(`Failed to fetch players: ${playersErr.message}`);
+
+  const metaMap = new Map<string, PlayerMeta>();
+  for (const p of players ?? []) {
+    metaMap.set(String(p.id), { id: String(p.id), position: p.position, is_lady: p.is_lady });
+  }
+
+  // 3c. Load scoring rules for recalculation
+  const rules = await loadScoringRules();
+
+  // 3d. Compute points from player_match_events using current scoring rules
+  //     (recalculates from rules instead of trusting pre-stored points_awarded)
   const pointsMap = new Map<string, number>();
   const playedFromEvents = new Set<string>();
+  const hasAppearanceEvent = new Set<string>();
 
   if (gwMatchIds.length > 0) {
     const { data: events, error: eventsErr } = await supabase
       .from("player_match_events")
-      .select("player_id, points_awarded, quantity")
+      .select("player_id, action, quantity")
       .in("match_id", gwMatchIds)
       .in("player_id", allPlayerIds);
 
@@ -276,13 +333,17 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
 
     for (const e of events ?? []) {
       const pid = String(e.player_id);
-      const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
+      const meta = metaMap.get(pid);
+      const position = norm(meta?.position);
+      const isLady = meta?.is_lady ?? false;
+      const pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
       pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
       playedFromEvents.add(pid);
+      if (e.action === "appearance") hasAppearanceEvent.add(pid);
     }
   }
 
-  // 3c. Also check player_stats.did_play (set by voice admin for explicit appearances)
+  // 3e. Also check player_stats.did_play (set by voice admin for explicit appearances)
   const { data: stats } = await supabase
     .from("player_stats")
     .select("player_id, did_play")
@@ -294,7 +355,22 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
     if (s.did_play) playedFromStats.add(String(s.player_id));
   }
 
-  // 3d. Build unified stats map: did_play = events exist OR player_stats.did_play
+  // 3f. Add appearance points for players who played but DON'T already have
+  //     an appearance event (voice admin inserts appearance events, so skip those
+  //     to avoid double-counting)
+  for (const pid of allPlayerIds) {
+    if (hasAppearanceEvent.has(pid)) continue; // already scored in step 3d
+    const played = playedFromEvents.has(pid) || playedFromStats.has(pid);
+    if (played) {
+      const meta = metaMap.get(pid);
+      const position = norm(meta?.position);
+      const isLady = meta?.is_lady ?? false;
+      const appearancePts = lookupPoints(rules, "appearance", position, isLady);
+      pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + appearancePts);
+    }
+  }
+
+  // 3g. Build unified stats map: did_play = events exist OR player_stats.did_play
   const statsMap = new Map<string, PlayerStat>();
   for (const pid of allPlayerIds) {
     statsMap.set(pid, {
@@ -302,19 +378,6 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
       points: pointsMap.get(pid) ?? 0,
       did_play: playedFromEvents.has(pid) || playedFromStats.has(pid),
     });
-  }
-
-  // 4. Fetch player metadata (position, is_lady)
-  const { data: players, error: playersErr } = await supabase
-    .from("players")
-    .select("id, position, is_lady")
-    .in("id", allPlayerIds);
-
-  if (playersErr) throw new Error(`Failed to fetch players: ${playersErr.message}`);
-
-  const metaMap = new Map<string, PlayerMeta>();
-  for (const p of players ?? []) {
-    metaMap.set(String(p.id), { id: String(p.id), position: p.position, is_lady: p.is_lady });
   }
 
   // 5. Group rosters by user
