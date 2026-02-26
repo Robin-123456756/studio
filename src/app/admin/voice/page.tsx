@@ -1058,7 +1058,7 @@ function ManualView({ matchId }: { matchId: number | null }) {
       if (res.ok) {
         setSaveResult({ success: true, message: `Saved ${data.eventsCreated} events for ${data.playersUpdated} players` });
       } else {
-        setSaveResult({ success: false, message: data.error || "Save failed" });
+        setSaveResult({ success: false, message: data.message || data.error || "Save failed" });
       }
     } catch {
       setSaveResult({ success: false, message: "Network error" });

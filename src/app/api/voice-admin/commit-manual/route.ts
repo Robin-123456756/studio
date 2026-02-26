@@ -27,6 +27,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseServerOrThrow();
 
+    // Look up the admin user to satisfy FK constraints
+    const { data: adminRow } = await supabase
+      .from("admin_users")
+      .select("id")
+      .eq("role", "superadmin")
+      .limit(1)
+      .single();
+    const adminId = adminRow?.id ?? null;
+
     // 1. Fetch player metadata for all players in the payload
     const playerIds = events.map((e) => e.playerId);
     const { data: players, error: playerErr } = await supabase
@@ -85,7 +94,7 @@ export async function POST(request: NextRequest) {
               quantity: item.quantity,
               points_awarded: item.points_per_unit,
               input_method: "manual",
-              entered_by: 1, // admin
+              entered_by: adminId,
               voice_transcript: null,
             },
             { onConflict: "player_id,match_id,action" }
@@ -122,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     // 7. Create audit log entry
     await supabase.from("voice_audit_log").insert({
-      admin_id: 1,
+      admin_id: adminId,
       transcript: `Manual entry: ${totalPlayersUpdated} players`,
       ai_interpretation: { input_method: "manual", matchId },
       was_confirmed: true,
