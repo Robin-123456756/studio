@@ -143,6 +143,14 @@ export async function writeToDatabase({
   if (matchRow?.gameweek_id) {
     const gwId = matchRow.gameweek_id;
     for (const entry of entries) {
+      const bd = entry.pointsBreakdown;
+      const goals = bd.filter((a) => a.action === "goal").reduce((s, a) => s + a.quantity, 0);
+      const assists = bd.filter((a) => a.action === "assist").reduce((s, a) => s + a.quantity, 0);
+      const yellowCards = bd.filter((a) => a.action === "yellow").reduce((s, a) => s + a.quantity, 0);
+      const redCards = bd.filter((a) => a.action === "red").reduce((s, a) => s + a.quantity, 0);
+      const ownGoals = bd.filter((a) => a.action === "own_goal").reduce((s, a) => s + a.quantity, 0);
+      const cleanSheet = bd.some((a) => a.action === "clean_sheet");
+
       await supabase
         .from("player_stats")
         .upsert(
@@ -150,6 +158,12 @@ export async function writeToDatabase({
             player_id: entry.player.id,
             gameweek_id: gwId,
             did_play: true,
+            goals,
+            assists,
+            yellow_cards: yellowCards,
+            red_cards: redCards,
+            own_goals: ownGoals,
+            clean_sheet: cleanSheet,
           },
           { onConflict: "player_id,gameweek_id" }
         );

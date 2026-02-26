@@ -129,8 +129,15 @@ export async function POST(request: NextRequest) {
         p_points: total,
       });
 
-      // 6. Mark player as having played
+      // 6. Sync aggregated stats to player_stats (drives the DB trigger)
       if (gwId) {
+        const goals = finalActions.filter((a) => a.action === "goal").reduce((sum, a) => sum + a.quantity, 0);
+        const assists = finalActions.filter((a) => a.action === "assist").reduce((sum, a) => sum + a.quantity, 0);
+        const yellowCards = finalActions.filter((a) => a.action === "yellow").reduce((sum, a) => sum + a.quantity, 0);
+        const redCards = finalActions.filter((a) => a.action === "red").reduce((sum, a) => sum + a.quantity, 0);
+        const ownGoals = finalActions.filter((a) => a.action === "own_goal").reduce((sum, a) => sum + a.quantity, 0);
+        const cleanSheet = finalActions.some((a) => a.action === "clean_sheet");
+
         await supabase
           .from("player_stats")
           .upsert(
@@ -138,6 +145,12 @@ export async function POST(request: NextRequest) {
               player_id: event.playerId,
               gameweek_id: gwId,
               did_play: true,
+              goals,
+              assists,
+              yellow_cards: yellowCards,
+              red_cards: redCards,
+              own_goals: ownGoals,
+              clean_sheet: cleanSheet,
             },
             { onConflict: "player_id,gameweek_id" }
           );
