@@ -10,8 +10,7 @@ export async function GET(request: NextRequest) {
       .from("matches")
       .select("id, gameweek_id, home_goals, away_goals, is_played, is_final, kickoff_time, home_team_uuid, away_team_uuid")
       .order("gameweek_id", { ascending: false })
-      .order("kickoff_time", { ascending: true })
-      .limit(50);
+      .order("kickoff_time", { ascending: true });
 
     if (matchErr) throw matchErr;
 

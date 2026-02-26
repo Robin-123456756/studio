@@ -141,7 +141,12 @@ export default function VoiceAdminPage() {
     }
     return Object.entries(grouped)
       .sort(([a], [b]) => Number(b) - Number(a))
-      .map(([gw, ms]) => ({ gw: Number(gw), matches: ms }));
+      .map(([gw, ms]) => {
+        const played = ms.filter(m => m.is_played).length;
+        const total = ms.length;
+        const status = played === 0 ? "Not Played" : played === total ? "Played" : `${played}/${total} Played`;
+        return { gw: Number(gw), matches: ms, status };
+      });
   }, [matches]);
 
   return (
@@ -216,8 +221,8 @@ export default function VoiceAdminPage() {
               <select value={selectedMatchId ?? ""} onChange={e => setSelectedMatchId(e.target.value ? parseInt(e.target.value) : null)}
                 style={{ flex: "1 1 260px", minWidth: 0, padding: "8px 12px", backgroundColor: BG_DARK, color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", outline: "none", cursor: "pointer", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 }}>
                 <option value="" style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY }}>Select a match...</option>
-                {matchesByGw.map(({ gw, matches: gwMatches }) => (
-                  <optgroup key={gw} label={`Gameweek ${gw}`} style={{ backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontWeight: 700 }}>
+                {matchesByGw.map(({ gw, matches: gwMatches, status }) => (
+                  <optgroup key={gw} label={`GW ${gw} — ${status}`} style={{ backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontWeight: 700 }}>
                     {gwMatches.map(m => <option key={m.id} value={m.id} style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY, fontWeight: 400 }}>{matchLabel(m)}</option>)}
                   </optgroup>
                 ))}
