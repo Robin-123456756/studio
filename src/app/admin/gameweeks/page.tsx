@@ -16,6 +16,7 @@ const TEXT_MUTED = "#64748B";
 const ERROR = "#EF4444";
 const SUCCESS = "#10B981";
 const WARNING = "#F59E0B";
+const EAT_OFFSET = "+03:00";
 
 type Gameweek = {
   id: number;
@@ -39,6 +40,16 @@ function formatDeadline(iso: string | null) {
     hour12: true,
     timeZone: "Africa/Kampala",
   }).format(d);
+}
+
+function toIsoAssumingEAT(input: string) {
+  const raw = input.trim();
+  if (!raw) return null;
+  const hasZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const normalized = hasZone ? raw : `${raw}${EAT_OFFSET}`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
 }
 
 export default function AdminGameweeksPage() {
@@ -85,6 +96,12 @@ export default function AdminGameweeksPage() {
       return;
     }
 
+    const deadlineIso = deadline ? toIsoAssumingEAT(deadline) : null;
+    if (deadline && !deadlineIso) {
+      setFormError("Enter a valid deadline date/time.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/gameweeks", {
@@ -93,7 +110,7 @@ export default function AdminGameweeksPage() {
         body: JSON.stringify({
           id,
           name: gwName.trim() || `Gameweek ${id}`,
-          deadline_time: deadline || null,
+          deadline_time: deadlineIso,
           is_current: isCurrent,
         }),
       });

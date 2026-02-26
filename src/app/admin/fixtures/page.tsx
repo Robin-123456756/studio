@@ -15,6 +15,8 @@ const TEXT_MUTED = "#64748B";
 const ERROR = "#EF4444";
 const WARNING = "#F59E0B";
 const SUCCESS = "#10B981";
+const EAT_TIMEZONE = "Africa/Kampala";
+const EAT_OFFSET = "+03:00";
 
 interface Team {
   team_uuid: string;
@@ -38,6 +40,16 @@ interface Event {
 }
 
 type TabType = "schedule_match" | "create_event" | "upcoming";
+
+function toIsoAssumingEAT(input: string) {
+  const raw = input.trim();
+  if (!raw) return null;
+  const hasZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const normalized = hasZone ? raw : `${raw}${EAT_OFFSET}`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
 
 export default function AdminFixturesPage() {
   const { data: session, status } = useSession();
@@ -101,6 +113,13 @@ export default function AdminFixturesPage() {
       setFeedback({ type: "error", message: "Home and away teams must be different" });
       return;
     }
+    const kickoffIso = matchForm.kickoff_time
+      ? toIsoAssumingEAT(matchForm.kickoff_time)
+      : null;
+    if (matchForm.kickoff_time && !kickoffIso) {
+      setFeedback({ type: "error", message: "Enter a valid kickoff date/time." });
+      return;
+    }
     setSaving(true);
     setFeedback(null);
     try {
@@ -111,6 +130,7 @@ export default function AdminFixturesPage() {
           action: "schedule_match",
           ...matchForm,
           gameweek_id: parseInt(matchForm.gameweek_id),
+          kickoff_time: kickoffIso,
         }),
       });
       const data = await res.json();
@@ -134,6 +154,13 @@ export default function AdminFixturesPage() {
       setFeedback({ type: "error", message: "Event title is required" });
       return;
     }
+    const kickoffIso = eventForm.kickoff_time
+      ? toIsoAssumingEAT(eventForm.kickoff_time)
+      : null;
+    if (eventForm.kickoff_time && !kickoffIso) {
+      setFeedback({ type: "error", message: "Enter a valid event date/time." });
+      return;
+    }
     setSaving(true);
     setFeedback(null);
     try {
@@ -143,6 +170,7 @@ export default function AdminFixturesPage() {
         body: JSON.stringify({
           action: "create_event",
           ...eventForm,
+          kickoff_time: kickoffIso,
         }),
       });
       const data = await res.json();
@@ -179,8 +207,21 @@ export default function AdminFixturesPage() {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "TBD";
     const d = new Date(dateStr);
-    return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) +
-      " at " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    if (Number.isNaN(d.getTime())) return "Invalid date";
+    return d.toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: EAT_TIMEZONE,
+    }) +
+      " at " +
+      d.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: EAT_TIMEZONE,
+      }) +
+      " EAT";
   };
 
   const inputStyle = {
@@ -324,7 +365,7 @@ export default function AdminFixturesPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
               <div>
-                <label style={labelStyle}>Kickoff Time</label>
+                <label style={labelStyle}>Kickoff Time (EAT)</label>
                 <input
                   type="datetime-local"
                   value={matchForm.kickoff_time}
@@ -432,7 +473,7 @@ export default function AdminFixturesPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
               <div>
-                <label style={labelStyle}>Date & Time</label>
+                <label style={labelStyle}>Date & Time (EAT)</label>
                 <input
                   type="datetime-local"
                   value={eventForm.kickoff_time}

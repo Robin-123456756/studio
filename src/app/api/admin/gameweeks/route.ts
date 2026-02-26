@@ -3,8 +3,21 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
+const EAT_OFFSET = "+03:00";
 
-/** GET /api/admin/gameweeks — list all gameweeks */
+function toIsoAssumingEAT(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const hasZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const normalized = hasZone ? raw : `${raw}${EAT_OFFSET}`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+/** GET /api/admin/gameweeks - list all gameweeks */
 export async function GET() {
   const { error: authErr } = await requireAdminSession();
   if (authErr) return authErr;
@@ -23,7 +36,7 @@ export async function GET() {
   return NextResponse.json({ gameweeks: data ?? [] });
 }
 
-/** POST /api/admin/gameweeks — create a new gameweek */
+/** POST /api/admin/gameweeks - create a new gameweek */
 export async function POST(req: Request) {
   const { error: authErr } = await requireAdminSession();
   if (authErr) return authErr;
@@ -43,6 +56,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Gameweek ID must be a positive integer." }, { status: 400 });
     }
 
+    const normalizedDeadline = deadline_time === null || deadline_time === undefined || deadline_time === ""
+      ? null
+      : toIsoAssumingEAT(deadline_time);
+    if (deadline_time && !normalizedDeadline) {
+      return NextResponse.json({ error: "Invalid deadline_time." }, { status: 400 });
+    }
+
     // If marking as current, unset any existing current GW first
     if (is_current) {
       await supabase
@@ -56,7 +76,7 @@ export async function POST(req: Request) {
       .insert({
         id: gwId,
         name: name?.trim() || `Gameweek ${gwId}`,
-        deadline_time: deadline_time || null,
+        deadline_time: normalizedDeadline,
         is_current: is_current ?? false,
         finalized: false,
       })
@@ -73,7 +93,7 @@ export async function POST(req: Request) {
   }
 }
 
-/** PATCH /api/admin/gameweeks — update a gameweek (is_current, finalized, deadline) */
+/** PATCH /api/admin/gameweeks - update a gameweek (is_current, finalized, deadline) */
 export async function PATCH(req: Request) {
   const { error: authErr } = await requireAdminSession();
   if (authErr) return authErr;
@@ -88,8 +108,19 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Gameweek ID is required." }, { status: 400 });
     }
 
+    const normalizedUpdates: Record<string, any> = { ...updates };
+    if (Object.prototype.hasOwnProperty.call(updates, "deadline_time")) {
+      const normalizedDeadline = updates.deadline_time === null || updates.deadline_time === ""
+        ? null
+        : toIsoAssumingEAT(updates.deadline_time);
+      if (updates.deadline_time !== null && updates.deadline_time !== "" && !normalizedDeadline) {
+        return NextResponse.json({ error: "Invalid deadline_time." }, { status: 400 });
+      }
+      normalizedUpdates.deadline_time = normalizedDeadline;
+    }
+
     // If marking as current, unset any existing current GW first
-    if (updates.is_current === true) {
+    if (normalizedUpdates.is_current === true) {
       await supabase
         .from("gameweeks")
         .update({ is_current: false })
@@ -98,7 +129,7 @@ export async function PATCH(req: Request) {
 
     const { data, error } = await supabase
       .from("gameweeks")
-      .update(updates)
+      .update(normalizedUpdates)
       .eq("id", Number(id))
       .select("*")
       .single();
@@ -113,7 +144,7 @@ export async function PATCH(req: Request) {
   }
 }
 
-/** DELETE /api/admin/gameweeks — delete a gameweek */
+/** DELETE /api/admin/gameweeks - delete a gameweek */
 export async function DELETE(req: Request) {
   const { error: authErr } = await requireAdminSession();
   if (authErr) return authErr;

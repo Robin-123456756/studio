@@ -20,6 +20,8 @@ const TEXT_MUTED = "#64748B";
 const ERROR = "#EF4444";
 const WARNING = "#F59E0B";
 const SUCCESS = "#10B981";
+const EAT_TIMEZONE = "Africa/Kampala";
+const EAT_OFFSET = "+03:00";
 
 interface QuickStat {
   label: string;
@@ -760,7 +762,7 @@ function DeadlineCountdown({ deadline }: { deadline: string }) {
     return () => clearInterval(interval);
   }, []);
 
-  const deadlineMs = new Date(deadline).getTime();
+  const deadlineMs = parseDeadlineAsEAT(deadline);
   const diff = deadlineMs - now;
 
   if (Number.isNaN(deadlineMs)) {
@@ -791,16 +793,43 @@ function DeadlineCountdown({ deadline }: { deadline: string }) {
   const isUrgent = diff < 3_600_000; // < 1 hour
 
   return (
-    <span style={{
-      padding: "4px 12px", borderRadius: 6,
-      backgroundColor: isUrgent ? `${ERROR}15` : `${WARNING}15`,
-      color: isUrgent ? ERROR : WARNING,
-      fontSize: 12, fontWeight: 600,
-      fontFamily: "'JetBrains Mono', monospace",
-    }}>
-      {parts.join(" ")} to deadline
-    </span>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+      <span style={{
+        padding: "4px 12px", borderRadius: 6,
+        backgroundColor: isUrgent ? `${ERROR}15` : `${WARNING}15`,
+        color: isUrgent ? ERROR : WARNING,
+        fontSize: 12, fontWeight: 600,
+        fontFamily: "'JetBrains Mono', monospace",
+      }}>
+        {parts.join(" ")} to deadline
+      </span>
+      <span style={{ fontSize: 11, color: TEXT_MUTED }}>
+        {formatInEAT(deadline)} EAT
+      </span>
+    </div>
   );
+}
+
+function parseDeadlineAsEAT(value: string) {
+  const v = value.trim();
+  const hasZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(v);
+  const normalized = hasZone ? v : `${v}${EAT_OFFSET}`;
+  return new Date(normalized).getTime();
+}
+
+function formatInEAT(value: string) {
+  const ms = parseDeadlineAsEAT(value);
+  if (Number.isNaN(ms)) return "Invalid deadline";
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: EAT_TIMEZONE,
+  }).format(new Date(ms));
 }
 
 function ChecklistItem({ label, detail, done, href, router }: {

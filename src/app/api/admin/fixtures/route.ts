@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminSession } from "@/lib/admin-auth";
+const EAT_OFFSET = "+03:00";
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -130,7 +131,13 @@ export async function POST(req: Request) {
         is_final: false,
       };
 
-      if (kickoff_time) insertData.kickoff_time = new Date(kickoff_time).toISOString();
+      if (kickoff_time) {
+        const kickoffIso = toIsoAssumingEAT(kickoff_time);
+        if (!kickoffIso) {
+          return NextResponse.json({ error: "Invalid kickoff_time." }, { status: 400 });
+        }
+        insertData.kickoff_time = kickoffIso;
+      }
 
       const { data, error } = await supabase
         .from("matches")
@@ -158,7 +165,13 @@ export async function POST(req: Request) {
         away_team_uuid: away_team_uuid || null,
       };
 
-      if (kickoff_time) insertData.event_time = new Date(kickoff_time).toISOString();
+      if (kickoff_time) {
+        const kickoffIso = toIsoAssumingEAT(kickoff_time);
+        if (!kickoffIso) {
+          return NextResponse.json({ error: "Invalid kickoff_time." }, { status: 400 });
+        }
+        insertData.event_time = kickoffIso;
+      }
 
       const { data, error } = await supabase
         .from("league_events")
@@ -204,4 +217,16 @@ export async function DELETE(req: Request) {
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+function toIsoAssumingEAT(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const hasZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const normalized = hasZone ? raw : `${raw}${EAT_OFFSET}`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
 }
