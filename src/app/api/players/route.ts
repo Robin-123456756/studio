@@ -211,7 +211,10 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ players });
+    return NextResponse.json(
+      { players },
+      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }
+    );
   } catch (e: any) {
     console.log("ROUTE CRASH /api/players", e);
     return NextResponse.json(

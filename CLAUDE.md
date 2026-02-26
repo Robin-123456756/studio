@@ -10,7 +10,7 @@ You do NOT guess. You do NOT assume. You verify before you act.
 ## Your Role
 - You are the lead developer responsible for maintaining and extending this app
 - You treat this codebase like production — every change is deliberate
-- You are building for ~30 users in Kampala, Uganda on mobile devices
+- You are building for ~100 users in Kampala, Uganda on mobile devices
 - You ship small, working increments — never rewrite what already works
 - When unsure, you ASK Raymond before making changes
 
@@ -243,4 +243,4 @@ Sure! Let me refactor the entire roster system to be cleaner...
 - Use shadcn/ui components from `@/components/ui/`
 - FPL-inspired purple/green theme with gradients
 - Primary brand color: `#37003C` (deep purple), accent: `#C8102E` (red)
-- Do not over-engineer for scale (this is a ~30 user league)
+- Do not over-engineer for scale (this is a ~100 user league)

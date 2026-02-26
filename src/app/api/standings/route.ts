@@ -217,10 +217,10 @@ export async function GET(req: Request) {
       return a.name.localeCompare(b.name);
     });
 
-    return NextResponse.json({
-      rows,
-      range: { from_gw: fromGw, to_gw: toGwResolved },
-    });
+    return NextResponse.json(
+      { rows, range: { from_gw: fromGw, to_gw: toGwResolved } },
+      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Route crashed", stack: e?.stack ?? null },

@@ -101,7 +101,10 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ fixtures });
+    return NextResponse.json(
+      { fixtures },
+      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Route crashed", stack: e?.stack ?? null },

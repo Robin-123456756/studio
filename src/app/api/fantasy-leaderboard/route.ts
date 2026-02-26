@@ -54,7 +54,10 @@ export async function GET() {
       .sort((a, b) => b.totalPoints - a.totalPoints)
       .map((entry, i) => ({ ...entry, rank: i + 1 }));
 
-    return NextResponse.json({ leaderboard });
+    return NextResponse.json(
+      { leaderboard },
+      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? "Route crashed" },
