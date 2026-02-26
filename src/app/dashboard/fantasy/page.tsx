@@ -242,6 +242,108 @@ function MiniLeague() {
   );
 }
 
+// ── Recent Transfers ──
+
+type TransferFeedItem = {
+  id: number;
+  managerTeam: string;
+  playerOut: { webName: string };
+  playerIn: { webName: string };
+  createdAt: string;
+};
+
+function transferTimeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 10) return "just now";
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function RecentTransfers() {
+  const [transfers, setTransfers] = React.useState<TransferFeedItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/transfers/activity?limit=5", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error();
+        setTransfers(json.transfers ?? []);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  return (
+    <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2">
+          <ArrowLeftRight className="h-4 w-4 text-emerald-500" />
+          <div className="text-base font-semibold text-foreground">Recent Transfers</div>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">Latest moves</div>
+      </CardContent>
+
+      <div className="px-3 pb-3">
+        {loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : error || transfers.length === 0 ? (
+          <div className="text-center py-6 text-sm text-muted-foreground">
+            No transfers yet.
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {transfers.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+              >
+                <span className="flex-1 min-w-0 truncate">
+                  <span className="font-medium">{t.managerTeam}:</span>{" "}
+                  <span className="text-red-500">{t.playerOut.webName}</span>
+                  <span className="text-muted-foreground/60 mx-1">&rarr;</span>
+                  <span className="text-emerald-600">{t.playerIn.webName}</span>
+                </span>
+                <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap flex-shrink-0">
+                  {transferTimeAgo(t.createdAt)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {!loading && !error && transfers.length > 0 && (
+        <Link
+          href="/dashboard/fantasy/transfers-activity"
+          className="flex items-center justify-center gap-1 border-t border-border py-3 text-sm font-semibold text-[#0D5C63] hover:bg-muted/40 transition rounded-b-2xl"
+        >
+          View All Transfers
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      )}
+    </Card>
+  );
+}
+
 // ── Navigation Row ──
 function NavRow({
   label,
@@ -642,8 +744,9 @@ function FantasyPage() {
         </div>
       </div>
 
-      <div className="py-4">
+      <div className="py-4 space-y-4">
         <MiniLeague />
+        <RecentTransfers />
       </div>
     </div>
   );
