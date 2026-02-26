@@ -53,7 +53,7 @@ type Match = {
   is_final: boolean;
 };
 
-type ViewState = "capture" | "confirm" | "history" | "scoring";
+type ViewState = "capture" | "confirm" | "history" | "scoring" | "manual";
 
 function validate(entries: any[], matchId: number | null) {
   const warnings: { message: string }[] = [];
@@ -92,7 +92,7 @@ export default function VoiceAdminPage() {
   // Read URL hash to auto-select tab (e.g. /admin/voice#scoring)
   useEffect(() => {
     const hash = window.location.hash.replace("#", "") as ViewState;
-    if (["capture", "history", "scoring"].includes(hash)) {
+    if (["capture", "history", "scoring", "manual"].includes(hash)) {
       setView(hash);
     }
   }, []);
@@ -180,10 +180,10 @@ export default function VoiceAdminPage() {
           <span className="voice-admin-user-name" style={{ fontSize: 12, color: TEXT_MUTED, marginLeft: "auto" }}>{session.user.name}</span>
         )}
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", width: "100%" }}>
-          {(["capture", "history", "scoring"] as ViewState[]).map(tab => (
+          {(["manual", "capture", "history", "scoring"] as ViewState[]).map(tab => (
             <button key={tab} onClick={() => { if (view !== "confirm") setView(tab); }}
               style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${view === tab ? ACCENT + "40" : BORDER}`, backgroundColor: view === tab ? `${ACCENT}15` : "transparent", color: view === tab ? ACCENT : TEXT_MUTED, fontSize: 12, fontWeight: 600, cursor: view === "confirm" ? "not-allowed" : "pointer", fontFamily: "inherit", textTransform: "capitalize", opacity: view === "confirm" ? 0.5 : 1, whiteSpace: "nowrap" }}>
-              {tab === "capture" ? "🎤 Capture" : tab === "history" ? "📋 History" : "🧮 Scoring"}
+              {tab === "manual" ? "📝 Manual" : tab === "capture" ? "🎤 Capture" : tab === "history" ? "📋 History" : "🧮 Scoring"}
             </button>
           ))}
           {view === "confirm" && <span style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${WARNING}40`, backgroundColor: `${WARNING}15`, color: WARNING, fontSize: 12, fontWeight: 600 }}>✓ Confirming</span>}
@@ -226,6 +226,7 @@ export default function VoiceAdminPage() {
       </div>
 
       <main>
+        {view === "manual" && <ManualView matchId={selectedMatchId} />}
         {view === "capture" && <CaptureView matchId={selectedMatchId} onResult={handleResult} showLogout={!!session?.user} />}
         {view === "confirm" && pipelineResult && <ConfirmView pipelineResult={pipelineResult} matchId={selectedMatchId} onConfirm={handleConfirm} onCancel={handleCancel} />}
         {view === "history" && <HistoryView history={history} />}
@@ -915,6 +916,422 @@ function ScoringView({ matchesByGw }: { matchesByGw: { gw: number; matches: Matc
           <p style={{ fontSize: 11, marginTop: 4 }}>This runs scoring RPCs and updates the leaderboard.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// MANUAL ENTRY VIEW
+// ═══════════════════════════════════════════════════════════
+type ManualPlayer = {
+  id: string;
+  name: string;
+  web_name: string | null;
+  position: string;
+  is_lady: boolean;
+  team_id: string;
+};
+
+type PlayerEvents = {
+  appeared: boolean;
+  goals: number;
+  assists: number;
+  clean_sheet: boolean;
+  yellow: boolean;
+  red: boolean;
+  own_goal: number;
+  pen_miss: number;
+  pen_save: number;
+  save_3: number;
+};
+
+const DEFAULT_EVENTS: PlayerEvents = {
+  appeared: false, goals: 0, assists: 0, clean_sheet: false,
+  yellow: false, red: false, own_goal: 0, pen_miss: 0,
+  pen_save: 0, save_3: 0,
+};
+
+const POS_SHORT: Record<string, string> = {
+  Goalkeeper: "GKP", Defender: "DEF", Midfielder: "MID", Forward: "FWD",
+};
+
+function ManualView({ matchId }: { matchId: number | null }) {
+  const [homeTeam, setHomeTeam] = useState<{ name: string; short_name: string; players: ManualPlayer[] } | null>(null);
+  const [awayTeam, setAwayTeam] = useState<{ name: string; short_name: string; players: ManualPlayer[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [playerEvents, setPlayerEvents] = useState<Record<string, PlayerEvents>>({});
+  const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
+  const [homeOpen, setHomeOpen] = useState(true);
+  const [awayOpen, setAwayOpen] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Fetch players when match changes
+  useEffect(() => {
+    if (!matchId) {
+      setHomeTeam(null);
+      setAwayTeam(null);
+      setPlayerEvents({});
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setSaveResult(null);
+    fetch(`/api/voice-admin/match-players?matchId=${matchId}`)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to load players");
+        return res.json();
+      })
+      .then(data => {
+        setHomeTeam(data.homeTeam);
+        setAwayTeam(data.awayTeam);
+        // Initialize events for all players
+        const events: Record<string, PlayerEvents> = {};
+        for (const p of [...(data.homeTeam?.players || []), ...(data.awayTeam?.players || [])]) {
+          events[p.id] = { ...DEFAULT_EVENTS };
+        }
+        setPlayerEvents(events);
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [matchId]);
+
+  const updateEvent = useCallback((playerId: string, field: keyof PlayerEvents, value: any) => {
+    setPlayerEvents(prev => ({
+      ...prev,
+      [playerId]: { ...prev[playerId], [field]: value },
+    }));
+  }, []);
+
+  const selectAllAppeared = useCallback((players: ManualPlayer[]) => {
+    setPlayerEvents(prev => {
+      const next = { ...prev };
+      const allChecked = players.every(p => prev[p.id]?.appeared);
+      for (const p of players) {
+        next[p.id] = { ...next[p.id], appeared: !allChecked };
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleExpand = useCallback((playerId: string) => {
+    setExpandedPlayer(prev => prev === playerId ? null : playerId);
+  }, []);
+
+  // Count players with events
+  const playersWithEvents = useMemo(() => {
+    return Object.entries(playerEvents).filter(([, ev]) => ev.appeared).length;
+  }, [playerEvents]);
+
+  // Build payload and save
+  const handleSave = useCallback(async () => {
+    if (!matchId || playersWithEvents === 0) return;
+    setSaving(true);
+    setSaveResult(null);
+
+    // Build events array: only players who appeared
+    const events: { playerId: string; actions: { action: string; quantity: number }[] }[] = [];
+    for (const [playerId, ev] of Object.entries(playerEvents)) {
+      if (!ev.appeared) continue;
+      const actions: { action: string; quantity: number }[] = [];
+      actions.push({ action: "appearance", quantity: 1 });
+      if (ev.goals > 0) actions.push({ action: "goal", quantity: ev.goals });
+      if (ev.assists > 0) actions.push({ action: "assist", quantity: ev.assists });
+      if (ev.clean_sheet) actions.push({ action: "clean_sheet", quantity: 1 });
+      if (ev.yellow) actions.push({ action: "yellow", quantity: 1 });
+      if (ev.red) actions.push({ action: "red", quantity: 1 });
+      if (ev.own_goal > 0) actions.push({ action: "own_goal", quantity: ev.own_goal });
+      if (ev.pen_miss > 0) actions.push({ action: "pen_miss", quantity: ev.pen_miss });
+      if (ev.pen_save > 0) actions.push({ action: "pen_save", quantity: ev.pen_save });
+      if (ev.save_3 > 0) actions.push({ action: "save_3", quantity: ev.save_3 });
+      events.push({ playerId, actions });
+    }
+
+    try {
+      const res = await fetch("/api/voice-admin/commit-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId, events }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSaveResult({ success: true, message: `Saved ${data.eventsCreated} events for ${data.playersUpdated} players` });
+      } else {
+        setSaveResult({ success: false, message: data.error || "Save failed" });
+      }
+    } catch {
+      setSaveResult({ success: false, message: "Network error" });
+    }
+    setSaving(false);
+  }, [matchId, playerEvents, playersWithEvents]);
+
+  // Helper: has any non-appearance event
+  const hasEvents = (ev: PlayerEvents) =>
+    ev.goals > 0 || ev.assists > 0 || ev.clean_sheet || ev.yellow || ev.red || ev.own_goal > 0 || ev.pen_miss > 0 || ev.pen_save > 0 || ev.save_3 > 0;
+
+  if (!matchId) return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "60px 16px", textAlign: "center" }}>
+      <p style={{ fontSize: 48, marginBottom: 16 }}>📝</p>
+      <p style={{ color: TEXT_MUTED, fontSize: 14 }}>Select a match above to enter stats manually.</p>
+    </div>
+  );
+
+  if (loading) return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "60px 16px", textAlign: "center" }}>
+      <p style={{ color: TEXT_MUTED, fontSize: 14 }}>Loading players...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px" }}>
+      <div style={{ padding: "12px 14px", borderRadius: 10, backgroundColor: `${ERROR}10`, border: `1px solid ${ERROR}30`, fontSize: 13, color: ERROR }}>{error}</div>
+    </div>
+  );
+
+  const renderTeamSection = (team: { name: string; short_name: string; players: ManualPlayer[] }, isOpen: boolean, setOpen: (v: boolean) => void, label: string) => (
+    <div style={{ marginBottom: 16 }}>
+      {/* Team header */}
+      <button
+        onClick={() => setOpen(!isOpen)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px", borderRadius: isOpen ? "10px 10px 0 0" : 10,
+          border: `1px solid ${BORDER}`, borderBottom: isOpen ? "none" : `1px solid ${BORDER}`,
+          backgroundColor: BG_CARD, cursor: "pointer", fontFamily: "inherit",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: TEXT_PRIMARY }}>{team.name}</span>
+          <span style={{ fontSize: 10, color: TEXT_MUTED, fontWeight: 600, textTransform: "uppercase" }}>({label})</span>
+          <span style={{ fontSize: 11, color: TEXT_MUTED }}>{team.players.length} players</span>
+        </div>
+        <span style={{ fontSize: 14, color: TEXT_MUTED, transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</span>
+      </button>
+
+      {isOpen && (
+        <div style={{ border: `1px solid ${BORDER}`, borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+          {/* Select All Appeared */}
+          <button
+            onClick={() => selectAllAppeared(team.players)}
+            style={{
+              width: "100%", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10,
+              backgroundColor: BG_SURFACE, border: "none", borderBottom: `1px solid ${BORDER}`,
+              cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            <span style={{
+              width: 18, height: 18, borderRadius: 4,
+              border: `2px solid ${team.players.every(p => playerEvents[p.id]?.appeared) ? ACCENT : BORDER}`,
+              backgroundColor: team.players.every(p => playerEvents[p.id]?.appeared) ? ACCENT : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, color: "#fff", fontWeight: 700,
+            }}>
+              {team.players.every(p => playerEvents[p.id]?.appeared) ? "✓" : ""}
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: TEXT_SECONDARY }}>Select All Appeared</span>
+          </button>
+
+          {/* Player rows */}
+          {team.players.map((player) => {
+            const ev = playerEvents[player.id] || DEFAULT_EVENTS;
+            const isExpanded = expandedPlayer === player.id;
+            const posShort = POS_SHORT[player.position] || player.position;
+            const posColor = POS_COLORS[posShort] || TEXT_MUTED;
+            const playerHasEvents = hasEvents(ev);
+
+            return (
+              <div key={player.id} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                {/* Collapsed row */}
+                <div
+                  style={{
+                    display: "flex", alignItems: "center", padding: "10px 16px", gap: 10,
+                    backgroundColor: ev.appeared ? `${ACCENT}06` : "transparent",
+                  }}
+                >
+                  {/* Appeared checkbox */}
+                  <button
+                    onClick={() => updateEvent(player.id, "appeared", !ev.appeared)}
+                    style={{
+                      width: 22, height: 22, borderRadius: 4, flexShrink: 0,
+                      border: `2px solid ${ev.appeared ? ACCENT : BORDER}`,
+                      backgroundColor: ev.appeared ? ACCENT : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700,
+                    }}
+                  >
+                    {ev.appeared ? "✓" : ""}
+                  </button>
+
+                  {/* Player info — tap to expand */}
+                  <button
+                    onClick={() => toggleExpand(player.id)}
+                    style={{
+                      flex: 1, display: "flex", alignItems: "center", gap: 8,
+                      background: "none", border: "none", cursor: "pointer",
+                      textAlign: "left", padding: 0, fontFamily: "inherit",
+                    }}
+                  >
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 28, height: 20, borderRadius: 4,
+                      backgroundColor: posColor + "20", color: posColor,
+                      fontSize: 9, fontWeight: 700, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    }}>{posShort}</span>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: TEXT_PRIMARY }}>
+                      {player.web_name || player.name}
+                    </span>
+                    {player.is_lady && (
+                      <span style={{ fontSize: 9, padding: "1px 4px", borderRadius: 3, backgroundColor: "#EC489920", color: "#EC4899", fontWeight: 700 }}>♀</span>
+                    )}
+                  </button>
+
+                  {/* Event summary icons (when collapsed + has events) */}
+                  {!isExpanded && playerHasEvents && (
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      {ev.goals > 0 && <span style={{ fontSize: 12 }}>⚽{ev.goals > 1 ? ev.goals : ""}</span>}
+                      {ev.assists > 0 && <span style={{ fontSize: 12 }}>🅰️{ev.assists > 1 ? ev.assists : ""}</span>}
+                      {ev.clean_sheet && <span style={{ fontSize: 12 }}>🛡️</span>}
+                      {ev.yellow && <span style={{ fontSize: 12 }}>🟨</span>}
+                      {ev.red && <span style={{ fontSize: 12 }}>🟥</span>}
+                      {ev.own_goal > 0 && <span style={{ fontSize: 12 }}>🔴{ev.own_goal > 1 ? ev.own_goal : ""}</span>}
+                    </div>
+                  )}
+
+                  {/* Expand chevron */}
+                  <span style={{ fontSize: 10, color: TEXT_MUTED, flexShrink: 0, transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0)" }}>▼</span>
+                </div>
+
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div style={{ padding: "8px 16px 12px", backgroundColor: BG_SURFACE }}>
+                    {/* Goals stepper */}
+                    <ManualStepper label="Goals" icon="⚽" value={ev.goals} max={10}
+                      onChange={(v) => updateEvent(player.id, "goals", v)} />
+                    {/* Assists stepper */}
+                    <ManualStepper label="Assists" icon="🅰️" value={ev.assists} max={10}
+                      onChange={(v) => updateEvent(player.id, "assists", v)} />
+                    {/* Clean sheet toggle */}
+                    <ManualToggle label="Clean Sheet" icon="🛡️" value={ev.clean_sheet}
+                      onChange={(v) => updateEvent(player.id, "clean_sheet", v)} />
+                    {/* Yellow toggle */}
+                    <ManualToggle label="Yellow Card" icon="🟨" value={ev.yellow}
+                      onChange={(v) => updateEvent(player.id, "yellow", v)} />
+                    {/* Red toggle */}
+                    <ManualToggle label="Red Card" icon="🟥" value={ev.red}
+                      onChange={(v) => updateEvent(player.id, "red", v)} />
+                    {/* Own Goal stepper */}
+                    <ManualStepper label="Own Goal" icon="🔴" value={ev.own_goal} max={5}
+                      onChange={(v) => updateEvent(player.id, "own_goal", v)} />
+                    {/* GK-specific: pen_save, save_3 */}
+                    {player.position === "Goalkeeper" && (
+                      <>
+                        <ManualStepper label="Pen Save" icon="🧤" value={ev.pen_save} max={5}
+                          onChange={(v) => updateEvent(player.id, "pen_save", v)} />
+                        <ManualStepper label="3+ Saves" icon="🧤" value={ev.save_3} max={10}
+                          onChange={(v) => updateEvent(player.id, "save_3", v)} />
+                      </>
+                    )}
+                    {/* Pen miss */}
+                    <ManualStepper label="Pen Miss" icon="❌" value={ev.pen_miss} max={5}
+                      onChange={(v) => updateEvent(player.id, "pen_miss", v)} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px" }}>
+      <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>Manual Stat Entry</h2>
+      <p style={{ margin: "0 0 16px", fontSize: 12, color: TEXT_MUTED }}>
+        Check appeared players, tap a name to add goals/assists/cards.
+      </p>
+
+      {/* Save result banner */}
+      {saveResult && (
+        <div style={{
+          padding: "12px 14px", borderRadius: 10, marginBottom: 16,
+          backgroundColor: saveResult.success ? `${SUCCESS}10` : `${ERROR}10`,
+          border: `1px solid ${saveResult.success ? SUCCESS + "30" : ERROR + "30"}`,
+          fontSize: 13, color: saveResult.success ? SUCCESS : ERROR, fontWeight: 600,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <span>{saveResult.message}</span>
+          <button onClick={() => setSaveResult(null)} style={{ background: "none", border: "none", color: TEXT_MUTED, cursor: "pointer", fontSize: 16, padding: 0 }}>✕</button>
+        </div>
+      )}
+
+      {/* Team sections */}
+      {homeTeam && renderTeamSection(homeTeam, homeOpen, setHomeOpen, "Home")}
+      {awayTeam && renderTeamSection(awayTeam, awayOpen, setAwayOpen, "Away")}
+
+      {/* Save button */}
+      <button
+        onClick={handleSave}
+        disabled={saving || playersWithEvents === 0}
+        style={{
+          width: "100%", padding: "14px 20px", borderRadius: 10, border: "none",
+          backgroundColor: playersWithEvents > 0 && !saving ? ACCENT : TEXT_MUTED,
+          color: "#fff", fontSize: 14, fontWeight: 700,
+          cursor: playersWithEvents > 0 && !saving ? "pointer" : "not-allowed",
+          fontFamily: "inherit", opacity: saving ? 0.7 : 1,
+          position: "sticky", bottom: 16,
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.4)",
+        }}
+      >
+        {saving ? "Saving..." : `Save ${playersWithEvents} player${playersWithEvents !== 1 ? "s" : ""}`}
+      </button>
+    </div>
+  );
+}
+
+// ── Manual entry sub-components ──
+function ManualStepper({ label, icon, value, max, onChange }: { label: string; icon: string; value: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${BORDER}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 14 }}>{icon}</span>
+        <span style={{ fontSize: 12, color: TEXT_SECONDARY, fontWeight: 500 }}>{label}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <button onClick={() => { if (value > 0) onChange(value - 1); }} disabled={value <= 0}
+          style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, backgroundColor: BG_CARD, color: TEXT_SECONDARY, cursor: value > 0 ? "pointer" : "not-allowed", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", opacity: value > 0 ? 1 : 0.3, fontFamily: "inherit" }}>−</button>
+        <span style={{ width: 28, textAlign: "center", fontSize: 14, fontWeight: 700, color: value > 0 ? TEXT_PRIMARY : TEXT_MUTED, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{value}</span>
+        <button onClick={() => { if (value < max) onChange(value + 1); }} disabled={value >= max}
+          style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, backgroundColor: BG_CARD, color: TEXT_SECONDARY, cursor: value < max ? "pointer" : "not-allowed", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", opacity: value < max ? 1 : 0.3, fontFamily: "inherit" }}>+</button>
+      </div>
+    </div>
+  );
+}
+
+function ManualToggle({ label, icon, value, onChange }: { label: string; icon: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${BORDER}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 14 }}>{icon}</span>
+        <span style={{ fontSize: 12, color: TEXT_SECONDARY, fontWeight: 500 }}>{label}</span>
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        style={{
+          width: 40, height: 24, borderRadius: 12, border: "none",
+          backgroundColor: value ? ACCENT : BG_CARD,
+          cursor: "pointer", position: "relative", transition: "background-color 0.2s",
+          boxShadow: `inset 0 0 0 1px ${value ? ACCENT : BORDER}`,
+        }}
+      >
+        <span style={{
+          position: "absolute", top: 3, left: value ? 19 : 3,
+          width: 18, height: 18, borderRadius: "50%",
+          backgroundColor: "#fff", transition: "left 0.2s",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+        }} />
+      </button>
     </div>
   );
 }
