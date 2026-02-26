@@ -599,20 +599,6 @@ export default function MatchesPage() {
 
   return (
     <div className="animate-in fade-in-50 space-y-4">
-      {/* Season card — slim teal banner */}
-      <Card className="rounded-3xl overflow-hidden border-none">
-        <CardContent className="p-0">
-          <div className="relative overflow-hidden px-5 py-2 bg-[#0D5C63] flex items-center" style={{ height: 40 }}>
-            <div className="pointer-events-none absolute -right-10 -top-6 h-20 w-20 rounded-full bg-white/5" />
-            <div className="relative flex items-center gap-3">
-              <div className="text-xs text-primary-foreground/60">Season</div>
-              <div className="text-base font-extrabold tracking-tight text-primary-foreground">
-                TBL9
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Main card with tabs — content renders directly on surface */}
       <Card className="rounded-3xl">
