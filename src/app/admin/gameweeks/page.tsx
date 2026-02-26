@@ -53,6 +53,7 @@ export default function AdminGameweeksPage() {
   const [deadline, setDeadline] = useState("");
   const [isCurrent, setIsCurrent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
@@ -140,6 +141,32 @@ export default function AdminGameweeksPage() {
       await loadGameweeks();
     } catch (e: any) {
       setError(e?.message || "Failed to update");
+    }
+  }
+
+  async function deleteGameweek(gw: Gameweek) {
+    const confirmed = window.confirm(
+      `Delete GW ${gw.id}? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    setFormError(null);
+    setFormSuccess(null);
+    setDeletingId(gw.id);
+
+    try {
+      const res = await fetch(`/api/admin/gameweeks?id=${encodeURIComponent(String(gw.id))}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to delete");
+      setFormSuccess(`Gameweek ${gw.id} deleted.`);
+      await loadGameweeks();
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete gameweek");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -374,27 +401,45 @@ export default function AdminGameweeksPage() {
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
                       onClick={() => toggleCurrent(gw)}
+                      disabled={deletingId === gw.id}
                       style={{
                         padding: "6px 12px", borderRadius: 6,
                         border: `1px solid ${BORDER}`, backgroundColor: "transparent",
                         color: gw.is_current ? WARNING : TEXT_MUTED,
                         fontSize: 11, fontWeight: 600,
-                        cursor: "pointer", fontFamily: "inherit",
+                        cursor: deletingId === gw.id ? "not-allowed" : "pointer", fontFamily: "inherit",
+                        opacity: deletingId === gw.id ? 0.6 : 1,
                       }}
                     >
                       {gw.is_current ? "Unset Current" : "Set Current"}
                     </button>
                     <button
                       onClick={() => toggleFinalized(gw)}
+                      disabled={deletingId === gw.id}
                       style={{
                         padding: "6px 12px", borderRadius: 6,
                         border: `1px solid ${BORDER}`, backgroundColor: "transparent",
                         color: gw.finalized ? SUCCESS : TEXT_MUTED,
                         fontSize: 11, fontWeight: 600,
-                        cursor: "pointer", fontFamily: "inherit",
+                        cursor: deletingId === gw.id ? "not-allowed" : "pointer", fontFamily: "inherit",
+                        opacity: deletingId === gw.id ? 0.6 : 1,
                       }}
                     >
                       {gw.finalized ? "Unfinalize" : "Finalize"}
+                    </button>
+                    <button
+                      onClick={() => deleteGameweek(gw)}
+                      disabled={deletingId === gw.id}
+                      style={{
+                        padding: "6px 12px", borderRadius: 6,
+                        border: `1px solid ${ERROR}40`, backgroundColor: "transparent",
+                        color: ERROR,
+                        fontSize: 11, fontWeight: 600,
+                        cursor: deletingId === gw.id ? "not-allowed" : "pointer", fontFamily: "inherit",
+                        opacity: deletingId === gw.id ? 0.6 : 1,
+                      }}
+                    >
+                      {deletingId === gw.id ? "Deleting..." : "Delete"}
                     </button>
                   </div>
                 </div>
