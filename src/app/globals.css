@@ -4,6 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent double-tap zoom on mobile for native app feel */
+html {
+  touch-action: manipulation;
+}
+
 /* Budo League Design System: Red, Black, White - Age-Friendly */
 @layer base {
   :root {
