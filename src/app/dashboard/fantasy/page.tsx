@@ -7,11 +7,13 @@ import {
   ChevronRight,
   Users,
   Shirt,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ApiGameweek = {
   id: number;
@@ -110,19 +112,132 @@ function useDeadlineCountdown(deadlineIso?: string | null) {
 }
 
 // ── Mini League ──
+
+type LeaderboardEntry = {
+  rank: number;
+  userId: string;
+  teamName: string;
+  totalPoints: number;
+  gwBreakdown: Record<number, number>;
+};
+
+function miniRankLabel(rank: number) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return String(rank);
+}
+
+function miniRankColor(rank: number) {
+  if (rank === 1) return "text-amber-500";
+  if (rank === 2) return "text-gray-400";
+  if (rank === 3) return "text-amber-700";
+  return "text-muted-foreground";
+}
+
 function MiniLeague() {
+  const [entries, setEntries] = React.useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
+  const [userId, setUserId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      setUserId(data.session?.user.id ?? null);
+    })();
+  }, []);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/fantasy-leaderboard", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error();
+        setEntries(json.leaderboard ?? []);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const top3 = entries.slice(0, 3);
+  const userInTop3 = top3.some((e) => e.userId === userId);
+  const userEntry = entries.find((e) => e.userId === userId);
+
   return (
     <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
       <CardContent className="p-4">
-        <div className="text-base font-semibold text-foreground">Budo League</div>
+        <div className="flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-amber-500" />
+          <div className="text-base font-semibold text-foreground">Budo League</div>
+        </div>
         <div className="mt-1 text-xs text-muted-foreground">Your rank among rivals.</div>
       </CardContent>
 
-      <div className="px-3 pb-4">
-        <div className="text-center py-6 text-sm text-muted-foreground">
-          No league standings yet. Data will appear once gameweeks are played.
-        </div>
+      <div className="px-3 pb-3">
+        {loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : error || entries.length === 0 ? (
+          <div className="text-center py-6 text-sm text-muted-foreground">
+            No league standings yet. Data will appear once gameweeks are played.
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {top3.map((entry) => {
+              const isUser = entry.userId === userId;
+              return (
+                <div
+                  key={entry.userId}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+                    isUser && "bg-[#0D5C63]/10"
+                  )}
+                >
+                  <span className={cn("w-6 font-bold text-center", miniRankColor(entry.rank))}>
+                    {miniRankLabel(entry.rank)}
+                  </span>
+                  <span className="flex-1 font-medium truncate">{entry.teamName}</span>
+                  <span className="font-bold tabular-nums">{entry.totalPoints}</span>
+                </div>
+              );
+            })}
+
+            {!userInTop3 && userEntry && (
+              <>
+                <div className="border-t border-dashed border-border my-1" />
+                <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-[#0D5C63]/10">
+                  <span className={cn("w-6 font-bold text-center", miniRankColor(userEntry.rank))}>
+                    {userEntry.rank}
+                  </span>
+                  <span className="flex-1 font-medium truncate">{userEntry.teamName}</span>
+                  <span className="font-bold tabular-nums">{userEntry.totalPoints}</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
+
+      {!loading && !error && entries.length > 0 && (
+        <Link
+          href="/dashboard/fantasy/leaderboard"
+          className="flex items-center justify-center gap-1 border-t border-border py-3 text-sm font-semibold text-[#0D5C63] hover:bg-muted/40 transition rounded-b-2xl"
+        >
+          View Full Leaderboard
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      )}
     </Card>
   );
 }
