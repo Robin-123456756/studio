@@ -186,15 +186,20 @@ export async function GET(req: Request) {
     const players = (data ?? []).map((p: any) => {
       const pid = String(p.id);
       const totals = dynamicPoints ? totalsMap.get(pid) : null;
+      const isLady = p.is_lady ?? false;
+      const ladyMultiplier = isLady ? 2 : 1;
+      const rawPoints = totals ? totals.points : p.total_points ?? 0;
       return {
         id: p.id,
         name: p.name ?? p.web_name ?? "--",
         webName: p.web_name ?? null,
         position: p.position,
         price: p.now_cost ?? null,
-        points: totals ? totals.points : p.total_points ?? null,
+        points: rawPoints * ladyMultiplier,
+        rawPoints,
+        pointsMultiplier: ladyMultiplier,
         avatarUrl: p.avatar_url ?? null,
-        isLady: p.is_lady ?? null,
+        isLady,
         teamId: p.team_id,
         teamName: p.teams?.name ?? "--",
         teamShort: p.teams?.short_name ?? "--",
