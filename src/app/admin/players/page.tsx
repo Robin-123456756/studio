@@ -2,23 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-
-// Theme — matches admin dashboard
-const BG_DARK = "#0A0F1C";
-const BG_CARD = "#111827";
-const BG_SURFACE = "#1A2236";
-const BORDER = "#1E293B";
-const ACCENT = "#00E676";
-const ACCENT_DIM = "#00C853";
-const TEXT_PRIMARY = "#F1F5F9";
-const TEXT_SECONDARY = "#CBD5E1";
-const TEXT_MUTED = "#64748B";
-const ERROR = "#EF4444";
-const SUCCESS = "#10B981";
-const WARNING = "#F59E0B";
+import {
+  BG_DARK, BG_CARD, BG_SURFACE, BORDER,
+  ACCENT, ACCENT_DIM,
+  TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED,
+  ERROR, SUCCESS, WARNING,
+  inputStyle, btnGreen, btnMuted, btnDanger, btnSmall, labelStyle,
+  globalResetCSS,
+} from "@/lib/admin-theme";
 
 type Team = {
   id: number;
+  team_uuid: string;
   name: string;
   short_name: string;
 };
@@ -32,7 +27,7 @@ type Player = {
   points: number;
   avatarUrl: string | null;
   isLady: boolean;
-  teamId: number;
+  teamId: string; // UUID (players.team_id → teams.team_uuid)
   teamName: string | null;
   teamShort: string | null;
   status: string;
@@ -82,7 +77,15 @@ export default function AdminPlayersPage() {
 
   // Editing
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<Partial<Player & { web_name: string; status: string }>>({});
+  const [editData, setEditData] = useState<Partial<{
+    name: string;
+    web_name: string;
+    position: string;
+    price: number;
+    teamId: string; // UUID
+    isLady: boolean;
+    status: string;
+  }>>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -93,6 +96,20 @@ export default function AdminPlayersPage() {
   // Avatar upload
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // Add Player form
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addData, setAddData] = useState({
+    name: "",
+    web_name: "",
+    position: "MID",
+    team_id: "",
+    now_cost: 5.0,
+    is_lady: false,
+    status: "available",
+  });
+  const [addSaving, setAddSaving] = useState(false);
+  const [addMsg, setAddMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const loadPlayers = useCallback(async () => {
     try {
@@ -111,11 +128,15 @@ export default function AdminPlayersPage() {
     try {
       const res = await fetch("/api/teams");
       const json = await res.json();
-      if (Array.isArray(json)) {
-        setTeams(json.map((t: any) => ({ id: t.id, name: t.name, short_name: t.short_name ?? t.shortName ?? "" })));
-      } else if (json.teams) {
-        setTeams(json.teams.map((t: any) => ({ id: t.id, name: t.name, short_name: t.short_name ?? t.shortName ?? "" })));
-      }
+      const raw = Array.isArray(json) ? json : json.teams ?? [];
+      setTeams(
+        raw.map((t: any) => ({
+          id: t.id,
+          team_uuid: t.team_uuid,
+          name: t.name,
+          short_name: t.short_name ?? t.shortName ?? "",
+        }))
+      );
     } catch {
       // Teams load is non-critical
     }
@@ -126,10 +147,10 @@ export default function AdminPlayersPage() {
     loadTeams();
   }, [loadPlayers, loadTeams]);
 
-  // Filter logic
+  // Filter logic — team filter uses team_uuid
   const filtered = players.filter((p) => {
     if (filterPos !== "ALL" && p.position !== filterPos) return false;
-    if (filterTeam !== "ALL" && String(p.teamId) !== filterTeam) return false;
+    if (filterTeam !== "ALL" && p.teamId !== filterTeam) return false;
     if (filterStatus !== "ALL" && (p.status || "available") !== filterStatus) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -146,6 +167,43 @@ export default function AdminPlayersPage() {
     if (p.position in posCounts) posCounts[p.position as keyof typeof posCounts]++;
   }
 
+  // --- Add Player ---
+  async function handleAddPlayer() {
+    if (!addData.name.trim() || !addData.position || !addData.team_id) {
+      setAddMsg({ type: "err", text: "Name, position, and team are required." });
+      return;
+    }
+    setAddSaving(true);
+    setAddMsg(null);
+    try {
+      const res = await fetch("/api/players", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          name: addData.name.trim(),
+          web_name: addData.web_name.trim() || undefined,
+          position: addData.position,
+          team_id: addData.team_id,
+          now_cost: addData.now_cost,
+          is_lady: addData.is_lady,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to create player");
+      setAddMsg({ type: "ok", text: `Created ${json.name || addData.name}!` });
+      setAddData({ name: "", web_name: "", position: "MID", team_id: "", now_cost: 5.0, is_lady: false, status: "available" });
+      await loadPlayers();
+      // Keep form open briefly so user sees success, then collapse
+      setTimeout(() => { setShowAddForm(false); setAddMsg(null); }, 1500);
+    } catch (e: any) {
+      setAddMsg({ type: "err", text: e?.message || "Create failed" });
+    } finally {
+      setAddSaving(false);
+    }
+  }
+
+  // --- Edit ---
   function startEdit(p: Player) {
     setEditingId(p.id);
     setEditData({
@@ -153,7 +211,7 @@ export default function AdminPlayersPage() {
       web_name: p.name,
       position: p.position,
       price: p.price,
-      teamId: p.teamId,
+      teamId: p.teamId, // UUID
       isLady: p.isLady,
       status: p.status || "available",
     });
@@ -180,7 +238,7 @@ export default function AdminPlayersPage() {
           web_name: editData.web_name,
           position: editData.position,
           now_cost: editData.price,
-          team_id: editData.teamId,
+          team_id: editData.teamId, // UUID
           is_lady: editData.isLady,
           status: editData.status,
         }),
@@ -198,6 +256,7 @@ export default function AdminPlayersPage() {
     }
   }
 
+  // --- Delete ---
   async function confirmDelete() {
     if (!deleteId) return;
     setDeleting(true);
@@ -216,11 +275,7 @@ export default function AdminPlayersPage() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: BG_DARK, color: TEXT_PRIMARY, fontFamily: "'Outfit', system-ui, sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
-        * { box-sizing: border-box; }
-        body { margin: 0; background: ${BG_DARK}; }
-      `}</style>
+      <style>{globalResetCSS(BG_DARK)}</style>
 
       {/* Header */}
       <header style={{
@@ -249,27 +304,29 @@ export default function AdminPlayersPage() {
             </p>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
-            onClick={() => router.push("/dashboard/admin/players/new")}
+            onClick={() => setShowAddForm(!showAddForm)}
             style={{
-              padding: "8px 16px", borderRadius: 8,
-              border: "none",
-              background: `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_DIM} 100%)`,
-              color: "#000", fontSize: 12, fontWeight: 700,
-              cursor: "pointer", fontFamily: "inherit",
+              ...btnGreen,
+              padding: "8px 16px",
+              fontSize: 12,
+              background: showAddForm
+                ? `linear-gradient(135deg, ${WARNING} 0%, #D97706 100%)`
+                : `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_DIM} 100%)`,
             }}
           >
-            + Add Player
+            {showAddForm ? "− Close Form" : "+ Add Player"}
+          </button>
+          <button
+            onClick={() => router.push("/admin/players/import")}
+            style={{ ...btnSmall, padding: "8px 16px", fontSize: 12 }}
+          >
+            Import CSV
           </button>
           <button
             onClick={() => router.push("/admin")}
-            style={{
-              padding: "8px 16px", borderRadius: 8,
-              border: `1px solid ${BORDER}`, backgroundColor: "transparent",
-              color: TEXT_MUTED, fontSize: 12, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit",
-            }}
+            style={{ ...btnSmall, padding: "8px 16px", fontSize: 12 }}
           >
             ← Back
           </button>
@@ -278,8 +335,136 @@ export default function AdminPlayersPage() {
 
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 16px" }}>
 
+        {/* Add Player Form (collapsible) */}
+        {showAddForm && (
+          <div style={{
+            backgroundColor: BG_CARD,
+            border: `1px solid ${ACCENT}30`,
+            borderRadius: 12,
+            padding: "20px 16px",
+            marginBottom: 20,
+          }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: ACCENT }}>
+              New Player
+            </h2>
+
+            {addMsg && (
+              <div style={{
+                padding: "8px 12px", borderRadius: 6, marginBottom: 12,
+                backgroundColor: addMsg.type === "ok" ? `${SUCCESS}15` : `${ERROR}15`,
+                border: `1px solid ${addMsg.type === "ok" ? SUCCESS : ERROR}30`,
+                color: addMsg.type === "ok" ? SUCCESS : ERROR,
+                fontSize: 12, fontWeight: 500,
+              }}>
+                {addMsg.text}
+              </div>
+            )}
+
+            {/* Row 1: Names */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={labelStyle}>Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe"
+                  value={addData.name}
+                  onChange={(e) => setAddData({ ...addData, name: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Display Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Doe"
+                  value={addData.web_name}
+                  onChange={(e) => setAddData({ ...addData, web_name: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Position + Team */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={labelStyle}>Position *</label>
+                <select
+                  value={addData.position}
+                  onChange={(e) => setAddData({ ...addData, position: e.target.value })}
+                  style={inputStyle}
+                >
+                  {POSITIONS.map((pos) => (
+                    <option key={pos} value={pos}>{POS_LABELS[pos]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Team *</label>
+                <select
+                  value={addData.team_id}
+                  onChange={(e) => setAddData({ ...addData, team_id: e.target.value })}
+                  style={inputStyle}
+                >
+                  <option value="">Select team...</option>
+                  {teams.map((t) => (
+                    <option key={t.team_uuid} value={t.team_uuid}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 3: Price + Status */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={labelStyle}>Price (m)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0.5"
+                  value={addData.now_cost}
+                  onChange={(e) => setAddData({ ...addData, now_cost: parseFloat(e.target.value) || 5.0 })}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Status</label>
+                <select
+                  value={addData.status}
+                  onChange={(e) => setAddData({ ...addData, status: e.target.value })}
+                  style={inputStyle}
+                >
+                  {STATUS_LABELS.map((s) => (
+                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Lady toggle */}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 16 }}>
+              <input
+                type="checkbox"
+                checked={addData.is_lady}
+                onChange={(e) => setAddData({ ...addData, is_lady: e.target.checked })}
+                style={{ width: 16, height: 16, accentColor: "#EC4899" }}
+              />
+              <span style={{ fontSize: 13, color: TEXT_SECONDARY }}>Lady Player</span>
+            </label>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleAddPlayer} disabled={addSaving} style={btnGreen}>
+                {addSaving ? "Creating..." : "Create Player"}
+              </button>
+              <button onClick={() => { setShowAddForm(false); setAddMsg(null); }} style={btnMuted}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Stats Row */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 10, marginBottom: 20 }}>
           {(["ALL", ...POSITIONS] as const).map((pos) => {
             const count = pos === "ALL" ? posCounts.ALL : posCounts[pos];
             const isActive = filterPos === pos;
@@ -306,14 +491,14 @@ export default function AdminPlayersPage() {
                   {count}
                 </div>
                 <div style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 500, marginTop: 2 }}>
-                  {pos === "ALL" ? "All Players" : POS_LABELS[pos] + "s"}
+                  {pos === "ALL" ? "All" : POS_LABELS[pos] + "s"}
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Search + Team Filter */}
+        {/* Search + Team Filter + Status Filter */}
         <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
           <input
             type="text"
@@ -321,35 +506,39 @@ export default function AdminPlayersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
-              flex: "1 1 240px", padding: "10px 14px", borderRadius: 8,
-              border: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE,
-              color: TEXT_PRIMARY, fontSize: 14, fontFamily: "inherit",
-              outline: "none",
+              ...inputStyle,
+              flex: "1 1 200px",
+              padding: "10px 14px",
+              fontSize: 14,
             }}
           />
           <select
             value={filterTeam}
             onChange={(e) => setFilterTeam(e.target.value)}
             style={{
-              padding: "10px 14px", borderRadius: 8,
-              border: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE,
-              color: TEXT_PRIMARY, fontSize: 14, fontFamily: "inherit",
-              outline: "none", minWidth: 160,
+              ...inputStyle,
+              width: "auto",
+              flex: "0 1 auto",
+              padding: "10px 14px",
+              fontSize: 14,
+              minWidth: 140,
             }}
           >
             <option value="ALL">All Teams</option>
             {teams.map((t) => (
-              <option key={t.id} value={String(t.id)}>{t.name}</option>
+              <option key={t.team_uuid} value={t.team_uuid}>{t.name}</option>
             ))}
           </select>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             style={{
-              padding: "10px 14px", borderRadius: 8,
-              border: `1px solid ${BORDER}`, backgroundColor: BG_SURFACE,
-              color: TEXT_PRIMARY, fontSize: 14, fontFamily: "inherit",
-              outline: "none", minWidth: 140,
+              ...inputStyle,
+              width: "auto",
+              flex: "0 1 auto",
+              padding: "10px 14px",
+              fontSize: 14,
+              minWidth: 130,
             }}
           >
             <option value="ALL">All Status</option>
@@ -372,59 +561,33 @@ export default function AdminPlayersPage() {
           </div>
         )}
 
-        {/* Player List */}
-        <div style={{
-          backgroundColor: BG_CARD,
-          border: `1px solid ${BORDER}`,
-          borderRadius: 12,
-          overflow: "hidden",
-        }}>
-          {/* Table Header */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 80px 140px 70px 50px 100px",
-            gap: 8,
-            padding: "12px 16px",
-            borderBottom: `1px solid ${BORDER}`,
-            fontSize: 11,
-            fontWeight: 600,
-            color: TEXT_MUTED,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-          }}>
-            <span>Player</span>
-            <span>Pos</span>
-            <span>Team</span>
-            <span>Price</span>
-            <span>Pts</span>
-            <span style={{ textAlign: "right" }}>Actions</span>
+        {/* Player List — mobile-friendly cards */}
+        {loading ? (
+          <div style={{ padding: 32, textAlign: "center", color: TEXT_MUTED, fontSize: 13 }}>Loading players...</div>
+        ) : error ? (
+          <div style={{ padding: 32, textAlign: "center", color: ERROR, fontSize: 13 }}>{error}</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center", color: TEXT_MUTED, fontSize: 13 }}>
+            {players.length === 0 ? "No players yet. Add one above." : "No players match your filters."}
           </div>
-
-          {loading ? (
-            <div style={{ padding: 24, textAlign: "center", color: TEXT_MUTED, fontSize: 13 }}>Loading players...</div>
-          ) : error ? (
-            <div style={{ padding: 24, textAlign: "center", color: ERROR, fontSize: 13 }}>{error}</div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 24, textAlign: "center", color: TEXT_MUTED, fontSize: 13 }}>
-              {players.length === 0 ? "No players yet. Add one above." : "No players match your filters."}
-            </div>
-          ) : (
-            filtered.map((p) => {
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {filtered.map((p) => {
               const isEditing = editingId === p.id;
               const isDelTarget = deleteId === p.id;
 
-              // Edit row
+              // Edit card
               if (isEditing) {
                 return (
                   <div key={p.id} style={{
-                    padding: "14px 16px",
-                    backgroundColor: `${ACCENT}08`,
-                    borderBottom: `1px solid ${BORDER}`,
+                    padding: "16px",
+                    backgroundColor: BG_CARD,
+                    border: `1px solid ${ACCENT}40`,
+                    borderRadius: 12,
                   }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                      {/* Full name */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                       <div>
-                        <label style={{ display: "block", fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Full Name</label>
+                        <label style={labelStyle}>Full Name</label>
                         <input
                           type="text"
                           value={editData.name || ""}
@@ -432,9 +595,8 @@ export default function AdminPlayersPage() {
                           style={inputStyle}
                         />
                       </div>
-                      {/* Web name */}
                       <div>
-                        <label style={{ display: "block", fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Display Name</label>
+                        <label style={labelStyle}>Display Name</label>
                         <input
                           type="text"
                           value={editData.web_name || ""}
@@ -443,10 +605,9 @@ export default function AdminPlayersPage() {
                         />
                       </div>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
-                      {/* Position */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                       <div>
-                        <label style={{ display: "block", fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Position</label>
+                        <label style={labelStyle}>Position</label>
                         <select
                           value={editData.position || ""}
                           onChange={(e) => setEditData({ ...editData, position: e.target.value })}
@@ -457,22 +618,23 @@ export default function AdminPlayersPage() {
                           ))}
                         </select>
                       </div>
-                      {/* Team */}
                       <div>
-                        <label style={{ display: "block", fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Team</label>
+                        <label style={labelStyle}>Team</label>
                         <select
-                          value={String(editData.teamId || "")}
-                          onChange={(e) => setEditData({ ...editData, teamId: Number(e.target.value) })}
+                          value={editData.teamId || ""}
+                          onChange={(e) => setEditData({ ...editData, teamId: e.target.value })}
                           style={inputStyle}
                         >
+                          <option value="">Select team...</option>
                           {teams.map((t) => (
-                            <option key={t.id} value={String(t.id)}>{t.name}</option>
+                            <option key={t.team_uuid} value={t.team_uuid}>{t.name}</option>
                           ))}
                         </select>
                       </div>
-                      {/* Price */}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                       <div>
-                        <label style={{ display: "block", fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Price (m)</label>
+                        <label style={labelStyle}>Price (m)</label>
                         <input
                           type="number"
                           step="0.5"
@@ -482,9 +644,8 @@ export default function AdminPlayersPage() {
                           style={inputStyle}
                         />
                       </div>
-                      {/* Status */}
                       <div>
-                        <label style={{ display: "block", fontSize: 11, color: TEXT_MUTED, fontWeight: 600, marginBottom: 4 }}>Status</label>
+                        <label style={labelStyle}>Status</label>
                         <select
                           value={editData.status || "available"}
                           onChange={(e) => setEditData({ ...editData, status: e.target.value })}
@@ -496,16 +657,15 @@ export default function AdminPlayersPage() {
                         </select>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
-                      {/* Lady toggle */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
                       <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                         <input
                           type="checkbox"
                           checked={!!editData.isLady}
                           onChange={(e) => setEditData({ ...editData, isLady: e.target.checked })}
-                          style={{ width: 16, height: 16, accentColor: ACCENT }}
+                          style={{ width: 16, height: 16, accentColor: "#EC4899" }}
                         />
-                        <span style={{ fontSize: 12, color: TEXT_SECONDARY }}>Lady</span>
+                        <span style={{ fontSize: 12, color: TEXT_SECONDARY }}>Lady Player</span>
                       </label>
 
                       {/* Avatar Upload */}
@@ -518,10 +678,8 @@ export default function AdminPlayersPage() {
                           />
                         )}
                         <label style={{
-                          padding: "5px 12px", borderRadius: 6,
-                          border: `1px solid ${BORDER}`, backgroundColor: "transparent",
-                          color: TEXT_MUTED, fontSize: 11, fontWeight: 600,
-                          cursor: uploading ? "wait" : "pointer", fontFamily: "inherit",
+                          ...btnSmall,
+                          cursor: uploading ? "wait" : "pointer",
                           opacity: uploading ? 0.5 : 1,
                         }}>
                           {uploading ? "Uploading..." : "Upload Photo"}
@@ -557,13 +715,13 @@ export default function AdminPlayersPage() {
                     </div>
                     {uploadMsg && editingId === p.id && (
                       <div style={{
-                        marginTop: 6, fontSize: 11, fontWeight: 500,
+                        marginBottom: 8, fontSize: 11, fontWeight: 500,
                         color: uploadMsg.type === "ok" ? SUCCESS : ERROR,
                       }}>
                         {uploadMsg.text}
                       </div>
                     )}
-                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={saveEdit} disabled={saving} style={btnGreen}>
                         {saving ? "Saving..." : "Save"}
                       </button>
@@ -573,13 +731,14 @@ export default function AdminPlayersPage() {
                 );
               }
 
-              // Delete confirmation
+              // Delete confirmation card
               if (isDelTarget) {
                 return (
                   <div key={p.id} style={{
-                    padding: "14px 16px",
+                    padding: "16px",
                     backgroundColor: `${ERROR}08`,
-                    borderBottom: `1px solid ${BORDER}`,
+                    border: `1px solid ${ERROR}30`,
+                    borderRadius: 12,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -599,158 +758,93 @@ export default function AdminPlayersPage() {
                 );
               }
 
-              // Normal row
+              // Normal player card (mobile-friendly)
               return (
                 <div
                   key={p.id}
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 80px 140px 70px 50px 100px",
-                    gap: 8,
+                    backgroundColor: BG_CARD,
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 12,
                     padding: "12px 16px",
-                    borderBottom: `1px solid ${BORDER}`,
-                    alignItems: "center",
-                    fontSize: 13,
                   }}
                 >
-                  {/* Player */}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, color: TEXT_PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {/* Top row: position badge + name + price */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{
+                      display: "inline-block",
+                      padding: "2px 8px", borderRadius: 4,
+                      backgroundColor: `${POS_COLORS[p.position] || TEXT_MUTED}18`,
+                      color: POS_COLORS[p.position] || TEXT_MUTED,
+                      fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                      flexShrink: 0,
+                    }}>
+                      {p.position}
+                    </span>
+                    <span style={{
+                      fontWeight: 600, color: TEXT_PRIMARY, fontSize: 14,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      flex: 1, minWidth: 0,
+                    }}>
                       {p.fullName || p.name}
                       {p.isLady && (
-                        <span style={{ marginLeft: 6, fontSize: 10, color: "#EC4899", fontWeight: 700 }}>LADY</span>
+                        <span style={{ marginLeft: 6, fontSize: 10, color: "#EC4899", fontWeight: 700 }}>♀</span>
                       )}
-                      {p.status && p.status !== "available" && (
-                        <span style={{
-                          marginLeft: 6, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
-                          padding: "1px 5px", borderRadius: 3,
-                          backgroundColor: `${STATUS_COLORS[p.status] || TEXT_MUTED}18`,
-                          color: STATUS_COLORS[p.status] || TEXT_MUTED,
-                          textTransform: "uppercase" as const,
-                        }}>
-                          {p.status}
-                        </span>
-                      )}
-                    </div>
-                    {p.fullName && p.name !== p.fullName && (
-                      <div style={{ fontSize: 11, color: TEXT_MUTED }}>{p.name}</div>
-                    )}
+                    </span>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontWeight: 600,
+                      color: ACCENT, fontSize: 13, flexShrink: 0,
+                    }}>
+                      {formatPrice(p.price)}
+                    </span>
                   </div>
 
-                  {/* Position */}
-                  <span style={{
-                    display: "inline-block",
-                    padding: "2px 8px", borderRadius: 4,
-                    backgroundColor: `${POS_COLORS[p.position] || TEXT_MUTED}18`,
-                    color: POS_COLORS[p.position] || TEXT_MUTED,
-                    fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-                    width: "fit-content",
-                  }}>
-                    {p.position}
-                  </span>
-
-                  {/* Team */}
-                  <span style={{ color: TEXT_SECONDARY, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.teamName || `Team ${p.teamId}`}
-                  </span>
-
-                  {/* Price */}
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, color: ACCENT, fontSize: 12 }}>
-                    {formatPrice(p.price)}
-                  </span>
-
-                  {/* Points */}
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", color: TEXT_SECONDARY, fontSize: 12 }}>
-                    {p.points}
-                  </span>
-
-                  {/* Actions */}
-                  <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                    <button
-                      onClick={() => startEdit(p)}
-                      style={{
-                        padding: "5px 10px", borderRadius: 6,
-                        border: `1px solid ${BORDER}`, backgroundColor: "transparent",
-                        color: TEXT_MUTED, fontSize: 11, fontWeight: 600,
-                        cursor: "pointer", fontFamily: "inherit",
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => { setDeleteId(p.id); setSaveMsg(null); }}
-                      style={{
-                        padding: "5px 10px", borderRadius: 6,
-                        border: `1px solid ${BORDER}`, backgroundColor: "transparent",
-                        color: ERROR, fontSize: 11, fontWeight: 600,
-                        cursor: "pointer", fontFamily: "inherit",
-                      }}
-                    >
-                      Del
-                    </button>
+                  {/* Bottom row: team + status + actions */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ color: TEXT_SECONDARY, fontSize: 12, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.teamName || "No team"}
+                      {p.fullName && p.name !== p.fullName && (
+                        <span style={{ color: TEXT_MUTED, marginLeft: 6 }}>({p.name})</span>
+                      )}
+                    </span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                      padding: "2px 6px", borderRadius: 4,
+                      backgroundColor: `${STATUS_COLORS[p.status] || STATUS_COLORS.available}18`,
+                      color: STATUS_COLORS[p.status] || STATUS_COLORS.available,
+                      textTransform: "uppercase" as const,
+                      flexShrink: 0,
+                    }}>
+                      {p.status || "available"}
+                    </span>
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      <button
+                        onClick={() => startEdit(p)}
+                        style={btnSmall}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => { setDeleteId(p.id); setSaveMsg(null); }}
+                        style={{ ...btnSmall, color: ERROR }}
+                      >
+                        Del
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
-            })
-          )}
+            })}
+          </div>
+        )}
 
-          {/* Footer count */}
-          {!loading && !error && (
-            <div style={{ padding: "10px 16px", fontSize: 11, color: TEXT_MUTED, borderTop: `1px solid ${BORDER}` }}>
-              Showing {filtered.length} of {players.length} players
-            </div>
-          )}
-        </div>
+        {/* Footer count */}
+        {!loading && !error && (
+          <div style={{ padding: "12px 0", fontSize: 11, color: TEXT_MUTED, textAlign: "center", marginTop: 8 }}>
+            Showing {filtered.length} of {players.length} players
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-// Shared input style
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 10px",
-  borderRadius: 6,
-  border: `1px solid ${BORDER}`,
-  backgroundColor: BG_SURFACE,
-  color: TEXT_PRIMARY,
-  fontSize: 13,
-  fontFamily: "'Outfit', system-ui, sans-serif",
-  outline: "none",
-};
-
-const btnGreen: React.CSSProperties = {
-  padding: "7px 18px",
-  borderRadius: 6,
-  border: "none",
-  background: `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_DIM} 100%)`,
-  color: "#000",
-  fontSize: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-  fontFamily: "'Outfit', system-ui, sans-serif",
-};
-
-const btnMuted: React.CSSProperties = {
-  padding: "7px 18px",
-  borderRadius: 6,
-  border: `1px solid ${BORDER}`,
-  backgroundColor: "transparent",
-  color: TEXT_MUTED,
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: "pointer",
-  fontFamily: "'Outfit', system-ui, sans-serif",
-};
-
-const btnDanger: React.CSSProperties = {
-  padding: "7px 18px",
-  borderRadius: 6,
-  border: "none",
-  backgroundColor: ERROR,
-  color: "#fff",
-  fontSize: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-  fontFamily: "'Outfit', system-ui, sans-serif",
-};
