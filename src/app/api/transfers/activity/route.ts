@@ -24,10 +24,11 @@ export async function GET(req: Request) {
         ? Number(gwIdRaw)
         : null;
 
-    // Build query for user_transfers
+    // Use select("*") — the column names match the migration but PostgREST
+    // schema cache can lag behind on explicit column lists
     let query = admin
       .from("user_transfers")
-      .select("id, user_id, gameweek_id, player_out_id, player_in_id, created_at")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(limit);
 

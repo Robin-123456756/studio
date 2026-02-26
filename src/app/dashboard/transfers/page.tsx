@@ -402,6 +402,7 @@ function TransfersPageInner() {
   }, [allPlayers, effectiveSquadIds, addPosition, searchQuery, sortKey]);
 
   function addPlayerToSquad(playerId: string) {
+    if (originalSquadIds.length >= 17) return;
     if (wouldExceedTeamLimit(playerId)) {
       const player = byId.get(playerId);
       const team = player?.teamName ?? player?.teamShort ?? "this team";
