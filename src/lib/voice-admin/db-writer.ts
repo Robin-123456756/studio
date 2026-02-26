@@ -1,4 +1,5 @@
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { calcPoints } from "./points-calculator";
 import type { ResolvedEntry, DBWriteResult } from "./types";
 
 /**
@@ -28,6 +29,51 @@ export async function writeToDatabase({
 }): Promise<DBWriteResult> {
   const supabase = getSupabaseServerOrThrow();
   const eventIds: number[] = [];
+
+  // 0. Auto-detect clean sheets from match score
+  const { data: matchInfo } = await supabase
+    .from("matches")
+    .select("home_team_uuid, away_team_uuid, home_goals, away_goals")
+    .eq("id", matchId)
+    .single();
+
+  const cleanSheetTeams = new Set<string>();
+  if (matchInfo?.away_goals === 0 && matchInfo?.home_team_uuid) {
+    cleanSheetTeams.add(matchInfo.home_team_uuid);
+  }
+  if (matchInfo?.home_goals === 0 && matchInfo?.away_team_uuid) {
+    cleanSheetTeams.add(matchInfo.away_team_uuid);
+  }
+
+  // Fetch team_id for all players if clean sheets are possible
+  const playerTeamMap = new Map<string, string>();
+  if (cleanSheetTeams.size > 0) {
+    const pIds = entries.map((e) => e.player.id);
+    const { data: playerRows } = await supabase
+      .from("players")
+      .select("id, team_id")
+      .in("id", pIds);
+    for (const p of playerRows ?? []) {
+      playerTeamMap.set(p.id, p.team_id);
+    }
+  }
+
+  // Inject clean_sheet into entries that qualify
+  for (const entry of entries) {
+    const teamId = playerTeamMap.get(entry.player.id);
+    const hasCS = teamId && cleanSheetTeams.has(teamId);
+    const alreadyHasCS = entry.pointsBreakdown.some((a) => a.action === "clean_sheet");
+    if (hasCS && !alreadyHasCS) {
+      const csPts = await calcPoints("clean_sheet", entry.player.position, entry.player.is_lady);
+      entry.pointsBreakdown.push({
+        action: "clean_sheet",
+        quantity: 1,
+        points_per_unit: csPts,
+        subtotal: csPts,
+      });
+      entry.totalPoints += csPts;
+    }
+  }
 
   // 1. Insert each stat event
   for (const entry of entries) {
