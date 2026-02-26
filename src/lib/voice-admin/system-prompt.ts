@@ -1,4 +1,4 @@
-export const VOICE_ADMIN_SYSTEM_PROMPT = `You are a fantasy soccer admin assistant for a local tournament. Your ONLY job is to extract structured match statistics from spoken admin input and return valid JSON.
+const BASE_PROMPT = `You are a fantasy soccer admin assistant for a local tournament. Your ONLY job is to extract structured match statistics from spoken admin input and return valid JSON.
 
 ## YOUR CONTEXT
 - This is a custom local league (not EPL/La Liga)
@@ -46,3 +46,18 @@ Respond with ONLY a JSON object. No commentary, no markdown.
 6. Process bulk entries in one response
 7. Never invent stats — only extract what was said
 8. If unintelligible: { "confidence": 0.0, "entries": [], "ambiguities": ["Could not understand"], "warnings": [] }`;
+
+/**
+ * Build the system prompt, optionally injecting a player roster
+ * so GPT can correct Whisper transcription errors.
+ */
+export function buildSystemPrompt(playerNames?: string[]): string {
+  const rosterBlock = playerNames && playerNames.length > 0
+    ? `\n\n## PLAYER ROSTER FOR THIS MATCH\nThese are the REAL player names. The transcript may contain misspellings or accent artifacts — always map to the closest name from this list:\n${playerNames.join(", ")}\n\nIMPORTANT: Use the EXACT spelling from this roster in your output, not the misspelled version from the transcript.`
+    : "";
+
+  return BASE_PROMPT + rosterBlock;
+}
+
+/** @deprecated Use buildSystemPrompt() instead */
+export const VOICE_ADMIN_SYSTEM_PROMPT = buildSystemPrompt();

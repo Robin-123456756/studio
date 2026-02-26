@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { VOICE_ADMIN_SYSTEM_PROMPT } from "./system-prompt";
+import { buildSystemPrompt } from "./system-prompt";
 import type { AIInterpretation, StatAction } from "./types";
 import { getOpenAIApiKey } from "@/lib/openai/api-key";
 
@@ -25,15 +25,17 @@ const VALID_ACTIONS = new Set<StatAction>([
  * Cost: ~$0.0003 per command (vs $0.01 with GPT-4o)
  */
 export async function interpretTranscript(
-  transcript: string
+  transcript: string,
+  playerNames?: string[]
 ): Promise<AIInterpretation> {
+  const systemPrompt = buildSystemPrompt(playerNames);
   const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",           // ← Cheap & fast, perfect for extraction
     temperature: 0.0,
     max_tokens: 2000,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: VOICE_ADMIN_SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       { role: "user", content: transcript },
     ],
   });

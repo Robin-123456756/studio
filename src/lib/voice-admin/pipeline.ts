@@ -22,7 +22,8 @@ import type {
 export async function processVoiceInput(
   audioBuffer: Buffer,
   mimeType: string,
-  matchId: number
+  matchId: number,
+  playerNames?: string[]
 ): Promise<PipelineResult> {
   const startTime = Date.now();
   const steps: PipelineStep[] = [];
@@ -37,7 +38,7 @@ export async function processVoiceInput(
 
   // STEP 2: AI INTERPRET
   const step2Start = Date.now();
-  const interpretation = await interpretTranscript(transcription.text);
+  const interpretation = await interpretTranscript(transcription.text, playerNames);
   steps.push({
     name: "interpretation",
     duration: Date.now() - step2Start,
@@ -65,8 +66,8 @@ export async function processVoiceInput(
 
   // STEP 3: FUZZY MATCH PLAYERS
   const step3Start = Date.now();
-  const playerNames = interpretation.entries.map((e) => e.player_name);
-  const matchResults = await matchPlayers(playerNames);
+  const spokenNames = interpretation.entries.map((e) => e.player_name);
+  const matchResults = await matchPlayers(spokenNames);
   steps.push({ name: "fuzzy_match", duration: Date.now() - step3Start });
 
   // STEP 4: CALCULATE POINTS & BUILD PREVIEW
@@ -129,11 +130,12 @@ export async function processVoiceInput(
  */
 export async function processTextInput(
   text: string,
-  matchId: number
+  matchId: number,
+  playerNames?: string[]
 ): Promise<PipelineResult> {
   const startTime = Date.now();
 
-  const interpretation = await interpretTranscript(text);
+  const interpretation = await interpretTranscript(text, playerNames);
 
   if (interpretation.confidence < 0.7) {
     return {
@@ -153,8 +155,8 @@ export async function processTextInput(
     };
   }
 
-  const playerNames = interpretation.entries.map((e) => e.player_name);
-  const matchResults = await matchPlayers(playerNames);
+  const spokenNames = interpretation.entries.map((e) => e.player_name);
+  const matchResults = await matchPlayers(spokenNames);
 
   const resolved: ResolvedEntry[] = [];
   const unresolved: UnresolvedEntry[] = [];
