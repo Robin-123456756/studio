@@ -183,28 +183,45 @@ export async function POST(req: Request) {
   }
 }
 
-// DELETE — remove an event
+// DELETE — remove an event or a scheduled match
 export async function DELETE(req: Request) {
   const { error: authErr } = await requireAdminSession();
   if (authErr) return authErr;
 
   try {
     const supabase = getSupabase();
-    const { id } = await req.json();
+    const { id, type } = await req.json();
 
     if (!id) {
-      return NextResponse.json({ error: "Event id is required" }, { status: 400 });
+      return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    // Try deleting from league_events first
+    // Delete a scheduled (unplayed) match
+    if (type === "match") {
+      const { data: match, error: findErr } = await supabase
+        .from("matches")
+        .select("id, is_played")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+      if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
+      if (match.is_played) return NextResponse.json({ error: "Cannot delete a played match" }, { status: 400 });
+
+      const { error: delErr } = await supabase.from("matches").delete().eq("id", id);
+      if (delErr) throw delErr;
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Default: delete from league_events
     const { error: eError } = await supabase
       .from("league_events")
       .delete()
       .eq("id", id);
 
     if (eError) {
-      // If not in league_events, might be a match — don't delete matches from here
-      return NextResponse.json({ error: "Cannot delete league matches from here. Use Supabase dashboard." }, { status: 400 });
+      return NextResponse.json({ error: "Failed to delete event" }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });
