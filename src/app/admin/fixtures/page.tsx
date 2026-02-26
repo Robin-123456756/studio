@@ -116,10 +116,6 @@ export default function AdminFixturesPage() {
     const kickoffIso = matchForm.kickoff_time
       ? toIsoAssumingEAT(matchForm.kickoff_time)
       : null;
-    if (matchForm.kickoff_time && !kickoffIso) {
-      setFeedback({ type: "error", message: "Enter a valid kickoff date/time." });
-      return;
-    }
     setSaving(true);
     setFeedback(null);
     try {
@@ -157,10 +153,6 @@ export default function AdminFixturesPage() {
     const kickoffIso = eventForm.kickoff_time
       ? toIsoAssumingEAT(eventForm.kickoff_time)
       : null;
-    if (eventForm.kickoff_time && !kickoffIso) {
-      setFeedback({ type: "error", message: "Enter a valid event date/time." });
-      return;
-    }
     setSaving(true);
     setFeedback(null);
     try {
@@ -365,7 +357,7 @@ export default function AdminFixturesPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
               <div>
-                <label style={labelStyle}>Kickoff Time (EAT)</label>
+                <label style={labelStyle}>Kickoff Time (optional, EAT)</label>
                 <input
                   type="datetime-local"
                   value={matchForm.kickoff_time}
@@ -374,7 +366,7 @@ export default function AdminFixturesPage() {
                 />
               </div>
               <div>
-                <label style={labelStyle}>Venue</label>
+                <label style={labelStyle}>Venue (optional)</label>
                 <input
                   type="text"
                   value={matchForm.venue}
@@ -473,7 +465,7 @@ export default function AdminFixturesPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
               <div>
-                <label style={labelStyle}>Date & Time (EAT)</label>
+                <label style={labelStyle}>Date & Time (optional, EAT)</label>
                 <input
                   type="datetime-local"
                   value={eventForm.kickoff_time}
@@ -482,7 +474,7 @@ export default function AdminFixturesPage() {
                 />
               </div>
               <div>
-                <label style={labelStyle}>Venue</label>
+                <label style={labelStyle}>Venue (optional)</label>
                 <input
                   type="text"
                   value={eventForm.venue}

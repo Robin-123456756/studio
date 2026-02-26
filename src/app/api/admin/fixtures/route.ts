@@ -133,10 +133,7 @@ export async function POST(req: Request) {
 
       if (kickoff_time) {
         const kickoffIso = toIsoAssumingEAT(kickoff_time);
-        if (!kickoffIso) {
-          return NextResponse.json({ error: "Invalid kickoff_time." }, { status: 400 });
-        }
-        insertData.kickoff_time = kickoffIso;
+        if (kickoffIso) insertData.kickoff_time = kickoffIso;
       }
 
       const { data, error } = await supabase
@@ -167,10 +164,7 @@ export async function POST(req: Request) {
 
       if (kickoff_time) {
         const kickoffIso = toIsoAssumingEAT(kickoff_time);
-        if (!kickoffIso) {
-          return NextResponse.json({ error: "Invalid kickoff_time." }, { status: 400 });
-        }
-        insertData.event_time = kickoffIso;
+        if (kickoffIso) insertData.event_time = kickoffIso;
       }
 
       const { data, error } = await supabase
