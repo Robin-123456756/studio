@@ -74,10 +74,11 @@ function dateKey(iso: string) {
   return d.toISOString().slice(0, 10);
 }
 
-function groupByDate(fixtures: ApiFixture[]) {
+function groupByDate(fixtures: ApiFixture[], deadlineTime: string | null) {
   const map = new Map<string, ApiFixture[]>();
   for (const f of fixtures) {
-    const key = f.kickoff_time ? dateKey(f.kickoff_time) : "TBD";
+    const ko = f.kickoff_time ?? deadlineTime;
+    const key = ko ? dateKey(ko) : "TBD";
     const arr = map.get(key) ?? [];
     arr.push(f);
     map.set(key, arr);
@@ -164,7 +165,8 @@ export default function FixturesPage() {
     })();
   }, [gwId]);
 
-  const grouped = React.useMemo(() => groupByDate(fixtures), [fixtures]);
+  const deadlineTime = activeGw?.deadline_time ?? null;
+  const grouped = React.useMemo(() => groupByDate(fixtures, deadlineTime), [fixtures, deadlineTime]);
 
   return (
     <div className="space-y-5 animate-in fade-in-50">
@@ -234,7 +236,9 @@ export default function FixturesPage() {
         grouped.map(([date, games]) => (
           <div key={date} className="space-y-3">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              {date === "TBD" ? "Date TBD" : formatDate(games[0].kickoff_time!)}
+              {date === "TBD"
+                ? "Date TBD"
+                : formatDate(games[0].kickoff_time ?? deadlineTime!)}
             </h3>
 
             {games.map((fixture) => {
@@ -245,7 +249,11 @@ export default function FixturesPage() {
                     {/* Time + Status */}
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>
-                        {fixture.kickoff_time ? formatTime(fixture.kickoff_time) : "TBD"}
+                        {fixture.kickoff_time
+                          ? formatTime(fixture.kickoff_time)
+                          : deadlineTime
+                          ? formatDate(deadlineTime)
+                          : "TBD"}
                         {fixture.venue ? ` • ${fixture.venue}` : ""}
                       </span>
                       <Badge
@@ -278,9 +286,9 @@ export default function FixturesPage() {
 
                       {/* Score or VS */}
                       <div className="shrink-0 mx-4 text-center min-w-[56px]">
-                        {hasScore ? (
+                        {hasScore && (fixture.home_goals != null || fixture.away_goals != null) ? (
                           <div className="text-lg font-extrabold tabular-nums">
-                            {fixture.home_goals ?? 0} - {fixture.away_goals ?? 0}
+                            {fixture.home_goals ?? 0} – {fixture.away_goals ?? 0}
                           </div>
                         ) : (
                           <div className="text-xs font-semibold text-muted-foreground uppercase">
