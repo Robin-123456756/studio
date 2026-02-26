@@ -92,8 +92,7 @@ function statusBadgeVariant(status: string): "default" | "destructive" | "second
 }
 
 function statusLabel(status: string) {
-  if (status === "final") return "FT";
-  if (status === "played") return "Played";
+  if (status === "final" || status === "played") return "FT";
   return "Scheduled";
 }
 
