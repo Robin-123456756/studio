@@ -117,7 +117,9 @@ type StatPlayer = {
 /* ---------------- helpers ---------------- */
 
 function formatDateHeading(yyyyMmDd: string) {
+  if (!yyyyMmDd || yyyyMmDd === "0000-00-00") return "Date TBD";
   const d = new Date(`${yyyyMmDd}T00:00:00`);
+  if (isNaN(d.getTime())) return "Date TBD";
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
     day: "2-digit",
@@ -145,9 +147,11 @@ function groupByDate(games: UiGame[]) {
     arr.push(g);
     map.set(g.date, arr);
   }
-  return Array.from(map.entries()).sort(
-    (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
-  );
+  return Array.from(map.entries()).sort((a, b) => {
+    const ta = new Date(a[0]).getTime() || Infinity;
+    const tb = new Date(b[0]).getTime() || Infinity;
+    return ta - tb;
+  });
 }
 
 function toUgDateKey(iso: string) {
