@@ -62,8 +62,8 @@ export async function GET(req: Request) {
     const userIds = new Set<string>();
 
     for (const t of transfers) {
-      if (t.player_out_id) playerIds.add(t.player_out_id);
-      if (t.player_in_id) playerIds.add(t.player_in_id);
+      if (t.out_player_id) playerIds.add(t.out_player_id);
+      if (t.in_player_id) playerIds.add(t.in_player_id);
       if (t.user_id) userIds.add(t.user_id);
     }
 
@@ -100,13 +100,13 @@ export async function GET(req: Request) {
 
     // Build enriched response
     const enriched = transfers.map((t) => {
-      const pOut = playerMap.get(t.player_out_id) ?? {
+      const pOut = playerMap.get(t.out_player_id) ?? {
         name: "Unknown",
         webName: "Unknown",
         position: "",
         teamShort: "",
       };
-      const pIn = playerMap.get(t.player_in_id) ?? {
+      const pIn = playerMap.get(t.in_player_id) ?? {
         name: "Unknown",
         webName: "Unknown",
         position: "",
