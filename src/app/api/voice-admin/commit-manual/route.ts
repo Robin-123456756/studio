@@ -40,29 +40,39 @@ export async function POST(request: NextRequest) {
     const playerIds = events.map((e) => e.playerId);
     const { data: players, error: playerErr } = await supabase
       .from("players")
-      .select("id, name, web_name, position, is_lady")
+      .select("id, name, web_name, position, is_lady, team_id")
       .in("id", playerIds);
 
     if (playerErr) throw new Error(`Failed to fetch players: ${playerErr.message}`);
 
-    const playerMap = new Map<string, { position: string; is_lady: boolean; name: string }>();
+    const playerMap = new Map<string, { position: string; is_lady: boolean; name: string; team_id: string }>();
     for (const p of players || []) {
       playerMap.set(p.id, {
         position: p.position,
         is_lady: p.is_lady ?? false,
         name: p.web_name || p.name,
+        team_id: p.team_id,
       });
     }
 
-    // 2. Get gameweek_id from the match
+    // 2. Get match info (gameweek, scores, teams) for clean sheet detection
     const { data: matchRow, error: matchErr } = await supabase
       .from("matches")
-      .select("gameweek_id")
+      .select("gameweek_id, home_team_uuid, away_team_uuid, home_goals, away_goals")
       .eq("id", matchId)
       .single();
 
     if (matchErr) throw new Error(`Failed to fetch match: ${matchErr.message}`);
     const gwId = matchRow?.gameweek_id;
+
+    // Determine which teams kept a clean sheet
+    const cleanSheetTeams = new Set<string>();
+    if (matchRow?.away_goals === 0 && matchRow?.home_team_uuid) {
+      cleanSheetTeams.add(matchRow.home_team_uuid); // home conceded 0
+    }
+    if (matchRow?.home_goals === 0 && matchRow?.away_team_uuid) {
+      cleanSheetTeams.add(matchRow.away_team_uuid); // away conceded 0
+    }
 
     // 3. Process each player's events
     const eventIds: number[] = [];
@@ -75,9 +85,16 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Calculate points for this player's actions
+      // Auto-inject clean_sheet if this player's team kept a clean sheet
+      const hasCleanSheet = cleanSheetTeams.has(player.team_id);
+      const alreadyHasCS = event.actions.some((a) => a.action === "clean_sheet");
+      const finalActions = hasCleanSheet && !alreadyHasCS
+        ? [...event.actions, { action: "clean_sheet" as const, quantity: 1 }]
+        : event.actions;
+
+      // Calculate points for this player's actions (including auto clean sheet)
       const { total, breakdown } = await calcTotalPoints(
-        event.actions,
+        finalActions,
         player.position,
         player.is_lady
       );
