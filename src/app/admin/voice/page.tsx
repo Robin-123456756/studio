@@ -86,6 +86,7 @@ export default function VoiceAdminPage() {
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
   const [pipelineResult, setPipelineResult] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [matchError, setMatchError] = useState("");
 
@@ -226,10 +227,10 @@ export default function VoiceAdminPage() {
       </div>
 
       <main>
-        {view === "manual" && <ManualView matchId={selectedMatchId} />}
+        {view === "manual" && <ManualView matchId={selectedMatchId} onSaved={() => setHistoryRefreshKey(k => k + 1)} />}
         {view === "capture" && <CaptureView matchId={selectedMatchId} onResult={handleResult} showLogout={!!session?.user} />}
         {view === "confirm" && pipelineResult && <ConfirmView pipelineResult={pipelineResult} matchId={selectedMatchId} onConfirm={handleConfirm} onCancel={handleCancel} />}
-        {view === "history" && <HistoryView history={history} />}
+        {view === "history" && <HistoryView inMemoryHistory={history} refreshKey={historyRefreshKey} />}
         {view === "scoring" && <ScoringView matchesByGw={matchesByGw} />}
       </main>
     </div>
@@ -692,9 +693,26 @@ function ConfirmView({ pipelineResult, matchId, onConfirm, onCancel }: { pipelin
 // ═══════════════════════════════════════════════════════════
 // HISTORY VIEW
 // ═══════════════════════════════════════════════════════════
-function HistoryView({ history }: { history: any[] }) {
+function HistoryView({ inMemoryHistory, refreshKey }: { inMemoryHistory: any[]; refreshKey: number }) {
+  const [dbEntries, setDbEntries] = useState<any[]>([]);
+  const [loadingDb, setLoadingDb] = useState(true);
   const [undoing, setUndoing] = useState<number | null>(null);
   const [undone, setUndone] = useState<Set<number>>(new Set());
+
+  // Load history from voice_audit_log via API
+  const loadHistory = useCallback(async () => {
+    setLoadingDb(true);
+    try {
+      const res = await fetch("/api/voice-admin/audit?limit=50");
+      const json = await res.json();
+      if (res.ok) setDbEntries(json.entries ?? []);
+    } catch {
+      // non-critical
+    }
+    setLoadingDb(false);
+  }, []);
+
+  useEffect(() => { loadHistory(); }, [loadHistory, refreshKey]);
 
   const handleUndo = useCallback(async (auditLogId: number, index: number) => {
     if (!auditLogId || undone.has(index)) return;
@@ -717,7 +735,13 @@ function HistoryView({ history }: { history: any[] }) {
     setUndoing(null);
   }, [undone]);
 
-  if (history.length === 0) return (
+  if (loadingDb) return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "60px 16px", textAlign: "center" }}>
+      <p style={{ color: TEXT_MUTED, fontSize: 14 }}>Loading history...</p>
+    </div>
+  );
+
+  if (dbEntries.length === 0 && inMemoryHistory.length === 0) return (
     <div style={{ maxWidth: 560, margin: "0 auto", padding: "60px 16px", textAlign: "center" }}>
       <p style={{ fontSize: 48, marginBottom: 16 }}>📋</p>
       <p style={{ color: TEXT_MUTED, fontSize: 14 }}>No committed entries yet.</p>
@@ -726,22 +750,29 @@ function HistoryView({ history }: { history: any[] }) {
 
   return (
     <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px" }}>
-      <h2 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700 }}>Session History ({history.length})</h2>
-      {history.map((h, i) => {
-        const isUndone = undone.has(i);
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>History ({dbEntries.length})</h2>
+        <button onClick={loadHistory} style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 6, padding: "4px 10px", color: TEXT_MUTED, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          Refresh
+        </button>
+      </div>
+      {dbEntries.map((entry, i) => {
+        const isUndone = entry.was_undone || undone.has(i);
         const isUndoing = undoing === i;
-        const auditLogId = h.result?.auditLogId;
+        const auditLogId = entry.audit_id;
         return (
-          <div key={i} style={{ padding: "14px 16px", marginBottom: 8, borderRadius: 10, backgroundColor: BG_CARD, border: `1px solid ${isUndone ? ERROR + "40" : BORDER}`, opacity: isUndone ? 0.6 : 1 }}>
+          <div key={entry.audit_id || i} style={{ padding: "14px 16px", marginBottom: 8, borderRadius: 10, backgroundColor: BG_CARD, border: `1px solid ${isUndone ? ERROR + "40" : BORDER}`, opacity: isUndone ? 0.6 : 1 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: TEXT_MUTED, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{new Date(h.timestamp).toLocaleTimeString()}</span>
+              <span style={{ fontSize: 11, color: TEXT_MUTED, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
+                {new Date(entry.created_at).toLocaleString("en-UG", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}
+              </span>
               <span style={{ fontSize: 11, color: isUndone ? ERROR : SUCCESS, fontWeight: 600 }}>
                 {isUndone ? "UNDONE" : "COMMITTED"}
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: 13 }}>&ldquo;{h.transcript}&rdquo;</p>
+            <p style={{ margin: 0, fontSize: 13 }}>{entry.transcript}</p>
             <p style={{ margin: "4px 0 0", fontSize: 11, color: TEXT_MUTED }}>
-              Match #{h.matchId} · {h.result?.message || "Saved"}
+              {entry.event_count} event{entry.event_count !== 1 ? "s" : ""} · by {entry.admin_name}
             </p>
             {auditLogId && !isUndone && (
               <button
@@ -955,7 +986,7 @@ const POS_SHORT: Record<string, string> = {
   Goalkeeper: "GKP", Defender: "DEF", Midfielder: "MID", Forward: "FWD",
 };
 
-function ManualView({ matchId }: { matchId: number | null }) {
+function ManualView({ matchId, onSaved }: { matchId: number | null; onSaved?: () => void }) {
   const [homeTeam, setHomeTeam] = useState<{ name: string; short_name: string; players: ManualPlayer[] } | null>(null);
   const [awayTeam, setAwayTeam] = useState<{ name: string; short_name: string; players: ManualPlayer[] } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1057,6 +1088,7 @@ function ManualView({ matchId }: { matchId: number | null }) {
       const data = await res.json();
       if (res.ok) {
         setSaveResult({ success: true, message: `Saved ${data.eventsCreated} events for ${data.playersUpdated} players` });
+        onSaved?.();
       } else {
         setSaveResult({ success: false, message: data.message || data.error || "Save failed" });
       }
@@ -1064,7 +1096,7 @@ function ManualView({ matchId }: { matchId: number | null }) {
       setSaveResult({ success: false, message: "Network error" });
     }
     setSaving(false);
-  }, [matchId, playerEvents, playersWithEvents]);
+  }, [matchId, playerEvents, playersWithEvents, onSaved]);
 
   // Helper: has any non-appearance event
   const hasEvents = (ev: PlayerEvents) =>

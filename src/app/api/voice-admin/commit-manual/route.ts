@@ -130,19 +130,24 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Create audit log entry
-    await supabase.from("voice_audit_log").insert({
-      admin_id: adminId,
-      transcript: `Manual entry: ${totalPlayersUpdated} players`,
-      ai_interpretation: { input_method: "manual", matchId },
-      was_confirmed: true,
-      match_id: matchId,
-      events_created: eventIds,
-    });
+    const { data: auditRow } = await supabase
+      .from("voice_audit_log")
+      .insert({
+        admin_id: adminId,
+        transcript: `Manual entry: ${totalPlayersUpdated} players`,
+        ai_interpretation: { input_method: "manual", matchId },
+        was_confirmed: true,
+        match_id: matchId,
+        events_created: eventIds,
+      })
+      .select("id")
+      .single();
 
     return NextResponse.json({
       success: true,
       playersUpdated: totalPlayersUpdated,
       eventsCreated: eventIds.length,
+      auditLogId: auditRow?.id ?? null,
     });
   } catch (error: any) {
     console.error("[Manual] Commit error:", error);
