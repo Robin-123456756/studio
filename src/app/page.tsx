@@ -1,5 +1,26 @@
-import { redirect } from 'next/navigation';
+import type { Metadata } from "next";
+import { LandingContent } from "@/components/landing-content";
+
+export const metadata: Metadata = {
+  title: "The Budo League — Fantasy Football for Kampala's Finest",
+  description:
+    "Build your dream squad from real Budo League players. Set captains, make transfers, and compete with friends every gameweek.",
+  openGraph: {
+    title: "The Budo League — Fantasy Football",
+    description:
+      "Pick your squad, earn points from real match stats, and climb the leaderboard. Join Kampala's premier fantasy football league.",
+    images: [{ url: "/icon.png", width: 512, height: 512 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "The Budo League — Fantasy Football",
+    description:
+      "Pick your squad, earn points from real match stats, and climb the leaderboard.",
+    images: ["/icon.png"],
+  },
+};
 
 export default function Home() {
-  redirect('/dashboard');
+  return <LandingContent />;
 }
