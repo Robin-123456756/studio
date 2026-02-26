@@ -23,8 +23,6 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const teamId = url.searchParams.get("team_id");
     const idsParam = url.searchParams.get("ids");
-    const dynamicPoints = url.searchParams.get("dynamic_points") === "1";
-
     let query = supabase
       .from("players")
       .select(
@@ -126,66 +124,57 @@ export async function GET(req: Request) {
       }
     }
 
-    let totalsMap = new Map<
+    // Always compute points from player_stats (source of truth)
+    const totalsMap = new Map<
       string,
       { points: number; goals: number; assists: number; appearances: number }
     >();
-    // Form = total points / number of gameweeks played
     const formMap = new Map<string, string>();
+
     if (playerIds.length > 0) {
       const { data: allStats } = await supabase
         .from("player_stats")
-        .select("player_id, points, gameweek_id")
+        .select("player_id, points, goals, assists, gameweek_id")
         .in("player_id", playerIds);
 
       if (allStats && allStats.length > 0) {
-        const playerData = new Map<string, { total: number; gws: Set<number> }>();
+        const gwSets = new Map<string, Set<number>>();
 
         for (const s of allStats) {
           const pid = String((s as any).player_id);
           const gwId = (s as any).gameweek_id;
           const pts = (s as any).points ?? 0;
+          const goals = (s as any).goals ?? 0;
+          const assists = (s as any).assists ?? 0;
 
-          const existing = playerData.get(pid) ?? { total: 0, gws: new Set() };
-          existing.total += pts;
-          existing.gws.add(gwId);
-          playerData.set(pid, existing);
-        }
-
-        for (const [pid, { total, gws }] of playerData) {
-          const gwCount = gws.size;
-          formMap.set(pid, gwCount > 0 ? (total / gwCount).toFixed(1) : "0.0");
-        }
-      }
-    }
-
-    if (dynamicPoints) {
-      if (playerIds.length > 0) {
-        const { data: statsData } = await supabase
-          .from("player_stats")
-          .select("player_id, points, goals, assists")
-          .in("player_id", playerIds);
-
-        for (const s of statsData ?? []) {
-          const pid = String((s as any).player_id);
           const existing = totalsMap.get(pid) ?? {
             points: 0,
             goals: 0,
             assists: 0,
             appearances: 0,
           };
-          existing.points += (s as any).points ?? 0;
-          existing.goals += (s as any).goals ?? 0;
-          existing.assists += (s as any).assists ?? 0;
+          existing.points += pts;
+          existing.goals += goals;
+          existing.assists += assists;
           existing.appearances += 1;
           totalsMap.set(pid, existing);
+
+          const gws = gwSets.get(pid) ?? new Set();
+          gws.add(gwId);
+          gwSets.set(pid, gws);
+        }
+
+        for (const [pid, gws] of gwSets) {
+          const total = totalsMap.get(pid)?.points ?? 0;
+          const gwCount = gws.size;
+          formMap.set(pid, gwCount > 0 ? (total / gwCount).toFixed(1) : "0.0");
         }
       }
     }
 
     const players = (data ?? []).map((p: any) => {
       const pid = String(p.id);
-      const totals = dynamicPoints ? totalsMap.get(pid) : null;
+      const totals = totalsMap.get(pid) ?? null;
       const isLady = p.is_lady ?? false;
       const ladyMultiplier = isLady ? 2 : 1;
       const rawPoints = totals ? totals.points : p.total_points ?? 0;
