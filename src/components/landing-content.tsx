@@ -169,7 +169,7 @@ export function LandingContent() {
   if (!authChecked) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-        <img src="/icon.png" alt="Budo League" className="h-[104px] w-[104px] object-contain animate-in fade-in zoom-in-90 duration-700" />
+        <img src="/tbl-logo.png" alt="The Budo League" className="h-auto w-[180px] object-contain dark:brightness-0 dark:invert animate-in fade-in zoom-in-90 duration-700" />
       </div>
     );
   }

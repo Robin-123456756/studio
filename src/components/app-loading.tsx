@@ -5,36 +5,22 @@ import * as React from "react";
 export function AppLoading() {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-      {/* Subtle branded radial glow */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(600px circle at 50% 45%, hsl(var(--primary) / 0.07), transparent 70%)",
-        }}
-      />
-
-      {/* Logo */}
-      <div className="relative z-10 mb-6 animate-in fade-in zoom-in-90 duration-700 ease-out">
+      {/* Logo — no ring, no background */}
+      <div className="mb-6 animate-in fade-in zoom-in-90 duration-700 ease-out">
         <img
-          src="/icon.png"
-          alt="Budo League"
-          className="h-[104px] w-[104px] object-contain"
+          src="/tbl-logo.png"
+          alt="The Budo League"
+          className="h-auto w-[180px] object-contain dark:brightness-0 dark:invert"
         />
       </div>
 
-      {/* Brand name */}
-      <h1 className="relative z-10 text-[1.35rem] font-bold tracking-[0.12em] uppercase animate-in fade-in slide-in-from-bottom-2 duration-700 fill-mode-both delay-200">
-        THE BUDO LEAGUE
-      </h1>
-
       {/* Tagline */}
-      <p className="relative z-10 mt-1.5 text-xs font-medium text-muted-foreground tracking-wide animate-in fade-in duration-700 fill-mode-both delay-500">
+      <p className="mt-1.5 text-xs font-medium text-muted-foreground tracking-wide animate-in fade-in duration-700 fill-mode-both delay-300">
         Fantasy Football
       </p>
 
       {/* Progress sweep */}
-      <div className="relative z-10 mt-8 h-[2px] w-44 overflow-hidden rounded-full bg-border/50 animate-in fade-in duration-500 fill-mode-both delay-700">
+      <div className="mt-8 h-[2px] w-44 overflow-hidden rounded-full bg-border/50 animate-in fade-in duration-500 fill-mode-both delay-500">
         <div
           className="absolute inset-y-0 w-2/5 rounded-full"
           style={{
