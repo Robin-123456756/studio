@@ -49,8 +49,9 @@ export async function calcPoints(
     console.warn(`[Points] No rule for action="${action}" position="${position}"`);
   }
 
-  // Business rule: lady players get 2x on ALL actions
-  return isLady ? basePoints * 2 : basePoints;
+  // Business rule: lady players get 2x on positive actions only
+  // Negative actions (yellow, red, own_goal, pen_miss) stay at normal value
+  return isLady && basePoints > 0 ? basePoints * 2 : basePoints;
 }
 
 /**

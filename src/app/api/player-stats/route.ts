@@ -230,9 +230,10 @@ export async function GET(req: Request) {
         const existing = statsLookup.get(key);
 
         if (existing) {
-          // Merge into existing stat row
-          if (isYellow) existing.yellowCards = (existing.yellowCards || 0) + qty;
-          if (isRed) existing.redCards = (existing.redCards || 0) + qty;
+          // Only merge if the existing row doesn't already have this card type
+          // (player_stats may already include the same data)
+          if (isYellow && !existing.yellowCards) existing.yellowCards = qty;
+          if (isRed && !existing.redCards) existing.redCards = qty;
         } else {
           // Create a new stat entry for this player+gameweek
           const p = playersMap.get(ev.player_id);

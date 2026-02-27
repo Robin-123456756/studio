@@ -207,7 +207,7 @@ export async function GET(req: Request) {
 
     for (const r of rowsMap.values()) {
       r.GD = r.GF - r.GA;
-      r.Pts = r.W * 3 + r.D + r.LP;
+      r.Pts = r.W * 3 + r.D;
     }
 
     const rows = Array.from(rowsMap.values()).sort((a, b) => {
