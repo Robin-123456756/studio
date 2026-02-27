@@ -13,8 +13,8 @@ const startupLinksFile = resolve(root, "src/app/pwa-startup-images.tsx");
 
 const splashPadding = "24%";
 const iconPadding = "10%";
-const splashBackground = "#ffffff";
-const iconBackground = "#ffffff";
+const splashBackground = "#b91c1c";
+const iconBackground = "#b91c1c";
 
 const iconArgs = [
   inputIcon,
