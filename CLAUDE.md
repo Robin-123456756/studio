@@ -129,6 +129,10 @@ psql -f /tmp/query.sql
 - **Formations**: 1 GK, 2-3 DEF, 3-5 MID, 2-3 FWD (total 10 starters)
 - **Lady rule**: Exactly 1 lady forward must start. 2 lady forwards in full squad.
   Lady players can ONLY be forwards. Lady swaps only with lady.
+- **Lady points multiplier**: Lady players get 2x on ALL positive point actions
+  (goals, assists, appearances, clean sheets, saves). Negative actions (yellow cards,
+  red cards, own goals, pen misses) stay at normal value. This 2x MUST apply on
+  EVERY page and API route that displays lady player points — no exceptions.
 - **GK rule**: GK swaps only with GK
 - **Captain**: 2x points. Triple Captain chip: 3x points.
 - **Chips**: Bench Boost, Triple Captain, Wildcard, Free Hit — once per season each

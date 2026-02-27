@@ -47,14 +47,16 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. Map response
+    // 3. Map response (lady players get 2x on points)
     const stats: any[] = (data ?? []).map((s: any) => {
       const p = playersMap.get(s.player_id);
+      const isLady = p?.is_lady ?? false;
+      const rawPoints = s.points ?? 0;
       return {
         id: s.id,
         playerId: s.player_id,
         gameweekId: s.gameweek_id,
-        points: s.points ?? 0,
+        points: isLady ? rawPoints * 2 : rawPoints,
         goals: s.goals ?? 0,
         assists: s.assists ?? 0,
         cleanSheet: s.clean_sheet ?? false,
