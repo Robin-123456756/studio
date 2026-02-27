@@ -415,7 +415,7 @@ export default function DashboardPage() {
             alt="The Budo League"
             width={120}
             height={56}
-            className="h-auto w-[100px] object-contain dark:brightness-0 dark:invert shrink-0"
+            className="h-auto w-[100px] object-contain mix-blend-multiply dark:invert dark:mix-blend-screen shrink-0"
             priority
           />
 

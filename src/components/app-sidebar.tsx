@@ -81,7 +81,7 @@ export function AppSidebar() {
               <img
                 src="/icon.png"
                 alt="Budo League"
-                className="h-8 w-auto object-contain scale-[1.6] dark:brightness-0 dark:invert"
+                className="h-8 w-auto object-contain scale-[1.6] mix-blend-multiply dark:invert dark:mix-blend-screen"
                 style={{ transformOrigin: "center" }}
                 loading="eager"
               />

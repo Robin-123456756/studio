@@ -30,18 +30,11 @@ export default function LaunchDemoPage() {
   if (phase === "splash") {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(600px circle at 50% 45%, hsl(var(--primary) / 0.07), transparent 70%)",
-          }}
-        />
         <div className="relative z-10 animate-in fade-in zoom-in-90 duration-700 ease-out">
           <img
-            src="/icon.png"
+            src="/tbl-logo.png"
             alt="Budo League"
-            className="h-[104px] w-[104px] object-contain"
+            className="h-auto w-[180px] object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
           />
         </div>
       </div>

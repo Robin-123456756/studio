@@ -10,7 +10,7 @@ export function AppLoading() {
         <img
           src="/tbl-logo.png"
           alt="The Budo League"
-          className="h-auto w-[180px] object-contain dark:brightness-0 dark:invert"
+          className="h-auto w-[180px] object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
         />
       </div>
 
