@@ -169,14 +169,15 @@ function toUgDateKey(iso: string) {
   return `${y}-${m}-${da}`;
 }
 
-function mapApiMatchToUi(m: ApiMatch): UiGame {
+function mapApiMatchToUi(m: ApiMatch, deadlineFallback?: string | null): UiGame {
   const homeName = m.home_team?.name ?? "Home";
   const awayName = m.away_team?.name ?? "Away";
   const kickoffIso = m.kickoff_time ?? null;
+  const fallbackIso = kickoffIso ?? deadlineFallback ?? null;
 
   return {
     id: String(m.id),
-    date: kickoffIso ? toUgDateKey(kickoffIso) : "0000-00-00",
+    date: fallbackIso ? toUgDateKey(fallbackIso) : "0000-00-00",
     time: kickoffIso ? toUgTime(kickoffIso) : "—",
     kickoffIso,
     status: m.is_played ? "completed" : "scheduled",
@@ -241,7 +242,7 @@ function MatchRow({ g }: { g: UiGame }) {
                 {g.score1 ?? 0} - {g.score2 ?? 0}
               </div>
               <div className="mt-0.5 text-[9px] font-semibold text-muted-foreground">
-                {g.isFinal ? "FT" : "Played"}
+                FT
               </div>
             </>
           ) : (
@@ -381,7 +382,8 @@ export default function MatchesPage() {
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load matches");
 
-        const mapped = (json.matches as ApiMatch[]).map(mapApiMatchToUi);
+        const activeDeadline = allGws.find((g) => g.id === gwId)?.deadline_time ?? null;
+        const mapped = (json.matches as ApiMatch[]).map((m) => mapApiMatchToUi(m, activeDeadline));
         setGames(mapped);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load matches");
@@ -390,7 +392,7 @@ export default function MatchesPage() {
         setLoading(false);
       }
     })();
-  }, [gwId]);
+  }, [gwId, allGws]);
 
   // Fetch standings
   React.useEffect(() => {
