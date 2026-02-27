@@ -16,13 +16,11 @@ export function AppLoading() {
 
       {/* Logo */}
       <div className="relative z-10 mb-6 animate-in fade-in zoom-in-90 duration-700 ease-out">
-        <div className="flex h-[104px] w-[104px] items-center justify-center overflow-hidden rounded-[1.75rem] bg-card shadow-xl ring-1 ring-primary/40">
-          <img
-            src="/icon.png"
-            alt="Budo League"
-            className="h-[88px] w-[88px] object-contain"
-          />
-        </div>
+        <img
+          src="/icon.png"
+          alt="Budo League"
+          className="h-[104px] w-[104px] object-contain"
+        />
       </div>
 
       {/* Brand name */}

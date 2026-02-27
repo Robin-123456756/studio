@@ -85,6 +85,7 @@ function Skeleton({ className = "" }: { className?: string }) {
 /* ------------------------------------------------------------------ */
 export function LandingContent() {
   const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const [stats, setStats] = useState<LiveStats | null>(null);
   const [standings, setStandings] = useState<StandingsRow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +93,11 @@ export function LandingContent() {
   // Redirect logged-in users straight to dashboard
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace("/dashboard");
+      if (session) {
+        router.replace("/dashboard");
+      } else {
+        setAuthChecked(true);
+      }
     });
   }, [router]);
 
@@ -159,6 +164,15 @@ export function LandingContent() {
 
     fetchAll();
   }, []);
+
+  // Show nothing while checking auth — prevents flash for logged-in users
+  if (!authChecked) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+        <img src="/icon.png" alt="Budo League" className="h-[104px] w-[104px] object-contain animate-in fade-in zoom-in-90 duration-700" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
