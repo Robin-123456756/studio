@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Users, Target, BarChart3, Trophy, ChevronRight } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -82,9 +84,17 @@ function Skeleton({ className = "" }: { className?: string }) {
 /*  Main component                                                    */
 /* ------------------------------------------------------------------ */
 export function LandingContent() {
+  const router = useRouter();
   const [stats, setStats] = useState<LiveStats | null>(null);
   const [standings, setStandings] = useState<StandingsRow[] | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Redirect logged-in users straight to dashboard
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace("/dashboard");
+    });
+  }, [router]);
 
   useEffect(() => {
     async function fetchAll() {

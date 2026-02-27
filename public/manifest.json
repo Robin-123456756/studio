@@ -2,7 +2,7 @@
   "name": "The Budo League",
   "short_name": "TBL",
   "description": "The Budo League fantasy & fixtures app.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
