@@ -133,6 +133,9 @@ psql -f /tmp/query.sql
   (goals, assists, appearances, clean sheets, saves). Negative actions (yellow cards,
   red cards, own goals, pen misses) stay at normal value. This 2x MUST apply on
   EVERY page and API route that displays lady player points — no exceptions.
+- **GK clean sheet rule**: A goalkeeper gets a clean sheet ONLY if they have an
+  appearance (player_stats entry) for that gameweek AND their team conceded 0 goals.
+  Never award clean sheets to GKs who didn't play. Never create phantom stat entries.
 - **GK rule**: GK swaps only with GK
 - **Captain**: 2x points. Triple Captain chip: 3x points.
 - **Chips**: Bench Boost, Triple Captain, Wildcard, Free Hit — once per season each
