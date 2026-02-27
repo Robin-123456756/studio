@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PwaStartupImages } from "@/app/pwa-startup-images";
-import { LaunchGate } from "@/components/launch-gate";
 
 export const metadata: Metadata = {
   title: "The Budo League",
@@ -43,9 +42,7 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-foreground">
         <ThemeProvider>
-          <LaunchGate minDurationMs={4000} message="This is the Budo league">
-            {children}
-          </LaunchGate>
+          {children}
         </ThemeProvider>
       </body>
     </html>

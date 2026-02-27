@@ -1,53 +1,48 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 
-export function AppLoading({ message = "Loading..." }: { message?: string }) {
+export function AppLoading() {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-      <div className="mb-8 animate-in fade-in zoom-in-95 duration-500">
-        <div className="relative">
-          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-border">
-            <img
-              src="/icon.png"
-              alt="Budo League"
-              className="h-20 w-20 object-contain"
-            />
-          </div>
-          <div className="absolute inset-0 rounded-3xl bg-primary/20 animate-pulse" />
+      {/* Subtle branded radial glow */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(600px circle at 50% 45%, hsl(var(--primary) / 0.07), transparent 70%)",
+        }}
+      />
+
+      {/* Logo */}
+      <div className="relative z-10 mb-6 animate-in fade-in zoom-in-90 duration-700 ease-out">
+        <div className="flex h-[104px] w-[104px] items-center justify-center overflow-hidden rounded-[1.75rem] bg-card shadow-xl ring-1 ring-border/60">
+          <img
+            src="/icon.png"
+            alt="Budo League"
+            className="h-[88px] w-[88px] object-contain"
+          />
         </div>
       </div>
 
-      <h1 className="mb-2 text-2xl font-bold animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-        The Budo League
+      {/* Brand name */}
+      <h1 className="relative z-10 text-[1.35rem] font-bold tracking-[0.12em] uppercase animate-in fade-in slide-in-from-bottom-2 duration-700 fill-mode-both delay-200">
+        THE BUDO LEAGUE
       </h1>
 
-      <div className="flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-        <div className="flex gap-1">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-2 w-2 rounded-full bg-primary",
-                i === 0 && "animate-bounce",
-                i === 1 && "animate-bounce [animation-delay:0.1s]",
-                i === 2 && "animate-bounce [animation-delay:0.2s]"
-              )}
-            />
-          ))}
-        </div>
-        <span className="text-sm text-muted-foreground">{message}</span>
-      </div>
+      {/* Tagline */}
+      <p className="relative z-10 mt-1.5 text-xs font-medium text-muted-foreground tracking-wide animate-in fade-in duration-700 fill-mode-both delay-500">
+        Fantasy Football
+      </p>
 
-      <div className="mt-6 h-1 w-48 overflow-hidden rounded-full bg-muted">
+      {/* Progress sweep */}
+      <div className="relative z-10 mt-8 h-[2px] w-44 overflow-hidden rounded-full bg-border/50 animate-in fade-in duration-500 fill-mode-both delay-700">
         <div
-          className="h-full w-1/3 rounded-full"
+          className="absolute inset-y-0 w-2/5 rounded-full"
           style={{
-            animation: "shimmer 1.5s ease-in-out infinite",
             background:
-              "linear-gradient(90deg, transparent, hsl(var(--primary)), transparent)",
-            backgroundSize: "200% 100%",
+              "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.8), transparent)",
+            animation: "sweep 1.6s ease-in-out infinite",
           }}
         />
       </div>

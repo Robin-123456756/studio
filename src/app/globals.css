@@ -147,6 +147,15 @@ html {
     }
   }
 
+  @keyframes sweep {
+    0% {
+      left: -40%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
   @keyframes slide-up {
     from {
       opacity: 0;

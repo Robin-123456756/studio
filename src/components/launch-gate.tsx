@@ -38,7 +38,7 @@ export function LaunchGate({
   return (
     <div className="launch-gate">
       <div className={`launch-loader ${readyClass}`}>
-        <AppLoading message={message} />
+        <AppLoading />
       </div>
       <div className={`launch-content ${readyClass}`}>{children}</div>
     </div>

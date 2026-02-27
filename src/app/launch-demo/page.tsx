@@ -30,24 +30,28 @@ export default function LaunchDemoPage() {
   if (phase === "splash") {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
-        <div className="animate-in fade-in zoom-in-95 duration-500">
-          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-card shadow-2xl ring-1 ring-border">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(600px circle at 50% 45%, hsl(var(--primary) / 0.07), transparent 70%)",
+          }}
+        />
+        <div className="relative z-10 animate-in fade-in zoom-in-90 duration-700 ease-out">
+          <div className="flex h-[104px] w-[104px] items-center justify-center overflow-hidden rounded-[1.75rem] bg-card shadow-xl ring-1 ring-border/60">
             <img
               src="/icon.png"
               alt="Budo League"
-              className="h-20 w-20 object-contain"
+              className="h-[88px] w-[88px] object-contain"
             />
           </div>
-        </div>
-        <div className="mt-4 text-sm text-muted-foreground">
-          Opening The Budo League
         </div>
       </div>
     );
   }
 
   if (phase === "loading") {
-    return <AppLoading message="Loading your season..." />;
+    return <AppLoading />;
   }
 
   return (
