@@ -255,4 +255,7 @@ Sure! Let me refactor the entire roster system to be cleaner...
   baked into the PNG. NEVER use `dark:brightness-0 dark:invert` (creates a solid white
   rectangle). Instead use `mix-blend-multiply dark:invert dark:mix-blend-screen` — this
   makes white pixels transparent in both light and dark mode. Apply this to every `<img>`
-  or `<Image>` that renders a logo.
+  or `<Image>` that renders a logo. CRITICAL: the img MUST be a direct child of a
+  container with `bg-background` (or `bg-card`). Animation wrappers with transforms or
+  opacity create isolated stacking contexts that break mix-blend-mode — either remove the
+  wrapper or add `bg-background` to it.

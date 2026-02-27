@@ -408,8 +408,10 @@ export default function DashboardPage() {
         className={cn("opacity-0 animate-slide-up animate-stagger-1")}
         style={staggerStyle}
       >
-        <div className="flex items-center gap-3 pt-2">
-          {/* Logo — shrunk to ~100px */}
+        <div className="flex items-center gap-3 pt-2 bg-background">
+          {/* Logo — shrunk to ~100px. bg-background on parent is required
+              so mix-blend-multiply has a backdrop to composite against
+              (the animation wrapper creates an isolated stacking context). */}
           <Image
             src="/tbl-logo.png"
             alt="The Budo League"
