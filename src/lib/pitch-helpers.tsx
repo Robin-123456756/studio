@@ -30,7 +30,7 @@ export const TEAM_LOGOS: Record<string, string> = {
   bifa: "/logos/t-bifa.png",
   trotballo: "/logos/t-trotballo.png",
   dujay: "/logos/t-dujay.png",
-  "night prep": "/logos/t-night-prep.png",
+  "night prep": "/logos/t-night-prep.jpeg",
   "peaky blinders": "/logos/t-peaky-blinders.png",
   komunoballo: "/logos/t-komunoballo.png",
   masappe: "/logos/t-masappe.png",

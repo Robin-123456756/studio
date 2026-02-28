@@ -6,7 +6,16 @@ import type { NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── Supabase session refresh (keeps auth cookies alive) ──
+  // Keep PWA install assets untouched by auth/session middleware.
+  if (
+    pathname === "/manifest.json" ||
+    pathname === "/sw.js" ||
+    pathname.startsWith("/workbox-")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Supabase session refresh (keeps auth cookies alive)
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -31,7 +40,7 @@ export async function middleware(request: NextRequest) {
   // Calling getUser() triggers token refresh if the access token is expired
   await supabase.auth.getUser();
 
-  // ── Admin auth (next-auth) ──
+  // Admin auth (next-auth)
   if (pathname === "/admin/login" || pathname.startsWith("/api/auth")) {
     return supabaseResponse;
   }
@@ -63,7 +72,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Run on all routes except static files and images
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Run on all routes except static files and PWA install assets.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
