@@ -50,7 +50,7 @@ export const TEAM_SHORT_LOGOS: Record<string, string> = {
   BIF: "/logos/t-bifa.png",
   TRO: "/logos/t-trotballo.png",
   DUJ: "/logos/t-dujay.png",
-  NIG: "/logos/t-night-prep.png",
+  NIG: "/logos/t-night-prep.jpeg",
   PEA: "/logos/t-peaky-blinders.png",
   KOM: "/logos/t-komunoballo.png",
   MAS: "/logos/t-masappe.png",
