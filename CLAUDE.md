@@ -251,7 +251,7 @@ Sure! Let me refactor the entire roster system to be cleaner...
 - FPL-inspired purple/green theme with gradients
 - Primary brand color: `#37003C` (deep purple), accent: `#C8102E` (red)
 - Do not over-engineer for scale (this is a ~100 user league)
-- **Logo white-background fix**: `tbl-logo.png` and `icon.png` have white backgrounds
+- **Logo white-background fix**: `tbl-logo.png` and `icon.jpg` have white backgrounds
   baked into the PNG. NEVER use `dark:brightness-0 dark:invert` (creates a solid white
   rectangle). Instead use `mix-blend-multiply dark:invert dark:mix-blend-screen` — this
   makes white pixels transparent in both light and dark mode. Apply this to every `<img>`

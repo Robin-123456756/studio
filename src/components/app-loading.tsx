@@ -10,7 +10,7 @@ export function AppLoading() {
     >
       {/* Lion logo */}
       <img
-        src="/splash-logo.jpg"
+        src="/icon.jpg"
         alt="The Budo League"
         className="h-[200px] w-auto object-contain rounded-3xl"
       />

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: "The Budo League — Fantasy Football",
     description:
       "Pick your squad, earn points from real match stats, and climb the leaderboard. Join a premier fantasy football league.",
-    images: [{ url: "/icon.png", width: 512, height: 512 }],
+    images: [{ url: "/icon.jpg", width: 512, height: 512 }],
     type: "website",
   },
   twitter: {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: "The Budo League — Fantasy Football",
     description:
       "Pick your squad, earn points from real match stats, and climb the leaderboard.",
-    images: ["/icon.png"],
+    images: ["/icon.jpg"],
   },
 };
 

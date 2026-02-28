@@ -79,7 +79,7 @@ export function AppSidebar() {
             {/* ✅ Your real logo (text is inside the PNG) */}
             <div className="rounded-2xl bg-card px-3 py-2 shadow-sm overflow-hidden">
               <img
-                src="/icon.png"
+                src="/icon.jpg"
                 alt="Budo League"
                 className="h-8 w-auto object-contain scale-[1.6] mix-blend-multiply dark:invert dark:mix-blend-screen"
                 style={{ transformOrigin: "center" }}
