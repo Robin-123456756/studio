@@ -60,7 +60,8 @@ export async function GET() {
       chipMap.set(uid, (chipMap.get(uid) || 0) + 1);
     }
 
-    // Build user list
+    // Build user list from fantasy_teams
+    const teamUserIds = new Set(teams.map((t: any) => t.user_id));
     const users = teams.map((t: any) => {
       const uid = t.user_id;
       const s = scoreMap.get(uid) || { total: 0, currentGw: 0, gwCount: 0 };
@@ -75,7 +76,25 @@ export async function GET() {
       };
     });
 
-    // Sort by total points desc
+    // Also include signups from auth.users who haven't created a fantasy team yet
+    const { data: authUsers } = await supabase.auth.admin.listUsers();
+    if (authUsers?.users) {
+      for (const u of authUsers.users) {
+        if (!teamUserIds.has(u.id)) {
+          users.push({
+            userId: u.id,
+            teamName: u.email || u.phone || "New signup (no team)",
+            totalPoints: 0,
+            currentGwPoints: 0,
+            gwsPlayed: 0,
+            transfersUsed: 0,
+            chipsUsed: 0,
+          });
+        }
+      }
+    }
+
+    // Sort by total points desc (new signups will be at the bottom with 0)
     users.sort((a: any, b: any) => b.totalPoints - a.totalPoints);
 
     return NextResponse.json({ users, currentGwId });
