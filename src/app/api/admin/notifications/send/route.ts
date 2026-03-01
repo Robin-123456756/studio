@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { rateLimitResponse, RATE_LIMIT_HEAVY } from "@/lib/rate-limit";
+import { sendPushToAll } from "@/lib/push-notifications";
+import { buildBroadcastPush } from "@/lib/push-message-builders";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +64,9 @@ export async function POST(req: Request) {
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
+
+    // Also send web push notification (fire-and-forget)
+    sendPushToAll(buildBroadcastPush(title.trim(), message.trim())).catch(() => {});
 
     return NextResponse.json({ sent: uniqueUserIds.length });
   } catch (e: any) {

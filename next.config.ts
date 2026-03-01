@@ -7,6 +7,7 @@ const withPWAConfig = withPWA({
   register: true,
   skipWaiting: true,
   clientsClaim: true,
+  customWorkerDir: "worker",
   disable: process.env.NODE_ENV === "development" && !enablePwaInDevPreview,
 });
 

@@ -89,6 +89,7 @@ export default function VoiceAdminPage() {
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [matchError, setMatchError] = useState("");
+  const [startingMatch, setStartingMatch] = useState(false);
 
   // Read URL hash to auto-select tab (e.g. /admin/voice#scoring)
   useEffect(() => {
@@ -201,18 +202,54 @@ export default function VoiceAdminPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
   <label style={{ fontSize: 11, fontWeight: 600, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" }}>Match</label>
   {selectedMatchId && (
-    <a
-      href={`/api/voice-admin/export-csv?matchId=${selectedMatchId}`}
-      download
-      style={{
-        padding: "6px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
-        backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontSize: 11,
-        fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap",
-        fontFamily: "inherit",
-      }}
-    >
-      📥 CSV
-    </a>
+    <>
+      <a
+        href={`/api/voice-admin/export-csv?matchId=${selectedMatchId}`}
+        download
+        style={{
+          padding: "6px 12px", borderRadius: 6, border: `1px solid ${BORDER}`,
+          backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontSize: 11,
+          fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap",
+          fontFamily: "inherit",
+        }}
+      >
+        📥 CSV
+      </a>
+      {!matches.find(m => m.id === selectedMatchId)?.is_played && (
+        <button
+          onClick={async () => {
+            if (!confirm("Start this match? This will send a KICK OFF push to all subscribers.")) return;
+            setStartingMatch(true);
+            try {
+              const res = await fetch("/api/admin/match-start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ matchId: selectedMatchId }),
+              });
+              if (res.ok) {
+                setMatches(prev => prev.map(m => m.id === selectedMatchId ? { ...m, is_played: true, home_goals: m.home_goals ?? 0, away_goals: m.away_goals ?? 0 } : m));
+              } else {
+                const data = await res.json();
+                alert(data.error || "Failed to start match");
+              }
+            } catch {
+              alert("Network error");
+            }
+            setStartingMatch(false);
+          }}
+          disabled={startingMatch}
+          style={{
+            padding: "6px 12px", borderRadius: 6, border: `1px solid ${SUCCESS}40`,
+            backgroundColor: `${SUCCESS}15`, color: SUCCESS, fontSize: 11,
+            fontWeight: 600, whiteSpace: "nowrap", fontFamily: "inherit",
+            cursor: startingMatch ? "not-allowed" : "pointer",
+            opacity: startingMatch ? 0.5 : 1,
+          }}
+        >
+          {startingMatch ? "Starting..." : "▶ Start Match"}
+        </button>
+      )}
+    </>
   )}
           
           {loadingMatches ? <span style={{ fontSize: 13, color: TEXT_MUTED }}>Loading...</span>

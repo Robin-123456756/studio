@@ -1,6 +1,8 @@
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { calcPoints } from "./points-calculator";
 import type { ResolvedEntry, DBWriteResult } from "./types";
+import { sendPushToAll } from "@/lib/push-notifications";
+import { buildGoalPush, buildCardPush } from "@/lib/push-message-builders";
 
 /**
  * Write validated voice entries directly to the database.
@@ -171,6 +173,70 @@ export async function writeToDatabase({
   }
 
   // 6. Materialized view is auto-refreshed by DB trigger on player_match_events
+
+  // 7. Fire push notifications for goals and cards (fire-and-forget)
+  try {
+    // Fetch team names for push message context
+    const { data: matchCtx } = await supabase
+      .from("matches")
+      .select(`
+        id,
+        home_goals, away_goals,
+        home_team:teams!matches_home_team_uuid_fkey (name),
+        away_team:teams!matches_away_team_uuid_fkey (name)
+      `)
+      .eq("id", matchId)
+      .single();
+
+    if (matchCtx) {
+      const ctx = {
+        matchId,
+        homeTeam: (matchCtx.home_team as any)?.name || "Home",
+        awayTeam: (matchCtx.away_team as any)?.name || "Away",
+        homeGoals: matchCtx.home_goals ?? 0,
+        awayGoals: matchCtx.away_goals ?? 0,
+      };
+
+      // Collect goals and cards from all entries in this batch
+      const goals: { scorer: string; assister?: string }[] = [];
+      const cards: { player: string; type: "yellow" | "red" }[] = [];
+
+      for (const entry of entries) {
+        const name = entry.player.web_name || "Player";
+        for (const action of entry.pointsBreakdown) {
+          if (action.action === "goal") {
+            // Check if there's an assist from another entry
+            const assister = entries.find(
+              (e) =>
+                e.player.id !== entry.player.id &&
+                e.pointsBreakdown.some((a) => a.action === "assist")
+            );
+            goals.push({
+              scorer: name,
+              assister: assister?.player.web_name || undefined,
+            });
+          }
+          if (action.action === "yellow") {
+            cards.push({ player: name, type: "yellow" });
+          }
+          if (action.action === "red") {
+            cards.push({ player: name, type: "red" });
+          }
+        }
+      }
+
+      // Send one push per goal
+      for (const g of goals) {
+        sendPushToAll(buildGoalPush(ctx, g.scorer, g.assister)).catch(() => {});
+      }
+      // Send one push per card
+      for (const c of cards) {
+        sendPushToAll(buildCardPush(ctx, c.player, c.type)).catch(() => {});
+      }
+    }
+  } catch {
+    // Push must never crash the DB write flow
+  }
 
   return {
     success: true,

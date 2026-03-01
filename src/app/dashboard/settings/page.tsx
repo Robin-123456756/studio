@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 type Mode = "light" | "dark" | "system";
 
@@ -72,8 +73,7 @@ export default function SettingsPage() {
 
       <div className="mt-4">
         <ThemeRow />
-
-        {/* Add more settings rows later (notifications, profile, etc.) */}
+        <PushNotificationToggle />
       </div>
     </div>
   );
