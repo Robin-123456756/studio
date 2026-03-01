@@ -233,8 +233,8 @@ export default function DashboardPage() {
       const allGws: number[] = (gwJson.all ?? []).map((g: any) => g.id);
 
       // Store full GW objects for hero context
-      if (gwJson.current) setCurrentGW(gwJson.current);
-      if (gwJson.next) setNextGW(gwJson.next);
+      setCurrentGW(gwJson.current ?? null);
+      setNextGW(gwJson.next ?? null);
 
       // Fetch fantasy leaderboard + session for "My Fantasy" card
       try {
@@ -386,8 +386,9 @@ export default function DashboardPage() {
     (m) => m.kickoff_time && new Date(m.kickoff_time).getTime() <= Date.now()
   );
 
-  // Deadline countdown for next GW
-  const deadlineCountdown = useDeadlineCountdown(nextGW?.deadline_time);
+  // Deadline countdown for current gameweek (fallback to next only if current is missing)
+  const deadlineGameweek = currentGW ?? nextGW ?? null;
+  const deadlineCountdown = useDeadlineCountdown(deadlineGameweek?.deadline_time);
   const deadlinePillClass =
     deadlineCountdown.tone === "critical"
       ? "bg-red-500/15 text-red-600"
@@ -452,8 +453,8 @@ export default function DashboardPage() {
                 )}
               >
                 {deadlineCountdown.tone === "closed"
-                  ? "Deadline closed"
-                  : `Deadline: ${deadlineCountdown.label}`}
+                  ? `GW ${deadlineGameweek?.id ?? "--"} deadline closed`
+                  : `GW ${deadlineGameweek?.id ?? "--"} deadline: ${deadlineCountdown.label}`}
               </span>
             )}
 
