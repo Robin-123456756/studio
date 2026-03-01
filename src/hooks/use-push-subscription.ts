@@ -76,10 +76,19 @@ export function usePushSubscription() {
         return { ok: false, error: "VAPID key not configured on server" };
       }
 
-      // Step 3: Wait for service worker
-      const reg = await withTimeout(navigator.serviceWorker.ready, 10000);
+      // Step 3: Wait for service worker (register it if needed)
+      let reg = await withTimeout(navigator.serviceWorker.ready, 3000);
       if (!reg) {
-        return { ok: false, error: "Service worker not ready (timeout)" };
+        // SW not active yet — try registering it ourselves
+        try {
+          await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        } catch {
+          // already registered, that's fine
+        }
+        reg = await withTimeout(navigator.serviceWorker.ready, 10000);
+      }
+      if (!reg) {
+        return { ok: false, error: "Service worker not ready — try refreshing the page" };
       }
 
       // Step 4: Subscribe to push
