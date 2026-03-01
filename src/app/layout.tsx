@@ -26,7 +26,7 @@ export default function RootLayout({
         <meta
           name="theme-color"
           media="(prefers-color-scheme: light)"
-          content="#a63038"
+          content="#FF0000"
         />
         <meta
           name="theme-color"
