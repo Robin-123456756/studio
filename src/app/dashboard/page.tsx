@@ -255,7 +255,7 @@ export default function DashboardPage() {
               setFantasyStats({
                 rank: me.rank,
                 totalPoints: me.totalPoints ?? 0,
-                gwPoints: me.gwBreakdown?.[currentGwId] ?? null,
+                gwPoints: me.gwBreakdown?.[currentGwId] ?? 0,
                 teamName: me.teamName ?? "My Team",
               });
             } else {
