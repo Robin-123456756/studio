@@ -871,7 +871,12 @@ export default function PickTeamPage() {
     return "Available";
   }
 
-  const gwId = React.useMemo(() => nextGW?.id ?? currentGW?.id ?? null, [nextGW?.id, currentGW?.id]);
+  // Use current GW if it exists and isn't finalized (user is still picking for it).
+  // Only jump to next GW when the current one is done.
+  const gwId = React.useMemo(() => {
+    if (currentGW && !currentGW.finalized) return currentGW.id;
+    return nextGW?.id ?? currentGW?.id ?? null;
+  }, [currentGW, nextGW?.id]);
 
 
   // ----------------------------
@@ -1316,7 +1321,9 @@ export default function PickTeamPage() {
       ? shortName(playerById.get(viceId)?.name, playerById.get(viceId)?.webName)
       : "--";
 
-  const deadlineLabel = formatDeadlineUG(nextGW?.deadline_time ?? currentGW?.deadline_time);
+  // Show deadline for the gameweek the user is actually editing
+  const activeGW = (currentGW && !currentGW.finalized) ? currentGW : nextGW ?? currentGW;
+  const deadlineLabel = formatDeadlineUG(activeGW?.deadline_time);
   const currentGwLabel = gwId ? `Gameweek ${gwId}` : "Gameweek --";
   const chipsList: { key: ChipKey; name: string; icon: React.ReactNode }[] = [
     { key: "bench_boost", name: "Bench Boost", icon: (
