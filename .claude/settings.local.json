@@ -17,7 +17,8 @@
       "WebFetch(domain:www.sciflare.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:medium.com)",
-      "WebFetch(domain:fantasyfootballmanager.app)"
+      "WebFetch(domain:fantasyfootballmanager.app)",
+      "Bash(ls:*)"
     ]
   }
 }

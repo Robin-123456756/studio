@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
+    "dev:pwa": "node -e \"const { spawnSync } = require('child_process'); spawnSync('npx', ['next', 'dev', '-p', '3001'], { stdio: 'inherit', shell: true, env: { ...process.env, PWA_PREVIEW: 'true' } });\"",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
