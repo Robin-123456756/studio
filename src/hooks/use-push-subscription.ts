@@ -26,12 +26,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 
 export function usePushSubscription() {
   const [status, setStatus] = useState<PushStatus>("loading");
+  const [lastError, setLastError] = useState<string | null>(null);
 
   // Check current state on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Basic support check
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
       setStatus("unsupported");
       return;
@@ -42,82 +42,88 @@ export function usePushSubscription() {
       return;
     }
 
-    // Check if SW is registered and has an active push subscription.
-    // Timeout after 3s — if SW hasn't activated, treat as "unsubscribed"
-    // (subscribe() will register/wait for SW when the user taps Enable).
     (async () => {
       try {
         const reg = await withTimeout(navigator.serviceWorker.ready, 3000);
         if (!reg) {
-          // SW not active yet — that's OK, user can still subscribe
           setStatus("unsubscribed");
           return;
         }
         const sub = await reg.pushManager.getSubscription();
         setStatus(sub ? "subscribed" : "unsubscribed");
       } catch {
-        // Any error — default to unsubscribed so the button is visible
         setStatus("unsubscribed");
       }
     })();
   }, []);
 
-  const subscribe = useCallback(async () => {
+  const subscribe = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    setLastError(null);
     try {
+      // Step 1: Request permission
       const permission = await Notification.requestPermission();
       if (permission === "denied") {
         setStatus("denied");
-        return false;
+        return { ok: false, error: "Permission denied by browser" };
       }
       if (permission !== "granted") {
-        return false;
+        return { ok: false, error: `Permission not granted (${permission})` };
       }
 
+      // Step 2: Check VAPID key
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidKey) {
-        console.error("VAPID key not configured");
-        return false;
+        return { ok: false, error: "VAPID key not configured on server" };
       }
 
-      // Wait for SW — give it up to 10s during subscribe since user is actively waiting
+      // Step 3: Wait for service worker
       const reg = await withTimeout(navigator.serviceWorker.ready, 10000);
       if (!reg) {
-        console.error("Service worker not ready after 10s");
-        return false;
+        return { ok: false, error: "Service worker not ready (timeout)" };
       }
 
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer,
-      });
+      // Step 4: Subscribe to push
+      let subscription: PushSubscription;
+      try {
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer,
+        });
+      } catch (pushErr: any) {
+        return { ok: false, error: `Push subscribe failed: ${pushErr?.message || pushErr}` };
+      }
 
-      // Send subscription to our API
+      // Step 5: Save to server
       const subJson = subscription.toJSON();
-      const res = await fetch("/api/push/subscribe", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          endpoint: subJson.endpoint,
-          keys: subJson.keys,
-        }),
-      });
+      let res: Response;
+      try {
+        res = await fetch("/api/push/subscribe", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: subJson.endpoint,
+            keys: subJson.keys,
+          }),
+        });
+      } catch (fetchErr: any) {
+        return { ok: false, error: `Network error saving subscription: ${fetchErr?.message}` };
+      }
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("Failed to save push subscription:", err);
-        return false;
+        const errBody = await res.json().catch(() => ({}));
+        return { ok: false, error: `Server error (${res.status}): ${errBody?.error || "unknown"}` };
       }
 
       setStatus("subscribed");
-      return true;
-    } catch (err) {
-      console.error("Push subscribe error:", err);
-      return false;
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: `Unexpected: ${err?.message || err}` };
     }
   }, []);
 
-  const unsubscribe = useCallback(async () => {
+  const unsubscribe = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    setLastError(null);
     try {
       const reg = await withTimeout(navigator.serviceWorker.ready, 5000);
       if (reg) {
@@ -135,12 +141,11 @@ export function usePushSubscription() {
       }
 
       setStatus("unsubscribed");
-      return true;
-    } catch (err) {
-      console.error("Push unsubscribe error:", err);
-      return false;
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: `Unsubscribe failed: ${err?.message || err}` };
     }
   }, []);
 
-  return { status, subscribe, unsubscribe };
+  return { status, lastError, subscribe, unsubscribe };
 }

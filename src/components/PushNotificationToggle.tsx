@@ -15,9 +15,9 @@ export function PushNotificationToggle() {
     setError(null);
     try {
       const isSubscribed = status === "subscribed";
-      const ok = isSubscribed ? await unsubscribe() : await subscribe();
-      if (!ok) {
-        setError(isSubscribed ? "Failed to disable" : "Failed to enable — check browser permissions");
+      const result = isSubscribed ? await unsubscribe() : await subscribe();
+      if (!result.ok) {
+        setError(result.error || "Unknown error");
       }
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
