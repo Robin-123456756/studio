@@ -321,7 +321,7 @@ const teamDefs = [
 
   { id: "t-trotballo", name: "Trotballo", shortName: "TRO", dbId: "692cd38f-516d-4e05-95ee-fd5d0e986c19", logoUrl: "/logos/t-trotballo.png" },
   { id: "t-dujay", name: "Dujay", shortName: "DUJ", dbId: "0276c44a-b612-472a-94c2-6751cd543b94", logoUrl: "/logos/t-dujay.png" },
-  { id: "t-night-prep", name: "Night prep", shortName: "NIG", dbId: "4a4ad9ec-b96b-4326-8c7e-a70a32cb979b", logoUrl: "/logos/t-night-prep.jpeg" },
+  { id: "t-night-prep", name: "Night prep", shortName: "NIG", dbId: "4a4ad9ec-b96b-4326-8c7e-a70a32cb979b", logoUrl: "/logos/t-night-prep.png" },
 
   { id: "t-peaky-blinders", name: "Peaky blinders", shortName: "PEA", dbId: "9cfb61bb-4af9-475d-87fe-d9251280abd6", logoUrl: "/logos/t-peaky-blinders.png" },
   { id: "t-komunoballo", name: "Komunoballo", shortName: "KOM", dbId: "e57b846b-5ff0-4a91-a895-d5ce9be8c26c", logoUrl: "/logos/t-komunoballo.png" },
