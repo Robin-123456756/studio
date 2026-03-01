@@ -430,7 +430,8 @@ function FantasyPage() {
   const [statsLoading, setStatsLoading] = React.useState(true);
   const [statsError, setStatsError] = React.useState<string | null>(null);
 
-  const deadlineCountdown = useDeadlineCountdown(nextGW?.deadline_time);
+  const deadlineGameweek = currentGW ?? nextGW ?? null;
+  const deadlineCountdown = useDeadlineCountdown(deadlineGameweek?.deadline_time);
 
   const loadStats = React.useCallback(async () => {
     try {
@@ -677,12 +678,12 @@ function FantasyPage() {
           <div className="text-center text-xs font-semibold text-white/70">
             {gwLoading
               ? ""
-              : `Gameweek ${nextGW?.id ?? (currentGW?.id ? currentGW.id + 1 : 0)}`}
+              : `Gameweek ${deadlineGameweek?.id ?? 0}`}
           </div>
           <div className="mt-1 text-center text-sm font-bold">
             {gwLoading
               ? "Loading..."
-              : `Deadline: ${formatDeadlineShort(nextGW?.deadline_time)}`}
+              : `Deadline: ${formatDeadlineShort(deadlineGameweek?.deadline_time)}`}
           </div>
 
           {deadlineCountdown.tone !== "neutral" && (
