@@ -76,19 +76,43 @@ export function usePushSubscription() {
         return { ok: false, error: "VAPID key not configured on server" };
       }
 
-      // Step 3: Wait for service worker (register it if needed)
-      let reg = await withTimeout(navigator.serviceWorker.ready, 3000);
+      // Step 3: Get a service worker registration with push support
+      let reg: ServiceWorkerRegistration | null = null;
+
+      // First try the normal ready promise (fast path)
+      reg = await withTimeout(navigator.serviceWorker.ready, 3000);
+
       if (!reg) {
-        // SW not active yet — try registering it ourselves
+        // Not ready — register ourselves and force activate
         try {
-          await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-        } catch {
-          // already registered, that's fine
+          const newReg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+
+          // If there's a waiting worker, tell it to skip waiting
+          if (newReg.waiting) {
+            newReg.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+
+          // Wait for the installing worker to become active
+          if (newReg.installing || newReg.waiting) {
+            await new Promise<void>((resolve) => {
+              const worker = newReg.installing || newReg.waiting;
+              if (!worker) { resolve(); return; }
+              worker.addEventListener("statechange", () => {
+                if (worker.state === "activated") resolve();
+              });
+              // Safety timeout
+              setTimeout(resolve, 8000);
+            });
+          }
+
+          reg = newReg;
+        } catch (swErr: any) {
+          return { ok: false, error: `SW register failed: ${swErr?.message || swErr}` };
         }
-        reg = await withTimeout(navigator.serviceWorker.ready, 10000);
       }
+
       if (!reg) {
-        return { ok: false, error: "Service worker not ready — try refreshing the page" };
+        return { ok: false, error: "Service worker not available" };
       }
 
       // Step 4: Subscribe to push
