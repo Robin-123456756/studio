@@ -74,7 +74,7 @@ export async function POST(req: Request) {
 
   const { data: players, error: playersErr } = await admin
     .from("players")
-    .select("id, now_cost, position, is_lady, team_id")
+    .select("id, now_cost, position, is_lady, team_id, teams:teams!players_team_id_fkey(name, short_name)")
     .in("id", uniqueSquadIds);
 
   if (playersErr) {

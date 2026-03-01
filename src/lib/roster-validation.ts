@@ -8,6 +8,18 @@ type PlayerRow = {
   position: string | null;
   is_lady: boolean | null;
   team_id: string | null;
+  team_name?: string | null;
+  team_short?: string | null;
+  teams?:
+    | {
+        name?: string | null;
+        short_name?: string | null;
+      }
+    | {
+        name?: string | null;
+        short_name?: string | null;
+      }[]
+    | null;
   now_cost: number | null;
 };
 
@@ -18,6 +30,28 @@ function norm(pos: string | null | undefined): string {
   if (p === "mid" || p === "midfielder" || p === "mf") return "MID";
   if (p === "fwd" || p === "forward" || p === "fw" || p === "striker") return "FWD";
   return "MID";
+}
+
+function teamKey(p: PlayerRow): string | null {
+  const teamRel =
+    Array.isArray(p.teams) ? (p.teams[0] ?? null) : p.teams ?? null;
+
+  if (p.team_id != null) {
+    const id = String(p.team_id).trim();
+    if (id.length > 0) return id;
+  }
+
+  const fallback = String(
+    teamRel?.short_name ??
+      teamRel?.name ??
+      p.team_short ??
+      p.team_name ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  return fallback.length > 0 ? fallback : null;
 }
 
 export function validateSquadComposition(
@@ -49,13 +83,13 @@ export function validateSquadComposition(
   // Max 3 per real team
   const teamCounts = new Map<string, number>();
   for (const p of players) {
-    if (p.team_id != null) {
-      teamCounts.set(p.team_id, (teamCounts.get(p.team_id) ?? 0) + 1);
-    }
+    const key = teamKey(p);
+    if (!key) continue;
+    teamCounts.set(key, (teamCounts.get(key) ?? 0) + 1);
   }
-  for (const [teamId, count] of teamCounts) {
+  for (const [, count] of teamCounts) {
     if (count > 3) {
-      return `Max 3 players per team allowed (team ${teamId} has ${count}).`;
+      return `Max 3 players per team allowed in your full squad (found ${count}).`;
     }
   }
 
@@ -73,6 +107,18 @@ export function validateSquadComposition(
   }
 
   const startingPlayers = players.filter((p) => startingSet.has(p.id));
+  const startingTeamCounts = new Map<string, number>();
+  for (const p of startingPlayers) {
+    const key = teamKey(p);
+    if (!key) continue;
+    startingTeamCounts.set(key, (startingTeamCounts.get(key) ?? 0) + 1);
+  }
+  for (const [, count] of startingTeamCounts) {
+    if (count > 3) {
+      return `Max 3 players per team allowed in the starting lineup (found ${count}).`;
+    }
+  }
+
   const sPos = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
   for (const p of startingPlayers) {
     const pos = norm(p.position);

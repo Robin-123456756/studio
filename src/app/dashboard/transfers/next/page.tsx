@@ -65,6 +65,13 @@ function formatDeadlineUG(iso?: string | null) {
     .replace(/\bpm\b/i, "PM");
 }
 
+function teamKeyForLimit(player?: Player | null): string | null {
+  const key = String(player?.teamShort ?? player?.teamName ?? "")
+    .trim()
+    .toLowerCase();
+  return key.length > 0 ? key : null;
+}
+
 /* Transfer Icon (person with arrows) */
 function TransferIcon() {
   return (
@@ -93,6 +100,7 @@ function TransferNextPageInner() {
   const [squadIds, setSquadIds] = React.useState<string[]>([]);
   const [pendingTransfers, setPendingTransfers] = React.useState<PendingTransfer[]>([]);
   const [confirmed, setConfirmed] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
 
   // Check if wildcard or free hit is active
   const [wildcardActive, setWildcardActive] = React.useState(false);
@@ -214,42 +222,33 @@ function TransferNextPageInner() {
 
   async function confirmTransfers() {
     if (!canConfirm()) return;
+    setSaveError(null);
 
     // Apply all transfers to squad
     let next = [...squadIds];
     for (const t of pendingTransfers) {
       next = next.map((id) => (id === t.outId ? t.inId : id));
     }
-    setSquadIds(next);
-    saveSquadIds(next);
 
-    // Record each transfer and increment used count
-    for (const t of pendingTransfers) {
-      incrementUsedTransfers();
-
-      if (gwId) {
-        const outP = byId.get(t.outId);
-        const inP = byId.get(t.inId);
-
-        recordTransfer({
-          gwId: gwId,
-          ts: new Date().toISOString(),
-          outId: t.outId,
-          inId: t.inId,
-          outName: outP?.name,
-          inName: inP?.name,
-          outTeamShort: outP?.teamShort ?? null,
-          inTeamShort: inP?.teamShort ?? null,
-          outPos: outP?.position ?? null,
-          inPos: inP?.position ?? null,
-          outPrice: typeof outP?.price === "number" ? outP.price : null,
-          inPrice: typeof inP?.price === "number" ? inP.price : null,
-        });
+    const MAX_PER_TEAM = 3;
+    const teamCounts = new Map<string, { count: number; name: string }>();
+    for (const id of next) {
+      const player = byId.get(id);
+      const key = teamKeyForLimit(player);
+      if (!key) continue;
+      const existing = teamCounts.get(key) ?? {
+        count: 0,
+        name: player?.teamName ?? player?.teamShort ?? key,
+      };
+      existing.count += 1;
+      teamCounts.set(key, existing);
+    }
+    for (const [, { count, name }] of teamCounts) {
+      if (count > MAX_PER_TEAM) {
+        setSaveError(`Max ${MAX_PER_TEAM} players from ${name} allowed. You have ${count}.`);
+        return;
       }
     }
-
-    // Clear pending transfers from localStorage
-    localStorage.removeItem("tbl_pending_transfers");
 
     // Persist updated squad to database
     if (gwId) {
@@ -290,10 +289,42 @@ function TransferNextPageInner() {
           captainId,
           viceId,
         });
-      } catch {
-        // DB save failed — squad is still saved locally, Pick Team will persist it
+      } catch (e: any) {
+        setSaveError(e?.message ?? "Could not save transfers. Please review your squad rules and try again.");
+        return;
       }
     }
+
+    setSquadIds(next);
+    saveSquadIds(next);
+
+    // Record each transfer and increment used count
+    for (const t of pendingTransfers) {
+      incrementUsedTransfers();
+
+      if (gwId) {
+        const outP = byId.get(t.outId);
+        const inP = byId.get(t.inId);
+
+        recordTransfer({
+          gwId: gwId,
+          ts: new Date().toISOString(),
+          outId: t.outId,
+          inId: t.inId,
+          outName: outP?.name,
+          inName: inP?.name,
+          outTeamShort: outP?.teamShort ?? null,
+          inTeamShort: inP?.teamShort ?? null,
+          outPos: outP?.position ?? null,
+          inPos: inP?.position ?? null,
+          outPrice: typeof outP?.price === "number" ? outP.price : null,
+          inPrice: typeof inP?.price === "number" ? inP.price : null,
+        });
+      }
+    }
+
+    // Clear pending transfers from localStorage
+    localStorage.removeItem("tbl_pending_transfers");
 
     setConfirmed(true);
     setTimeout(() => router.push("/dashboard/fantasy/pick-team"), 1200);
@@ -330,6 +361,13 @@ function TransferNextPageInner() {
 
       {loading && (
         <div className="text-sm text-muted-foreground text-center py-4">Loading...</div>
+      )}
+      {saveError && (
+        <div className="px-5 pt-2">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            {saveError}
+          </div>
+        </div>
       )}
 
       {/* -- Transfer Card -- */}

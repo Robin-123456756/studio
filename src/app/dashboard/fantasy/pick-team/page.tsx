@@ -1089,6 +1089,9 @@ export default function PickTeamPage() {
         // If roster was rolled over from a previous GW, there's no actual save
         // for this GW yet — don't use it as the "saved" baseline.
         const isRollover = data.rolledOverFromGw != null;
+        const dbSquadHasTeamOverflow = Array.isArray(data.squadIds)
+          ? hasTeamOverflow(data.squadIds)
+          : false;
 
         if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
           if (!localHasFullSquad) {
@@ -1102,7 +1105,7 @@ export default function PickTeamPage() {
             localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
             localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
             localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds ?? []));
-          } else if (!isRollover) {
+          } else if (!isRollover && !dbSquadHasTeamOverflow) {
             // localStorage has a full squad AND the DB has a real save for this GW.
             // Use the DB state as the baseline so we can detect unsaved changes.
             setSavedPickedIds(data.squadIds);
@@ -1117,7 +1120,7 @@ export default function PickTeamPage() {
             setCaptainId(data.captainId);
             setSavedCaptainId(data.captainId);
             localStorage.setItem(LS_CAPTAIN, data.captainId);
-          } else if (!isRollover) {
+          } else if (!isRollover && !dbSquadHasTeamOverflow) {
             setSavedCaptainId(data.captainId);
           }
         }
@@ -1126,7 +1129,7 @@ export default function PickTeamPage() {
             setViceId(data.viceId);
             setSavedViceId(data.viceId);
             localStorage.setItem(LS_VICE, data.viceId);
-          } else if (!isRollover) {
+          } else if (!isRollover && !dbSquadHasTeamOverflow) {
             setSavedViceId(data.viceId);
           }
         }
@@ -1224,6 +1227,18 @@ export default function PickTeamPage() {
     if (ids.length !== 10) return null; // only enforce when lineup is complete
 
     const { GK, DEF, MID, FWD, ladyFwd, ladyNonFwd } = getStartingCounts(ids);
+    const teamCounts = new Map<string, { count: number; name: string }>();
+    for (const id of ids) {
+      const player = playerById.get(id);
+      const key = teamKeyForPlayer(player);
+      if (!key) continue;
+      const existing = teamCounts.get(key) ?? {
+        count: 0,
+        name: player?.teamName ?? player?.teamShort ?? key,
+      };
+      existing.count += 1;
+      teamCounts.set(key, existing);
+    }
 
     if (GK !== 1) return "Starting lineup must include exactly 1 goalkeeper.";
     if (DEF < 2 || DEF > 3) return "Defenders must be between 2 and 3.";
@@ -1231,6 +1246,11 @@ export default function PickTeamPage() {
     if (FWD < 2 || FWD > 3) return "Forwards must be between 2 and 3 (including the lady).";
     if (ladyFwd !== 1) return "Starting lineup must include exactly 1 lady forward.";
     if (ladyNonFwd > 0) return "Lady players can only start as forwards.";
+    for (const [, { count, name }] of teamCounts) {
+      if (count > 3) {
+        return `Starting lineup can have at most 3 players from ${name} (you have ${count}).`;
+      }
+    }
 
     return null;
   }
@@ -1353,6 +1373,18 @@ export default function PickTeamPage() {
     }
     const fallback = String(player.teamShort ?? player.teamName ?? "").trim().toLowerCase();
     return fallback.length > 0 ? fallback : null;
+  }
+
+  function hasTeamOverflow(ids: string[], maxPerTeam = 3) {
+    const counts = new Map<string, number>();
+    for (const id of ids) {
+      const key = teamKeyForPlayer(playerById.get(id));
+      if (!key) continue;
+      const next = (counts.get(key) ?? 0) + 1;
+      if (next > maxPerTeam) return true;
+      counts.set(key, next);
+    }
+    return false;
   }
 
   // ----------------------------
@@ -1850,6 +1882,10 @@ export default function PickTeamPage() {
     if (!captainId || !viceId) {
       return setMsg("Please choose a Captain and Vice-captain.");
     }
+    const lineupErr = validateStarting10(startingIds);
+    if (lineupErr) {
+      return setMsg(lineupErr);
+    }
 
     const teamCounts = new Map<string, { count: number; name: string }>();
     for (const id of uniquePicked) {
@@ -1918,7 +1954,10 @@ export default function PickTeamPage() {
     } catch (e: any) {
       const raw = e?.message ?? "";
       console.error("Save failed:", raw, e);
-      const friendly = raw.includes("Squad Limit") || raw.includes("Max 3 players from the same team")
+      const friendly =
+        raw.includes("Squad Limit") ||
+        raw.includes("Max 3 players from the same team") ||
+        raw.includes("Max 3 players per team")
         ? "Max 3 players from the same team are allowed in your full squad."
         : raw.includes("Not signed in")
         ? "Sign in to save your team."

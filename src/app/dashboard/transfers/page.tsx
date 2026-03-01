@@ -84,6 +84,40 @@ function isLocked(deadlineIso?: string | null) {
   return Date.now() >= new Date(deadlineIso).getTime();
 }
 
+function teamKeyForLimit(player?: Player | null): string | null {
+  const key = String(player?.teamShort ?? player?.teamName ?? "")
+    .trim()
+    .toLowerCase();
+  return key.length > 0 ? key : null;
+}
+
+function enforceSquadTeamLimit(
+  ids: string[],
+  byId: Map<string, Player>,
+  maxPerTeam: number,
+) {
+  const counts = new Map<string, number>();
+  const kept: string[] = [];
+  let removed = 0;
+
+  for (const id of ids) {
+    const teamKey = teamKeyForLimit(byId.get(id));
+    if (!teamKey) {
+      kept.push(id);
+      continue;
+    }
+    const nextCount = (counts.get(teamKey) ?? 0) + 1;
+    if (nextCount > maxPerTeam) {
+      removed += 1;
+      continue;
+    }
+    counts.set(teamKey, nextCount);
+    kept.push(id);
+  }
+
+  return { kept, removed };
+}
+
 // =====================
 // PAGE
 // =====================
@@ -262,32 +296,6 @@ function TransfersPageInner() {
     })();
   }, []);
 
-  // Also load squad by gwId
-  React.useEffect(() => {
-    if (!gwId) {
-      const local = loadSquadIds();
-      if (local.length > 0) setOriginalSquadIds(local);
-      return;
-    }
-
-    (async () => {
-      const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
-      const json = await res.json();
-
-      if (!res.ok || !Array.isArray(json.squadIds) || json.squadIds.length === 0) {
-        const local = loadSquadIds();
-        if (local.length > 0) {
-          setOriginalSquadIds(local);
-          return;
-        }
-        setOriginalSquadIds([]);
-        return;
-      }
-
-      setOriginalSquadIds(json.squadIds);
-    })();
-  }, [gwId]);
-
   const locked = isLocked(nextGW?.deadline_time ?? currentGW?.deadline_time);
 
   const byId = React.useMemo(() => new Map(allPlayers.map((p) => [p.id, p])), [allPlayers]);
@@ -310,7 +318,7 @@ function TransfersPageInner() {
   const teamCounts = React.useMemo(() => {
     const counts = new Map<string, number>();
     for (const p of effectiveSquad) {
-      const team = (p.teamShort ?? "").toUpperCase();
+      const team = teamKeyForLimit(p);
       if (team) counts.set(team, (counts.get(team) ?? 0) + 1);
     }
     return counts;
@@ -319,13 +327,13 @@ function TransfersPageInner() {
   function wouldExceedTeamLimit(playerId: string, excludePlayerId?: string): boolean {
     const player = byId.get(playerId);
     if (!player) return false;
-    const team = (player.teamShort ?? "").toUpperCase();
+    const team = teamKeyForLimit(player);
     if (!team) return false;
     let count = teamCounts.get(team) ?? 0;
     // If we're replacing someone from the same team, subtract 1
     if (excludePlayerId) {
       const outPlayer = byId.get(excludePlayerId);
-      if (outPlayer && (outPlayer.teamShort ?? "").toUpperCase() === team) {
+      if (outPlayer && teamKeyForLimit(outPlayer) === team) {
         count -= 1;
       }
     }
@@ -339,6 +347,26 @@ function TransfersPageInner() {
     const timer = setTimeout(() => setTeamLimitError(null), 3500);
     return () => clearTimeout(timer);
   }, [teamLimitError]);
+
+  React.useEffect(() => {
+    if (originalSquadIds.length === 0) return;
+    if (byId.size === 0) return;
+
+    const { kept, removed } = enforceSquadTeamLimit(
+      originalSquadIds,
+      byId,
+      MAX_PER_TEAM,
+    );
+    if (removed === 0) return;
+
+    setOriginalSquadIds(kept);
+    saveSquadIds(kept);
+    setPendingTransfers([]);
+    setSelectedOutId(null);
+    setTeamLimitError(
+      `Removed ${removed} extra player${removed > 1 ? "s" : ""} to enforce max ${MAX_PER_TEAM} per team.`,
+    );
+  }, [originalSquadIds, byId]);
 
   // Budget based on effective squad
   const budgetUsed = React.useMemo(
