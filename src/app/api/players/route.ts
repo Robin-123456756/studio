@@ -124,6 +124,39 @@ export async function GET(req: Request) {
       }
     }
 
+    // Build next-opponent map: team_uuid → opponent short_name
+    const nextOpponentMap = new Map<string, string>();
+    {
+      // Fetch upcoming (unplayed) matches, sorted by gameweek
+      const { data: upcomingMatches } = await supabase
+        .from("matches")
+        .select(`
+          home_team_uuid, away_team_uuid,
+          home_team:teams!matches_home_team_uuid_fkey (short_name),
+          away_team:teams!matches_away_team_uuid_fkey (short_name)
+        `)
+        .eq("is_played", false)
+        .order("gameweek_id", { ascending: true });
+
+      if (upcomingMatches && upcomingMatches.length > 0) {
+        // For each team, take the FIRST unplayed match (nearest fixture)
+        for (const m of upcomingMatches) {
+          const homeUuid = (m as any).home_team_uuid;
+          const awayUuid = (m as any).away_team_uuid;
+          const homeShort = (m as any).home_team?.short_name;
+          const awayShort = (m as any).away_team?.short_name;
+
+          // Home team's next opponent is the away team, and vice versa
+          if (homeUuid && awayShort && !nextOpponentMap.has(homeUuid)) {
+            nextOpponentMap.set(homeUuid, awayShort);
+          }
+          if (awayUuid && homeShort && !nextOpponentMap.has(awayUuid)) {
+            nextOpponentMap.set(awayUuid, homeShort);
+          }
+        }
+      }
+    }
+
     // Always compute points from player_stats (source of truth)
     const totalsMap = new Map<
       string,
@@ -195,6 +228,7 @@ export async function GET(req: Request) {
         teamUuid: p.teams?.team_uuid ?? null,
         ownership: ownershipMap.get(pid) ?? 0,
         form_last5: formMap.get(pid) ?? null,
+        next_opponent: nextOpponentMap.get(p.teams?.team_uuid) ?? null,
         ...(totals
           ? {
               totalGoals: totals.goals,
