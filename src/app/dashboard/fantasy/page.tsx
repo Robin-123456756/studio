@@ -22,19 +22,6 @@ type ApiGameweek = {
   finalized?: boolean | null;
 };
 
-type ApiPlayer = {
-  id: string;
-  name: string;
-  webName?: string | null;
-  position?: string | null;
-  price?: number | null;
-  points?: number | null;
-  avatarUrl?: string | null;
-  isLady?: boolean | null;
-  teamShort?: string | null;
-  teamName?: string | null;
-};
-
 const menuItems = [
   { label: "Fixtures", href: "/dashboard/fixtures" },
   { label: "Player Statistics", href: "/dashboard/players" },
@@ -58,16 +45,6 @@ function formatDeadlineShort(iso?: string | null) {
     .format(d)
     .replace(/\bam\b/i, "AM")
     .replace(/\bpm\b/i, "PM");
-}
-
-function getInitials(value: string) {
-  return value
-    .split(" ")
-    .map((part) => part.trim()[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 }
 
 function formatCountdown(ms: number) {
@@ -460,35 +437,37 @@ function FantasyPage() {
       let totalPoints = 0;
 
       if (squadIds.length > 0) {
-        const playersRes = await fetch(`/api/players?ids=${squadIds.join(",")}`, {
-          cache: "no-store",
-        });
-        const playersJson = await playersRes.json();
-        if (!playersRes.ok) throw new Error(playersJson?.error || "Failed to load players");
+        const targetGwId = Number(currentGW?.id ?? rosterJson?.gwId ?? NaN);
 
-        const players: ApiPlayer[] = playersJson.players ?? [];
-        const pointsById = new Map(
-          players.map((p) => [String(p.id), Number(p.points ?? 0)])
-        );
+        if (Number.isFinite(targetGwId) && targetGwId > 0) {
+          const statsRes = await fetch(`/api/player-stats?gw_id=${targetGwId}`, {
+            cache: "no-store",
+          });
+          const statsJson = await statsRes.json();
+          if (!statsRes.ok) throw new Error(statsJson?.error || "Failed to load gameweek stats");
 
-        const multiplierByPlayer: Record<string, number> =
-          rosterJson?.multiplierByPlayer ?? {};
-        gwPoints = startingIds.reduce((sum, id) => {
-          const playerId = String(id);
-          const points = pointsById.get(playerId) ?? 0;
-          const rawMultiplier = Number(
-            multiplierByPlayer[playerId] ??
-              (String(rosterJson?.captainId ?? "") === playerId ? 2 : 1)
-          );
-          const multiplier =
-            Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
-          return sum + points * multiplier;
-        }, 0);
+          const pointsById = new Map<string, number>();
+          for (const s of statsJson?.stats ?? []) {
+            const pid = String((s as any).playerId ?? "");
+            if (!pid || !squadIds.includes(pid)) continue;
+            const pts = Number((s as any).points ?? 0);
+            pointsById.set(pid, (pointsById.get(pid) ?? 0) + (Number.isFinite(pts) ? pts : 0));
+          }
 
-        totalPoints = squadIds.reduce(
-          (sum, id) => sum + (pointsById.get(String(id)) ?? 0),
-          0
-        );
+          const multiplierByPlayer: Record<string, number> =
+            rosterJson?.multiplierByPlayer ?? {};
+          gwPoints = startingIds.reduce((sum, id) => {
+            const playerId = String(id);
+            const points = pointsById.get(playerId) ?? 0;
+            const rawMultiplier = Number(
+              multiplierByPlayer[playerId] ??
+                (String(rosterJson?.captainId ?? "") === playerId ? 2 : 1)
+            );
+            const multiplier =
+              Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
+            return sum + points * multiplier;
+          }, 0);
+        }
       }
 
       let overallRank: number | null = null;
@@ -583,7 +562,7 @@ function FantasyPage() {
     } finally {
       setStatsLoading(false);
     }
-  }, []);
+  }, [currentGW?.id]);
 
   React.useEffect(() => {
     loadStats();
