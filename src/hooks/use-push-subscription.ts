@@ -16,6 +16,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+/** Race a promise against a timeout. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
 export function usePushSubscription() {
   const [status, setStatus] = useState<PushStatus>("loading");
 
@@ -23,7 +31,8 @@ export function usePushSubscription() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    // Basic support check
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
       setStatus("unsupported");
       return;
     }
@@ -33,12 +42,24 @@ export function usePushSubscription() {
       return;
     }
 
-    // Check if already subscribed
-    navigator.serviceWorker.ready.then((reg) => {
-      reg.pushManager.getSubscription().then((sub) => {
+    // Check if SW is registered and has an active push subscription.
+    // Timeout after 3s — if SW hasn't activated, treat as "unsubscribed"
+    // (subscribe() will register/wait for SW when the user taps Enable).
+    (async () => {
+      try {
+        const reg = await withTimeout(navigator.serviceWorker.ready, 3000);
+        if (!reg) {
+          // SW not active yet — that's OK, user can still subscribe
+          setStatus("unsubscribed");
+          return;
+        }
+        const sub = await reg.pushManager.getSubscription();
         setStatus(sub ? "subscribed" : "unsubscribed");
-      });
-    });
+      } catch {
+        // Any error — default to unsubscribed so the button is visible
+        setStatus("unsubscribed");
+      }
+    })();
   }, []);
 
   const subscribe = useCallback(async () => {
@@ -48,6 +69,9 @@ export function usePushSubscription() {
         setStatus("denied");
         return false;
       }
+      if (permission !== "granted") {
+        return false;
+      }
 
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidKey) {
@@ -55,7 +79,13 @@ export function usePushSubscription() {
         return false;
       }
 
-      const reg = await navigator.serviceWorker.ready;
+      // Wait for SW — give it up to 10s during subscribe since user is actively waiting
+      const reg = await withTimeout(navigator.serviceWorker.ready, 10000);
+      if (!reg) {
+        console.error("Service worker not ready after 10s");
+        return false;
+      }
+
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer,
@@ -74,7 +104,8 @@ export function usePushSubscription() {
       });
 
       if (!res.ok) {
-        console.error("Failed to save push subscription");
+        const err = await res.json().catch(() => ({}));
+        console.error("Failed to save push subscription:", err);
         return false;
       }
 
@@ -88,22 +119,19 @@ export function usePushSubscription() {
 
   const unsubscribe = useCallback(async () => {
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const subscription = await reg.pushManager.getSubscription();
-
-      if (subscription) {
-        const endpoint = subscription.endpoint;
-
-        // Unsubscribe from browser
-        await subscription.unsubscribe();
-
-        // Remove from server
-        await fetch("/api/push/subscribe", {
-          method: "DELETE",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint }),
-        });
+      const reg = await withTimeout(navigator.serviceWorker.ready, 5000);
+      if (reg) {
+        const subscription = await reg.pushManager.getSubscription();
+        if (subscription) {
+          const endpoint = subscription.endpoint;
+          await subscription.unsubscribe();
+          await fetch("/api/push/subscribe", {
+            method: "DELETE",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endpoint }),
+          });
+        }
       }
 
       setStatus("unsubscribed");
