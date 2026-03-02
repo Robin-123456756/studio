@@ -23,6 +23,7 @@ type ApiGameweek = {
 };
 
 const menuItems = [
+  { label: "Leagues", href: "/dashboard/fantasy/leagues" },
   { label: "Fixtures", href: "/dashboard/fixtures" },
   { label: "Player Statistics", href: "/dashboard/players" },
   { label: "Set Piece Taker", href: "/dashboard/players" },
