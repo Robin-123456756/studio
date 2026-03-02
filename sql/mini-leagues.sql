@@ -38,12 +38,12 @@ CREATE POLICY "Service role full access" ON mini_league_members
 --    (uses a deterministic invite code that won't be shared)
 INSERT INTO mini_leagues (name, created_by, invite_code, is_general)
 SELECT
-  'Overall',
+  'Budo League',
   (SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1),
   'OVERALL0',
   true
 WHERE NOT EXISTS (
-  SELECT 1 FROM mini_leagues WHERE is_general = true AND name = 'Overall'
+  SELECT 1 FROM mini_leagues WHERE is_general = true
 );
 
 -- 5. Auto-join ALL existing users to the Overall league
