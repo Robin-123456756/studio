@@ -955,9 +955,26 @@ function PointsPage() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
 
-              <div className="text-center text-sm font-bold">
-                Gameweek {selectedGwId ?? "--"}
-              </div>
+              {allGWs.length > 1 ? (
+                <select
+                  value={selectedGwId ?? ""}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v)) setSelectedGwId(v);
+                  }}
+                  className="bg-white/15 text-white text-sm font-bold rounded-lg px-3 py-1.5 text-center appearance-none cursor-pointer hover:bg-white/25 transition border-0 outline-none"
+                >
+                  {allGWs.map((g) => (
+                    <option key={g.id} value={g.id} className="text-black">
+                      Gameweek {g.id}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="text-center text-sm font-bold">
+                  Gameweek {selectedGwId ?? "--"}
+                </div>
+              )}
 
               <button
                 type="button"

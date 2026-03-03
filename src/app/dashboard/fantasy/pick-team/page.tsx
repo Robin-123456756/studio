@@ -700,6 +700,7 @@ export default function PickTeamPage() {
   const [savedCaptainId, setSavedCaptainId] = React.useState<string | null>(null);
   const [savedViceId, setSavedViceId] = React.useState<string | null>(null);
   const savingRef = React.useRef(false);
+  const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
   const [msgType, setMsgType] = React.useState<"error" | "success" | "info">("info");
   const msgTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1326,6 +1327,18 @@ export default function PickTeamPage() {
   const activeGW = (currentGW && !currentGW.finalized) ? currentGW : nextGW ?? currentGW;
   const deadlineLabel = formatDeadlineUG(activeGW?.deadline_time);
   const currentGwLabel = gwId ? `Gameweek ${gwId}` : "Gameweek --";
+
+  // Client-side deadline check — re-evaluates every 30s
+  const [now, setNow] = React.useState(Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const deadlinePassed = React.useMemo(() => {
+    if (!activeGW?.deadline_time) return false;
+    const dl = new Date(activeGW.deadline_time).getTime();
+    return Number.isFinite(dl) && now > dl;
+  }, [activeGW?.deadline_time, now]);
   const chipsList: { key: ChipKey; name: string; icon: React.ReactNode }[] = [
     { key: "bench_boost", name: "Bench Boost", icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -1889,6 +1902,10 @@ export default function PickTeamPage() {
 
   async function save() {
     if (savingRef.current) return; // prevent double-clicks
+    if (deadlinePassed) {
+      showMsg("Deadline has passed — changes can't be saved.", "error");
+      return;
+    }
     setMsg(null);
 
     // Deduplicate pickedIds in case of stale localStorage
@@ -1968,6 +1985,7 @@ export default function PickTeamPage() {
     if (!gwId) return setMsg("No active gameweek yet.");
 
     savingRef.current = true;
+    setSaving(true);
     try {
       const teamName = (localStorage.getItem("tbl_team_name") || "My Team").trim();
 
@@ -2015,6 +2033,7 @@ export default function PickTeamPage() {
       showMsg(friendly, "error", 5000);
     } finally {
       savingRef.current = false;
+      setSaving(false);
     }
   }
 
@@ -2823,10 +2842,15 @@ export default function PickTeamPage() {
         {hasUnsavedChanges ? (
           <button
             onClick={save}
-            disabled={loading}
-            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+            disabled={loading || saving || deadlinePassed}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50",
+              deadlinePassed
+                ? "border-amber-200 bg-amber-50 text-amber-600"
+                : "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+            )}
           >
-            Save
+            {saving ? "Saving…" : deadlinePassed ? "Deadline passed" : "Save"}
           </button>
         ) : (
           <DropdownMenu>
