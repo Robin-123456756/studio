@@ -57,3 +57,17 @@ export function buildBroadcastPush(title: string, message: string): PushPayload 
     data: { link: "/dashboard" },
   };
 }
+
+/** Deadline reminder push — "Gameweek 5 deadline in 24 hours!" */
+export function buildDeadlineReminderPush(
+  gameweekId: number,
+  reminderType: "24h" | "1h"
+): PushPayload {
+  const timeLabel = reminderType === "24h" ? "24 hours" : "1 hour";
+  return {
+    title: "\u23F0 Deadline Reminder",
+    body: `Gameweek ${gameweekId} deadline in ${timeLabel}! Set your picks now.`,
+    tag: `deadline-${gameweekId}-${reminderType}`,
+    data: { link: "/dashboard/fantasy/pick-team" },
+  };
+}

@@ -73,3 +73,57 @@ export async function sendPushToAll(payload: PushPayload): Promise<void> {
     // Entire push flow failed — silently ignore
   }
 }
+
+/**
+ * Send a push notification to specific users (by user ID).
+ * Fire-and-forget — never throws, never crashes the caller.
+ * Handles multiple devices per user. Auto-cleans expired subscriptions.
+ */
+export async function sendPushToUsers(
+  userIds: string[],
+  payload: PushPayload
+): Promise<void> {
+  if (!isConfigured() || userIds.length === 0) return;
+
+  try {
+    const supabase = getSupabaseServerOrThrow();
+
+    const { data: subs, error } = await supabase
+      .from("push_subscriptions")
+      .select("id, endpoint, p256dh, auth")
+      .in("user_id", userIds);
+
+    if (error || !subs || subs.length === 0) return;
+
+    const jsonPayload = JSON.stringify(payload);
+    const expiredIds: number[] = [];
+
+    await Promise.allSettled(
+      subs.map(async (sub) => {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: sub.endpoint,
+              keys: { p256dh: sub.p256dh, auth: sub.auth },
+            },
+            jsonPayload
+          );
+        } catch (err: any) {
+          if (err?.statusCode === 410 || err?.statusCode === 404) {
+            expiredIds.push(sub.id);
+          }
+        }
+      })
+    );
+
+    // Clean up expired subscriptions
+    if (expiredIds.length > 0) {
+      await supabase
+        .from("push_subscriptions")
+        .delete()
+        .in("id", expiredIds);
+    }
+  } catch {
+    // Entire push flow failed — silently ignore
+  }
+}
