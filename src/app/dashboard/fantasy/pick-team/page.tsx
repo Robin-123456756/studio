@@ -18,6 +18,7 @@ import {
   Scale,
   MoreVertical,
   RotateCcw,
+  Copy,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -1830,6 +1831,48 @@ export default function PickTeamPage() {
     setMsg(null);
   }
 
+  async function copyLastGwPicks() {
+    if (!gwId || gwId <= 1) return;
+    const prevGwId = gwId - 1;
+
+    if (!confirm(`This will replace your current picks with Gameweek ${prevGwId}. Continue?`)) return;
+
+    try {
+      const res = await fetch(`/api/rosters?gw_id=${prevGwId}`, { credentials: "same-origin" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showMsg(data.error || "Failed to load previous picks", "error");
+        return;
+      }
+
+      if (!data.squadIds || data.squadIds.length === 0) {
+        showMsg(`No picks found for Gameweek ${prevGwId}`, "error");
+        return;
+      }
+
+      // Update state
+      setPickedIds(data.squadIds);
+      setStartingIds(data.startingIds ?? []);
+      if (data.captainId) setCaptainId(data.captainId);
+      if (data.viceId) setViceId(data.viceId);
+      if (Array.isArray(data.benchOrder) && data.benchOrder.length > 0) {
+        setBenchOrder(data.benchOrder);
+      }
+
+      // Update localStorage
+      localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
+      localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
+      localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds ?? []));
+      if (data.captainId) localStorage.setItem(LS_CAPTAIN, data.captainId);
+      if (data.viceId) localStorage.setItem(LS_VICE, data.viceId);
+
+      showMsg(`Loaded picks from Gameweek ${prevGwId}`, "success");
+    } catch {
+      showMsg("Failed to load previous picks", "error");
+    }
+  }
+
   function swapBenchOrder(id1: string, id2: string) {
     setBenchOrder((prev) => {
       // Initialize from current bench if no custom order yet
@@ -2802,6 +2845,16 @@ export default function PickTeamPage() {
                   Transfers
                 </Link>
               </DropdownMenuItem>
+              {gwId != null && gwId > 1 && (
+                <DropdownMenuItem
+                  onClick={copyLastGwPicks}
+                  disabled={loading}
+                  className="gap-2"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy Last GW
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={autoSelectStarting}
                 disabled={loading || pickedIds.length < 11}
