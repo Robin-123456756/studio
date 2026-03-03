@@ -271,7 +271,7 @@ export default function VoiceAdminPage() {
       <main>
         {view === "manual" && <ManualView matchId={selectedMatchId} onSaved={() => setHistoryRefreshKey(k => k + 1)} />}
         {view === "capture" && <CaptureView matchId={selectedMatchId} onResult={handleResult} showLogout={!!session?.user} />}
-        {view === "confirm" && pipelineResult && <ConfirmView pipelineResult={pipelineResult} matchId={selectedMatchId} onConfirm={handleConfirm} onCancel={handleCancel} />}
+        {view === "confirm" && pipelineResult && <ConfirmView pipelineResult={pipelineResult} matchId={selectedMatchId} onConfirm={handleConfirm} onCancel={handleCancel} adminId={Number((session?.user as any)?.userId) || 1} />}
         {view === "history" && <HistoryView inMemoryHistory={history} refreshKey={historyRefreshKey} />}
         {view === "scoring" && <ScoringView matchesByGw={matchesByGw} />}
       </main>
@@ -566,7 +566,7 @@ function CaptureView({ matchId, onResult, showLogout }: { matchId: number | null
 // ═══════════════════════════════════════════════════════════
 // CONFIRM VIEW
 // ═══════════════════════════════════════════════════════════
-function ConfirmView({ pipelineResult, matchId, onConfirm, onCancel }: { pipelineResult: any; matchId: number | null; onConfirm: (result: any) => void; onCancel: () => void }) {
+function ConfirmView({ pipelineResult, matchId, onConfirm, onCancel, adminId }: { pipelineResult: any; matchId: number | null; onConfirm: (result: any) => void; onCancel: () => void; adminId: number }) {
   const [entries, setEntries] = useState<any[]>(pipelineResult?.resolved || []);
   const [unresolved] = useState<any[]>(pipelineResult?.unresolved || []);
   const [committing, setCommitting] = useState(false);
@@ -599,7 +599,7 @@ function ConfirmView({ pipelineResult, matchId, onConfirm, onCancel }: { pipelin
       const res = await fetch("/api/voice-admin/commit-db", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, entries, adminId: 1, transcript: pipelineResult?.transcript || "" }),
+        body: JSON.stringify({ matchId, entries, adminId, transcript: pipelineResult?.transcript || "" }),
       });
       const result = await res.json();
       if (res.ok) {

@@ -323,7 +323,7 @@ function UnresolvedCard({ entry, onSelectCandidate, onDismiss, entryIndex }: { e
 }
 
 // ── Main Confirm component ──────────────────────────────────
-export default function ConfirmPanel({ pipelineResult, matchId, onConfirm, onCancel, onUndo }: { pipelineResult: any; matchId: number | null; onConfirm?: (result: any) => void; onCancel: () => void; onUndo?: () => void }) {
+export default function ConfirmPanel({ pipelineResult, matchId, onConfirm, onCancel, onUndo, adminId = 1 }: { pipelineResult: any; matchId: number | null; onConfirm?: (result: any) => void; onCancel: () => void; onUndo?: () => void; adminId?: number }) {
   const [entries, setEntries] = useState<any[]>(pipelineResult?.resolved || []);
   const [unresolved, setUnresolved] = useState<any[]>(pipelineResult?.unresolved || []);
   const [committing, setCommitting] = useState(false);
@@ -418,7 +418,7 @@ export default function ConfirmPanel({ pipelineResult, matchId, onConfirm, onCan
         body: JSON.stringify({
           matchId,
           entries,
-          adminId: 1, // TODO: from auth context
+          adminId,
           transcript: pipelineResult?.transcript || "",
           aiInterpretation: pipelineResult?.interpretation || {},
         }),
