@@ -122,7 +122,7 @@ export default function SchedulePage() {
                           alt={game.home_team.name}
                           width={36}
                           height={36}
-                          className="shrink-0 object-contain"
+                          className="shrink-0 object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
                         />
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-muted shrink-0" />
@@ -154,7 +154,7 @@ export default function SchedulePage() {
                           alt={game.away_team.name}
                           width={36}
                           height={36}
-                          className="shrink-0 object-contain"
+                          className="shrink-0 object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
                         />
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-muted shrink-0" />

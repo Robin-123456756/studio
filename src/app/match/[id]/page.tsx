@@ -165,7 +165,7 @@ export default function MatchPage() {
                 <img
                   src={home?.logo_url ?? "/placeholder-team.png"}
                   alt={home?.name ?? "Home"}
-                  className="h-full w-full object-contain"
+                  className="h-full w-full object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
                   loading="lazy"
                   referrerPolicy="no-referrer"
                 />
@@ -195,7 +195,7 @@ export default function MatchPage() {
                 <img
                   src={away?.logo_url ?? "/placeholder-team.png"}
                   alt={away?.name ?? "Away"}
-                  className="h-full w-full object-contain"
+                  className="h-full w-full object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
                   loading="lazy"
                   referrerPolicy="no-referrer"
                 />

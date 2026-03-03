@@ -231,7 +231,7 @@ function MatchRow({ g }: { g: UiGame }) {
             alt={g.team1.name}
             width={24}
             height={24}
-            className="h-6 w-6 object-contain"
+            className="h-6 w-6 object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
           />
         </div>
 
@@ -258,7 +258,7 @@ function MatchRow({ g }: { g: UiGame }) {
             alt={g.team2.name}
             width={24}
             height={24}
-            className="h-6 w-6 object-contain"
+            className="h-6 w-6 object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
           />
         </div>
 

@@ -169,7 +169,7 @@ export function LandingContent() {
   if (!authChecked) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#FF0000] dark:bg-background">
-        <img src="/icon.jpg" alt="The Budo League" className="h-[72px] w-auto object-contain" />
+        <img src="/icon.jpg" alt="The Budo League" className="h-[72px] w-auto object-contain mix-blend-multiply dark:invert dark:mix-blend-screen" />
       </div>
     );
   }
@@ -196,7 +196,7 @@ export function LandingContent() {
             alt="The Budo League"
             width={80}
             height={80}
-            className="mx-auto mb-6 rounded-2xl shadow-lg"
+            className="mx-auto mb-6 rounded-2xl shadow-lg mix-blend-multiply dark:invert dark:mix-blend-screen"
             priority
           />
 
