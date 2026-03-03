@@ -66,3 +66,14 @@
    Reload env: .env.local
  ✓ Compiled in 50.8s (629 modules)
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (133kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+   ▲ Next.js 15.5.9
+   - Local:        http://localhost:3001
+   - Network:      http://192.168.118.11:3001
+   - Environments: .env.local
+
+ ✓ Starting...
+> [PWA] PWA support is disabled
+> [PWA] PWA support is disabled
+ ✓ Ready in 79.4s
+   Reload env: .env.local
