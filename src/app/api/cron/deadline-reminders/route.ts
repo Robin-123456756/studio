@@ -6,7 +6,8 @@ import { buildDeadlineReminderPush } from "@/lib/push-message-builders";
 export const dynamic = "force-dynamic";
 
 /**
- * Cron endpoint: Send deadline reminders 24h and 1h before gameweek deadlines.
+ * Cron endpoint: Send deadline reminders ~24h before gameweek deadlines.
+ * Runs once daily at 8am Kampala time (5:00 UTC).
  * Only targets managers who haven't saved picks for that gameweek yet.
  * Protected by CRON_SECRET (Vercel auto-sends this for cron jobs).
  */
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
     // Gameweeks with a future deadline that haven't been fully reminded yet
     const { data: gameweeks, error: gwErr } = await supabase
       .from("gameweeks")
-      .select("id, deadline_time, reminder_24h_sent_at, reminder_1h_sent_at")
+      .select("id, deadline_time, reminder_24h_sent_at")
       .gt("deadline_time", now.toISOString());
 
     if (gwErr || !gameweeks) {
@@ -43,17 +44,8 @@ export async function GET(req: Request) {
       const deadline = new Date(gw.deadline_time);
       const hoursUntil = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-      // Determine which reminders need sending
-      const remindersToSend: Array<{ type: "24h" | "1h"; column: string }> = [];
-
-      if (hoursUntil <= 24 && !gw.reminder_24h_sent_at) {
-        remindersToSend.push({ type: "24h", column: "reminder_24h_sent_at" });
-      }
-      if (hoursUntil <= 1 && !gw.reminder_1h_sent_at) {
-        remindersToSend.push({ type: "1h", column: "reminder_1h_sent_at" });
-      }
-
-      if (remindersToSend.length === 0) continue;
+      // Send 24h reminder if deadline is within 24h and not yet sent
+      if (hoursUntil > 24 || gw.reminder_24h_sent_at) continue;
 
       // 2. Find all fantasy managers
       const { data: allTeams } = await supabase
@@ -79,28 +71,23 @@ export async function GET(req: Request) {
 
       if (nonSubmitters.length === 0) {
         // Everyone has submitted — still stamp to prevent re-checking
-        for (const reminder of remindersToSend) {
-          await supabase
-            .from("gameweeks")
-            .update({ [reminder.column]: now.toISOString() })
-            .eq("id", gw.id);
-        }
+        await supabase
+          .from("gameweeks")
+          .update({ reminder_24h_sent_at: now.toISOString() })
+          .eq("id", gw.id);
         continue;
       }
 
-      // 5. Send push and stamp for each reminder type
-      for (const reminder of remindersToSend) {
-        const payload = buildDeadlineReminderPush(gw.id, reminder.type);
-        await sendPushToUsers(nonSubmitters, payload);
+      // 5. Send push and stamp
+      const payload = buildDeadlineReminderPush(gw.id, "24h");
+      await sendPushToUsers(nonSubmitters, payload);
 
-        // Stamp to prevent duplicate sends
-        await supabase
-          .from("gameweeks")
-          .update({ [reminder.column]: now.toISOString() })
-          .eq("id", gw.id);
+      await supabase
+        .from("gameweeks")
+        .update({ reminder_24h_sent_at: now.toISOString() })
+        .eq("id", gw.id);
 
-        reminded[`GW${gw.id}_${reminder.type}`] = nonSubmitters.length;
-      }
+      reminded[`GW${gw.id}_24h`] = nonSubmitters.length;
     }
 
     return NextResponse.json({
