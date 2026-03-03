@@ -404,14 +404,23 @@ function TransfersPageInner() {
   const extraTransfers = chipFree ? 0 : Math.max(0, pendingCount - freeTransfers);
   const pendingCost = chipFree ? 0 : extraTransfers * 4;
 
-  // Check if wildcard is available (not already used)
-  const wildcardAvailable = React.useMemo(() => {
-    try {
-      const raw = localStorage.getItem("tbl_used_chips");
-      const used: string[] = raw ? JSON.parse(raw) : [];
-      return !used.includes("wildcard");
-    } catch { return true; }
-  }, [wildcardActive]);
+  // Check if wildcard is available (not already used) — fetch from server
+  const [usedChips, setUsedChips] = React.useState<string[]>([]);
+  React.useEffect(() => {
+    fetch("/api/chips", { credentials: "same-origin", cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (Array.isArray(json.usedChips)) setUsedChips(json.usedChips);
+      })
+      .catch(() => {
+        // Fallback to localStorage if API fails
+        try {
+          const raw = localStorage.getItem("tbl_used_chips");
+          if (raw) setUsedChips(JSON.parse(raw));
+        } catch { /* ignore */ }
+      });
+  }, []);
+  const wildcardAvailable = !usedChips.includes("wildcard") && !wildcardActive;
 
   // The selected out player
   const selectedOutPlayer = selectedOutId ? byId.get(selectedOutId) : null;
