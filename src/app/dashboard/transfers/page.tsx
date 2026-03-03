@@ -8,8 +8,9 @@ import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
 import { loadSquadIds } from "@/lib/fantasyStorage";
 import { type Player } from "./player-card";
-import { useTransfers } from "./use-transfers";
-import { ArrowLeft, MoreVertical, RotateCcw, Search, X, Zap } from "lucide-react";
+import { useTransfers, type TransferLogItem } from "./use-transfers";
+import { TransferLogItemComponent } from "./transfer-log-item";
+import { ArrowLeft, ChevronDown, MoreVertical, RotateCcw, Search, X, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -210,7 +211,29 @@ function TransfersPageInner() {
 
   // Use the transfers hook
   const gwId = nextGW?.id ?? currentGW?.id ?? null;
-  const { freeTransfers, cost, recordTransfer, incrementUsedTransfers } = useTransfers(gwId);
+  const { freeTransfers, cost, recordTransfer, incrementUsedTransfers, transfersThisGW, squadPlayers } = useTransfers(gwId);
+
+  // Transfer history (all GWs) + season hits
+  const [historyData, setHistoryData] = React.useState<TransferLogItem[]>([]);
+  const [seasonHits, setSeasonHits] = React.useState(0);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/transfers/history", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        setHistoryData(json.transfers ?? []);
+        setSeasonHits(json.seasonHits ?? 0);
+      } catch {
+        // Silently fail — history is non-critical
+      }
+    })();
+  }, []);
 
   // Load gameweeks
   React.useEffect(() => {
@@ -675,20 +698,26 @@ function TransfersPageInner() {
       )}
 
       {/* === TRANSFER INFO CARDS === */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl border bg-card p-3 text-center">
-          <div className="text-lg font-bold tabular-nums">{budgetRemaining.toFixed(1)}m</div>
+      <div className="grid grid-cols-4 gap-2">
+        <div className="rounded-xl border bg-card p-2 text-center">
+          <div className="text-base font-bold tabular-nums">{budgetRemaining.toFixed(1)}m</div>
           <div className="text-[10px] text-muted-foreground font-medium">Budget</div>
         </div>
-        <div className="rounded-xl border bg-card p-3 text-center">
-          <div className="text-lg font-bold tabular-nums">{chipFree ? "∞" : freeTransfers}</div>
-          <div className="text-[10px] text-muted-foreground font-medium">{chipFree ? "Unlimited" : "Free Transfers"}</div>
+        <div className="rounded-xl border bg-card p-2 text-center">
+          <div className="text-base font-bold tabular-nums">{chipFree ? "∞" : freeTransfers}</div>
+          <div className="text-[10px] text-muted-foreground font-medium">{chipFree ? "Unlimited" : "Free"}</div>
         </div>
-        <div className="rounded-xl border bg-card p-3 text-center">
-          <div className={cn("text-lg font-bold tabular-nums", !chipFree && pendingCost > 0 && "text-red-600")}>
+        <div className="rounded-xl border bg-card p-2 text-center">
+          <div className={cn("text-base font-bold tabular-nums", !chipFree && pendingCost > 0 && "text-red-600")}>
             {chipFree ? <span className="text-emerald-600">FREE</span> : `${pendingCost} pts`}
           </div>
           <div className="text-[10px] text-muted-foreground font-medium">Cost</div>
+        </div>
+        <div className="rounded-xl border bg-card p-2 text-center">
+          <div className={cn("text-base font-bold tabular-nums", seasonHits > 0 ? "text-red-600" : "text-emerald-600")}>
+            {seasonHits > 0 ? `-${seasonHits}` : "0"}
+          </div>
+          <div className="text-[10px] text-muted-foreground font-medium">Hits</div>
         </div>
       </div>
 
@@ -1399,6 +1428,71 @@ function TransfersPageInner() {
               {17 - effectiveSquad.length} player{17 - effectiveSquad.length !== 1 ? "s" : ""} remaining
             </div>
           )}
+        </div>
+      )}
+
+      {/* === TRANSFERS THIS GAMEWEEK === */}
+      {!selectedOutId && transfersThisGW.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-bold">Transfers This Gameweek</h3>
+          {transfersThisGW.map((t, i) => {
+            const outP = byId.get(t.outId);
+            const inP = byId.get(t.inId);
+            return (
+              <TransferLogItemComponent
+                key={`${t.outId}-${t.inId}-${i}`}
+                transfer={t}
+                outPlayer={outP ? { name: outP.name, teamShort: outP.teamShort, position: outP.position, price: outP.price } : null}
+                inPlayer={inP ? { name: inP.name, teamShort: inP.teamShort, position: inP.position, price: inP.price } : null}
+                formatTime={(iso) => {
+                  try {
+                    return new Date(iso).toLocaleTimeString("en-UG", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Kampala" });
+                  } catch { return iso; }
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* === TRANSFER HISTORY (past GWs, collapsible) === */}
+      {!selectedOutId && historyData.length > 0 && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="flex items-center justify-between w-full text-sm font-bold py-2"
+          >
+            <span>Transfer History</span>
+            <ChevronDown className={cn("h-4 w-4 transition-transform", historyOpen && "rotate-180")} />
+          </button>
+          {historyOpen && (() => {
+            // Group by gameweek (newest first — API already returns sorted)
+            const grouped = new Map<number, TransferLogItem[]>();
+            for (const t of historyData) {
+              const list = grouped.get(t.gwId) ?? [];
+              list.push(t);
+              grouped.set(t.gwId, list);
+            }
+            return [...grouped.entries()].map(([gw, items]) => (
+              <div key={gw} className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground">Gameweek {gw}</div>
+                {items.map((t, i) => (
+                  <TransferLogItemComponent
+                    key={`hist-${gw}-${i}`}
+                    transfer={t}
+                    outPlayer={t.outName ? { name: t.outName, teamShort: t.outTeamShort, position: t.outPos ?? "", price: t.outPrice ?? 0 } : null}
+                    inPlayer={t.inName ? { name: t.inName, teamShort: t.inTeamShort, position: t.inPos ?? "", price: t.inPrice ?? 0 } : null}
+                    formatTime={(iso) => {
+                      try {
+                        return new Date(iso).toLocaleString("en-UG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Kampala" });
+                      } catch { return iso; }
+                    }}
+                  />
+                ))}
+              </div>
+            ));
+          })()}
         </div>
       )}
 
