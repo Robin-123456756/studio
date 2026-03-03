@@ -121,7 +121,9 @@ function lookupPoints(
 ): number {
   const specific = rules[`${action}:${position}`];
   const base = specific !== undefined ? specific : (rules[`${action}:ALL`] ?? 0);
-  return isLady ? base * 2 : base;
+  // Lady players get 2x on positive actions only.
+  // Negative actions (yellow, red, own_goal, pen_miss) stay at normal value.
+  return isLady && base > 0 ? base * 2 : base;
 }
 
 // ── Per-user score computation (exported for reuse) ───────────────────
