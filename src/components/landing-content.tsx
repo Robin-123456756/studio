@@ -169,7 +169,7 @@ export function LandingContent() {
   if (!authChecked) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D5C63] dark:bg-[#0D5C63]">
-        <img src="/icon.jpg" alt="The Budo League" className="h-[72px] w-auto object-contain" />
+        <img src="/icon-t.png" alt="The Budo League" className="h-[72px] w-auto object-contain" />
       </div>
     );
   }
@@ -192,7 +192,7 @@ export function LandingContent() {
 
         <div className="relative z-10 mx-auto max-w-lg">
           <Image
-            src="/icon.jpg"
+            src="/icon-t.png"
             alt="The Budo League"
             width={80}
             height={80}
