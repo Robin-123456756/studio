@@ -37,12 +37,18 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Calling getUser() triggers token refresh if the access token is expired
-  await supabase.auth.getUser();
+  // Admin pages and voice-admin API use NextAuth, not Supabase — skip the
+  // Supabase token refresh to avoid an unnecessary network round-trip.
+  const isAdminRoute =
+    pathname.startsWith("/admin") || pathname.startsWith("/api/voice-admin");
 
-  // Admin auth (next-auth)
   if (pathname === "/admin/login" || pathname.startsWith("/api/auth")) {
     return supabaseResponse;
+  }
+
+  if (!isAdminRoute) {
+    // Calling getUser() triggers token refresh if the access token is expired
+    await supabase.auth.getUser();
   }
 
   if (pathname.startsWith("/admin")) {
