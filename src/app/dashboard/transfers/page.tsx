@@ -1422,7 +1422,7 @@ function TransfersPageInner() {
                 "block w-full py-3.5 rounded-full text-sm font-bold text-center text-white transition",
                 "hover:opacity-90"
               )}
-              style={{ background: "linear-gradient(90deg, #00FF87, #04F5FF)", color: "#37003C" }}
+              style={{ background: "#0D5C63", color: "#FFFFFF" }}
             >
               Save Squad & Pick Team
             </Link>
