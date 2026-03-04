@@ -31,9 +31,9 @@ export default function LaunchDemoPage() {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
         <img
-          src="/tbl-logo.png"
+          src="/tbl-logo-t.png"
           alt="Budo League"
-          className="h-auto w-[180px] object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
+          className="h-auto w-[180px] object-contain"
         />
       </div>
     );

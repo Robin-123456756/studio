@@ -414,11 +414,11 @@ export default function DashboardPage() {
               so mix-blend-multiply has a backdrop to composite against
               (the animation wrapper creates an isolated stacking context). */}
           <Image
-            src="/tbl-logo.png"
+            src="/tbl-logo-t.png"
             alt="The Budo League"
             width={120}
             height={56}
-            className="h-auto w-[100px] object-contain mix-blend-multiply dark:invert dark:mix-blend-screen shrink-0"
+            className="h-auto w-[100px] object-contain shrink-0"
             priority
           />
 

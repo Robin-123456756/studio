@@ -5,9 +5,9 @@ export default function NotFound() {
     <div className="min-h-screen flex items-center justify-center bg-[#0D5C63] px-6">
       <div className="text-center max-w-sm">
         <img
-          src="/icon.jpg"
+          src="/icon-t.png"
           alt="The Budo League"
-          className="h-16 w-auto mx-auto mb-6 rounded-xl mix-blend-multiply"
+          className="h-16 w-auto mx-auto mb-6 rounded-xl"
         />
         <h1 className="text-5xl font-bold text-white mb-2">404</h1>
         <p className="text-white/70 text-sm mb-6">
