@@ -31,7 +31,7 @@ export default function LaunchDemoPage() {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
         <img
-          src="/tbl-logo-t.png"
+          src="/tbl-logo.png"
           alt="Budo League"
           className="h-auto w-[180px] object-contain"
         />

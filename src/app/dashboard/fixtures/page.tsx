@@ -274,7 +274,7 @@ export default function FixturesPage() {
                             alt={fixture.home_team.name}
                             width={36}
                             height={36}
-                            className="shrink-0 object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
+                            className="shrink-0 object-contain"
                           />
                         ) : (
                           <div className="h-9 w-9 rounded-full bg-muted shrink-0" />
@@ -308,7 +308,7 @@ export default function FixturesPage() {
                             alt={fixture.away_team.name}
                             width={36}
                             height={36}
-                            className="shrink-0 object-contain mix-blend-multiply dark:invert dark:mix-blend-screen"
+                            className="shrink-0 object-contain"
                           />
                         ) : (
                           <div className="h-9 w-9 rounded-full bg-muted shrink-0" />

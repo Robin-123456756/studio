@@ -122,7 +122,7 @@ export default function TeamDetailPage() {
             <img
               src={logoUrl ?? "/placeholder.png"}
               alt={teamName}
-              className="h-full w-full object-cover mix-blend-multiply dark:invert dark:mix-blend-screen"
+              className="h-full w-full object-cover"
               loading="lazy"
               referrerPolicy="no-referrer"
             />
