@@ -96,11 +96,41 @@ export async function GET(req: Request) {
       }
 
       if (currentGwId) {
-        const { data: rosterRows } = await supabase
+        let rosterRows: any[] | null = null;
+
+        // Try current gameweek first
+        const { data: gwRows } = await supabase
           .from("user_rosters")
           .select("player_id,user_id")
           .eq("gameweek_id", currentGwId)
           .in("player_id", playerIds);
+
+        rosterRows = gwRows;
+
+        // Fallback: if no rosters for current GW, use latest roster per user across all GWs
+        if (!rosterRows || rosterRows.length === 0) {
+          const { data: allRosters } = await supabase
+            .from("user_rosters")
+            .select("player_id,user_id,gameweek_id")
+            .in("player_id", playerIds)
+            .order("gameweek_id", { ascending: false });
+
+          if (allRosters && allRosters.length > 0) {
+            // Keep only the latest gameweek entry per user
+            const latestGwByUser = new Map<string, number>();
+            for (const r of allRosters) {
+              const uid = String((r as any).user_id);
+              const gw = Number((r as any).gameweek_id);
+              if (!latestGwByUser.has(uid) || gw > latestGwByUser.get(uid)!) {
+                latestGwByUser.set(uid, gw);
+              }
+            }
+            rosterRows = allRosters.filter((r: any) => {
+              const uid = String(r.user_id);
+              return Number(r.gameweek_id) === latestGwByUser.get(uid);
+            });
+          }
+        }
 
         const ownersByPlayer = new Map<string, Set<string>>();
         const activeUsers = new Set<string>();

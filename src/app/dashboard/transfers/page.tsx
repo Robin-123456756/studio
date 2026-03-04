@@ -594,7 +594,7 @@ function TransfersPageInner() {
   // RENDER
   // =====================
   return (
-    <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
+    <div className="mx-auto w-full max-w-appWide px-4 pt-4 pb-28 space-y-4">
       {/* === HEADER === */}
       <div className="flex items-center justify-between">
         <Link
@@ -1093,7 +1093,7 @@ function TransfersPageInner() {
                                   marginTop: 1, display: "flex", gap: 6,
                                 }}>
                                   <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    {p.teamShort ?? p.teamName ?? "--"}
+                                    {p.teamName ?? p.teamShort ?? "--"}
                                   </span>
                                   <span>{shortPos(p.position)}</span>
                                 </div>
