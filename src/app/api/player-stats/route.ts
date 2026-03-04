@@ -230,7 +230,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ stats });
   } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message ?? "Route crashed", stack: e?.stack ?? null },
+      { error: e?.message ?? "Route crashed" },
       { status: 500 }
     );
   }

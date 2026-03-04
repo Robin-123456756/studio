@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRecentEntries } from "@/lib/voice-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "20");
 

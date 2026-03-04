@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message ?? "Route crashed", stack: e?.stack ?? null },
+      { error: e?.message ?? "Route crashed" },
       { status: 500 }
     );
   }

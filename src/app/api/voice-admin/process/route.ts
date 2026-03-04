@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { processTextInput } from "@/lib/voice-admin/pipeline";
 import { getOpenAIApiKey } from "@/lib/openai/api-key";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 /**
  * Fetch player names for both teams in a match.
@@ -35,6 +36,9 @@ async function getMatchPlayerNames(matchId: number): Promise<string[]> {
 
 export async function POST(request: Request) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
+
     const openAIApiKey = getOpenAIApiKey();
 
     const formData = await request.formData();

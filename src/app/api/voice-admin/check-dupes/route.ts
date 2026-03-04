@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const { matchId, entries } = await request.json();
 
     if (!matchId || !entries) {

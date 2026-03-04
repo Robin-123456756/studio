@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { supabaseServer } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: Request) {
+  // Auth: verify the caller is signed in and requesting their own data
+  const authClient = await supabaseServer();
+  const { data: auth, error: authErr } = await authClient.auth.getUser();
+  if (authErr || !auth?.user) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
   const supabase = getSupabaseServerOrThrow();
   const url = new URL(req.url);
 
   const userId = url.searchParams.get("user_id");
   if (!userId) return NextResponse.json({ error: "Missing user_id" }, { status: 400 });
+
+  if (userId !== auth.user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const gwIdParam = url.searchParams.get("gw_id");
   let gwId = gwIdParam ? Number(gwIdParam) : NaN;

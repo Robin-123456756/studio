@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 /**
  * GET /api/voice-admin/match-players?matchId=31
@@ -7,6 +8,8 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
  */
 export async function GET(request: NextRequest) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const { searchParams } = new URL(request.url);
     const matchId = searchParams.get("matchId");
 

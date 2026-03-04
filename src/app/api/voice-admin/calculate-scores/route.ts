@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { calculateGameweekScores } from "@/lib/scoring-engine";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const { gameweekId } = await request.json();
 
     if (!gameweekId) {

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const supabase = getSupabaseServerOrThrow();
 
     // Step 1: Fetch matches (include all — admin needs access to any match)

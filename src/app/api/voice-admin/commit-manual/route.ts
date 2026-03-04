@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { calcTotalPoints } from "@/lib/voice-admin";
 import type { AIAction } from "@/lib/voice-admin/types";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 interface ManualEvent {
   playerId: string;
@@ -15,6 +16,9 @@ interface ManualPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
+
     const body: ManualPayload = await request.json();
     const { matchId, events } = body;
 

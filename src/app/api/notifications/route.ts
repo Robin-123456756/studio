@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { supabaseServer } from "@/lib/supabase-server";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -21,11 +22,19 @@ async function parseBody(req: Request): Promise<any> {
 // GET - fetch notifications + unread count
 export async function GET(req: Request) {
   try {
+    // Auth: verify the caller is signed in
+    const authClient = await supabaseServer();
+    const { data: auth, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !auth?.user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
+
     const supabase = getSupabaseServerOrThrow();
     const { searchParams } = new URL(req.url);
 
     const limit = parseLimit(searchParams.get("limit"));
-    const userId = searchParams.get("userId") || searchParams.get("user_id");
+    // Use authenticated user's ID instead of trusting query param
+    const userId = auth.user.id;
 
     let notificationsQuery = supabase
       .from("notifications")
@@ -67,10 +76,18 @@ export async function GET(req: Request) {
 // PUT - mark one or all notifications as read
 export async function PUT(req: Request) {
   try {
+    // Auth: verify the caller is signed in
+    const authClient = await supabaseServer();
+    const { data: auth, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !auth?.user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
+
     const supabase = getSupabaseServerOrThrow();
     const body = await parseBody(req);
     const action = body?.action;
-    const userId = body?.userId || body?.user_id;
+    // Use authenticated user's ID instead of trusting body param
+    const userId = auth.user.id;
 
     if (action === "mark_read") {
       const id = Number.parseInt(String(body?.id), 10);

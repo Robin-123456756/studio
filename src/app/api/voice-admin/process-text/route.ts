@@ -1,9 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import { processTextInput } from "@/lib/voice-admin/pipeline";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function POST(request: Request) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const body = await request.json();
     const { text, matchId } = body;
     if (!text || !matchId) {

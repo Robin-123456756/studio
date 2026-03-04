@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { undoEntry } from "@/lib/voice-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const body = await request.json();
     const { auditLogId } = body;
 

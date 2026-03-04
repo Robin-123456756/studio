@@ -246,7 +246,7 @@ export async function GET(req: Request) {
   } catch (e: any) {
     console.log("ROUTE CRASH /api/players", e);
     return NextResponse.json(
-      { error: String(e?.message ?? e), stack: e?.stack ?? null },
+      { error: String(e?.message ?? e) },
       { status: 500 }
     );
   }
