@@ -96,7 +96,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error: any) {
-    console.error("CSV export error:", error);
+    if (process.env.NODE_ENV === "development") console.error("CSV export error:", error);
     return NextResponse.json({ error: error.message || "Export failed" }, { status: 500 });
   }
 }

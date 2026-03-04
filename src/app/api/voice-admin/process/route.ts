@@ -106,7 +106,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error: any) {
-    console.error("Voice process error:", error);
+    if (process.env.NODE_ENV === "development") console.error("Voice process error:", error);
     return NextResponse.json({ error: error.message || "Internal error" }, { status: 500 });
   }
 }

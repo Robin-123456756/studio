@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const entries = await getRecentEntries(limit);
     return NextResponse.json({ entries });
   } catch (error: any) {
-    console.error("[Audit] Fetch error:", error);
+    if (process.env.NODE_ENV === "development") console.error("[Audit] Fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch audit log" }, { status: 500 });
   }
 }

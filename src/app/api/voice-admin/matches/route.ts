@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ matches });
   } catch (error: any) {
-    console.error("[Data] Fetch matches error:", error);
+    if (process.env.NODE_ENV === "development") console.error("[Data] Fetch matches error:", error);
     return NextResponse.json(
       { error: "Failed to fetch matches", message: error.message },
       { status: 500 }

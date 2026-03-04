@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     const { data: transfers, error: transferErr } = await query;
 
     if (transferErr) {
-      console.error("TRANSFER ACTIVITY QUERY ERROR", transferErr);
+      if (process.env.NODE_ENV === "development") console.error("TRANSFER ACTIVITY QUERY ERROR", transferErr);
       return NextResponse.json(
         { error: "Failed to load transfers" },
         { status: 500 }
@@ -142,7 +142,7 @@ export async function GET(req: Request) {
       }
     );
   } catch (err) {
-    console.error("TRANSFER ACTIVITY ERROR", err);
+    if (process.env.NODE_ENV === "development") console.error("TRANSFER ACTIVITY ERROR", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

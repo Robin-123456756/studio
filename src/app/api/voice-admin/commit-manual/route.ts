@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     for (const event of events) {
       const player = playerMap.get(event.playerId);
       if (!player) {
-        console.warn(`[Manual] Player ${event.playerId} not found, skipping`);
+        if (process.env.NODE_ENV === "development") console.warn(`[Manual] Player ${event.playerId} not found, skipping`);
         continue;
       }
 
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
       auditLogId: auditRow?.id ?? null,
     });
   } catch (error: any) {
-    console.error("[Manual] Commit error:", error);
+    if (process.env.NODE_ENV === "development") console.error("[Manual] Commit error:", error);
     return NextResponse.json(
       { error: "Manual commit failed", message: error.message },
       { status: 500 }

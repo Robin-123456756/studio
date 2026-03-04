@@ -58,7 +58,8 @@ export async function GET(req: Request) {
     const { data, error } = await query;
 
     if (error) {
-      console.log("SUPABASE ERROR /api/players", error);
+      // Error logged server-side only in development
+      if (process.env.NODE_ENV === "development") console.log("SUPABASE ERROR /api/players", error);
       return NextResponse.json(
         { error: error.message, details: error },
         { status: 500 }
@@ -244,7 +245,7 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }
     );
   } catch (e: any) {
-    console.log("ROUTE CRASH /api/players", e);
+    if (process.env.NODE_ENV === "development") console.log("ROUTE CRASH /api/players", e);
     return NextResponse.json(
       { error: String(e?.message ?? e) },
       { status: 500 }

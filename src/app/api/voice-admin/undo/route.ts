@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       message: `Undid entry: removed ${result.deletedCount} events`,
     });
   } catch (error: any) {
-    console.error("[DB] Undo error:", error);
+    if (process.env.NODE_ENV === "development") console.error("[DB] Undo error:", error);
     return NextResponse.json({ error: "Undo failed", message: error.message }, { status: 500 });
   }
 }

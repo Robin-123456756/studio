@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       message: `Scores calculated for ${result.summary.usersScored} users in GW${gameweekId}`,
     });
   } catch (error: any) {
-    console.error("Score calculation error:", error);
+    if (process.env.NODE_ENV === "development") console.error("Score calculation error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -183,7 +183,7 @@ export async function POST(req: Request) {
     });
 
   if (transferErr) {
-    console.error("TRANSFER INSERT ERROR", transferErr);
+    if (process.env.NODE_ENV === "development") console.error("TRANSFER INSERT ERROR", transferErr);
     return NextResponse.json({ error: "Failed to record transfer" }, { status: 500 });
   }
 
@@ -241,7 +241,7 @@ export async function POST(req: Request) {
       .eq("gameweek_id", gameweekId);
 
     if (updateErr) {
-      console.error("TRANSFER STATE UPDATE ERROR", updateErr);
+      if (process.env.NODE_ENV === "development") console.error("TRANSFER STATE UPDATE ERROR", updateErr);
       return NextResponse.json({ error: "Failed to update transfer state" }, { status: 500 });
     }
   }

@@ -28,7 +28,7 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (transferErr) {
-    console.error("TRANSFER HISTORY QUERY ERROR", transferErr);
+    if (process.env.NODE_ENV === "development") console.error("TRANSFER HISTORY QUERY ERROR", transferErr);
     return NextResponse.json(
       { error: "Failed to load transfer history" },
       { status: 500 },

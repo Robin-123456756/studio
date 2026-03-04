@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       message: `Saved ${result.eventCount} events for ${result.playerCount} players`,
     });
   } catch (error: any) {
-    console.error("[DB] Write error:", error);
+    if (process.env.NODE_ENV === "development") console.error("[DB] Write error:", error);
     return NextResponse.json({ error: "Database write failed", message: error.message }, { status: 500 });
   }
 }

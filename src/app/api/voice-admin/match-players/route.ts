@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("[MatchPlayers] Error:", error);
+    if (process.env.NODE_ENV === "development") console.error("[MatchPlayers] Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch match players", message: error.message },
       { status: 500 }
