@@ -8,7 +8,7 @@ export function AppLoading() {
       <img
         src="/icon.jpg"
         alt="The Budo League"
-        className="h-[72px] w-auto object-contain"
+        className="h-[72px] w-auto object-contain mix-blend-multiply"
       />
     </div>
   );

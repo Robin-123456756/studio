@@ -7,7 +7,7 @@ export default function NotFound() {
         <img
           src="/icon.jpg"
           alt="The Budo League"
-          className="h-16 w-auto mx-auto mb-6 rounded-xl"
+          className="h-16 w-auto mx-auto mb-6 rounded-xl mix-blend-multiply"
         />
         <h1 className="text-5xl font-bold text-white mb-2">404</h1>
         <p className="text-white/70 text-sm mb-6">

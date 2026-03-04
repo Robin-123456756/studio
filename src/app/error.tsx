@@ -21,7 +21,7 @@ export default function GlobalError({
         <img
           src="/icon.jpg"
           alt="The Budo League"
-          className="h-16 w-auto mx-auto mb-6 rounded-xl"
+          className="h-16 w-auto mx-auto mb-6 rounded-xl mix-blend-multiply"
         />
         <h1 className="text-xl font-bold text-white mb-2">
           Something went wrong
