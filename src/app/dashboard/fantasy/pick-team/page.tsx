@@ -1021,6 +1021,9 @@ export default function PickTeamPage() {
   // ----------------------------
   const [dbLoaded, setDbLoaded] = React.useState(false);
 
+  // True when we're still waiting for data that could populate the squad
+  const rosterStillLoading = loading || (authed && gwId != null && !dbLoaded);
+
   function buildStartingFromSquad(squad: Player[]) {
     const points = (p: Player) => Number(p.points ?? 0);
     const isGK = (p: Player) => normalizePosition(p.position) === "Goalkeeper";
@@ -3092,7 +3095,7 @@ export default function PickTeamPage() {
       {/* Pitch view - full width edge to edge like FPL */}
       {tab === "pitch" && (
         <div className="-mx-4 space-y-3">
-          {picked.length === 0 ? (
+          {picked.length === 0 && !rosterStillLoading ? (
             <div className="mx-4 rounded-2xl border bg-card overflow-hidden">
               <div
                 className="relative flex flex-col items-center justify-center text-center"
@@ -3178,7 +3181,7 @@ export default function PickTeamPage() {
             <div style={{ width: 50, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>Selected</div>
           </div>
 
-          {picked.length === 0 ? (
+          {picked.length === 0 && !rosterStillLoading ? (
             <div style={{ padding: "40px 24px", textAlign: "center" }}>
               <div style={{ fontSize: 48, lineHeight: 1, marginBottom: 12 }}>
                 <span role="img" aria-label="football">&#9917;</span>
@@ -3207,6 +3210,10 @@ export default function PickTeamPage() {
                 <ArrowLeftRight size={14} />
                 Go to Transfers
               </Link>
+            </div>
+          ) : picked.length === 0 && rosterStillLoading ? (
+            <div style={{ padding: "40px 24px", textAlign: "center", fontSize: 13, color: "hsl(var(--muted-foreground))" }}>
+              Loading your squad...
             </div>
           ) : (
             <>
@@ -3524,7 +3531,7 @@ export default function PickTeamPage() {
                   {startingIds.length}/10
                 </div>
 
-                {picked.length === 0 ? (
+                {picked.length === 0 && !rosterStillLoading ? (
                   <div className="flex flex-col items-center text-center py-6 space-y-3">
                     <div className="text-4xl">&#9917;</div>
                     <div>
@@ -3536,6 +3543,8 @@ export default function PickTeamPage() {
                       Go to Transfers
                     </Link>
                   </div>
+                ) : picked.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-muted-foreground">Loading your squad...</div>
                 ) : (
                   <div className="space-y-2">
                     {picked.map((p) => {
