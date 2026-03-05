@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
+import { TeamNameModal } from "@/components/TeamNameModal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -375,6 +376,7 @@ function FantasyPage() {
   }, []);
 
   const [teamName, setTeamName] = React.useState("My Team");
+  const [showTeamNameModal, setShowTeamNameModal] = React.useState(false);
 
   function editTeamName() {
     const next = window.prompt("Enter your team name:", teamName);
@@ -545,6 +547,18 @@ function FantasyPage() {
           );
           overallRank = Number.isFinite(dbOverall) ? dbOverall : null;
           gwRank = Number.isFinite(dbGw) ? dbGw : null;
+
+          // Use DB team name as source of truth
+          const dbName = (teamRow as any).name;
+          if (typeof dbName === "string" && dbName.trim().length > 0) {
+            setTeamName(dbName.trim());
+            window.localStorage.setItem("tbl_team_name", dbName.trim());
+          }
+        }
+
+        // No fantasy_teams row → new user, show mandatory modal
+        if (teamErr || !teamRow) {
+          setShowTeamNameModal(true);
         }
       } catch {
         // Ignore if the table/columns aren't available yet.
@@ -729,6 +743,15 @@ function FantasyPage() {
         <MiniLeague />
         <RecentTransfers />
       </div>
+
+      <TeamNameModal
+        open={showTeamNameModal}
+        onSaved={(name) => {
+          setTeamName(name);
+          window.localStorage.setItem("tbl_team_name", name);
+          setShowTeamNameModal(false);
+        }}
+      />
     </div>
   );
 }
