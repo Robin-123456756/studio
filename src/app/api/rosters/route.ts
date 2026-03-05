@@ -93,78 +93,16 @@ export async function GET(req: Request) {
     .sort((a: any, b: any) => (a.bench_order ?? 99) - (b.bench_order ?? 99))
     .map((r: any) => String(r.player_id));
 
-  return NextResponse.json({ gwId, squadIds, startingIds, captainId, viceId, rolledOverFromGw, benchOrder });
-}
+  // Fetch team name from fantasy_teams
+  let teamName: string | null = null;
+  try {
+    const { data: ftRow } = await supabase
+      .from("fantasy_teams")
+      .select("name")
+      .eq("user_id", auth.user.id)
+      .maybeSingle();
+    if (ftRow?.name) teamName = ftRow.name;
+  } catch { /* ignore */ }
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-
-  const gwId = Number(body?.gwId ?? "");
-  const squadIds: string[] = Array.isArray(body?.squadIds) ? body.squadIds : [];
-  const startingIds: string[] = Array.isArray(body?.startingIds) ? body.startingIds : [];
-
-  if (!Number.isFinite(gwId)) {
-    return NextResponse.json({ error: "gwId is required" }, { status: 400 });
-  }
-  if (squadIds.length === 0) {
-    return NextResponse.json({ error: "squadIds is required" }, { status: 400 });
-  }
-
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  const { data: auth, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !auth?.user) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-  }
-
-  // Replace roster for this gw
-  const userId = auth.user.id;
-
-  const { error: delErr } = await supabase
-    .from("user_rosters")
-    .delete()
-    .eq("user_id", userId)
-    .eq("gameweek_id", gwId);
-
-  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
-
-  const startingSet = new Set(startingIds);
-
-  const cap = body?.captainId ?? null;
-  const vice = body?.viceId ?? null;
-
-  // Captain gets 2x multiplier
-  // (lady 2x is already applied at the base scoring level, not here)
-  const rows = squadIds.map((playerId) => ({
-    user_id: userId,
-    player_id: playerId,
-    gameweek_id: gwId,
-    is_starting_9: startingSet.has(playerId),
-    is_captain: cap === playerId,
-    is_vice_captain: vice === playerId,
-    multiplier: cap === playerId ? 2 : 1,
-  }));
-
-  const { error: insErr } = await supabase.from("user_rosters").insert(rows);
-
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ gwId, squadIds, startingIds, captainId, viceId, rolledOverFromGw, benchOrder, teamName });
 }

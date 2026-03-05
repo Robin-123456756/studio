@@ -100,6 +100,7 @@ function TransferNextPageInner() {
   const [squadIds, setSquadIds] = React.useState<string[]>([]);
   const [pendingTransfers, setPendingTransfers] = React.useState<PendingTransfer[]>([]);
   const [confirmed, setConfirmed] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
 
   // Check if wildcard or free hit is active
@@ -221,7 +222,8 @@ function TransferNextPageInner() {
   }
 
   async function confirmTransfers() {
-    if (!canConfirm()) return;
+    if (!canConfirm() || confirming) return;
+    setConfirming(true);
     setSaveError(null);
 
     // Apply all transfers to squad
@@ -296,6 +298,7 @@ function TransferNextPageInner() {
         });
       } catch (e: any) {
         setSaveError(e?.message ?? "Could not save transfers. Please review your squad rules and try again.");
+        setConfirming(false);
         return;
       }
     }
@@ -547,16 +550,17 @@ function TransferNextPageInner() {
         <button
           type="button"
           onClick={confirmTransfers}
-          disabled={!canConfirm() || confirmed}
+          disabled={!canConfirm() || confirmed || confirming}
           className={cn(
             "flex-1 py-3.5 rounded-full text-sm font-bold text-white transition",
             confirmed
               ? "bg-emerald-500"
               : "bg-foreground hover:bg-foreground/90",
-            (!canConfirm() && !confirmed) && "opacity-40 cursor-not-allowed"
+            (!canConfirm() && !confirmed && !confirming) && "opacity-40 cursor-not-allowed",
+            confirming && "opacity-70 cursor-wait"
           )}
         >
-          {confirmed ? "✓ Confirmed — Pick Team →" : wildcardActive ? "Confirm (Wildcard)" : "Confirm"}
+          {confirmed ? "✓ Confirmed — Pick Team →" : confirming ? "Saving..." : wildcardActive ? "Confirm (Wildcard)" : "Confirm"}
         </button>
       </div>
     </div>
