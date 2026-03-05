@@ -661,6 +661,9 @@ function PointsPage() {
   // Bottom sheet
   const [selectedPlayer, setSelectedPlayer] = React.useState<SquadPlayer | null>(null);
 
+  // Backfilled GW indicator (pre-signup GWs using first squad)
+  const [isBackfilled, setIsBackfilled] = React.useState(false);
+
   // Computed sets for auto-sub indicators
   const subbedOutIds = React.useMemo(
     () => new Set(autoSubs.map((s) => s.outId)),
@@ -745,7 +748,7 @@ function PointsPage() {
             setViceId(null); setMultipliers({}); setTotalGwPoints(0);
             setAutoSubs([]); setActiveChip(null); setTransferCost(0);
             setCaptainActivated("none"); setCaptainMultiplier(2);
-            setLoading(false);
+            setIsBackfilled(false); setLoading(false);
             return;
           }
 
@@ -810,6 +813,7 @@ function PointsPage() {
           setViceId(vcId); setMultipliers(mults); setTotalGwPoints(total);
           setAutoSubs([]); setActiveChip(null); setTransferCost(0);
           setCaptainActivated("none"); setCaptainMultiplier(2);
+          setIsBackfilled(false);
         } else {
           // ── Normal view: use new unified API ──
           const res = await fetch(
@@ -828,7 +832,7 @@ function PointsPage() {
             setViceId(null); setMultipliers({}); setTotalGwPoints(0);
             setAutoSubs([]); setActiveChip(null); setTransferCost(0);
             setCaptainActivated("none"); setCaptainMultiplier(2);
-            setLoading(false);
+            setIsBackfilled(false); setLoading(false);
             return;
           }
 
@@ -884,6 +888,7 @@ function PointsPage() {
           setTransferCost(json.transferCost ?? 0);
           setCaptainActivated(json.captainActivated ?? "none");
           setCaptainMultiplier(capMult);
+          setIsBackfilled(json.isBackfilled ?? false);
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "Failed to load data");
@@ -1041,6 +1046,23 @@ function PointsPage() {
           <>
             {/* Chip banner */}
             {!isHighestView && activeChip && <ChipBanner chip={activeChip} />}
+
+            {/* Backfill banner for pre-signup GWs */}
+            {isBackfilled && (
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #0D5C63, #14919B)",
+                  color: "#fff",
+                  padding: "10px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textAlign: "center",
+                  lineHeight: 1.4,
+                }}
+              >
+                Based on your first squad — points are not added to your season total
+              </div>
+            )}
 
             <PointsPitch
               squad={squad}

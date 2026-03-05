@@ -413,6 +413,9 @@ function FantasyPage() {
   const deadlineGameweek = currentGW ?? nextGW ?? null;
   const deadlineCountdown = useDeadlineCountdown(deadlineGameweek?.deadline_time);
 
+  // Track which GW the displayed points are for
+  const [displayedGwId, setDisplayedGwId] = React.useState<number | null>(null);
+
   const loadStats = React.useCallback(async () => {
     try {
       setStatsLoading(true);
@@ -425,130 +428,106 @@ function FantasyPage() {
         return;
       }
 
-      const rosterRes = await fetch(`/api/rosters/current?user_id=${userId}`, {
-        cache: "no-store",
-      });
-      const rosterJson = await rosterRes.json();
-      if (!rosterRes.ok) throw new Error(rosterJson?.error || "Failed to load roster");
-
-      const squadIds: string[] = rosterJson?.squadIds ?? [];
-      const startingIds: string[] =
-        rosterJson?.startingIds?.length > 0 ? rosterJson.startingIds : squadIds;
-
-      // Compute GW points from roster (if the user has one for this GW)
       let gwPoints = 0;
       let totalPoints = 0;
-
-      if (squadIds.length > 0) {
-        const targetGwId = Number(currentGW?.id ?? rosterJson?.gwId ?? NaN);
-
-        if (Number.isFinite(targetGwId) && targetGwId > 0) {
-          const statsRes = await fetch(`/api/player-stats?gw_id=${targetGwId}`, {
-            cache: "no-store",
-          });
-          const statsJson = await statsRes.json();
-          if (!statsRes.ok) throw new Error(statsJson?.error || "Failed to load gameweek stats");
-
-          const pointsById = new Map<string, number>();
-          for (const s of statsJson?.stats ?? []) {
-            const pid = String((s as any).playerId ?? "");
-            if (!pid || !squadIds.includes(pid)) continue;
-            const pts = Number((s as any).points ?? 0);
-            pointsById.set(pid, (pointsById.get(pid) ?? 0) + (Number.isFinite(pts) ? pts : 0));
-          }
-
-          const multiplierByPlayer: Record<string, number> =
-            rosterJson?.multiplierByPlayer ?? {};
-          gwPoints = startingIds.reduce((sum, id) => {
-            const playerId = String(id);
-            const points = pointsById.get(playerId) ?? 0;
-            const rawMultiplier = Number(
-              multiplierByPlayer[playerId] ??
-                (String(rosterJson?.captainId ?? "") === playerId ? 2 : 1)
-            );
-            const multiplier =
-              Number.isFinite(rawMultiplier) && rawMultiplier > 0 ? rawMultiplier : 1;
-            return sum + points * multiplier;
-          }, 0);
-        }
-      }
-
       let overallRank: number | null = null;
       let gwRank: number | null = null;
-
-      // Fetch user_weekly_scores — source of truth for GW points, avg, highest
       let avgPoints: number | null = null;
       let highestPoints: number | null = null;
 
+      // ── 1. Leaderboard — single source of truth for totalPoints + rank ──
+      try {
+        const lbRes = await fetch("/api/fantasy-leaderboard", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (lbRes.ok) {
+          const lbJson = await lbRes.json();
+          const lb: { userId: string; totalPoints: number; rank: number }[] =
+            lbJson?.leaderboard ?? [];
+          const myEntry = lb.find((e) => e.userId === userId);
+          if (myEntry) {
+            totalPoints = myEntry.totalPoints;
+            overallRank = myEntry.rank;
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+
+      // ── 2. GW points, avg, highest from user_weekly_scores ──
       try {
         const { data: allScores } = await supabase
           .from("user_weekly_scores")
           .select("user_id, gameweek_id, total_weekly_points");
 
         if (allScores && allScores.length > 0) {
-          // Aggregate total points per user across all GWs
-          const totalByUser = new Map<string, number>();
-          for (const s of allScores) {
-            const uid = String((s as any).user_id);
-            const pts = Number((s as any).total_weekly_points ?? 0);
-            totalByUser.set(uid, (totalByUser.get(uid) ?? 0) + pts);
-          }
+          const targetGwId = Number(currentGW?.id ?? NaN);
 
-          // Use the user's own weekly-scores total if available
-          const myTotal = totalByUser.get(userId);
-          if (myTotal != null && Number.isFinite(myTotal)) {
-            totalPoints = myTotal;
-          }
+          // Find the GW to display: current GW if it has scores, else last GW with scores
+          let displayGw = targetGwId;
 
-          // If user had no roster for current GW, fall back to their weekly score
-          if (gwPoints === 0) {
-            const currentGwId = rosterJson?.gwId;
-            if (currentGwId) {
-              const myGwRow = allScores.find(
-                (s: any) => String(s.user_id) === userId && s.gameweek_id === currentGwId
-              );
-              if (myGwRow) {
-                gwPoints = Number((myGwRow as any).total_weekly_points ?? 0);
-              }
+          // Check if the current GW has any scores at all
+          const currentGwHasScores =
+            Number.isFinite(targetGwId) &&
+            allScores.some((s: any) => Number(s.gameweek_id) === targetGwId);
+
+          if (!currentGwHasScores) {
+            // Fall back to the latest GW that has scores for this user
+            const myGwIds = allScores
+              .filter((s: any) => String(s.user_id) === userId)
+              .map((s: any) => Number(s.gameweek_id))
+              .filter((n) => Number.isFinite(n));
+            if (myGwIds.length > 0) {
+              displayGw = Math.max(...myGwIds);
             }
           }
 
-          // Average & highest from other users
-          const otherTotals = [...totalByUser.entries()]
-            .filter(([uid]) => uid !== userId)
-            .map(([, pts]) => pts)
-            .filter((n) => Number.isFinite(n));
+          setDisplayedGwId(Number.isFinite(displayGw) ? displayGw : null);
 
-          if (otherTotals.length > 0) {
-            avgPoints = Math.round(
-              otherTotals.reduce((a, b) => a + b, 0) / otherTotals.length
+          // Get user's GW points for the displayed GW
+          if (Number.isFinite(displayGw) && displayGw > 0) {
+            const myGwRow = allScores.find(
+              (s: any) =>
+                String(s.user_id) === userId &&
+                Number(s.gameweek_id) === displayGw
             );
-            highestPoints = Math.max(...otherTotals);
+            if (myGwRow) {
+              gwPoints = Number((myGwRow as any).total_weekly_points ?? 0);
+            }
+
+            // Average & highest for the displayed GW across ALL managers (FPL style)
+            const gwScores = allScores
+              .filter((s: any) => Number(s.gameweek_id) === displayGw)
+              .map((s: any) => Number((s as any).total_weekly_points ?? 0))
+              .filter((n) => Number.isFinite(n));
+
+            if (gwScores.length > 0) {
+              avgPoints = Math.round(
+                gwScores.reduce((a, b) => a + b, 0) / gwScores.length
+              );
+              highestPoints = Math.max(...gwScores);
+
+              // GW Rank — user's position among all managers this GW
+              const sortedDesc = [...gwScores].sort((a, b) => b - a);
+              const userGwRank = sortedDesc.indexOf(gwPoints) + 1;
+              if (userGwRank > 0) gwRank = userGwRank;
+            }
           }
         }
       } catch {
         // Ignore if table unavailable
       }
 
-      // Overlay rank info from fantasy_teams if available
+      // ── 3. Team name + new-user modal from fantasy_teams ──
       try {
         const { data: teamRow, error: teamErr } = await supabase
           .from("fantasy_teams")
-          .select("*")
+          .select("user_id, name")
           .eq("user_id", userId)
           .maybeSingle();
 
         if (!teamErr && teamRow) {
-          const dbOverall = Number(
-            (teamRow as any).overall_rank ?? (teamRow as any).rank ?? NaN
-          );
-          const dbGw = Number(
-            (teamRow as any).gameweek_rank ?? (teamRow as any).gw_rank ?? NaN
-          );
-          overallRank = Number.isFinite(dbOverall) ? dbOverall : null;
-          gwRank = Number.isFinite(dbGw) ? dbGw : null;
-
-          // Use DB team name as source of truth
           const dbName = (teamRow as any).name;
           if (typeof dbName === "string" && dbName.trim().length > 0) {
             setTeamName(dbName.trim());
@@ -634,7 +613,9 @@ function FantasyPage() {
           <div className="mx-auto my-4 h-0.5 w-14 rounded-full bg-white/20" />
 
           <div className="text-center text-xs font-semibold text-white/70">
-            {gwLoading ? "Loading..." : `Gameweek ${currentGW?.id ?? 0}`}
+            {gwLoading
+              ? "Loading..."
+              : `Gameweek ${displayedGwId ?? currentGW?.id ?? 0}`}
           </div>
 
           <div className="flex items-end justify-center gap-0 px-5 pb-4 pt-2">
@@ -666,6 +647,42 @@ function FantasyPage() {
               </div>
             </Link>
           </div>
+
+          {/* Overall / Rank / Total row — FPL style */}
+          {!statsLoading && (
+            <div className="flex items-center justify-center gap-6 px-4 pb-2 text-center">
+              {stats.overallRank != null && (
+                <div>
+                  <div className="text-sm font-bold tabular-nums">
+                    {stats.overallRank.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-semibold text-white/60">
+                    Overall Rank
+                  </div>
+                </div>
+              )}
+              {stats.totalPoints != null && stats.totalPoints > 0 && (
+                <div>
+                  <div className="text-sm font-bold tabular-nums">
+                    {stats.totalPoints.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-semibold text-white/60">
+                    Total Pts
+                  </div>
+                </div>
+              )}
+              {stats.gwRank != null && (
+                <div>
+                  <div className="text-sm font-bold tabular-nums">
+                    {stats.gwRank.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-semibold text-white/60">
+                    GW Rank
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mx-auto mb-3 h-0.5 w-14 rounded-full bg-white/20" />
 

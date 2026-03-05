@@ -46,7 +46,8 @@ export async function GET(req: Request) {
     }
 
     let rows = rosterData ?? [];
-    let effectiveGwId = gwId;
+    let rosterSourceGwId = gwId;
+    let isBackfilled = false;
 
     // Rollover: if no roster for this GW, try previous
     if (rows.length === 0) {
@@ -68,7 +69,35 @@ export async function GET(req: Request) {
 
         if (prevRows && prevRows.length > 0) {
           rows = prevRows;
-          effectiveGwId = prevGwId;
+          rosterSourceGwId = prevGwId;
+        }
+      }
+    }
+
+    // Forward rollover: if still no roster (pre-signup GWs), use the user's
+    // FIRST ever roster so they can see what their squad earned in past GWs.
+    // Stats are still looked up for the requested GW (not the roster's GW).
+    if (rows.length === 0) {
+      const { data: first } = await admin
+        .from("user_rosters")
+        .select("gameweek_id")
+        .eq("user_id", userId)
+        .gt("gameweek_id", gwId)
+        .order("gameweek_id", { ascending: true })
+        .limit(1);
+
+      if (first && first.length > 0) {
+        const firstGwId = first[0].gameweek_id;
+        const { data: firstRows } = await admin
+          .from("user_rosters")
+          .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier, active_chip, bench_order")
+          .eq("user_id", userId)
+          .eq("gameweek_id", firstGwId);
+
+        if (firstRows && firstRows.length > 0) {
+          rows = firstRows;
+          rosterSourceGwId = firstGwId;
+          isBackfilled = true;
         }
       }
     }
@@ -89,8 +118,14 @@ export async function GET(req: Request) {
         captainMultiplier: 2,
         transferCost: 0,
         players: [],
+        isBackfilled: false,
       });
     }
+
+    // For backfilled GWs, always look up stats for the REQUESTED GW,
+    // not the roster's source GW. For normal/backward rollover, use the
+    // roster's GW (existing behavior).
+    const statsGwId = isBackfilled ? gwId : rosterSourceGwId;
 
     // Build typed roster rows for scoring engine
     const rosterRows: RosterRow[] = rows.map((r: any) => ({
@@ -114,7 +149,7 @@ export async function GET(req: Request) {
     const { data: gwMatches } = await admin
       .from("matches")
       .select("id")
-      .eq("gameweek_id", effectiveGwId);
+      .eq("gameweek_id", statsGwId);
     const gwMatchIds = (gwMatches ?? []).map((m: any) => m.id);
 
     const pointsMap = new Map<string, number>();
@@ -139,7 +174,7 @@ export async function GET(req: Request) {
     const { data: statsData } = await admin
       .from("player_stats")
       .select("player_id, did_play, points, goals, assists, clean_sheet, yellow_cards, red_cards, own_goals")
-      .eq("gameweek_id", effectiveGwId)
+      .eq("gameweek_id", statsGwId)
       .in("player_id", squadIds);
 
     // Build unified stats map for scoring engine
@@ -227,20 +262,22 @@ export async function GET(req: Request) {
     const isTripleCaptain = activeChip === "triple_captain";
     const captainMultiplier = isTripleCaptain ? 3 : 2;
 
-    // ── 5. Transfer cost ──
+    // ── 5. Transfer cost (skip for backfilled pre-signup GWs) ──
     let transferCost = 0;
-    const { data: transferState } = await admin
-      .from("user_transfer_state")
-      .select("free_transfers, used_transfers, wildcard_active, free_hit_active")
-      .eq("user_id", userId)
-      .eq("gameweek_id", effectiveGwId)
-      .maybeSingle();
+    if (!isBackfilled) {
+      const { data: transferState } = await admin
+        .from("user_transfer_state")
+        .select("free_transfers, used_transfers, wildcard_active, free_hit_active")
+        .eq("user_id", userId)
+        .eq("gameweek_id", statsGwId)
+        .maybeSingle();
 
-    if (transferState) {
-      const isWcOrFh = transferState.wildcard_active || transferState.free_hit_active;
-      transferCost = isWcOrFh
-        ? 0
-        : Math.max(0, transferState.used_transfers - transferState.free_transfers) * 4;
+      if (transferState) {
+        const isWcOrFh = transferState.wildcard_active || transferState.free_hit_active;
+        transferCost = isWcOrFh
+          ? 0
+          : Math.max(0, transferState.used_transfers - transferState.free_transfers) * 4;
+      }
     }
 
     // ── 6. Build player list ──
@@ -270,20 +307,21 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({
-      gwId: effectiveGwId,
+      gwId,
       squadIds,
       originalStartingIds,
       effectiveStartingIds,
       captainId,
       viceId,
       totalPoints: result.totalPoints,
-      autoSubs: result.autoSubs,
+      autoSubs: isBackfilled ? [] : result.autoSubs,
       captainActivated: result.captainActivated,
       benchBoost: result.benchBoost,
-      activeChip,
+      activeChip: isBackfilled ? null : activeChip,
       captainMultiplier,
       transferCost,
       players,
+      isBackfilled,
     });
   } catch (e: any) {
     return NextResponse.json(
