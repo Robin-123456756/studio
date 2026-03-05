@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronRight, Settings, Users, UserCircle2, ArrowLeftRight, Medal, Star, BookOpen } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, LogOut, Settings, Users, UserCircle2, ArrowLeftRight, Medal, Star, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
 
 const items = [
   { href: "/dashboard/settings", label: "myTBL Settings", Icon: Settings },
@@ -16,6 +18,8 @@ const items = [
 ] as const;
 
 export default function MorePage() {
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = React.useState(false);
   const [gwLabel, setGwLabel] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -62,6 +66,27 @@ export default function MorePage() {
           </Link>
         ))}
       </div>
+
+      {/* Log Out — FPL-style at the bottom */}
+      <button
+        type="button"
+        disabled={loggingOut}
+        onClick={async () => {
+          setLoggingOut(true);
+          await supabase.auth.signOut();
+          router.replace("/");
+        }}
+        className={cn(
+          "mt-8 flex w-full items-center gap-3 rounded-xl py-4 px-1",
+          "text-red-500 active:opacity-70 transition",
+          loggingOut && "opacity-50 pointer-events-none"
+        )}
+      >
+        <LogOut className="h-5 w-5" />
+        <span className="text-base font-semibold">
+          {loggingOut ? "Logging out..." : "Log Out"}
+        </span>
+      </button>
     </div>
   );
 }
