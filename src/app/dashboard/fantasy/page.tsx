@@ -480,6 +480,14 @@ function FantasyPage() {
               .filter((n) => Number.isFinite(n));
             if (myGwIds.length > 0) {
               displayGw = Math.max(...myGwIds);
+            } else {
+              // User has no scores at all — fall back to the latest GW anyone has scores for
+              const allGwIds = allScores
+                .map((s: any) => Number(s.gameweek_id))
+                .filter((n) => Number.isFinite(n));
+              if (allGwIds.length > 0) {
+                displayGw = Math.max(...allGwIds);
+              }
             }
           }
 
@@ -507,16 +515,80 @@ function FantasyPage() {
                 gwScores.reduce((a, b) => a + b, 0) / gwScores.length
               );
               highestPoints = Math.max(...gwScores);
-
-              // GW Rank — user's position among all managers this GW
-              const sortedDesc = [...gwScores].sort((a, b) => b - a);
-              const userGwRank = sortedDesc.indexOf(gwPoints) + 1;
-              if (userGwRank > 0) gwRank = userGwRank;
             }
           }
         }
       } catch {
         // Ignore if table unavailable
+      }
+
+      // ── 2b. Fallback: compute GW points from roster + player_stats ──
+      // If user_weekly_scores had no data for this user, try computing live
+      if (gwPoints === 0) {
+        try {
+          // Find the last completed GW (before or equal to current)
+          const gwIdToTry = Number(currentGW?.id ?? NaN);
+          const gwCandidates: number[] = [];
+          if (Number.isFinite(gwIdToTry) && gwIdToTry > 0) {
+            for (let g = gwIdToTry; g >= 1; g--) gwCandidates.push(g);
+          }
+
+          // Fetch roster once (same squad for all GW candidates)
+          const rosterRes = await fetch(
+            `/api/rosters/current?user_id=${userId}`,
+            { cache: "no-store" }
+          );
+          const rosterJson = rosterRes.ok ? await rosterRes.json() : null;
+          const squadIds: string[] = rosterJson?.squadIds ?? [];
+          const startingIds: string[] =
+            rosterJson?.startingIds?.length > 0
+              ? rosterJson.startingIds
+              : squadIds;
+
+          for (const tryGwId of gwCandidates) {
+            if (squadIds.length === 0) break;
+
+            const statsRes = await fetch(
+              `/api/player-stats?gw_id=${tryGwId}`,
+              { cache: "no-store" }
+            );
+            if (!statsRes.ok) continue;
+            const statsJson = await statsRes.json();
+
+            const pointsById = new Map<string, number>();
+            for (const s of statsJson?.stats ?? []) {
+              const pid = String((s as any).playerId ?? "");
+              if (!pid || !squadIds.includes(pid)) continue;
+              const pts = Number((s as any).points ?? 0);
+              pointsById.set(
+                pid,
+                (pointsById.get(pid) ?? 0) + (Number.isFinite(pts) ? pts : 0)
+              );
+            }
+
+            // Only count this GW if at least some players had stats
+            if (pointsById.size === 0) continue;
+
+            const multiplierByPlayer: Record<string, number> =
+              rosterJson?.multiplierByPlayer ?? {};
+            gwPoints = startingIds.reduce((sum, id) => {
+              const playerId = String(id);
+              const points = pointsById.get(playerId) ?? 0;
+              const rawMult = Number(
+                multiplierByPlayer[playerId] ??
+                  (String(rosterJson?.captainId ?? "") === playerId ? 2 : 1)
+              );
+              const mult =
+                Number.isFinite(rawMult) && rawMult > 0 ? rawMult : 1;
+              return sum + points * mult;
+            }, 0);
+
+            setDisplayedGwId(tryGwId);
+            break; // found a GW with data
+          }
+        } catch {
+          // non-fatal
+        }
       }
 
       // ── 3. Team name + new-user modal from fantasy_teams ──
@@ -647,42 +719,6 @@ function FantasyPage() {
               </div>
             </Link>
           </div>
-
-          {/* Overall / Rank / Total row — FPL style */}
-          {!statsLoading && (
-            <div className="flex items-center justify-center gap-6 px-4 pb-2 text-center">
-              {stats.overallRank != null && (
-                <div>
-                  <div className="text-sm font-bold tabular-nums">
-                    {stats.overallRank.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] font-semibold text-white/60">
-                    Overall Rank
-                  </div>
-                </div>
-              )}
-              {stats.totalPoints != null && stats.totalPoints > 0 && (
-                <div>
-                  <div className="text-sm font-bold tabular-nums">
-                    {stats.totalPoints.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] font-semibold text-white/60">
-                    Total Pts
-                  </div>
-                </div>
-              )}
-              {stats.gwRank != null && (
-                <div>
-                  <div className="text-sm font-bold tabular-nums">
-                    {stats.gwRank.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] font-semibold text-white/60">
-                    GW Rank
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           <div className="mx-auto mb-3 h-0.5 w-14 rounded-full bg-white/20" />
 
