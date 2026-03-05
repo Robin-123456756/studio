@@ -62,7 +62,7 @@ function TransfersActivityContent() {
         <div
           className={cn(
             "overflow-hidden rounded-b-3xl",
-            "bg-[#0D5C63]",
+            "bg-gradient-to-br from-[#062C30] via-[#0D5C63] to-[#14919B]",
             "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
           )}
         >
