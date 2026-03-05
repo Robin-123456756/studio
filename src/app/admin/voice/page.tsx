@@ -177,6 +177,9 @@ export default function VoiceAdminPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <a href="/admin" style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_SECONDARY, textDecoration: "none", flexShrink: 0 }} aria-label="Back to Admin">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </a>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${ACCENT}, #8B0000)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🎙️</div>
           <div>
             <h1 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Voice Admin</h1>
