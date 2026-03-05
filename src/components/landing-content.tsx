@@ -205,7 +205,7 @@ export function LandingContent() {
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground font-medium mb-2">
-            Fantasy Football for Kampala&apos;s Finest
+            Fantasy Football for Old Alumni of Budo
           </p>
 
           <p className="text-sm sm:text-base text-muted-foreground mb-8 max-w-md mx-auto leading-relaxed">
