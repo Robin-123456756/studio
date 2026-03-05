@@ -26,12 +26,12 @@ export default function RootLayout({
         <meta
           name="theme-color"
           media="(prefers-color-scheme: light)"
-          content="#14919B"
+          content="#0D5C63"
         />
         <meta
           name="theme-color"
           media="(prefers-color-scheme: dark)"
-          content="#14919B"
+          content="#0D5C63"
         />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

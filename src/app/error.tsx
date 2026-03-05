@@ -16,7 +16,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#062C30] via-[#0D5C63] to-[#14919B] px-6">
+    <div className="min-h-screen flex items-center justify-center bg-[#0D5C63] px-6">
       <div className="text-center max-w-sm">
         <img
           src="/icon-t.png"
