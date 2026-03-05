@@ -250,6 +250,11 @@ function TransferNextPageInner() {
       }
     }
 
+    // Update localStorage FIRST so pick-team always has the latest squad,
+    // even if the DB save fails on a flaky connection.
+    setSquadIds(next);
+    saveSquadIds(next);
+
     // Persist updated squad to database
     if (gwId) {
       try {
@@ -294,9 +299,6 @@ function TransferNextPageInner() {
         return;
       }
     }
-
-    setSquadIds(next);
-    saveSquadIds(next);
 
     // Record each transfer and increment used count
     for (const t of pendingTransfers) {

@@ -141,14 +141,14 @@ export async function POST(req: Request) {
   // Deadline check
   const { data: gw, error: gwErr } = await admin
     .from("gameweeks")
-    .select("id, deadline_time, finished")
+    .select("id, deadline_time, finalized")
     .eq("id", gameweekId)
     .single();
 
   if (gwErr || !gw) {
     return NextResponse.json({ error: "Gameweek not found" }, { status: 404 });
   }
-  if (gw.finished) {
+  if ((gw as any).finalized) {
     return NextResponse.json({ error: "Gameweek is finished" }, { status: 403 });
   }
   if (gw.deadline_time) {
