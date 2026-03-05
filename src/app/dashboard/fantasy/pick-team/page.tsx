@@ -2758,7 +2758,7 @@ export default function PickTeamPage() {
                           player={{
                             name: shortName(p.name, p.webName),
                             team: p.teamShort ?? "--",
-                            fixture: p.nextOpponent ?? "--",
+                            fixture: shortPos(p.position),
                             color: getKitColor(p.teamShort),
                             price: p.price,
                             captain: false,
