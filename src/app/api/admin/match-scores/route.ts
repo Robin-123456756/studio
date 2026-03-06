@@ -77,6 +77,22 @@ export async function PUT(req: Request) {
     let updated = 0;
     let cleanSheetsAwarded = 0;
 
+    // Load scoring rules for clean sheet points (instead of hardcoding)
+    const { data: rulesData } = await supabase
+      .from("scoring_rules")
+      .select("action, position, points")
+      .eq("action", "clean_sheet");
+
+    const csRules: Record<string, number> = {};
+    for (const r of rulesData ?? []) {
+      csRules[r.position || "ALL"] = r.points;
+    }
+
+    function getCsPoints(position: string, isLady: boolean): number {
+      const base = csRules[position] ?? csRules["ALL"] ?? (position === "GK" || position === "DEF" ? 4 : 1);
+      return isLady && base > 0 ? base * 2 : base;
+    }
+
     for (const match of matches) {
       const { id, home_goals, away_goals } = match;
       if (id === undefined || home_goals === undefined || away_goals === undefined) continue;
@@ -97,7 +113,7 @@ export async function PUT(req: Request) {
       // Get match details for clean sheet logic
       const { data: matchData } = await supabase
         .from("matches")
-        .select("home_team_uuid, away_team_uuid")
+        .select("home_team_uuid, away_team_uuid, gameweek_id")
         .eq("id", id)
         .single();
 
@@ -109,10 +125,9 @@ export async function PUT(req: Request) {
       if (parseInt(home_goals) === 0) cleanSheetTeams.push(matchData.away_team_uuid);
 
       for (const teamUuid of cleanSheetTeams) {
-        // Get GK/DEF/MID players from this team who have an appearance in this match
         const { data: players } = await supabase
           .from("players")
-          .select("id, position")
+          .select("id, position, is_lady")
           .eq("team_id", teamUuid)
           .in("position", ["GK", "DEF", "MID"]);
 
@@ -128,10 +143,9 @@ export async function PUT(req: Request) {
 
           if (!appearance) continue;
 
-          // Calculate clean sheet points based on position
-          const csPoints = player.position === "GK" || player.position === "DEF" ? 4 : 1;
+          const csPoints = getCsPoints(player.position, player.is_lady ?? false);
 
-          // Upsert clean sheet
+          // Upsert clean sheet event
           const { error: csError } = await supabase
             .from("player_match_events")
             .upsert({
@@ -144,7 +158,15 @@ export async function PUT(req: Request) {
               onConflict: "player_id,match_id,action",
             });
 
-          if (!csError) cleanSheetsAwarded++;
+          if (!csError) {
+            cleanSheetsAwarded++;
+            // Also update player_stats.clean_sheet to true
+            await supabase
+              .from("player_stats")
+              .update({ clean_sheet: true })
+              .eq("player_id", player.id)
+              .eq("gameweek_id", matchData.gameweek_id);
+          }
         }
       }
 
@@ -161,12 +183,20 @@ export async function PUT(req: Request) {
 
         const playerIds = (players || []).map((p) => p.id);
         if (playerIds.length > 0) {
+          // Delete clean_sheet events from player_match_events
           await supabase
             .from("player_match_events")
             .delete()
             .eq("match_id", id)
             .eq("action", "clean_sheet")
             .in("player_id", playerIds);
+
+          // Also fix stale player_stats.clean_sheet → false
+          await supabase
+            .from("player_stats")
+            .update({ clean_sheet: false })
+            .in("player_id", playerIds)
+            .eq("gameweek_id", matchData.gameweek_id);
         }
       }
     }

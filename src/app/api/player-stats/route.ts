@@ -12,11 +12,11 @@ export async function GET(req: Request) {
     const gwId = url.searchParams.get("gw_id");
     const playerId = url.searchParams.get("player_id");
 
-    // 1. Fetch player_stats (flat, no FK joins)
+    // 1. Fetch player_stats (base stat rows — goals, assists, cards, etc.)
     let query = supabase
       .from("player_stats")
       .select(
-        `id, player_id, gameweek_id, points, goals, assists,
+        `id, player_id, gameweek_id, goals, assists,
          clean_sheet, yellow_cards, red_cards, own_goals, player_name, created_at`
       )
       .order("gameweek_id", { ascending: true });
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message, details: error }, { status: 500 });
     }
 
-    // 2. Fetch players + teams separately for enrichment
+    // 2. Fetch players + teams for enrichment
     const playerIds = [...new Set((data ?? []).map((s: any) => s.player_id))];
     let playersMap = new Map<string, any>();
 
@@ -47,19 +47,91 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. Map response (lady players get 2x on points)
+    // 3. Fetch played matches for clean sheet derivation + match→GW mapping
+    let matchesQ = supabase
+      .from("matches")
+      .select("id, gameweek_id, home_team_uuid, away_team_uuid, home_goals, away_goals")
+      .or("is_played.eq.true,is_final.eq.true");
+    if (gwId) matchesQ = matchesQ.eq("gameweek_id", Number(gwId));
+    const { data: playedMatches } = await matchesQ;
+
+    const matchGwMap = new Map<number, number>();
+    for (const m of playedMatches ?? []) {
+      matchGwMap.set(m.id, m.gameweek_id);
+    }
+
+    // Build clean sheet sets from ACTUAL match scores (source of truth)
+    const csTeamGws = new Set<string>();
+    const concededTeamGws = new Set<string>();
+    for (const m of playedMatches ?? []) {
+      if ((m.away_goals ?? 0) === 0 && m.home_team_uuid) {
+        csTeamGws.add(`${m.home_team_uuid}__${m.gameweek_id}`);
+      } else if (m.home_team_uuid) {
+        concededTeamGws.add(`${m.home_team_uuid}__${m.gameweek_id}`);
+      }
+      if ((m.home_goals ?? 0) === 0 && m.away_team_uuid) {
+        csTeamGws.add(`${m.away_team_uuid}__${m.gameweek_id}`);
+      } else if (m.away_team_uuid) {
+        concededTeamGws.add(`${m.away_team_uuid}__${m.gameweek_id}`);
+      }
+    }
+
+    // 4. Fetch ALL player_match_events for these players to compute points
+    //    This is the SINGLE SOURCE OF TRUTH for points (same as fantasy-gw-details)
+    const gwMatchIds = (playedMatches ?? []).map((m: any) => m.id);
+    const eventPointsMap = new Map<string, number>(); // key: playerId__gameweekId
+
+    if (gwMatchIds.length > 0 && playerIds.length > 0) {
+      const { data: events } = await supabase
+        .from("player_match_events")
+        .select("player_id, match_id, action, quantity, points_awarded")
+        .in("match_id", gwMatchIds)
+        .in("player_id", playerIds);
+
+      for (const e of events ?? []) {
+        const pid = String(e.player_id);
+        const matchGw = matchGwMap.get(e.match_id);
+        if (!matchGw) continue;
+        const key = `${pid}__${matchGw}`;
+        const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
+        eventPointsMap.set(key, (eventPointsMap.get(key) ?? 0) + pts);
+      }
+    }
+
+    // 5. Build response — points from events, clean sheet from match scores
     const stats: any[] = (data ?? []).map((s: any) => {
       const p = playersMap.get(s.player_id);
-      const isLady = p?.is_lady ?? false;
-      const rawPoints = s.points ?? 0;
+      const teamUuid = (p as any)?.team?.team_uuid ?? null;
+      const csKey = teamUuid ? `${teamUuid}__${s.gameweek_id}` : "";
+      const concededKey = teamUuid ? `${teamUuid}__${s.gameweek_id}` : "";
+
+      // Clean sheet: derive from actual match scores, not stale player_stats
+      let cleanSheet = false;
+      if (csKey && csTeamGws.has(csKey)) {
+        // Team kept a clean sheet — award to GK/DEF/MID
+        const pos = p?.position ?? "";
+        if (["GK", "Goalkeeper", "keeper", "DEF", "Defender", "MID", "Midfielder"].includes(pos)) {
+          cleanSheet = true;
+        }
+      }
+      // If team conceded, NEVER show clean sheet regardless of player_stats value
+      if (concededKey && concededTeamGws.has(concededKey)) {
+        cleanSheet = false;
+      }
+
+      // Points: use player_match_events sum (single source of truth)
+      // Events already include the lady 2x multiplier — do NOT apply again
+      const evtKey = `${s.player_id}__${s.gameweek_id}`;
+      const points = eventPointsMap.get(evtKey) ?? 0;
+
       return {
         id: s.id,
         playerId: s.player_id,
         gameweekId: s.gameweek_id,
-        points: isLady ? rawPoints * 2 : rawPoints,
+        points,
         goals: s.goals ?? 0,
         assists: s.assists ?? 0,
-        cleanSheet: s.clean_sheet ?? false,
+        cleanSheet,
         yellowCards: s.yellow_cards ?? 0,
         redCards: s.red_cards ?? 0,
         ownGoals: s.own_goals ?? 0,
@@ -81,46 +153,8 @@ export async function GET(req: Request) {
       };
     });
 
-    // 4. Derive GK clean sheets from played match results
-    //    If a team conceded 0 goals, mark their goalkeeper's EXISTING stat row
-    //    as a clean sheet — but ONLY if the GK already has a player_stats entry
-    //    for that gameweek (meaning they actually played).
-    let matchesQ = supabase
-      .from("matches")
-      .select("id, gameweek_id, home_team_uuid, away_team_uuid, home_goals, away_goals")
-      .or("is_played.eq.true,is_final.eq.true");
-    if (gwId) matchesQ = matchesQ.eq("gameweek_id", Number(gwId));
-    const { data: playedMatches } = await matchesQ;
-
-    // Build a set of teamUuid+gameweekId combos that earned a clean sheet
-    const csTeamGws = new Set<string>();
-    for (const m of playedMatches ?? []) {
-      if ((m.away_goals ?? 0) === 0 && m.home_team_uuid) {
-        csTeamGws.add(`${m.home_team_uuid}__${m.gameweek_id}`);
-      }
-      if ((m.home_goals ?? 0) === 0 && m.away_team_uuid) {
-        csTeamGws.add(`${m.away_team_uuid}__${m.gameweek_id}`);
-      }
-    }
-
-    if (csTeamGws.size > 0) {
-      // For each existing GK stat row, check if their team kept a CS that gameweek
-      for (const s of stats) {
-        if (s.cleanSheet) continue; // already marked
-        const pos = s.player?.position;
-        if (pos !== "GK" && pos !== "Goalkeeper" && pos !== "keeper") continue;
-        const teamUuid = s.player?.teamUuid;
-        if (!teamUuid) continue;
-        const key = `${teamUuid}__${s.gameweekId}`;
-        if (csTeamGws.has(key)) {
-          s.cleanSheet = true;
-        }
-      }
-    }
-
-    // 5. Derive yellow/red cards from player_match_events
-    //    Voice admin stores cards as actions ("yellow", "red") in player_match_events.
-    //    Merge these into stats so the matches page can show discipline leaders.
+    // 6. Merge yellow/red cards from player_match_events
+    //    (cards may exist as events but not in player_stats rows)
     let eventsQ = supabase
       .from("player_match_events")
       .select("player_id, match_id, action, quantity")
@@ -145,11 +179,6 @@ export async function GET(req: Request) {
         }
       }
 
-      // Get match → gameweek mapping from already-fetched playedMatches + any remaining
-      const matchGwMap = new Map<number, number>();
-      for (const m of playedMatches ?? []) {
-        matchGwMap.set(m.id, m.gameweek_id);
-      }
       // Fetch any match IDs we don't already have
       const missingMatchIds = [
         ...new Set(
@@ -187,18 +216,15 @@ export async function GET(req: Request) {
         const existing = statsLookup.get(key);
 
         if (existing) {
-          // Only merge if the existing row doesn't already have this card type
-          // (player_stats may already include the same data)
           if (isYellow && !existing.yellowCards) existing.yellowCards = qty;
           if (isRed && !existing.redCards) existing.redCards = qty;
         } else {
-          // Create a new stat entry for this player+gameweek
           const p = playersMap.get(ev.player_id);
           const newStat = {
             id: `card-${ev.match_id}-${ev.player_id}`,
             playerId: ev.player_id,
             gameweekId,
-            points: 0,
+            points: eventPointsMap.get(`${ev.player_id}__${gameweekId}`) ?? 0,
             goals: 0,
             assists: 0,
             cleanSheet: false,
