@@ -122,6 +122,7 @@ function PointsPlayerCard({
   isTripleCaptain,
   isActivatedVice,
   autoSubStatus,
+  multiplier = 1,
   onClick,
 }: {
   player: SquadPlayer;
@@ -130,12 +131,13 @@ function PointsPlayerCard({
   isTripleCaptain?: boolean;
   isActivatedVice?: boolean;
   autoSubStatus?: "subbed-in" | "subbed-out" | null;
+  multiplier?: number;
   onClick: () => void;
 }) {
   const displayName = shortName(player.name, player.webName);
   const isGK = normalizePosition(player.position) === "Goalkeeper";
   const kitColor = getKitColor(player.teamShort);
-  const pts = player.gwPoints;
+  const pts = player.gwPoints * multiplier;
   const cardW = 60;
   const sz = 42;
 
@@ -527,6 +529,7 @@ function PointsPitch({
         isTripleCaptain={isTripleCaptain && captainId === p.id}
         isActivatedVice={captainActivated === "vice" && viceId === p.id}
         autoSubStatus={getAutoSubStatus(p.id)}
+        multiplier={multipliers[p.id] ?? 1}
         onClick={() => onSelectPlayer(p)}
       />
     </div>
