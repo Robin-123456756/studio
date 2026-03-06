@@ -143,6 +143,14 @@ export default function AdminDashboard() {
       badge: "DATA",
     },
     {
+      title: "Appearances",
+      description: "Mark starters and substitutes for each match.",
+      icon: "📋",
+      href: "/admin/appearances",
+      color: "#14B8A6",
+      badge: "LINEUP",
+    },
+    {
       title: "End Gameweek",
       description: "One-click workflow: calculate scores, finalize, and advance.",
       icon: "🏁",
@@ -660,6 +668,7 @@ export default function AdminDashboard() {
                   { label: "🧑‍💼 Fantasy Managers", href: "/admin/users" },
                   { label: "📅 Manage Gameweeks", href: "/admin/gameweeks" },
                   { label: "📋 Schedule Match", href: "/admin/fixtures" },
+                  { label: "📋 Appearances", href: "/admin/appearances" },
                   { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
                   { label: "📤 Import Players", href: "/admin/players/import" },
                   { label: "📜 Audit Log", href: "/admin/audit-log" },
@@ -705,6 +714,7 @@ export default function AdminDashboard() {
               {[
                 { label: "🎙️ Enter Match Stats", href: "/admin/voice" },
                 { label: "📊 Match Scores", href: "/admin/scores" },
+                { label: "📋 Appearances", href: "/admin/appearances" },
                 { label: "🧮 Calculate GW Scores", href: "/admin/voice#scoring" },
                 { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
                 { label: "🏁 End Gameweek", href: "/admin/end-gameweek" },

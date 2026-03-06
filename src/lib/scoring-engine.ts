@@ -341,7 +341,7 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
       const pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
       pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
       playedFromEvents.add(pid);
-      if (e.action === "appearance") hasAppearanceEvent.add(pid);
+      if (e.action === "appearance" || e.action === "sub_appearance") hasAppearanceEvent.add(pid);
     }
   }
 

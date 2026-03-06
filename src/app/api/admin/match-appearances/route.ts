@@ -83,15 +83,22 @@ export async function GET(req: Request) {
     const matchIds = matches.map((m) => m.id);
     const { data: events } = await supabase
       .from("player_match_events")
-      .select("player_id, match_id")
+      .select("player_id, match_id, action")
       .in("match_id", matchIds);
 
     // Map: player_id → set of match_ids where they have events
     const eventsMap = new Map<string, Set<number>>();
+    // Map: "playerId__matchId" → "started" | "sub" (from appearance/sub_appearance events)
+    const appearanceStatusMap = new Map<string, "started" | "sub">();
     for (const e of events ?? []) {
       const pid = String(e.player_id);
       if (!eventsMap.has(pid)) eventsMap.set(pid, new Set());
       eventsMap.get(pid)!.add(e.match_id);
+      if (e.action === "appearance") {
+        appearanceStatusMap.set(`${pid}__${e.match_id}`, "started");
+      } else if (e.action === "sub_appearance") {
+        appearanceStatusMap.set(`${pid}__${e.match_id}`, "sub");
+      }
     }
 
     // 7. Build response grouped by match → home/away team → players
@@ -110,14 +117,26 @@ export async function GET(req: Request) {
             const pid = String(p.id);
             const hasEvents = eventsMap.get(pid)?.has(matchId) ?? false;
             const markedDidPlay = didPlayFromStats.has(pid);
+            // Determine appearance status from events
+            const statusKey = `${pid}__${matchId}`;
+            const evtStatus = appearanceStatusMap.get(statusKey);
+            // Default: if has events but no explicit appearance status, assume "started" (legacy)
+            let status: "started" | "sub" | "not_played" = "not_played";
+            if (evtStatus) {
+              status = evtStatus;
+            } else if (hasEvents || markedDidPlay) {
+              status = "started";
+            }
+
             return {
               id: pid,
               name: p.web_name || p.name,
               position: p.position,
               isLady: p.is_lady,
-              hasEvents,          // true = has match events (definitely played)
-              markedDidPlay,      // true = admin previously marked did_play
-              didPlay: hasEvents || markedDidPlay, // combined: pre-check the checkbox
+              hasEvents,
+              markedDidPlay,
+              didPlay: hasEvents || markedDidPlay,
+              status,             // "started" | "sub" | "not_played"
             };
           }),
         };
@@ -142,44 +161,101 @@ export async function GET(req: Request) {
 /**
  * POST /api/admin/match-appearances
  *
- * Body: { gameweekId: number, appearances: { playerId: string, didPlay: boolean }[] }
+ * Body: { gameweekId: number, matchId: number, appearances: { playerId: string, status: "started" | "sub" | "not_played" }[] }
  *
- * Bulk upserts player_stats.did_play for the given GW.
+ * For each player:
+ *   - "started"    → did_play=true, appearance event (2 pts from scoring_rules)
+ *   - "sub"        → did_play=true, sub_appearance event (1 pt from scoring_rules)
+ *   - "not_played" → did_play=false, removes any appearance/sub_appearance events
  */
 export async function POST(req: Request) {
   try {
     const supabase = getSupabaseServerOrThrow();
     const body = await req.json();
-    const { gameweekId, appearances } = body as {
+    const { gameweekId, matchId, appearances } = body as {
       gameweekId: number;
-      appearances: { playerId: string; didPlay: boolean }[];
+      matchId: number;
+      appearances: { playerId: string; status: "started" | "sub" | "not_played" }[];
     };
 
-    if (!gameweekId || !Array.isArray(appearances)) {
-      return NextResponse.json({ error: "gameweekId and appearances[] required" }, { status: 400 });
+    if (!gameweekId || !matchId || !Array.isArray(appearances)) {
+      return NextResponse.json({ error: "gameweekId, matchId, and appearances[] required" }, { status: 400 });
     }
 
-    // Upsert player_stats rows with did_play flag
-    const rows = appearances.map((a) => ({
-      player_id: a.playerId,
-      gameweek_id: gameweekId,
-      did_play: a.didPlay,
-    }));
+    // Load scoring rules for appearance points
+    const { data: rules } = await supabase
+      .from("scoring_rules")
+      .select("action, position, points")
+      .in("action", ["appearance", "sub_appearance"]);
 
-    if (rows.length > 0) {
-      const { error } = await supabase
-        .from("player_stats")
-        .upsert(rows, { onConflict: "player_id,gameweek_id" });
+    const appearancePts = rules?.find((r) => r.action === "appearance")?.points ?? 2;
+    const subAppearancePts = rules?.find((r) => r.action === "sub_appearance")?.points ?? 1;
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    const playerIds = appearances.map((a) => a.playerId);
+
+    // 1. Remove existing appearance/sub_appearance events for these players in this match
+    if (playerIds.length > 0) {
+      await supabase
+        .from("player_match_events")
+        .delete()
+        .eq("match_id", matchId)
+        .in("action", ["appearance", "sub_appearance"])
+        .in("player_id", playerIds);
+    }
+
+    // 2. Insert new appearance events for players who played
+    const newEvents: { player_id: string; match_id: number; action: string; quantity: number; points_awarded: number }[] = [];
+    for (const a of appearances) {
+      if (a.status === "started") {
+        newEvents.push({
+          player_id: a.playerId,
+          match_id: matchId,
+          action: "appearance",
+          quantity: 1,
+          points_awarded: appearancePts,
+        });
+      } else if (a.status === "sub") {
+        newEvents.push({
+          player_id: a.playerId,
+          match_id: matchId,
+          action: "sub_appearance",
+          quantity: 1,
+          points_awarded: subAppearancePts,
+        });
       }
     }
 
-    const markedCount = appearances.filter((a) => a.didPlay).length;
+    if (newEvents.length > 0) {
+      const { error: evtErr } = await supabase
+        .from("player_match_events")
+        .insert(newEvents);
+      if (evtErr) {
+        return NextResponse.json({ error: `Failed to insert events: ${evtErr.message}` }, { status: 500 });
+      }
+    }
+
+    // 3. Upsert player_stats.did_play
+    const statsRows = appearances.map((a) => ({
+      player_id: a.playerId,
+      gameweek_id: gameweekId,
+      did_play: a.status !== "not_played",
+    }));
+
+    if (statsRows.length > 0) {
+      const { error: statsErr } = await supabase
+        .from("player_stats")
+        .upsert(statsRows, { onConflict: "player_id,gameweek_id" });
+      if (statsErr) {
+        return NextResponse.json({ error: `Failed to update stats: ${statsErr.message}` }, { status: 500 });
+      }
+    }
+
+    const startedCount = appearances.filter((a) => a.status === "started").length;
+    const subCount = appearances.filter((a) => a.status === "sub").length;
     return NextResponse.json({
       success: true,
-      markedCount,
+      startedCount,
+      subCount,
       totalProcessed: appearances.length,
     });
   } catch (e: any) {
