@@ -183,6 +183,62 @@ export async function POST(req: Request) {
   }
 }
 
+// PATCH — update a scheduled (unplayed) match
+export async function PATCH(req: Request) {
+  const { error: authErr } = await requireAdminSession();
+  if (authErr) return authErr;
+
+  try {
+    const supabase = getSupabase();
+    const { id, gameweek_id, home_team_uuid, away_team_uuid, kickoff_time, venue } = await req.json();
+
+    if (!id) {
+      return NextResponse.json({ error: "Match ID is required" }, { status: 400 });
+    }
+
+    // Only allow editing unplayed matches
+    const { data: match, error: findErr } = await supabase
+      .from("matches")
+      .select("id, is_played")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (findErr) throw findErr;
+    if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
+    if (match.is_played) return NextResponse.json({ error: "Cannot edit a played match" }, { status: 400 });
+
+    const updateData: Record<string, unknown> = {};
+    if (gameweek_id !== undefined) updateData.gameweek_id = gameweek_id;
+    if (home_team_uuid !== undefined) updateData.home_team_uuid = home_team_uuid;
+    if (away_team_uuid !== undefined) updateData.away_team_uuid = away_team_uuid;
+    if (venue !== undefined) updateData.venue = venue || null;
+    if (kickoff_time !== undefined) {
+      const kickoffIso = toIsoAssumingEAT(kickoff_time);
+      updateData.kickoff_time = kickoffIso;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
+
+    if (updateData.home_team_uuid && updateData.away_team_uuid && updateData.home_team_uuid === updateData.away_team_uuid) {
+      return NextResponse.json({ error: "Home and away teams must be different" }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from("matches")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to update match: ${error.message}`);
+    return NextResponse.json({ success: true, match: data });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 // DELETE — remove an event or a scheduled match
 export async function DELETE(req: Request) {
   const { error: authErr } = await requireAdminSession();

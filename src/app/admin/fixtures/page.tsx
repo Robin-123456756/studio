@@ -70,6 +70,16 @@ export default function AdminFixturesPage() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Edit match state
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    gameweek_id: "",
+    home_team_uuid: "",
+    away_team_uuid: "",
+    kickoff_time: "",
+    venue: "",
+  });
+
   // Match form state
   const [matchForm, setMatchForm] = useState({
     gameweek_id: "",
@@ -224,6 +234,62 @@ export default function AdminFixturesPage() {
       setFeedback({ type: "error", message: err.message });
     }
   }, []);
+
+  const startEditing = (match: Fixture) => {
+    // Convert ISO kickoff_time to datetime-local value in EAT
+    let kickoffLocal = "";
+    if (match.kickoff_time) {
+      const d = new Date(match.kickoff_time);
+      if (!Number.isNaN(d.getTime())) {
+        // Format as YYYY-MM-DDTHH:MM in EAT
+        const parts = d.toLocaleString("sv-SE", { timeZone: EAT_TIMEZONE }).split(" ");
+        kickoffLocal = `${parts[0]}T${parts[1]?.slice(0, 5) || ""}`;
+      }
+    }
+    setEditForm({
+      gameweek_id: String(match.gameweek_id),
+      home_team_uuid: match.home_team_uuid,
+      away_team_uuid: match.away_team_uuid,
+      kickoff_time: kickoffLocal,
+      venue: match.venue || "",
+    });
+    setEditingMatchId(match.id);
+  };
+
+  const handleEditMatch = useCallback(async () => {
+    if (!editingMatchId) return;
+    if (editForm.home_team_uuid === editForm.away_team_uuid) {
+      setFeedback({ type: "error", message: "Home and away teams must be different" });
+      return;
+    }
+    const kickoffIso = editForm.kickoff_time
+      ? toIsoAssumingEAT(editForm.kickoff_time)
+      : null;
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/admin/fixtures", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: Number(editingMatchId),
+          gameweek_id: parseInt(editForm.gameweek_id),
+          home_team_uuid: editForm.home_team_uuid,
+          away_team_uuid: editForm.away_team_uuid,
+          kickoff_time: kickoffIso,
+          venue: editForm.venue,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update match");
+      setFeedback({ type: "success", message: "Match updated!" });
+      setEditingMatchId(null);
+      if (scheduleLoaded) loadSchedule();
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err.message });
+    }
+    setSaving(false);
+  }, [editingMatchId, editForm, scheduleLoaded, loadSchedule]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "TBD";
@@ -675,67 +741,171 @@ export default function AdminFixturesPage() {
                         ) : (
                           gwMatches.map((match) => (
                             <div key={match.id} style={{
-                              display: "flex", alignItems: "center", gap: 10,
                               padding: "12px 14px", backgroundColor: BG_SURFACE,
                               border: `1px solid ${BORDER}`, borderRadius: 8,
                               marginBottom: 6,
                             }}>
-                              {/* Match info */}
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                  <span style={{ fontSize: 14, fontWeight: 700 }}>
-                                    {match.home_team?.short_name || "?"}
-                                  </span>
-                                  {match.is_played ? (
-                                    <span style={{ fontSize: 14, fontWeight: 700, color: ACCENT }}>
-                                      {match.home_goals} - {match.away_goals}
-                                    </span>
-                                  ) : (
-                                    <span style={{ fontSize: 12, color: TEXT_MUTED }}>vs</span>
-                                  )}
-                                  <span style={{ fontSize: 14, fontWeight: 700 }}>
-                                    {match.away_team?.short_name || "?"}
-                                  </span>
-                                  {match.is_final && (
-                                    <span style={{
-                                      padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-                                      backgroundColor: `${SUCCESS}20`, color: SUCCESS,
-                                    }}>FT</span>
-                                  )}
-                                  {match.is_played && !match.is_final && (
-                                    <span style={{
-                                      padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-                                      backgroundColor: `${WARNING}20`, color: WARNING,
-                                    }}>LIVE</span>
-                                  )}
-                                  {!match.is_played && (
-                                    <span style={{
-                                      padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-                                      backgroundColor: `${TEXT_MUTED}20`, color: TEXT_MUTED,
-                                    }}>SCH</span>
-                                  )}
+                              {editingMatchId === match.id ? (
+                                /* Inline edit form */
+                                <div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, marginBottom: 8, alignItems: "end" }}>
+                                    <div>
+                                      <label style={{ ...labelStyle, marginBottom: 4 }}>Home</label>
+                                      <select
+                                        value={editForm.home_team_uuid}
+                                        onChange={(e) => setEditForm((p) => ({ ...p, home_team_uuid: e.target.value }))}
+                                        style={{ ...inputStyle, padding: "8px 10px", fontSize: 12 }}
+                                      >
+                                        {teams.map((t) => (
+                                          <option key={t.team_uuid} value={t.team_uuid}>{t.short_name}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div style={{ paddingBottom: 8, fontSize: 12, fontWeight: 700, color: TEXT_MUTED }}>VS</div>
+                                    <div>
+                                      <label style={{ ...labelStyle, marginBottom: 4 }}>Away</label>
+                                      <select
+                                        value={editForm.away_team_uuid}
+                                        onChange={(e) => setEditForm((p) => ({ ...p, away_team_uuid: e.target.value }))}
+                                        style={{ ...inputStyle, padding: "8px 10px", fontSize: 12 }}
+                                      >
+                                        {teams.map((t) => (
+                                          <option key={t.team_uuid} value={t.team_uuid}>{t.short_name}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                                    <div>
+                                      <label style={{ ...labelStyle, marginBottom: 4 }}>Gameweek</label>
+                                      <select
+                                        value={editForm.gameweek_id}
+                                        onChange={(e) => setEditForm((p) => ({ ...p, gameweek_id: e.target.value }))}
+                                        style={{ ...inputStyle, padding: "8px 10px", fontSize: 12 }}
+                                      >
+                                        {gameweeks.map((gw) => (
+                                          <option key={gw.id} value={gw.id}>GW {gw.id}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label style={{ ...labelStyle, marginBottom: 4 }}>Kickoff (EAT)</label>
+                                      <input
+                                        type="datetime-local"
+                                        value={editForm.kickoff_time}
+                                        onChange={(e) => setEditForm((p) => ({ ...p, kickoff_time: e.target.value }))}
+                                        style={{ ...inputStyle, padding: "8px 10px", fontSize: 12 }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={{ ...labelStyle, marginBottom: 4 }}>Venue</label>
+                                      <input
+                                        type="text"
+                                        value={editForm.venue}
+                                        onChange={(e) => setEditForm((p) => ({ ...p, venue: e.target.value }))}
+                                        placeholder="e.g. Budo Grounds"
+                                        style={{ ...inputStyle, padding: "8px 10px", fontSize: 12 }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                    <button
+                                      onClick={() => setEditingMatchId(null)}
+                                      style={{
+                                        background: "none", border: `1px solid ${BORDER}`,
+                                        borderRadius: 6, color: TEXT_MUTED, padding: "6px 14px",
+                                        fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={handleEditMatch}
+                                      disabled={saving}
+                                      style={{
+                                        background: ACCENT, border: "none",
+                                        borderRadius: 6, color: BG_DARK, padding: "6px 14px",
+                                        fontSize: 12, fontWeight: 700, cursor: saving ? "wait" : "pointer",
+                                        fontFamily: "inherit", opacity: saving ? 0.6 : 1,
+                                      }}
+                                    >
+                                      {saving ? "Saving..." : "Save"}
+                                    </button>
+                                  </div>
                                 </div>
-                                <div style={{ display: "flex", gap: 12, fontSize: 11, color: TEXT_MUTED }}>
-                                  {match.kickoff_time ? (
-                                    <span>{formatShortDate(match.kickoff_time)} {formatTime(match.kickoff_time)}</span>
-                                  ) : (
-                                    <span>TBD</span>
-                                  )}
-                                </div>
-                              </div>
+                              ) : (
+                                /* Normal display */
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                      <span style={{ fontSize: 14, fontWeight: 700 }}>
+                                        {match.home_team?.short_name || "?"}
+                                      </span>
+                                      {match.is_played ? (
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: ACCENT }}>
+                                          {match.home_goals} - {match.away_goals}
+                                        </span>
+                                      ) : (
+                                        <span style={{ fontSize: 12, color: TEXT_MUTED }}>vs</span>
+                                      )}
+                                      <span style={{ fontSize: 14, fontWeight: 700 }}>
+                                        {match.away_team?.short_name || "?"}
+                                      </span>
+                                      {match.is_final && (
+                                        <span style={{
+                                          padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                                          backgroundColor: `${SUCCESS}20`, color: SUCCESS,
+                                        }}>FT</span>
+                                      )}
+                                      {match.is_played && !match.is_final && (
+                                        <span style={{
+                                          padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                                          backgroundColor: `${WARNING}20`, color: WARNING,
+                                        }}>LIVE</span>
+                                      )}
+                                      {!match.is_played && (
+                                        <span style={{
+                                          padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                                          backgroundColor: `${TEXT_MUTED}20`, color: TEXT_MUTED,
+                                        }}>SCH</span>
+                                      )}
+                                    </div>
+                                    <div style={{ display: "flex", gap: 12, fontSize: 11, color: TEXT_MUTED }}>
+                                      {match.kickoff_time ? (
+                                        <span>{formatShortDate(match.kickoff_time)} {formatTime(match.kickoff_time)}</span>
+                                      ) : (
+                                        <span>TBD</span>
+                                      )}
+                                      {match.venue && <span>{match.venue}</span>}
+                                    </div>
+                                  </div>
 
-                              {/* Delete button for unplayed matches only */}
-                              {!match.is_played && (
-                                <button
-                                  onClick={() => handleDeleteMatch(match.id)}
-                                  style={{
-                                    background: "none", border: `1px solid ${ERROR}30`,
-                                    borderRadius: 6, color: ERROR, padding: "4px 10px",
-                                    fontSize: 11, cursor: "pointer", fontFamily: "inherit",
-                                  }}
-                                >
-                                  Delete
-                                </button>
+                                  {/* Edit & Delete buttons for unplayed matches only */}
+                                  {!match.is_played && (
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                      <button
+                                        onClick={() => startEditing(match)}
+                                        style={{
+                                          background: "none", border: `1px solid ${ACCENT}30`,
+                                          borderRadius: 6, color: ACCENT, padding: "4px 10px",
+                                          fontSize: 11, cursor: "pointer", fontFamily: "inherit",
+                                        }}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteMatch(match.id)}
+                                        style={{
+                                          background: "none", border: `1px solid ${ERROR}30`,
+                                          borderRadius: 6, color: ERROR, padding: "4px 10px",
+                                          fontSize: 11, cursor: "pointer", fontFamily: "inherit",
+                                        }}
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           ))
