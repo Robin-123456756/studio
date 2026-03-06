@@ -81,6 +81,10 @@ export async function GET(req: Request) {
     const gwMatchIds = (playedMatches ?? []).map((m: any) => m.id);
     const eventPointsMap = new Map<string, number>(); // key: playerId__gameweekId
 
+    // Also track goals/assists from events (source of truth over player_stats)
+    const eventGoalsMap = new Map<string, number>();   // key: playerId__gameweekId
+    const eventAssistsMap = new Map<string, number>(); // key: playerId__gameweekId
+
     if (gwMatchIds.length > 0 && playerIds.length > 0) {
       const { data: events } = await supabase
         .from("player_match_events")
@@ -93,8 +97,15 @@ export async function GET(req: Request) {
         const matchGw = matchGwMap.get(e.match_id);
         if (!matchGw) continue;
         const key = `${pid}__${matchGw}`;
-        const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
+        const qty = e.quantity ?? 1;
+        const pts = (e.points_awarded ?? 0) * qty;
         eventPointsMap.set(key, (eventPointsMap.get(key) ?? 0) + pts);
+
+        if (e.action === "goal") {
+          eventGoalsMap.set(key, (eventGoalsMap.get(key) ?? 0) + qty);
+        } else if (e.action === "assist") {
+          eventAssistsMap.set(key, (eventAssistsMap.get(key) ?? 0) + qty);
+        }
       }
     }
 
@@ -119,18 +130,20 @@ export async function GET(req: Request) {
         cleanSheet = false;
       }
 
-      // Points: use player_match_events sum (single source of truth)
+      // Points, goals, assists: use player_match_events (single source of truth)
       // Events already include the lady 2x multiplier — do NOT apply again
       const evtKey = `${s.player_id}__${s.gameweek_id}`;
       const points = eventPointsMap.get(evtKey) ?? 0;
+      const goals = eventGoalsMap.get(evtKey) ?? s.goals ?? 0;
+      const assists = eventAssistsMap.get(evtKey) ?? s.assists ?? 0;
 
       return {
         id: s.id,
         playerId: s.player_id,
         gameweekId: s.gameweek_id,
         points,
-        goals: s.goals ?? 0,
-        assists: s.assists ?? 0,
+        goals,
+        assists,
         cleanSheet,
         yellowCards: s.yellow_cards ?? 0,
         redCards: s.red_cards ?? 0,
