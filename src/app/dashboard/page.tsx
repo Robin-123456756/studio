@@ -252,10 +252,88 @@ export default function DashboardPage() {
             const entries = lbJson.leaderboard ?? [];
             const me = entries.find((e: any) => e.userId === userId);
             if (me) {
+              // GW points: try current GW first, then fall back to the
+              // latest GW that has data (handles unplayed upcoming GWs)
+              let myGwPts = me.gwBreakdown?.[currentGwId] ?? 0;
+              if (myGwPts === 0 && me.gwBreakdown) {
+                const gwIds = Object.keys(me.gwBreakdown)
+                  .map(Number)
+                  .filter((n) => Number.isFinite(n) && n > 0)
+                  .sort((a, b) => b - a);
+                for (const gid of gwIds) {
+                  if (me.gwBreakdown[gid] > 0) {
+                    myGwPts = me.gwBreakdown[gid];
+                    break;
+                  }
+                }
+              }
+
+              let myTotalPts = me.totalPoints ?? 0;
+
+              // Fallback: if leaderboard has 0 points, compute from roster + player_stats
+              if (myTotalPts === 0 || myGwPts === 0) {
+                try {
+                  const rosterRes = await fetch(
+                    `/api/rosters/current?user_id=${userId}`,
+                    { cache: "no-store" }
+                  );
+                  if (rosterRes.ok) {
+                    const rosterJson = await rosterRes.json();
+                    const squadIds: string[] = rosterJson?.squadIds ?? [];
+                    const startingIds: string[] =
+                      rosterJson?.startingIds?.length > 0
+                        ? rosterJson.startingIds
+                        : squadIds;
+
+                    if (squadIds.length > 0) {
+                      // Walk backward from current GW to find one with player data
+                      const startGw = currentGwId ?? nextGwId ?? 1;
+                      for (let gw = startGw; gw >= 1 && myGwPts === 0; gw--) {
+                        const sRes = await fetch(
+                          `/api/player-stats?gw_id=${gw}`,
+                          { cache: "no-store" }
+                        );
+                        if (!sRes.ok) continue;
+                        const sJson = await sRes.json();
+
+                        const ptsById = new Map<string, number>();
+                        for (const s of sJson?.stats ?? []) {
+                          const pid = String((s as any).playerId ?? "");
+                          if (!pid || !squadIds.includes(pid)) continue;
+                          const pts = Number((s as any).points ?? 0);
+                          ptsById.set(pid, (ptsById.get(pid) ?? 0) + (Number.isFinite(pts) ? pts : 0));
+                        }
+                        if (ptsById.size === 0) continue;
+
+                        const mults: Record<string, number> =
+                          rosterJson?.multiplierByPlayer ?? {};
+                        myGwPts = startingIds.reduce((sum, id) => {
+                          const pid = String(id);
+                          const p = ptsById.get(pid) ?? 0;
+                          const rm = Number(
+                            mults[pid] ??
+                              (String(rosterJson?.captainId ?? "") === pid ? 2 : 1)
+                          );
+                          const m = Number.isFinite(rm) && rm > 0 ? rm : 1;
+                          return sum + p * m;
+                        }, 0);
+                      }
+
+                      // Use GW points as total if leaderboard total was also 0
+                      if (myTotalPts === 0 && myGwPts > 0) {
+                        myTotalPts = myGwPts;
+                      }
+                    }
+                  }
+                } catch {
+                  // non-fatal
+                }
+              }
+
               setFantasyStats({
                 rank: me.rank,
-                totalPoints: me.totalPoints ?? 0,
-                gwPoints: me.gwBreakdown?.[currentGwId] ?? 0,
+                totalPoints: myTotalPts,
+                gwPoints: myGwPts,
                 teamName: me.teamName ?? "My Team",
               });
             } else {
