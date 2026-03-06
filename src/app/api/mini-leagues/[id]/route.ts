@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { computeStandings } from "@/lib/leaderboard-utils";
+import { computeH2HStandings } from "@/lib/h2h-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export async function GET(
     // Fetch league details
     const { data: league, error: lgErr } = await sb
       .from("mini_leagues")
-      .select("id, name, invite_code, is_general, created_by")
+      .select("id, name, invite_code, is_general, created_by, league_type")
       .eq("id", leagueId)
       .single();
 
@@ -55,6 +56,25 @@ export async function GET(
       .eq("league_id", leagueId);
 
     const memberIds = (members ?? []).map((m: any) => m.user_id);
+    const leagueType = league.league_type || "classic";
+
+    if (leagueType === "h2h") {
+      const { standings: h2hStandings, currentGwFixtures } = await computeH2HStandings(sb, leagueId, memberIds);
+      return NextResponse.json({
+        league: {
+          id: league.id,
+          name: league.name,
+          inviteCode: league.invite_code,
+          isGeneral: league.is_general,
+          isCreator: league.created_by === userId,
+          leagueType: "h2h",
+          memberCount: memberIds.length,
+        },
+        standings: h2hStandings,
+        currentGwFixtures,
+      });
+    }
+
     const standings = await computeStandings(sb, memberIds);
 
     return NextResponse.json({
@@ -64,6 +84,7 @@ export async function GET(
         inviteCode: league.invite_code,
         isGeneral: league.is_general,
         isCreator: league.created_by === userId,
+        leagueType: "classic",
         memberCount: memberIds.length,
       },
       standings,

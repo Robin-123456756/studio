@@ -36,12 +36,37 @@ type StandingsEntry = {
   movement: number;
 };
 
+type H2HStandingsEntry = {
+  rank: number;
+  userId: string;
+  teamName: string;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  pointsFor: number;
+  h2hPoints: number;
+  movement: number;
+};
+
+type H2HFixtureResult = {
+  gameweekId: number;
+  user1Id: string;
+  user2Id: string | null;
+  user1Name: string;
+  user2Name: string | null;
+  user1Points: number;
+  user2Points: number;
+  result: "win" | "loss" | "draw" | "bye";
+};
+
 type LeagueInfo = {
   id: number;
   name: string;
   inviteCode: string;
   isGeneral: boolean;
   isCreator: boolean;
+  leagueType: "classic" | "h2h";
   memberCount: number;
 };
 
@@ -90,6 +115,8 @@ function LeagueStandingsContent() {
   const { id } = useParams<{ id: string }>();
   const [league, setLeague] = React.useState<LeagueInfo | null>(null);
   const [standings, setStandings] = React.useState<StandingsEntry[]>([]);
+  const [h2hStandings, setH2hStandings] = React.useState<H2HStandingsEntry[]>([]);
+  const [h2hFixtures, setH2hFixtures] = React.useState<H2HFixtureResult[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [userId, setUserId] = React.useState<string | null>(null);
@@ -115,7 +142,12 @@ function LeagueStandingsContent() {
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load league");
         setLeague(json.league);
-        setStandings(json.standings ?? []);
+        if (json.league?.leagueType === "h2h") {
+          setH2hStandings(json.standings ?? []);
+          setH2hFixtures(json.currentGwFixtures ?? []);
+        } else {
+          setStandings(json.standings ?? []);
+        }
       } catch (e: any) {
         setError(e?.message || "Unknown error");
       } finally {
@@ -124,7 +156,12 @@ function LeagueStandingsContent() {
     })();
   }, [id]);
 
-  const userEntry = standings.find((s) => s.userId === userId);
+  const isH2H = league?.leagueType === "h2h";
+  const userEntry = isH2H
+    ? h2hStandings.find((s) => s.userId === userId)
+    : standings.find((s) => s.userId === userId);
+  const userH2HEntry = isH2H ? h2hStandings.find((s) => s.userId === userId) : null;
+  const totalEntries = isH2H ? h2hStandings.length : standings.length;
 
   async function copyInviteLink() {
     if (!league) return;
@@ -195,7 +232,7 @@ function LeagueStandingsContent() {
               <div className="mt-4 flex items-center justify-center gap-6 pb-2">
                 <div className="text-center">
                   <div className="text-2xl font-bold tabular-nums">
-                    {standings.length}
+                    {totalEntries}
                   </div>
                   <div className="text-[11px] text-white/60 font-semibold">Managers</div>
                 </div>
@@ -203,16 +240,18 @@ function LeagueStandingsContent() {
                   <div className="text-2xl font-bold tabular-nums">
                     {userEntry.rank}
                     <span className="text-sm font-semibold text-white/70">
-                      /{standings.length}
+                      /{totalEntries}
                     </span>
                   </div>
                   <div className="text-[11px] text-white/60 font-semibold">Your Rank</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold tabular-nums">
-                    {userEntry.totalPoints}
+                    {isH2H && userH2HEntry ? userH2HEntry.h2hPoints : (userEntry as StandingsEntry).totalPoints}
                   </div>
-                  <div className="text-[11px] text-white/60 font-semibold">Your Points</div>
+                  <div className="text-[11px] text-white/60 font-semibold">
+                    {isH2H ? "H2H Pts" : "Your Points"}
+                  </div>
                 </div>
               </div>
             )}
@@ -254,6 +293,61 @@ function LeagueStandingsContent() {
               </div>
             ) : error ? (
               <div className="p-6 text-center text-sm text-red-500">{error}</div>
+            ) : isH2H ? (
+              h2hStandings.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No standings yet. Data will appear once gameweeks are played.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8 text-center">#</TableHead>
+                        <TableHead>Team</TableHead>
+                        <TableHead className="w-8 text-center">P</TableHead>
+                        <TableHead className="w-8 text-center">W</TableHead>
+                        <TableHead className="w-8 text-center">D</TableHead>
+                        <TableHead className="w-8 text-center">L</TableHead>
+                        <TableHead className="w-14 text-right pr-4">Pts</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {h2hStandings.map((entry) => {
+                        const isUser = entry.userId === userId;
+                        return (
+                          <TableRow
+                            key={entry.userId}
+                            className={cn(
+                              isUser &&
+                                "bg-[#0D5C63]/8 border-l-[3px] border-l-[#0D5C63]"
+                            )}
+                          >
+                            <TableCell className="text-center font-bold">
+                              <span className={rankColor(entry.rank)}>
+                                {rankLabel(entry.rank)}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-semibold text-sm leading-tight truncate max-w-[120px]">
+                                {entry.teamName}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {entry.pointsFor} pts scored
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center tabular-nums text-sm">{entry.played}</TableCell>
+                            <TableCell className="text-center tabular-nums text-sm text-emerald-600 font-semibold">{entry.won}</TableCell>
+                            <TableCell className="text-center tabular-nums text-sm">{entry.drawn}</TableCell>
+                            <TableCell className="text-center tabular-nums text-sm text-red-500">{entry.lost}</TableCell>
+                            <TableCell className="text-right pr-4 font-bold tabular-nums text-sm">{entry.h2hPoints}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
             ) : standings.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 No standings yet. Data will appear once gameweeks are played.
@@ -312,6 +406,64 @@ function LeagueStandingsContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* This GW's Matchups (H2H only) */}
+      {isH2H && !loading && h2hFixtures.length > 0 && (
+        <div className="mt-4">
+          <div className="text-sm font-bold text-foreground mb-2">
+            This GW&apos;s Matchups
+          </div>
+          <div className="space-y-2">
+            {h2hFixtures.map((fix, i) => (
+              <Card key={i} className="rounded-xl shadow-sm">
+                <CardContent className="p-3">
+                  {fix.user2Id === null ? (
+                    <div className="flex items-center justify-center text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">{fix.user1Name}</span>
+                      <span className="mx-2">—</span>
+                      <span className="italic">Bye</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className={cn(
+                        "flex-1 text-sm font-semibold truncate text-right pr-2",
+                        fix.user1Id === userId && "text-[#0D5C63]"
+                      )}>
+                        {fix.user1Name}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={cn(
+                          "min-w-[28px] text-center rounded-md py-0.5 text-sm font-bold tabular-nums",
+                          fix.result === "win" ? "bg-emerald-100 text-emerald-700" :
+                          fix.result === "loss" ? "bg-red-100 text-red-700" :
+                          "bg-muted text-foreground"
+                        )}>
+                          {fix.user1Points}
+                        </span>
+                        <span className="text-xs text-muted-foreground">v</span>
+                        <span className={cn(
+                          "min-w-[28px] text-center rounded-md py-0.5 text-sm font-bold tabular-nums",
+                          fix.result === "loss" ? "bg-emerald-100 text-emerald-700" :
+                          fix.result === "win" ? "bg-red-100 text-red-700" :
+                          "bg-muted text-foreground"
+                        )}>
+                          {fix.user2Points}
+                        </span>
+                      </div>
+                      <div className={cn(
+                        "flex-1 text-sm font-semibold truncate pl-2",
+                        fix.user2Id === userId && "text-[#0D5C63]"
+                      )}>
+                        {fix.user2Name}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Leave league button */}
       {league && !league.isGeneral && (

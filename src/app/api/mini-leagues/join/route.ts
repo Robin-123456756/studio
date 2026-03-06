@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { normalizeInviteCode } from "@/lib/invite-code";
+import { generateAndSaveH2HFixtures } from "@/lib/h2h-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     // Find league by invite code
     const { data: league, error: lgErr } = await sb
       .from("mini_leagues")
-      .select("id, name")
+      .select("id, name, league_type")
       .eq("invite_code", code)
       .maybeSingle();
 
@@ -45,12 +46,36 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!existing) {
+      // H2H leagues capped at 20 members
+      if (league.league_type === "h2h") {
+        const { count } = await sb
+          .from("mini_league_members")
+          .select("*", { count: "exact", head: true })
+          .eq("league_id", league.id);
+        if ((count ?? 0) >= 20) {
+          return NextResponse.json(
+            { error: "This head-to-head league is full (max 20 managers)" },
+            { status: 400 }
+          );
+        }
+      }
+
       const { error: joinErr } = await sb
         .from("mini_league_members")
         .insert({ league_id: league.id, user_id: userId });
 
       if (joinErr) {
         return NextResponse.json({ error: joinErr.message }, { status: 500 });
+      }
+
+      // Regenerate H2H fixtures if this is an H2H league
+      if (league.league_type === "h2h") {
+        const { data: allMembers } = await sb
+          .from("mini_league_members")
+          .select("user_id")
+          .eq("league_id", league.id);
+        const allIds = (allMembers ?? []).map((m: any) => m.user_id);
+        await generateAndSaveH2HFixtures(sb, league.id, allIds);
       }
     }
 

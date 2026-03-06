@@ -16,6 +16,7 @@ type CreatedLeague = {
 
 function CreateLeagueContent() {
   const [name, setName] = React.useState("");
+  const [leagueType, setLeagueType] = React.useState<"classic" | "h2h">("classic");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [created, setCreated] = React.useState<CreatedLeague | null>(null);
@@ -34,7 +35,7 @@ function CreateLeagueContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ name: trimmed, leagueType }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Failed to create league");
@@ -121,6 +122,60 @@ function CreateLeagueContent() {
                   <div className="mt-1 text-xs text-muted-foreground">
                     {name.trim().length}/50 characters
                   </div>
+                </div>
+
+                {/* League type toggle */}
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">
+                    League Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setLeagueType("classic")}
+                      className={cn(
+                        "rounded-xl border-2 py-3 px-4 text-left transition",
+                        leagueType === "classic"
+                          ? "border-[#0D5C63] bg-[#0D5C63]/5"
+                          : "border-border bg-background"
+                      )}
+                    >
+                      <div className={cn(
+                        "text-sm font-bold",
+                        leagueType === "classic" ? "text-[#0D5C63]" : "text-foreground"
+                      )}>
+                        Classic
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        Total points across all GWs
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeagueType("h2h")}
+                      className={cn(
+                        "rounded-xl border-2 py-3 px-4 text-left transition",
+                        leagueType === "h2h"
+                          ? "border-[#0D5C63] bg-[#0D5C63]/5"
+                          : "border-border bg-background"
+                      )}
+                    >
+                      <div className={cn(
+                        "text-sm font-bold",
+                        leagueType === "h2h" ? "text-[#0D5C63]" : "text-foreground"
+                      )}>
+                        Head-to-Head
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        Face a rival each GW. W=3, D=1
+                      </div>
+                    </button>
+                  </div>
+                  {leagueType === "h2h" && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Max 20 managers. Fixtures auto-generated each gameweek.
+                    </div>
+                  )}
                 </div>
 
                 {error && (

@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { generateInviteCode } from "@/lib/invite-code";
 import { computeStandings } from "@/lib/leaderboard-utils";
+import { generateAndSaveH2HFixtures } from "@/lib/h2h-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET() {
     // Fetch league details
     const { data: leagues, error: lgErr } = await sb
       .from("mini_leagues")
-      .select("id, name, invite_code, is_general, created_by")
+      .select("id, name, invite_code, is_general, created_by, league_type")
       .in("id", leagueIds);
 
     if (lgErr) {
@@ -61,6 +62,7 @@ export async function GET() {
           inviteCode: league.invite_code,
           isGeneral: league.is_general,
           isCreator: league.created_by === userId,
+          leagueType: league.league_type || "classic",
           memberCount: memberIds.length,
           rank: myEntry?.rank ?? null,
           totalPoints: myEntry?.totalPoints ?? 0,
@@ -94,6 +96,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const name = String(body.name ?? "").trim();
+    const leagueType = body.leagueType === "h2h" ? "h2h" : "classic";
+
     if (!name || name.length > 50) {
       return NextResponse.json(
         { error: "League name must be 1-50 characters" },
@@ -123,8 +127,9 @@ export async function POST(req: NextRequest) {
         created_by: userId,
         invite_code: inviteCode,
         is_general: false,
+        league_type: leagueType,
       })
-      .select("id, name, invite_code")
+      .select("id, name, invite_code, league_type")
       .single();
 
     if (insertErr) {
