@@ -607,8 +607,12 @@ function FantasyPage() {
           }
         }
 
-        // No fantasy_teams row → new user, show mandatory modal
-        if (teamErr || !teamRow) {
+        // No row, or still using the default trigger name → show mandatory modal
+        const hasCustomName =
+          !teamErr && teamRow && typeof (teamRow as any).name === "string" &&
+          (teamRow as any).name.trim().length > 0 &&
+          (teamRow as any).name.trim() !== "My Team";
+        if (!hasCustomName) {
           setShowTeamNameModal(true);
         }
       } catch {
