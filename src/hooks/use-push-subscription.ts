@@ -82,30 +82,31 @@ export function usePushSubscription() {
       // First try the normal ready promise (fast path)
       reg = await withTimeout(navigator.serviceWorker.ready, 5000);
 
-      if (!reg) {
-        // Not ready — register ourselves and force activate
-        try {
-          const newReg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      // Helper: register SW and wait for activation
+      async function registerAndActivate(): Promise<ServiceWorkerRegistration> {
+        const newReg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
 
-          // If there's a waiting worker, tell it to skip waiting
-          if (newReg.waiting) {
-            newReg.waiting.postMessage({ type: "SKIP_WAITING" });
-          }
+        if (newReg.waiting) {
+          newReg.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
 
-          // Wait for the installing/waiting worker to become active
-          if (!newReg.active) {
-            await new Promise<void>((resolve) => {
-              const worker = newReg.installing || newReg.waiting;
-              if (!worker) { resolve(); return; }
-              worker.addEventListener("statechange", () => {
-                if (worker.state === "activated") resolve();
-              });
-              // Safety timeout
-              setTimeout(resolve, 10000);
+        if (!newReg.active) {
+          await new Promise<void>((resolve) => {
+            const worker = newReg.installing || newReg.waiting;
+            if (!worker) { resolve(); return; }
+            worker.addEventListener("statechange", () => {
+              if (worker.state === "activated") resolve();
             });
-          }
+            setTimeout(resolve, 10000);
+          });
+        }
 
-          reg = newReg;
+        return newReg;
+      }
+
+      if (!reg) {
+        try {
+          reg = await registerAndActivate();
         } catch (swErr: any) {
           return { ok: false, error: `SW register failed: ${swErr?.message || swErr}` };
         }
@@ -115,14 +116,19 @@ export function usePushSubscription() {
         return { ok: false, error: "Service worker not available" };
       }
 
-      // Ensure the registration has an active worker before subscribing
+      // Ensure the registration has an active worker before subscribing.
+      // If not, the existing SW may be broken/stale — unregister and retry.
       if (!reg.active) {
-        // Wait for serviceWorker.ready which guarantees an active worker
-        const readyReg = await withTimeout(navigator.serviceWorker.ready, 10000);
-        if (!readyReg?.active) {
-          return { ok: false, error: "Service worker failed to activate. Try refreshing the page." };
+        try {
+          await reg.unregister();
+          reg = await registerAndActivate();
+        } catch (retryErr: any) {
+          return { ok: false, error: `SW re-register failed: ${retryErr?.message || retryErr}` };
         }
-        reg = readyReg;
+
+        if (!reg.active) {
+          return { ok: false, error: "Service worker failed to activate. Clear site data in browser settings and try again." };
+        }
       }
 
       // Step 4: Subscribe to push
