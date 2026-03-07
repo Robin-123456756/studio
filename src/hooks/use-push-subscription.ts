@@ -80,7 +80,7 @@ export function usePushSubscription() {
       let reg: ServiceWorkerRegistration | null = null;
 
       // First try the normal ready promise (fast path)
-      reg = await withTimeout(navigator.serviceWorker.ready, 3000);
+      reg = await withTimeout(navigator.serviceWorker.ready, 5000);
 
       if (!reg) {
         // Not ready — register ourselves and force activate
@@ -92,8 +92,8 @@ export function usePushSubscription() {
             newReg.waiting.postMessage({ type: "SKIP_WAITING" });
           }
 
-          // Wait for the installing worker to become active
-          if (newReg.installing || newReg.waiting) {
+          // Wait for the installing/waiting worker to become active
+          if (!newReg.active) {
             await new Promise<void>((resolve) => {
               const worker = newReg.installing || newReg.waiting;
               if (!worker) { resolve(); return; }
@@ -101,7 +101,7 @@ export function usePushSubscription() {
                 if (worker.state === "activated") resolve();
               });
               // Safety timeout
-              setTimeout(resolve, 8000);
+              setTimeout(resolve, 10000);
             });
           }
 
@@ -113,6 +113,16 @@ export function usePushSubscription() {
 
       if (!reg) {
         return { ok: false, error: "Service worker not available" };
+      }
+
+      // Ensure the registration has an active worker before subscribing
+      if (!reg.active) {
+        // Wait for serviceWorker.ready which guarantees an active worker
+        const readyReg = await withTimeout(navigator.serviceWorker.ready, 10000);
+        if (!readyReg?.active) {
+          return { ok: false, error: "Service worker failed to activate. Try refreshing the page." };
+        }
+        reg = readyReg;
       }
 
       // Step 4: Subscribe to push
