@@ -16,12 +16,25 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-/** Race a promise against a timeout. */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
-  ]);
+/** Wait for a SW registration to have an active worker, with timeout. */
+function waitForActive(reg: ServiceWorkerRegistration, ms: number): Promise<ServiceWorkerRegistration> {
+  if (reg.active) return Promise.resolve(reg);
+  return new Promise((resolve, reject) => {
+    const worker = reg.installing || reg.waiting;
+    if (!worker) { reject(new Error("No worker found")); return; }
+
+    const timer = setTimeout(() => reject(new Error("SW activation timed out")), ms);
+
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "activated") {
+        clearTimeout(timer);
+        resolve(reg);
+      } else if (worker.state === "redundant") {
+        clearTimeout(timer);
+        reject(new Error("SW became redundant"));
+      }
+    });
+  });
 }
 
 export function usePushSubscription() {
@@ -44,13 +57,15 @@ export function usePushSubscription() {
 
     (async () => {
       try {
-        const reg = await withTimeout(navigator.serviceWorker.ready, 3000);
-        if (!reg) {
+        // Quick check — don't block mount for long
+        const regs = await navigator.serviceWorker.getRegistrations();
+        const activeReg = regs.find((r) => r.active);
+        if (activeReg) {
+          const sub = await activeReg.pushManager.getSubscription();
+          setStatus(sub ? "subscribed" : "unsubscribed");
+        } else {
           setStatus("unsubscribed");
-          return;
         }
-        const sub = await reg.pushManager.getSubscription();
-        setStatus(sub ? "subscribed" : "unsubscribed");
       } catch {
         setStatus("unsubscribed");
       }
@@ -76,59 +91,39 @@ export function usePushSubscription() {
         return { ok: false, error: "VAPID key not configured on server" };
       }
 
-      // Step 3: Get a service worker registration with push support
+      // Step 3: Get an active service worker
       let reg: ServiceWorkerRegistration | null = null;
 
-      // First try the normal ready promise (fast path)
-      reg = await withTimeout(navigator.serviceWorker.ready, 5000);
+      // Try 1: Check if the main SW (from next-pwa) is already active
+      const regs = await navigator.serviceWorker.getRegistrations();
+      reg = regs.find((r) => r.active) ?? null;
 
-      // Helper: register SW and wait for activation
-      async function registerAndActivate(): Promise<ServiceWorkerRegistration> {
-        const newReg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-
-        if (newReg.waiting) {
-          newReg.waiting.postMessage({ type: "SKIP_WAITING" });
-        }
-
-        if (!newReg.active) {
-          await new Promise<void>((resolve) => {
-            const worker = newReg.installing || newReg.waiting;
-            if (!worker) { resolve(); return; }
-            worker.addEventListener("statechange", () => {
-              if (worker.state === "activated") resolve();
-            });
-            setTimeout(resolve, 10000);
-          });
-        }
-
-        return newReg;
-      }
-
+      // Try 2: Register the main SW and wait briefly
       if (!reg) {
         try {
-          reg = await registerAndActivate();
-        } catch (swErr: any) {
-          return { ok: false, error: `SW register failed: ${swErr?.message || swErr}` };
+          const mainReg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+          reg = await waitForActive(mainReg, 4000);
+        } catch {
+          reg = null;
         }
       }
 
+      // Try 3: Fall back to minimal push-only SW (no precaching, always activates)
       if (!reg) {
-        return { ok: false, error: "Service worker not available" };
+        try {
+          // Unregister any broken SWs first
+          const broken = await navigator.serviceWorker.getRegistrations();
+          for (const r of broken) await r.unregister();
+
+          const pushReg = await navigator.serviceWorker.register("/push-sw.js", { scope: "/" });
+          reg = await waitForActive(pushReg, 4000);
+        } catch (fallbackErr: any) {
+          return { ok: false, error: `Could not activate service worker: ${fallbackErr?.message || fallbackErr}` };
+        }
       }
 
-      // Ensure the registration has an active worker before subscribing.
-      // If not, the existing SW may be broken/stale — unregister and retry.
-      if (!reg.active) {
-        try {
-          await reg.unregister();
-          reg = await registerAndActivate();
-        } catch (retryErr: any) {
-          return { ok: false, error: `SW re-register failed: ${retryErr?.message || retryErr}` };
-        }
-
-        if (!reg.active) {
-          return { ok: false, error: "Service worker failed to activate. Clear site data in browser settings and try again." };
-        }
+      if (!reg?.active) {
+        return { ok: false, error: "Service worker not available. Try refreshing the page." };
       }
 
       // Step 4: Subscribe to push
@@ -174,8 +169,8 @@ export function usePushSubscription() {
   const unsubscribe = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
     setLastError(null);
     try {
-      const reg = await withTimeout(navigator.serviceWorker.ready, 5000);
-      if (reg) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
         const subscription = await reg.pushManager.getSubscription();
         if (subscription) {
           const endpoint = subscription.endpoint;
