@@ -130,7 +130,7 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
     setMsg(null);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/fantasy`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       });
       if (error) throw error;
       setMsg("Password reset link sent! Check your inbox (and spam folder).");

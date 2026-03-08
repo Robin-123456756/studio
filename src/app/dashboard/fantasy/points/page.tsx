@@ -733,7 +733,7 @@ function PointsPage() {
           if (!highestRes.ok) throw new Error(rosterJson?.error || "No rosters found");
           setHighestUserName(rosterJson.teamName ?? "Top Scorer");
 
-          let effectiveGwId = rosterJson.gwId ?? selectedGwId;
+          const effectiveGwId = rosterJson.gwId ?? selectedGwId;
           if (effectiveGwId !== selectedGwId) {
             setSelectedGwId(effectiveGwId);
           }
