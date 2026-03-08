@@ -126,6 +126,16 @@ psql -f /tmp/query.sql
   `getSession()` reads from local cache. Server routes have reliable connectivity.
 - Always pass `credentials: "same-origin"` in fetch calls to API routes
 
+## New User Signup Rules
+- DB trigger `handle_new_user` auto-creates `fantasy_teams` row with name `'My Team'`
+- DB trigger `trg_auto_join_general_leagues` auto-joins user to all general leagues
+- Both triggers use `SECURITY DEFINER` (RLS is enabled on both target tables)
+- **Mandatory team name**: The fantasy page MUST show a non-dismissible `TeamNameModal`
+  if the user's team name is `'My Team'`, empty, or the row is missing. Users CANNOT
+  access any fantasy features until they set a custom team name.
+- NEVER remove or weaken this gate — it is a hard requirement
+- The modal lives in `src/components/TeamNameModal.tsx`, triggered in `src/app/dashboard/fantasy/page.tsx`
+
 ## Database Rules
 - Player IDs: strings (UUID or numeric-as-string)
 - Gameweek IDs: integers
