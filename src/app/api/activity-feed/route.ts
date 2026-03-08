@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-  if (!url || !key) throw new Error("Missing Supabase env vars");
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+export const dynamic = "force-dynamic";
 
 // GET — fetch activity feed
 export async function GET(req: Request) {
   try {
-    const supabase = getSupabase();
+    const authClient = await supabaseServer();
+    const { data: auth, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !auth?.user) {
+      return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    }
+    const supabase = getSupabaseServerOrThrow();
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") || "50");
     const gw = searchParams.get("gw");

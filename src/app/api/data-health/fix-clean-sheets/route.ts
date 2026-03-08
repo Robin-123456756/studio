@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +11,11 @@ export const dynamic = "force-dynamic";
  * 1. Deletes false clean_sheet events where the team actually conceded
  * 2. Updates player_stats.clean_sheet = false for affected players
  * 3. Reports what was fixed
- *
- * Uses service-role key (no user auth needed — admin-only by URL obscurity).
  */
 export async function POST() {
-
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const supabase = getSupabaseServerOrThrow();
 
     // 1. Get all played matches

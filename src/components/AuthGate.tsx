@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Mail, ArrowLeft } from "lucide-react";
 
 type Mode = "signin" | "signup";
-type View = "form" | "verify-email";
+type View = "form" | "verify-email" | "forgot-password";
 
 export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
   const [mode, setMode] = React.useState<Mode>("signin");
@@ -119,6 +119,84 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      setMsg("Enter your email address above first.");
+      return;
+    }
+    setLoading(true);
+    setMsg(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/fantasy`,
+      });
+      if (error) throw error;
+      setMsg("Password reset link sent! Check your inbox (and spam folder).");
+    } catch (err: any) {
+      const m = err?.message ?? "Failed to send reset link";
+      if (m.toLowerCase().includes("rate") || m.toLowerCase().includes("limit")) {
+        setMsg("Too many requests — wait 60 seconds and try again.");
+      } else {
+        setMsg(m);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Forgot password view ──
+  if (view === "forgot-password") {
+    return (
+      <div className="mx-auto w-full max-w-md px-4 pt-10 space-y-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-extrabold">Budo League Fantasy</h1>
+        </div>
+
+        <Card className="overflow-hidden">
+          <CardContent className="p-6 space-y-4 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <Mail className="h-7 w-7 text-primary" />
+            </div>
+            <h2 className="text-lg font-bold">Reset your password</h2>
+            <p className="text-sm text-muted-foreground">
+              Enter your email and we&apos;ll send you a link to reset your password.
+            </p>
+
+            <input
+              className="w-full border rounded-xl px-3 py-2 bg-background text-center"
+              placeholder="Your email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              autoFocus
+            />
+
+            {msg && (
+              <p className="text-sm text-muted-foreground">{msg}</p>
+            )}
+
+            <Button
+              className="w-full rounded-2xl"
+              onClick={handleForgotPassword}
+              disabled={loading || !email.trim()}
+            >
+              {loading ? "Sending..." : "Send reset link"}
+            </Button>
+
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => { setView("form"); setMsg(null); }}
+            >
+              <ArrowLeft className="inline h-3 w-3 mr-1" />
+              Back to sign in
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // ── Verify email view ──
@@ -251,6 +329,16 @@ export default function AuthGate({ onAuthed }: { onAuthed: () => void }) {
               {loading ? "..." : mode === "signup" ? "Create account" : "Sign in"}
             </Button>
           </form>
+
+          {mode === "signin" && (
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => { setView("forgot-password"); setMsg(null); }}
+            >
+              Forgot password?
+            </button>
+          )}
 
           {msg && (
             <p className="text-sm text-muted-foreground">{msg}</p>

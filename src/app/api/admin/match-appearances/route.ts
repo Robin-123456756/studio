@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const supabase = getSupabaseServerOrThrow();
     const url = new URL(req.url);
     const gwIdParam = url.searchParams.get("gw_id");
@@ -170,6 +173,8 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
     const supabase = getSupabaseServerOrThrow();
     const body = await req.json();
     const { gameweekId, matchId, appearances } = body as {
