@@ -25,11 +25,16 @@ export async function GET(req: Request) {
     if (authErr || !auth?.user) {
       return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
-    const userId = auth.user.id;
+    const currentUserId = auth.user.id;
     const admin = getSupabaseServerOrThrow();
 
     const url = new URL(req.url);
     const gwId = Number(url.searchParams.get("gw_id") ?? "");
+
+    // Optional: view another manager's team (read-only)
+    const targetUserId = url.searchParams.get("user_id") || currentUserId;
+    const isManagerView = targetUserId !== currentUserId;
+    const userId = targetUserId;
     if (!Number.isFinite(gwId) || gwId < 1) {
       return NextResponse.json({ error: "gw_id is required" }, { status: 400 });
     }
@@ -262,9 +267,9 @@ export async function GET(req: Request) {
     const isTripleCaptain = activeChip === "triple_captain";
     const captainMultiplier = isTripleCaptain ? 3 : 2;
 
-    // ── 5. Transfer cost (skip for backfilled pre-signup GWs) ──
+    // ── 5. Transfer cost (skip for backfilled pre-signup GWs and manager views) ──
     let transferCost = 0;
-    if (!isBackfilled) {
+    if (!isBackfilled && !isManagerView) {
       const { data: transferState } = await admin
         .from("user_transfer_state")
         .select("free_transfers, used_transfers, wildcard_active, free_hit_active")
@@ -278,6 +283,17 @@ export async function GET(req: Request) {
           ? 0
           : Math.max(0, transferState.used_transfers - transferState.free_transfers) * 4;
       }
+    }
+
+    // ── 5b. Fetch team name for manager views ──
+    let managerTeamName: string | null = null;
+    if (isManagerView) {
+      const { data: ft } = await admin
+        .from("fantasy_teams")
+        .select("name")
+        .eq("user_id", userId)
+        .maybeSingle();
+      managerTeamName = ft?.name ?? null;
     }
 
     // ── 6. Build player list ──
@@ -322,6 +338,7 @@ export async function GET(req: Request) {
       transferCost,
       players,
       isBackfilled,
+      ...(isManagerView && { managerTeamName }),
     });
   } catch (e: any) {
     return NextResponse.json(

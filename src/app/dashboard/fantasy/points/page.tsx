@@ -352,22 +352,45 @@ function AutoSubsSummary({
 
 // ── Points Breakdown Bottom Sheet ──
 
+// ── Scoring rules lookup helper ──
+
+type ScoringRulesMap = Record<string, number>;
+
+function lookupActionPoints(
+  rules: ScoringRulesMap | null,
+  action: string,
+  position: string | null | undefined,
+  isLady: boolean | null | undefined,
+  fallback: number,
+): number {
+  if (!rules) return fallback;
+  const pos = normalizePosition(position).toUpperCase();
+  const specific = rules[`${action}:${pos}`];
+  const base = specific !== undefined ? specific : (rules[`${action}:ALL`] ?? fallback);
+  // Lady 2x on positive actions only
+  return (isLady && base > 0) ? base * 2 : base;
+}
+
 function PointsBreakdown({
   player,
   isCaptain,
   multiplier,
   captainActivated,
+  scoringRules,
   onClose,
 }: {
   player: SquadPlayer;
   isCaptain: boolean;
   multiplier: number;
   captainActivated: "captain" | "vice" | "none";
+  scoringRules: ScoringRulesMap | null;
   onClose: () => void;
 }) {
   const stat = player.stat;
   const rawPts = stat?.points ?? 0;
   const displayName = shortName(player.name, player.webName);
+  const pos = player.position;
+  const lady = player.isLady;
 
   // Determine caption label
   let captainLabel = "";
@@ -382,12 +405,12 @@ function PointsBreakdown({
   const rows: { label: string; value: string; pts: number }[] = [];
 
   if (stat) {
-    if (stat.goals > 0) rows.push({ label: "Goals scored", value: String(stat.goals), pts: stat.goals * 5 });
-    if (stat.assists > 0) rows.push({ label: "Assists", value: String(stat.assists), pts: stat.assists * 3 });
-    if (stat.cleanSheet) rows.push({ label: "Clean sheet", value: "Yes", pts: 4 });
-    if (stat.yellowCards > 0) rows.push({ label: "Yellow cards", value: String(stat.yellowCards), pts: stat.yellowCards * -1 });
-    if (stat.redCards > 0) rows.push({ label: "Red cards", value: String(stat.redCards), pts: stat.redCards * -3 });
-    if (stat.ownGoals > 0) rows.push({ label: "Own goals", value: String(stat.ownGoals), pts: stat.ownGoals * -2 });
+    if (stat.goals > 0) rows.push({ label: "Goals scored", value: String(stat.goals), pts: stat.goals * lookupActionPoints(scoringRules, "goal", pos, lady, 5) });
+    if (stat.assists > 0) rows.push({ label: "Assists", value: String(stat.assists), pts: stat.assists * lookupActionPoints(scoringRules, "assist", pos, lady, 3) });
+    if (stat.cleanSheet) rows.push({ label: "Clean sheet", value: "Yes", pts: lookupActionPoints(scoringRules, "clean_sheet", pos, lady, 4) });
+    if (stat.yellowCards > 0) rows.push({ label: "Yellow cards", value: String(stat.yellowCards), pts: stat.yellowCards * lookupActionPoints(scoringRules, "yellow", pos, lady, -1) });
+    if (stat.redCards > 0) rows.push({ label: "Red cards", value: String(stat.redCards), pts: stat.redCards * lookupActionPoints(scoringRules, "red", pos, lady, -3) });
+    if (stat.ownGoals > 0) rows.push({ label: "Own goals", value: String(stat.ownGoals), pts: stat.ownGoals * lookupActionPoints(scoringRules, "own_goal", pos, lady, -2) });
   }
 
   if (rows.length === 0 && rawPts > 0) {
@@ -634,7 +657,10 @@ function PointsPitch({
 
 function PointsPage() {
   const searchParams = useSearchParams();
-  const isHighestView = searchParams.get("view") === "highest";
+  const viewParam = searchParams.get("view");
+  const isHighestView = viewParam === "highest";
+  const isManagerView = viewParam === "manager";
+  const managerUserId = searchParams.get("user_id");
 
   const [userId, setUserId] = React.useState<string | null>(null);
   const [allGWs, setAllGWs] = React.useState<ApiGameweek[]>([]);
@@ -658,8 +684,12 @@ function PointsPage() {
   const [captainActivated, setCaptainActivated] = React.useState<"captain" | "vice" | "none">("none");
   const [captainMultiplier, setCaptainMultiplier] = React.useState(2);
 
-  // Highest view info
+  // Highest / manager view info
   const [highestUserName, setHighestUserName] = React.useState<string | null>(null);
+  const [managerName, setManagerName] = React.useState<string | null>(null);
+
+  // Scoring rules (loaded once for PointsBreakdown)
+  const [scoringRules, setScoringRules] = React.useState<ScoringRulesMap | null>(null);
 
   // Bottom sheet
   const [selectedPlayer, setSelectedPlayer] = React.useState<SquadPlayer | null>(null);
@@ -684,11 +714,19 @@ function PointsPage() {
     return m;
   }, [squad]);
 
-  // Get user session
+  // Get user session + scoring rules
   React.useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
       setUserId(data.session?.user.id ?? null);
+    })();
+    // Load scoring rules (fire-and-forget, used for PointsBreakdown display)
+    (async () => {
+      try {
+        const res = await fetch("/api/scoring-rules", { credentials: "same-origin" });
+        const json = await res.json();
+        if (res.ok && json.rules) setScoringRules(json.rules);
+      } catch { /* fallback to hardcoded values */ }
     })();
   }, []);
 
@@ -818,11 +856,11 @@ function PointsPage() {
           setCaptainActivated("none"); setCaptainMultiplier(2);
           setIsBackfilled(false);
         } else {
-          // ── Normal view: use new unified API ──
-          const res = await fetch(
-            `/api/fantasy-gw-details?gw_id=${selectedGwId}`,
-            { cache: "no-store" }
-          );
+          // ── Normal / Manager view: use unified API ──
+          const gwDetailsUrl = isManagerView && managerUserId
+            ? `/api/fantasy-gw-details?gw_id=${selectedGwId}&user_id=${managerUserId}`
+            : `/api/fantasy-gw-details?gw_id=${selectedGwId}`;
+          const res = await fetch(gwDetailsUrl, { cache: "no-store" });
           const json = await res.json();
           if (!res.ok) throw new Error(json?.error || "Failed to load scoring details");
 
@@ -892,6 +930,9 @@ function PointsPage() {
           setCaptainActivated(json.captainActivated ?? "none");
           setCaptainMultiplier(capMult);
           setIsBackfilled(json.isBackfilled ?? false);
+          if (isManagerView && json.managerTeamName) {
+            setManagerName(json.managerTeamName);
+          }
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "Failed to load data");
@@ -901,7 +942,7 @@ function PointsPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [userId, selectedGwId, isHighestView]);
+  }, [userId, selectedGwId, isHighestView, isManagerView, managerUserId]);
 
   // GW navigation
   const canGoPrev = allGWs.length > 0 && selectedGwId !== null && allGWs[0]?.id < selectedGwId;
@@ -945,7 +986,9 @@ function PointsPage() {
               <div className="text-sm font-semibold text-white/80">
                 {isHighestView
                   ? `Highest Score${highestUserName ? ` - ${highestUserName}` : ""}`
-                  : "Points"}
+                  : isManagerView
+                    ? managerName ?? "Manager"
+                    : "Points"}
               </div>
             </div>
 
@@ -1106,6 +1149,7 @@ function PointsPage() {
             })()
           }
           captainActivated={captainActivated}
+          scoringRules={scoringRules}
           onClose={() => setSelectedPlayer(null)}
         />
       )}
