@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { useLivePoll } from "@/hooks/use-live-poll";
 
 // ---------- Types ----------
 type StandingRow = {
@@ -41,6 +42,7 @@ type ApiFixture = {
   away_goals: number | null;
   is_played: boolean;
   is_final: boolean;
+  minutes: number | null;
   status: "scheduled" | "played" | "final";
   home_team: {
     team_uuid: string;
@@ -131,7 +133,28 @@ export default function ScoresPage() {
         setFixturesLoading(false);
       }
     })();
+  }, []);
 
+  // Auto-poll scores every 30s while any match is live (FPL-style)
+  const hasLiveFixture = fixtures.some((f) => f.is_played && !f.is_final);
+  const refreshFixtures = React.useCallback(() => {
+    fetch("/api/fixtures?played=1", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.fixtures) {
+          const sorted = (json.fixtures as ApiFixture[]).sort((a: ApiFixture, b: ApiFixture) => {
+            const ta = a.kickoff_time ? new Date(a.kickoff_time).getTime() : 0;
+            const tb = b.kickoff_time ? new Date(b.kickoff_time).getTime() : 0;
+            return tb - ta;
+          });
+          setFixtures(sorted);
+        }
+      })
+      .catch(() => {});
+  }, []);
+  useLivePoll(refreshFixtures, hasLiveFixture, 30_000);
+
+  React.useEffect(() => {
     // Fantasy leaderboard
     (async () => {
       try {
@@ -215,9 +238,19 @@ export default function ScoresPage() {
                             <div className="text-2xl font-bold font-headline tabular-nums">
                               {fixture.home_goals ?? 0} - {fixture.away_goals ?? 0}
                             </div>
-                            <Badge variant="secondary" className="capitalize text-[10px] mt-1">
-                              {fixture.is_final ? "FT" : "Played"}
-                            </Badge>
+                            {fixture.is_final ? (
+                              <Badge variant="secondary" className="capitalize text-[10px] mt-1">
+                                FT
+                              </Badge>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 mt-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                                <span className="relative flex h-1.5 w-1.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                                </span>
+                                {fixture.minutes != null ? `${fixture.minutes}'` : "LIVE"}
+                              </span>
+                            )}
                           </div>
 
                           {/* Away */}

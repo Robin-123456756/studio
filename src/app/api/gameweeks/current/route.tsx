@@ -40,7 +40,7 @@ export async function GET() {
   // 2) latest started and not finished
   // 3) earliest not finished
   // 4) fallback to last by id
-  let current =
+  const current =
     flaggedCurrent ??
     [...gws]
       .filter((g) => isStarted(g) && !isFinished(g))
@@ -50,7 +50,7 @@ export async function GET() {
 
   // 3) Next gameweek
   const currentId = current?.id ?? null;
-  let next =
+  const next =
     (flaggedNext && flaggedNext?.id !== currentId ? flaggedNext : null) ??
     (currentId
       ? gws.find((g) => Number(g.id) > Number(currentId))

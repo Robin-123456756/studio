@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+import { useLivePoll } from "@/hooks/use-live-poll";
 import { normalizePosition } from "@/lib/pitch-helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,6 +56,7 @@ type ApiMatch = {
   away_goals: number | null;
   is_played: boolean;
   is_final: boolean;
+  minutes: number | null;
   home_team_uuid: string;
   away_team_uuid: string;
   home_team: ApiTeam | null;
@@ -75,6 +77,7 @@ type UiGame = {
   score1?: number | null;
   score2?: number | null;
   isFinal?: boolean;
+  minutes?: number | null;
   homeEvents?: MatchEvent[];
   awayEvents?: MatchEvent[];
 };
@@ -194,6 +197,7 @@ function mapApiMatchToUi(m: ApiMatch, deadlineFallback?: string | null): UiGame 
     score1: m.home_goals,
     score2: m.away_goals,
     isFinal: m.is_final,
+    minutes: m.minutes,
     homeEvents: m.home_events,
     awayEvents: m.away_events,
   };
@@ -241,9 +245,19 @@ function MatchRow({ g }: { g: UiGame }) {
               <div className="font-mono text-[13px] font-extrabold tabular-nums">
                 {g.score1 ?? 0} - {g.score2 ?? 0}
               </div>
-              <div className="mt-0.5 text-[9px] font-semibold text-muted-foreground">
-                FT
-              </div>
+              {g.isFinal ? (
+                <div className="mt-0.5 text-[9px] font-semibold text-muted-foreground">
+                  FT
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-semibold text-emerald-600">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                  {g.minutes != null ? `${g.minutes}'` : "LIVE"}
+                </span>
+              )}
             </>
           ) : (
             <div className="text-[12px] font-extrabold tabular-nums">
@@ -393,6 +407,22 @@ export default function MatchesPage() {
       }
     })();
   }, [gwId, allGws]);
+
+  // Auto-poll every 30s while any match is live (FPL-style)
+  const hasLiveMatch = games.some((g) => g.status === "completed" && !g.isFinal);
+  const refreshMatches = React.useCallback(() => {
+    if (!gwId) return;
+    const activeDeadline = allGws.find((g) => g.id === gwId)?.deadline_time ?? null;
+    fetch(`/api/matches?gw_id=${gwId}&enrich=1`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.matches) {
+          setGames((json.matches as ApiMatch[]).map((m) => mapApiMatchToUi(m, activeDeadline)));
+        }
+      })
+      .catch(() => {});
+  }, [gwId, allGws]);
+  useLivePoll(refreshMatches, hasLiveMatch, 30_000);
 
   // Fetch standings
   React.useEffect(() => {

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     // Fetch player names for GPT interpretation
     const teamUuids = [match.home_team_uuid, match.away_team_uuid].filter(Boolean);
-    let playerNames: string[] = [];
+    const playerNames: string[] = [];
     if (teamUuids.length > 0) {
       const { data: players } = await supabase
         .from("players")

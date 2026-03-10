@@ -259,7 +259,7 @@ export default function NotificationsPage() {
         <Card className="rounded-2xl">
           <CardContent className="p-6 text-center space-y-2">
             <div className="text-3xl">🔔</div>
-            <p className="text-sm font-semibold">You're all caught up!</p>
+            <p className="text-sm font-semibold">You&apos;re all caught up!</p>
             <p className="text-xs text-muted-foreground">
               Notifications about matches, deadlines and results will appear here.
             </p>

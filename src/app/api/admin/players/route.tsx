@@ -91,6 +91,17 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
     }
 
+    // If price is changing, fetch old price first for history log
+    let oldPrice: number | null = null;
+    if (allowed.now_cost !== undefined) {
+      const { data: existing } = await supabase
+        .from("players")
+        .select("now_cost")
+        .eq("id", id)
+        .maybeSingle();
+      oldPrice = existing?.now_cost ?? null;
+    }
+
     const { data, error } = await supabase
       .from("players")
       .update(allowed)
@@ -100,6 +111,15 @@ export async function PATCH(req: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Log price change if it actually changed
+    if (oldPrice !== null && allowed.now_cost !== undefined && oldPrice !== allowed.now_cost) {
+      await supabase.from("player_price_history").insert({
+        player_id: id,
+        old_price: oldPrice,
+        new_price: allowed.now_cost,
+      });
     }
 
     return NextResponse.json({ player: data });

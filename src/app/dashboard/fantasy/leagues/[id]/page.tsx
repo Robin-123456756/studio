@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Trophy,
@@ -113,6 +113,7 @@ function MovementCell({ movement }: { movement: number }) {
 
 function LeagueStandingsContent() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [league, setLeague] = React.useState<LeagueInfo | null>(null);
   const [standings, setStandings] = React.useState<StandingsEntry[]>([]);
   const [h2hStandings, setH2hStandings] = React.useState<H2HStandingsEntry[]>([]);
@@ -319,9 +320,17 @@ function LeagueStandingsContent() {
                           <TableRow
                             key={entry.userId}
                             className={cn(
+                              "cursor-pointer transition-colors hover:bg-muted/50 active:bg-muted/70",
                               isUser &&
                                 "bg-[#0D5C63]/8 border-l-[3px] border-l-[#0D5C63]"
                             )}
+                            onClick={() => {
+                              if (isUser) {
+                                router.push("/dashboard/fantasy/points");
+                              } else {
+                                router.push(`/dashboard/fantasy/points?view=manager&user_id=${entry.userId}`);
+                              }
+                            }}
                           >
                             <TableCell className="text-center font-bold">
                               <span className={rankColor(entry.rank)}>
@@ -374,9 +383,17 @@ function LeagueStandingsContent() {
                       <TableRow
                         key={entry.userId}
                         className={cn(
+                          "cursor-pointer transition-colors hover:bg-muted/50 active:bg-muted/70",
                           isUser &&
                             "bg-[#0D5C63]/8 border-l-[3px] border-l-[#0D5C63]"
                         )}
+                        onClick={() => {
+                          if (isUser) {
+                            router.push("/dashboard/fantasy/points");
+                          } else {
+                            router.push(`/dashboard/fantasy/points?view=manager&user_id=${entry.userId}`);
+                          }
+                        }}
                       >
                         <TableCell className="text-center font-bold">
                           <span className={rankColor(entry.rank)}>

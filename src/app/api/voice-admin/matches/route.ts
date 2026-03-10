@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     // Step 1: Fetch matches (include all — admin needs access to any match)
     const { data: matchData, error: matchErr } = await supabase
       .from("matches")
-      .select("id, gameweek_id, home_goals, away_goals, is_played, is_final, kickoff_time, home_team_uuid, away_team_uuid")
+      .select("id, gameweek_id, home_goals, away_goals, is_played, is_final, minutes, kickoff_time, home_team_uuid, away_team_uuid")
       .order("gameweek_id", { ascending: false })
       .order("kickoff_time", { ascending: true });
 
@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
       away_goals: m.away_goals,
       is_played: m.is_played,
       is_final: m.is_final,
+      minutes: m.minutes ?? null,
       kickoff_time: m.kickoff_time,
       home_team: teamMap[m.home_team_uuid]?.name || "Unknown",
       home_short: teamMap[m.home_team_uuid]?.short_name || "???",

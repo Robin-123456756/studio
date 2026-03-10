@@ -68,8 +68,8 @@ export async function GET(_req: Request, { params }: RouteParams) {
       .eq("match_id", matchId);
 
     const playerInfoMap = new Map<string, any>();
-    let home_events: MatchEvent[] = [];
-    let away_events: MatchEvent[] = [];
+    const home_events: MatchEvent[] = [];
+    const away_events: MatchEvent[] = [];
 
     if (rawEvents && rawEvents.length > 0) {
       const playerIds = [...new Set(rawEvents.map((e: any) => e.player_id))];

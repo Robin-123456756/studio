@@ -51,6 +51,7 @@ type Match = {
   away_goals: number | null;
   is_played: boolean;
   is_final: boolean;
+  minutes: number | null;
 };
 
 type ViewState = "capture" | "confirm" | "history" | "scoring" | "manual";
@@ -90,6 +91,7 @@ export default function VoiceAdminPage() {
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [matchError, setMatchError] = useState("");
   const [startingMatch, setStartingMatch] = useState(false);
+  const [endingMatch, setEndingMatch] = useState(false);
 
   // Read URL hash to auto-select tab (e.g. /admin/voice#scoring)
   useEffect(() => {
@@ -251,6 +253,80 @@ export default function VoiceAdminPage() {
         >
           {startingMatch ? "Starting..." : "▶ Start Match"}
         </button>
+      )}
+      {matches.find(m => m.id === selectedMatchId)?.is_played && !matches.find(m => m.id === selectedMatchId)?.is_final && (
+        <button
+          onClick={async () => {
+            if (!confirm("End this match? This will mark it as Full Time.")) return;
+            setEndingMatch(true);
+            try {
+              const res = await fetch("/api/admin/match-end", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ matchId: selectedMatchId }),
+              });
+              if (res.ok) {
+                setMatches(prev => prev.map(m => m.id === selectedMatchId ? { ...m, is_final: true } : m));
+              } else {
+                const data = await res.json();
+                alert(data.error || "Failed to end match");
+              }
+            } catch {
+              alert("Network error");
+            }
+            setEndingMatch(false);
+          }}
+          disabled={endingMatch}
+          style={{
+            padding: "6px 12px", borderRadius: 6, border: `1px solid ${ERROR}40`,
+            backgroundColor: `${ERROR}15`, color: ERROR, fontSize: 11,
+            fontWeight: 600, whiteSpace: "nowrap", fontFamily: "inherit",
+            cursor: endingMatch ? "not-allowed" : "pointer",
+            opacity: endingMatch ? 0.5 : 1,
+          }}
+        >
+          {endingMatch ? "Ending..." : "⏹ End Match"}
+        </button>
+      )}
+      {matches.find(m => m.id === selectedMatchId)?.is_played && !matches.find(m => m.id === selectedMatchId)?.is_final && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <input
+            type="number"
+            min={0}
+            max={70}
+            placeholder="Min"
+            value={matches.find(m => m.id === selectedMatchId)?.minutes ?? ""}
+            onChange={async (e) => {
+              const val = e.target.value === "" ? null : parseInt(e.target.value);
+              const prev = matches.find(m => m.id === selectedMatchId)?.minutes ?? null;
+              // Optimistic update
+              setMatches(ms => ms.map(m => m.id === selectedMatchId ? { ...m, minutes: val } : m));
+              if (val !== null && selectedMatchId) {
+                try {
+                  const res = await fetch("/api/admin/match-minutes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ matchId: selectedMatchId, minutes: val }),
+                  });
+                  if (!res.ok) {
+                    // Revert on failure
+                    setMatches(ms => ms.map(m => m.id === selectedMatchId ? { ...m, minutes: prev } : m));
+                  }
+                } catch {
+                  // Revert on network error
+                  setMatches(ms => ms.map(m => m.id === selectedMatchId ? { ...m, minutes: prev } : m));
+                }
+              }
+            }}
+            style={{
+              width: 52, padding: "5px 6px", borderRadius: 6,
+              border: `1px solid ${BORDER}`, backgroundColor: BG_DARK,
+              color: TEXT_PRIMARY, fontSize: 11, fontFamily: "inherit",
+              textAlign: "center",
+            }}
+          />
+          <span style={{ fontSize: 10, color: TEXT_MUTED }}>&apos;</span>
+        </div>
       )}
     </>
   )}

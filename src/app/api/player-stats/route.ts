@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
     // 2. Fetch players + teams for enrichment
     const playerIds = [...new Set((data ?? []).map((s: any) => s.player_id))];
-    let playersMap = new Map<string, any>();
+    const playersMap = new Map<string, any>();
 
     if (playerIds.length > 0) {
       const { data: playersData } = await supabase

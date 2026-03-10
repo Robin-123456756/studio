@@ -1203,6 +1203,13 @@ export default function PickTeamPage() {
           return;
         }
 
+        // localStorage has a full squad (e.g. DB save failed on flaky connection) —
+        // don't redirect, let the user review and re-save from here
+        if (localHasFullSquad) {
+          setDbLoaded(true);
+          return;
+        }
+
         // No roster in DB and no localStorage squad — redirect to transfers
         // so the user picks their own squad instead of getting a random one
         window.location.href = "/dashboard/transfers";

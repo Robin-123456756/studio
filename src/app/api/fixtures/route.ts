@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     let query = supabase
       .from("matches")
       .select(
-        "id, home_team_uuid, away_team_uuid, gameweek_id, kickoff_time, home_goals, away_goals, is_played, is_final"
+        "id, home_team_uuid, away_team_uuid, gameweek_id, kickoff_time, home_goals, away_goals, is_played, is_final, minutes"
       )
       .order("kickoff_time", { ascending: true });
 
@@ -92,6 +92,7 @@ export async function GET(req: Request) {
         away_goals: isPlayed || isFinal ? (f.away_goals ?? 0) : null,
         is_played: isPlayed,
         is_final: isFinal,
+        minutes: f.minutes ?? null,
         status,
         venue: "",
         match_day_label: null,

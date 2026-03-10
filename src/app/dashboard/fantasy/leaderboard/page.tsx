@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
@@ -57,6 +58,7 @@ function latestGwPoints(gw: Record<number, number>): number | null {
 // ── Leaderboard Content ──
 
 function LeaderboardContent() {
+  const router = useRouter();
   const [entries, setEntries] = React.useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -185,9 +187,17 @@ function LeaderboardContent() {
                       <TableRow
                         key={entry.userId}
                         className={cn(
+                          "cursor-pointer transition-colors hover:bg-muted/50 active:bg-muted/70",
                           isUser &&
                             "bg-[#0D5C63]/8 border-l-[3px] border-l-[#0D5C63]"
                         )}
+                        onClick={() => {
+                          if (isUser) {
+                            router.push("/dashboard/fantasy/points");
+                          } else {
+                            router.push(`/dashboard/fantasy/points?view=manager&user_id=${entry.userId}`);
+                          }
+                        }}
                       >
                         <TableCell className="text-center font-bold">
                           <span className={rankColor(entry.rank)}>

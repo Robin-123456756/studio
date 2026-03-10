@@ -280,13 +280,86 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
   const supabase = getSupabaseServerOrThrow();
 
   // 1. Fetch all rosters for this GW
-  const { data: rosters, error: rosterErr } = await supabase
+  const { data: explicitRosters, error: rosterErr } = await supabase
     .from("user_rosters")
     .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier, active_chip, bench_order")
     .eq("gameweek_id", gameweekId);
 
   if (rosterErr) throw new Error(`Failed to fetch rosters: ${rosterErr.message}`);
-  if (!rosters || rosters.length === 0) {
+
+  // 1b. Roster rollover — like FPL, carry forward the most recent roster for users
+  //     who haven't explicitly saved one for this GW.
+  const usersWithRoster = new Set((explicitRosters ?? []).map((r) => r.user_id));
+
+  // Find all users who have a roster in ANY previous GW but not this one
+  const { data: allRosteredUsers } = await supabase
+    .from("user_rosters")
+    .select("user_id")
+    .lt("gameweek_id", gameweekId);
+
+  const usersNeedingRollover = [
+    ...new Set((allRosteredUsers ?? []).map((r) => r.user_id)),
+  ].filter((uid) => !usersWithRoster.has(uid));
+
+  const rolledOverRows: typeof explicitRosters = [];
+
+  if (usersNeedingRollover.length > 0) {
+    // For each user, find their most recent GW roster and copy it forward
+    for (const uid of usersNeedingRollover) {
+      // Get the latest GW that has roster rows for this user
+      const { data: latestRows } = await supabase
+        .from("user_rosters")
+        .select("gameweek_id")
+        .eq("user_id", uid)
+        .lt("gameweek_id", gameweekId)
+        .order("gameweek_id", { ascending: false })
+        .limit(1);
+
+      const latestGw = latestRows?.[0]?.gameweek_id;
+      if (!latestGw) continue;
+
+      // Fetch that roster
+      const { data: prevRoster } = await supabase
+        .from("user_rosters")
+        .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier, active_chip, bench_order")
+        .eq("user_id", uid)
+        .eq("gameweek_id", latestGw);
+
+      if (!prevRoster || prevRoster.length === 0) continue;
+
+      // Persist the rolled-over roster for this GW (chips do NOT carry over)
+      const insertRows = prevRoster.map((r) => ({
+        user_id: r.user_id,
+        player_id: r.player_id,
+        gameweek_id: gameweekId,
+        is_starting_9: r.is_starting_9,
+        is_captain: r.is_captain,
+        is_vice_captain: r.is_vice_captain,
+        multiplier: r.is_captain ? 2 : 1, // reset to normal captain (no triple captain carry)
+        active_chip: null, // chips are one-time, never roll over
+        bench_order: r.bench_order,
+      }));
+
+      const { error: rollErr } = await supabase
+        .from("user_rosters")
+        .upsert(insertRows, { onConflict: "user_id,player_id,gameweek_id" });
+
+      if (!rollErr) {
+        // Add to in-memory roster list for scoring
+        rolledOverRows.push(
+          ...prevRoster.map((r) => ({
+            ...r,
+            multiplier: r.is_captain ? 2 : 1,
+            active_chip: null,
+          }))
+        );
+      }
+    }
+  }
+
+  const rosters = [...(explicitRosters ?? []), ...rolledOverRows];
+
+  if (rosters.length === 0) {
     return { results: [], summary: { usersScored: 0, gameweekId } };
   }
 

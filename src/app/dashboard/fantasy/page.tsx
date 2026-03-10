@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
 import { TeamNameModal } from "@/components/TeamNameModal";
+import { PushPromptBanner } from "@/components/PushPromptBanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -25,6 +26,8 @@ type ApiGameweek = {
 
 const menuItems = [
   { label: "Leagues", href: "/dashboard/fantasy/leagues" },
+  { label: "Budo Cup", href: "/dashboard/fantasy/cup" },
+  { label: "Dream Team", href: "/dashboard/fantasy/dream-team" },
   { label: "Fixtures", href: "/dashboard/fixtures" },
   { label: "Player Statistics", href: "/dashboard/players" },
   { label: "Set Piece Taker", href: "/dashboard/players" },
@@ -431,7 +434,7 @@ function FantasyPage() {
       let gwPoints = 0;
       let totalPoints = 0;
       let overallRank: number | null = null;
-      let gwRank: number | null = null;
+      const gwRank: number | null = null;
       let avgPoints: number | null = null;
       let highestPoints: number | null = null;
 
@@ -784,6 +787,7 @@ function FantasyPage() {
         </div>
 
       <div className="mt-4">
+        <PushPromptBanner />
         <div className="overflow-hidden rounded-2xl bg-card shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
           {menuItems.map((item, i) => (
             <NavRow

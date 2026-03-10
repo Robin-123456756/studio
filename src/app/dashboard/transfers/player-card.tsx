@@ -69,12 +69,19 @@ export function PlayerCard({
           </div>
         </div>
 
-        <div className="text-right shrink-0">
-          <div className="text-xs text-muted-foreground">Price</div>
-          <div className="font-mono font-bold tabular-nums">{formatUGX(p.price)}</div>
-
-          <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
-          <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
+        <div className="text-right shrink-0 flex items-center gap-3">
+          {p.ownership != null && p.ownership > 0 && (
+            <div className="text-center">
+              <div className="text-[11px] text-muted-foreground">Sel</div>
+              <div className="text-xs font-bold tabular-nums">{p.ownership}%</div>
+            </div>
+          )}
+          <div>
+            <div className="text-xs text-muted-foreground">Price</div>
+            <div className="font-mono font-bold tabular-nums">{formatUGX(p.price)}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">Pts</div>
+            <div className="font-mono font-bold tabular-nums">{Number(p.points ?? 0)}</div>
+          </div>
         </div>
       </div>
     </button>

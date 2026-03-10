@@ -73,7 +73,12 @@ export async function GET(req: Request) {
           .eq("gameweek_id", prevGwId);
 
         if (prevRows && prevRows.length > 0) {
-          rows = prevRows;
+          // Reset chips & captain multiplier — chips are one-time, never roll over
+          rows = prevRows.map((r: any) => ({
+            ...r,
+            active_chip: null,
+            multiplier: r.is_captain ? 2 : 1,
+          }));
           rosterSourceGwId = prevGwId;
         }
       }
@@ -100,7 +105,12 @@ export async function GET(req: Request) {
           .eq("gameweek_id", firstGwId);
 
         if (firstRows && firstRows.length > 0) {
-          rows = firstRows;
+          // Reset chips & captain multiplier — same as backward rollover
+          rows = firstRows.map((r: any) => ({
+            ...r,
+            active_chip: null,
+            multiplier: r.is_captain ? 2 : 1,
+          }));
           rosterSourceGwId = firstGwId;
           isBackfilled = true;
         }

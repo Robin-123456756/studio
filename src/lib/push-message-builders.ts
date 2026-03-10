@@ -58,6 +58,30 @@ export function buildBroadcastPush(title: string, message: string): PushPayload 
   };
 }
 
+/** GW summary push — "GW5 complete! You scored 54 pts (Rank: 3rd)" */
+export function buildGwSummaryPush(
+  gameweekId: number,
+  totalPoints: number,
+  rank: number,
+  totalManagers: number,
+): PushPayload {
+  const ordinal = (() => {
+    const mod100 = rank % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${rank}th`;
+    const mod10 = rank % 10;
+    if (mod10 === 1) return `${rank}st`;
+    if (mod10 === 2) return `${rank}nd`;
+    if (mod10 === 3) return `${rank}rd`;
+    return `${rank}th`;
+  })();
+  return {
+    title: `GW${gameweekId} Complete!`,
+    body: `You scored ${totalPoints} pts — Rank: ${ordinal} of ${totalManagers}`,
+    tag: `gw-summary-${gameweekId}`,
+    data: { link: "/dashboard/fantasy/points" },
+  };
+}
+
 /** Deadline reminder push — "Gameweek 5 deadline in 24 hours!" */
 export function buildDeadlineReminderPush(
   gameweekId: number,

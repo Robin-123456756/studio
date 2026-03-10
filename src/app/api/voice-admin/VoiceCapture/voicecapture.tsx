@@ -605,7 +605,7 @@ export default function VoiceCapture() {
                   e.currentTarget.style.backgroundColor = BG_SURFACE;
                 }}
               >
-                "{cmd}"
+                &quot;{cmd}&quot;
               </button>
             ))}
           </div>

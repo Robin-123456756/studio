@@ -18,10 +18,11 @@ type UiPlayer = {
   points: number;
   avatarUrl?: string | null;
   isLady?: boolean;
+  ownership?: number | null;
 };
 
 type PosFilter = "All" | "Goalkeeper" | "Defender" | "Midfielder" | "Forward";
-type SortKey = "points" | "price" | "team" | "position";
+type SortKey = "points" | "price" | "team" | "position" | "ownership";
 
 const POS_TABS: { label: string; value: PosFilter }[] = [
   { label: "All", value: "All" },
@@ -34,6 +35,7 @@ const POS_TABS: { label: string; value: PosFilter }[] = [
 const SORT_OPTIONS: { label: string; value: SortKey }[] = [
   { label: "Points", value: "points" },
   { label: "Price", value: "price" },
+  { label: "Ownership", value: "ownership" },
   { label: "Team", value: "team" },
   { label: "Position", value: "position" },
 ];
@@ -109,6 +111,8 @@ export default function PlayersPage() {
           return (b.points ?? 0) - (a.points ?? 0);
         case "price":
           return (b.price ?? 0) - (a.price ?? 0);
+        case "ownership":
+          return (b.ownership ?? 0) - (a.ownership ?? 0);
         case "team":
           return a.teamName.localeCompare(b.teamName);
         case "position":
@@ -202,9 +206,17 @@ export default function PlayersPage() {
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <div className="text-sm font-mono tabular-nums">{formatUGX(p.price)}</div>
-                    <div className="text-sm font-extrabold font-mono tabular-nums">{p.points} pts</div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {p.ownership != null && p.ownership > 0 && (
+                      <div className="text-center">
+                        <div className="text-[10px] text-muted-foreground">Sel</div>
+                        <div className="text-xs font-bold tabular-nums">{p.ownership}%</div>
+                      </div>
+                    )}
+                    <div className="text-right">
+                      <div className="text-sm font-mono tabular-nums">{formatUGX(p.price)}</div>
+                      <div className="text-sm font-extrabold font-mono tabular-nums">{p.points} pts</div>
+                    </div>
                   </div>
                 </Link>
               ))}

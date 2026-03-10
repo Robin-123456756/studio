@@ -22,6 +22,7 @@ type ApiPlayer = {
   isLady?: boolean | null;
   teamShort?: string | null;
   teamName?: string | null;
+  ownership?: number | null;
 };
 
 function AddPlayerPageInner() {
@@ -67,6 +68,7 @@ function AddPlayerPageInner() {
           isLady: Boolean(p.isLady),
           teamShort: p.teamShort ?? null,
           teamName: p.teamName ?? null,
+          ownership: p.ownership ?? null,
         }));
 
         setAllPlayers(mapped);

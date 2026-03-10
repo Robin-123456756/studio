@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import AuthGate from "@/components/AuthGate";
-import { ArrowLeft, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Share2, X } from "lucide-react";
 import {
   normalizePosition,
   shortName,
@@ -962,6 +962,61 @@ function PointsPage() {
   // Net points after transfer cost
   const netPoints = totalGwPoints - transferCost;
 
+  // Share GW score card
+  const shareGwScore = React.useCallback(async () => {
+    const starters = squad.filter((p) => startingIds.includes(p.id));
+    const topScorer = starters.length > 0
+      ? starters.reduce((best, p) => (p.gwPoints > best.gwPoints ? p : best), starters[0])
+      : null;
+
+    const chipLabel = activeChip
+      ? ` [${activeChip.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}]`
+      : "";
+
+    const lines = [
+      `Budo League Fantasy - Gameweek ${selectedGwId}${chipLabel}`,
+      `${"─".repeat(30)}`,
+      `Score: ${totalGwPoints} pts${transferCost > 0 ? ` (${netPoints} net after -${transferCost} transfers)` : ""}`,
+    ];
+
+    if (topScorer && topScorer.gwPoints > 0) {
+      const name = shortName(topScorer.name, topScorer.webName);
+      lines.push(`Top player: ${name} (${topScorer.gwPoints} pts)`);
+    }
+
+    const captainPlayer = squad.find((p) => p.id === captainId);
+    if (captainPlayer) {
+      const cName = shortName(captainPlayer.name, captainPlayer.webName);
+      const cLabel = captainMultiplier === 3 ? "Triple Captain" : "Captain";
+      lines.push(`${cLabel}: ${cName} (${captainPlayer.gwPoints} pts)`);
+    }
+
+    lines.push("", "budoleague.vercel.app");
+
+    const text = lines.join("\n");
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch (err: any) {
+        // User cancelled — don't fall through to WhatsApp
+        if (err?.name === "AbortError") return;
+        // Real share failure — fall through to clipboard + WhatsApp
+      }
+    }
+
+    // Fallback: copy to clipboard + open WhatsApp
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch { /* ignore */ }
+
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
+      "_blank"
+    );
+  }, [squad, startingIds, captainId, activeChip, selectedGwId, totalGwPoints, netPoints, transferCost, captainMultiplier]);
+
   return (
     <div className="mx-auto w-full max-w-app min-h-screen bg-muted/30 font-body flex flex-col">
       {/* Header */}
@@ -974,7 +1029,7 @@ function PointsPage() {
           )}
         >
           <div className="p-4 text-white">
-            {/* Back button + title */}
+            {/* Back button + title + share */}
             <div className="flex items-center gap-3 mb-4">
               <Link
                 href="/dashboard/fantasy"
@@ -983,13 +1038,23 @@ function PointsPage() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Link>
-              <div className="text-sm font-semibold text-white/80">
+              <div className="flex-1 text-sm font-semibold text-white/80">
                 {isHighestView
                   ? `Highest Score${highestUserName ? ` - ${highestUserName}` : ""}`
                   : isManagerView
                     ? managerName ?? "Manager"
                     : "Points"}
               </div>
+              {!loading && squad.length > 0 && !isManagerView && (
+                <button
+                  type="button"
+                  onClick={shareGwScore}
+                  className="h-9 w-9 rounded-full bg-white/10 grid place-items-center hover:bg-white/20 active:bg-white/30 transition"
+                  aria-label="Share score"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
             {/* GW selector */}

@@ -457,11 +457,9 @@ export default function DashboardPage() {
   const latestResult = recentMatches[resultIdx] ?? null;
   const nextFixture = upcomingMatches[fixtureIdx] ?? null;
 
-  // Detect if any match is "live" (kicked off but not finalized)
+  // Detect if any match is "live" (started by admin but not yet ended)
   const hasLiveMatch = recentMatches.some(
-    (m) => m.kickoff_time && new Date(m.kickoff_time).getTime() <= Date.now() && !m.is_final
-  ) || upcomingMatches.some(
-    (m) => m.kickoff_time && new Date(m.kickoff_time).getTime() <= Date.now()
+    (m) => m.is_played && !m.is_final
   );
 
   // Deadline countdown for current gameweek (fallback to next only if current is missing)

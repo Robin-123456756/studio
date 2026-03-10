@@ -42,7 +42,7 @@ export async function GET(req: Request) {
 
     // Get player names
     const playerIds = Array.from(playerPoints.keys());
-    let playerMap = new Map<string, any>();
+    const playerMap = new Map<string, any>();
     if (playerIds.length > 0) {
       const { data: players } = await supabase
         .from("players")

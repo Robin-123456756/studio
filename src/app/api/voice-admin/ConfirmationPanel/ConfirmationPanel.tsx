@@ -272,7 +272,7 @@ function UnresolvedCard({ entry, onSelectCandidate, onDismiss, entryIndex }: { e
       }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: WARNING }}>
-            ⚠️ "{entry.spoken_name}" — not matched
+            ⚠️ &quot;{entry.spoken_name}&quot; — not matched
           </p>
           <p style={{ margin: 0, fontSize: 11, color: TEXT_MUTED, marginTop: 2 }}>
             Actions: {entry.actions.map((a: any) => `${a.action}${a.quantity > 1 ? ` ×${a.quantity}` : ""}`).join(", ")}

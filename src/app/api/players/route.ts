@@ -236,6 +236,26 @@ export async function GET(req: Request) {
       }
     }
 
+    // Fetch latest price change per player (most recent entry)
+    const priceChangeMap = new Map<string, number>();
+    if (playerIds.length > 0) {
+      const { data: priceHistory } = await supabase
+        .from("player_price_history")
+        .select("player_id, old_price, new_price")
+        .in("player_id", playerIds)
+        .order("changed_at", { ascending: false });
+
+      if (priceHistory && priceHistory.length > 0) {
+        // Keep only the most recent change per player
+        for (const row of priceHistory) {
+          const pid = String(row.player_id);
+          if (!priceChangeMap.has(pid)) {
+            priceChangeMap.set(pid, (row.new_price ?? 0) - (row.old_price ?? 0));
+          }
+        }
+      }
+    }
+
     const players = (data ?? []).map((p: any) => {
       const pid = String(p.id);
       const totals = totalsMap.get(pid) ?? null;
@@ -248,6 +268,7 @@ export async function GET(req: Request) {
         webName: p.web_name ?? null,
         position: p.position,
         price: p.now_cost ?? null,
+        priceChange: priceChangeMap.get(pid) ?? 0,
         points: rawPoints * ladyMultiplier,
         rawPoints,
         pointsMultiplier: ladyMultiplier,
