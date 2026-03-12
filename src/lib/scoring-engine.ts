@@ -14,7 +14,7 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 
 // ── Position normalization (mirrors roster-validation.ts) ─────────────
 
-function norm(pos: string | null | undefined): string {
+export function norm(pos: string | null | undefined): string {
   const p = (pos ?? "").trim().toLowerCase();
   if (p === "gk" || p === "goalkeeper" || p === "keeper") return "GK";
   if (p === "def" || p === "defender" || p === "df") return "DEF";
@@ -65,7 +65,7 @@ export type PlayerStat = {
 
 // ── Formation validation helper ───────────────────────────────────────
 
-function isValidFormation(positions: string[]): boolean {
+export function isValidFormation(positions: string[]): boolean {
   const counts: Record<string, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
   for (const pos of positions) counts[pos] = (counts[pos] ?? 0) + 1;
 
@@ -78,7 +78,7 @@ function isValidFormation(positions: string[]): boolean {
 }
 
 /** Check if any position exceeds its maximum (used during incremental auto-sub) */
-function exceedsMaxCounts(positions: string[]): boolean {
+export function exceedsMaxCounts(positions: string[]): boolean {
   const counts: Record<string, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
   for (const pos of positions) counts[pos] = (counts[pos] ?? 0) + 1;
   return counts.GK > 1 || counts.DEF > 3 || counts.MID > 5 || counts.FWD > 3;
@@ -113,7 +113,7 @@ async function loadScoringRules(): Promise<ScoringRules> {
  * Checks position-specific rule first, falls back to "ALL".
  * Lady players get 2x on all actions.
  */
-function lookupPoints(
+export function lookupPoints(
   rules: ScoringRules,
   action: string,
   position: string,

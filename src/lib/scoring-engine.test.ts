@@ -1,20 +1,30 @@
 /**
  * Scoring Engine Tests
  *
- * Tests computeUserScore() — the pure function that takes roster rows,
- * player stats, and player metadata, and returns a scored result with
- * auto-sub, vice-captain, and bench boost logic.
- *
- * No database or network calls — everything is in-memory.
+ * Tests computeUserScore(), norm(), lookupPoints(), isValidFormation(),
+ * exceedsMaxCounts(), and calculateGameweekScores().
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   computeUserScore,
+  norm,
+  lookupPoints,
+  isValidFormation,
+  exceedsMaxCounts,
+  calculateGameweekScores,
   type RosterRow,
   type PlayerStat,
   type PlayerMeta,
 } from "./scoring-engine";
+
+// ── Mock supabase-admin ──────────────────────────────────────────────
+
+vi.mock("@/lib/supabase-admin", () => ({
+  getSupabaseServerOrThrow: vi.fn(),
+}));
+
+import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 
 // ── Test Helpers ──────────────────────────────────────────────────────
 
@@ -665,5 +675,966 @@ describe("computeUserScore", () => {
       // Both captain and vice are out → no multiplier
       expect(result.captainActivated).toBe("none");
     });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// norm() — Position normalization
+// ══════════════════════════════════════════════════════════════════════
+
+describe("norm", () => {
+  it("normalizes GK aliases", () => {
+    expect(norm("gk")).toBe("GK");
+    expect(norm("goalkeeper")).toBe("GK");
+    expect(norm("keeper")).toBe("GK");
+    expect(norm("GK")).toBe("GK");
+  });
+
+  it("normalizes DEF aliases", () => {
+    expect(norm("def")).toBe("DEF");
+    expect(norm("defender")).toBe("DEF");
+    expect(norm("df")).toBe("DEF");
+    expect(norm("DEF")).toBe("DEF");
+  });
+
+  it("normalizes MID aliases", () => {
+    expect(norm("mid")).toBe("MID");
+    expect(norm("midfielder")).toBe("MID");
+    expect(norm("mf")).toBe("MID");
+    expect(norm("MID")).toBe("MID");
+  });
+
+  it("normalizes FWD aliases", () => {
+    expect(norm("fwd")).toBe("FWD");
+    expect(norm("forward")).toBe("FWD");
+    expect(norm("fw")).toBe("FWD");
+    expect(norm("striker")).toBe("FWD");
+    expect(norm("FWD")).toBe("FWD");
+  });
+
+  it("defaults to MID for unknown positions", () => {
+    expect(norm("unknown")).toBe("MID");
+    expect(norm("wing")).toBe("MID");
+    expect(norm("")).toBe("MID");
+  });
+
+  it("handles null and undefined", () => {
+    expect(norm(null)).toBe("MID");
+    expect(norm(undefined)).toBe("MID");
+  });
+
+  it("trims whitespace", () => {
+    expect(norm("  gk  ")).toBe("GK");
+    expect(norm("\tdef\t")).toBe("DEF");
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// lookupPoints() — Scoring rules lookup with lady multiplier
+// ══════════════════════════════════════════════════════════════════════
+
+describe("lookupPoints", () => {
+  const rules: Record<string, number> = {
+    "goal:FWD": 4,
+    "goal:MID": 5,
+    "goal:DEF": 6,
+    "goal:GK": 6,
+    "assist:ALL": 3,
+    "appearance:ALL": 2,
+    "clean_sheet:GK": 4,
+    "clean_sheet:DEF": 4,
+    "yellow_card:ALL": -1,
+    "red_card:ALL": -3,
+    "own_goal:ALL": -2,
+    "pen_miss:ALL": -2,
+    "saves:GK": 1,
+  };
+
+  it("returns position-specific points", () => {
+    expect(lookupPoints(rules, "goal", "FWD", false)).toBe(4);
+    expect(lookupPoints(rules, "goal", "MID", false)).toBe(5);
+    expect(lookupPoints(rules, "goal", "DEF", false)).toBe(6);
+  });
+
+  it("falls back to ALL when no position-specific rule", () => {
+    expect(lookupPoints(rules, "assist", "FWD", false)).toBe(3);
+    expect(lookupPoints(rules, "assist", "MID", false)).toBe(3);
+    expect(lookupPoints(rules, "appearance", "DEF", false)).toBe(2);
+  });
+
+  it("returns 0 for unknown actions", () => {
+    expect(lookupPoints(rules, "hat_trick", "FWD", false)).toBe(0);
+    expect(lookupPoints(rules, "nonexistent", "GK", false)).toBe(0);
+  });
+
+  it("lady gets 2x on positive actions", () => {
+    expect(lookupPoints(rules, "goal", "FWD", true)).toBe(8);    // 4 × 2
+    expect(lookupPoints(rules, "goal", "MID", true)).toBe(10);   // 5 × 2
+    expect(lookupPoints(rules, "assist", "FWD", true)).toBe(6);  // 3 × 2
+    expect(lookupPoints(rules, "appearance", "FWD", true)).toBe(4); // 2 × 2
+    expect(lookupPoints(rules, "clean_sheet", "DEF", true)).toBe(8); // 4 × 2
+    expect(lookupPoints(rules, "saves", "GK", true)).toBe(2);    // 1 × 2
+  });
+
+  it("lady does NOT get 2x on negative actions", () => {
+    expect(lookupPoints(rules, "yellow_card", "FWD", true)).toBe(-1);  // stays -1
+    expect(lookupPoints(rules, "red_card", "MID", true)).toBe(-3);     // stays -3
+    expect(lookupPoints(rules, "own_goal", "DEF", true)).toBe(-2);     // stays -2
+    expect(lookupPoints(rules, "pen_miss", "FWD", true)).toBe(-2);     // stays -2
+  });
+
+  it("non-lady does NOT get multiplier", () => {
+    expect(lookupPoints(rules, "goal", "FWD", false)).toBe(4);
+    expect(lookupPoints(rules, "yellow_card", "FWD", false)).toBe(-1);
+  });
+
+  it("position-specific rule takes priority over ALL", () => {
+    // clean_sheet has GK-specific (4) but no FWD-specific → fallback ALL
+    // Since there's no "clean_sheet:ALL", FWD gets 0
+    expect(lookupPoints(rules, "clean_sheet", "FWD", false)).toBe(0);
+    // GK gets position-specific 4
+    expect(lookupPoints(rules, "clean_sheet", "GK", false)).toBe(4);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// isValidFormation() / exceedsMaxCounts()
+// ══════════════════════════════════════════════════════════════════════
+
+describe("isValidFormation", () => {
+  it("accepts valid 1-2-4-3 formation", () => {
+    expect(isValidFormation(["GK", "DEF", "DEF", "MID", "MID", "MID", "MID", "FWD", "FWD", "FWD"])).toBe(true);
+  });
+
+  it("accepts valid 1-3-3-3 formation", () => {
+    expect(isValidFormation(["GK", "DEF", "DEF", "DEF", "MID", "MID", "MID", "FWD", "FWD", "FWD"])).toBe(true);
+  });
+
+  it("accepts valid 1-2-5-2 formation", () => {
+    expect(isValidFormation(["GK", "DEF", "DEF", "MID", "MID", "MID", "MID", "MID", "FWD", "FWD"])).toBe(true);
+  });
+
+  it("accepts valid 1-3-5-1 — wait, FWD=1 is invalid", () => {
+    expect(isValidFormation(["GK", "DEF", "DEF", "DEF", "MID", "MID", "MID", "MID", "MID", "FWD"])).toBe(false);
+  });
+
+  it("rejects 0 GK", () => {
+    expect(isValidFormation(["DEF", "DEF", "DEF", "MID", "MID", "MID", "MID", "FWD", "FWD", "FWD"])).toBe(false);
+  });
+
+  it("rejects 2 GKs", () => {
+    expect(isValidFormation(["GK", "GK", "DEF", "DEF", "MID", "MID", "MID", "FWD", "FWD", "FWD"])).toBe(false);
+  });
+
+  it("rejects DEF=1 (below minimum 2)", () => {
+    expect(isValidFormation(["GK", "DEF", "MID", "MID", "MID", "MID", "MID", "FWD", "FWD", "FWD"])).toBe(false);
+  });
+
+  it("rejects DEF=4 (above maximum 3)", () => {
+    expect(isValidFormation(["GK", "DEF", "DEF", "DEF", "DEF", "MID", "MID", "MID", "FWD", "FWD"])).toBe(false);
+  });
+
+  it("rejects MID=2 (below minimum 3)", () => {
+    expect(isValidFormation(["GK", "DEF", "DEF", "DEF", "MID", "MID", "FWD", "FWD", "FWD", "FWD"])).toBe(false);
+  });
+
+  it("rejects MID=6 (above maximum 5)", () => {
+    expect(isValidFormation(["GK", "DEF", "DEF", "MID", "MID", "MID", "MID", "MID", "MID", "FWD"])).toBe(false);
+  });
+});
+
+describe("exceedsMaxCounts", () => {
+  it("returns false when all positions within max", () => {
+    expect(exceedsMaxCounts(["GK", "DEF", "DEF", "DEF", "MID", "MID", "MID"])).toBe(false);
+  });
+
+  it("returns true when GK > 1", () => {
+    expect(exceedsMaxCounts(["GK", "GK"])).toBe(true);
+  });
+
+  it("returns true when DEF > 3", () => {
+    expect(exceedsMaxCounts(["DEF", "DEF", "DEF", "DEF"])).toBe(true);
+  });
+
+  it("returns true when MID > 5", () => {
+    expect(exceedsMaxCounts(["MID", "MID", "MID", "MID", "MID", "MID"])).toBe(true);
+  });
+
+  it("returns true when FWD > 3", () => {
+    expect(exceedsMaxCounts(["FWD", "FWD", "FWD", "FWD"])).toBe(true);
+  });
+
+  it("returns false at exactly max counts", () => {
+    expect(exceedsMaxCounts(["GK", "DEF", "DEF", "DEF", "MID", "MID", "MID", "MID", "MID", "FWD", "FWD", "FWD"])).toBe(false);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// calculateGameweekScores() — Full engine with mocked Supabase
+// ══════════════════════════════════════════════════════════════════════
+
+describe("calculateGameweekScores", () => {
+  /** Build a chainable mock supabase query builder */
+  function mockQueryBuilder(data: any[] | null = [], error: any = null) {
+    const result = { data, error };
+    const chain: any = {};
+    const methods = ["select", "eq", "in", "lt", "order", "limit", "insert", "upsert"];
+    for (const m of methods) {
+      chain[m] = vi.fn().mockReturnValue(chain);
+    }
+    // Make it thenable
+    chain.then = (resolve: any, reject?: any) => Promise.resolve(result).then(resolve, reject);
+    return chain;
+  }
+
+  function createMockSupabase(tableResponses: Record<string, { data: any[] | null; error: any }>) {
+    // Track call order per table to return different data for sequential calls
+    const callCounts: Record<string, number> = {};
+
+    return {
+      from: vi.fn((table: string) => {
+        callCounts[table] = (callCounts[table] ?? 0) + 1;
+        const key = `${table}:${callCounts[table]}`;
+        const resp = tableResponses[key] ?? tableResponses[table] ?? { data: [], error: null };
+        return mockQueryBuilder(resp.data, resp.error);
+      }),
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns empty results when no rosters exist", async () => {
+    const mockSb = createMockSupabase({
+      user_rosters: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    expect(result.results).toEqual([]);
+    expect(result.summary).toEqual({ usersScored: 0, gameweekId: 1 });
+  });
+
+  it("scores a simple gameweek with one user", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+      { user_id: "u1", player_id: "p2", is_starting_9: true, is_captain: false, is_vice_captain: false, multiplier: 1, active_chip: null, bench_order: null },
+      { user_id: "u1", player_id: "p3", is_starting_9: false, is_captain: false, is_vice_captain: false, multiplier: 1, active_chip: null, bench_order: 1 },
+    ];
+
+    const mockSb = createMockSupabase({
+      // 1st call: explicit rosters
+      "user_rosters:1": { data: rosterRows, error: null },
+      // 2nd call: rollover check
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: {
+        data: [
+          { id: "p1", position: "MID", is_lady: false },
+          { id: "p2", position: "FWD", is_lady: false },
+          { id: "p3", position: "DEF", is_lady: false },
+        ],
+        error: null,
+      },
+      scoring_rules: {
+        data: [
+          { action: "appearance", position: null, points: 2 },
+          { action: "goal", position: "MID", points: 5 },
+        ],
+        error: null,
+      },
+      player_match_events: {
+        data: [
+          { player_id: "p1", action: "appearance", quantity: 1 },
+          { player_id: "p1", action: "goal", quantity: 1 },
+          { player_id: "p2", action: "appearance", quantity: 1 },
+        ],
+        error: null,
+      },
+      player_stats: { data: [], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    expect(result.summary.usersScored).toBe(1);
+    expect(result.results).toHaveLength(1);
+    // p1 (captain): appearance(2) + goal(5) = 7, × 2 = 14
+    // p2: appearance(2) = 2
+    // p3: bench, not scoring
+    expect(result.results[0].totalPoints).toBe(16);
+    expect(result.results[0].captainActivated).toBe("captain");
+  });
+
+  it("throws on roster fetch error", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: null, error: { message: "DB down" } },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    await expect(calculateGameweekScores(1)).rejects.toThrow("Failed to fetch rosters: DB down");
+  });
+
+  it("throws on match fetch error", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": {
+        data: [{ user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null }],
+        error: null,
+      },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: null, error: { message: "Match error" } },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    await expect(calculateGameweekScores(1)).rejects.toThrow("Failed to fetch GW matches: Match error");
+  });
+
+  it("throws on player fetch error", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": {
+        data: [{ user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null }],
+        error: null,
+      },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [], error: null },
+      players: { data: null, error: { message: "Players error" } },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    await expect(calculateGameweekScores(1)).rejects.toThrow("Failed to fetch players: Players error");
+  });
+
+  it("throws on scoring rules fetch error", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": {
+        data: [{ user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null }],
+        error: null,
+      },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [], error: null },
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: { data: null, error: { message: "Rules error" } },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    await expect(calculateGameweekScores(1)).rejects.toThrow("Failed to load scoring rules: Rules error");
+  });
+
+  it("throws on events fetch error", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": {
+        data: [{ user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null }],
+        error: null,
+      },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: { data: [], error: null },
+      player_match_events: { data: null, error: { message: "Events error" } },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    await expect(calculateGameweekScores(1)).rejects.toThrow("Failed to fetch events: Events error");
+  });
+
+  it("applies lady 2x multiplier on positive event points", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "lady1", is_starting_9: true, is_captain: false, is_vice_captain: false, multiplier: 1, active_chip: null, bench_order: null },
+      { user_id: "u1", player_id: "p2", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: {
+        data: [
+          { id: "lady1", position: "FWD", is_lady: true },
+          { id: "p2", position: "MID", is_lady: false },
+        ],
+        error: null,
+      },
+      scoring_rules: {
+        data: [
+          { action: "appearance", position: null, points: 2 },
+          { action: "goal", position: "FWD", points: 4 },
+        ],
+        error: null,
+      },
+      player_match_events: {
+        data: [
+          { player_id: "lady1", action: "appearance", quantity: 1 },
+          { player_id: "lady1", action: "goal", quantity: 1 },
+          { player_id: "p2", action: "appearance", quantity: 1 },
+        ],
+        error: null,
+      },
+      player_stats: { data: [], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // lady1: appearance 2×2=4, goal 4×2=8 → 12
+    // p2 (captain): appearance 2 → 2×2(captain)=4
+    expect(result.results[0].totalPoints).toBe(16);
+  });
+
+  it("adds appearance points for players who played via player_stats but have no appearance event", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [], error: null }, // no matches → no events
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_stats: {
+        data: [{ player_id: "p1", did_play: true }],
+        error: null,
+      },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // p1 played (from player_stats), no appearance event → gets appearance points
+    // captain: 2 × 2 = 4
+    expect(result.results[0].totalPoints).toBe(4);
+  });
+
+  it("does not double-count appearance for players with appearance event", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_match_events: {
+        data: [{ player_id: "p1", action: "appearance", quantity: 1 }],
+        error: null,
+      },
+      player_stats: {
+        data: [{ player_id: "p1", did_play: true }],
+        error: null,
+      },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // p1 has appearance event (2pts) — should NOT get double appearance
+    // captain: 2 × 2 = 4
+    expect(result.results[0].totalPoints).toBe(4);
+  });
+
+  it("handles roster rollover for users without explicit GW roster", async () => {
+    // First call: explicit rosters for GW 3 → empty
+    // Second call: all rostered users before GW 3 → u1
+    // Then it fetches u1's latest GW roster (GW 2) and copies it
+    const prevRoster = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: "triple_captain", bench_order: null },
+      { user_id: "u1", player_id: "p2", is_starting_9: true, is_captain: false, is_vice_captain: false, multiplier: 1, active_chip: "triple_captain", bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: [], error: null },          // no explicit rosters for GW 3
+      "user_rosters:2": { data: [{ user_id: "u1" }], error: null }, // u1 has previous rosters
+      "user_rosters:3": { data: [{ gameweek_id: 2 }], error: null }, // latest GW = 2
+      "user_rosters:4": { data: prevRoster, error: null },  // u1's GW 2 roster
+      "user_rosters:5": { data: [], error: null },          // upsert result
+      matches: { data: [], error: null },
+      players: {
+        data: [
+          { id: "p1", position: "MID", is_lady: false },
+          { id: "p2", position: "DEF", is_lady: false },
+        ],
+        error: null,
+      },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_stats: {
+        data: [
+          { player_id: "p1", did_play: true },
+          { player_id: "p2", did_play: true },
+        ],
+        error: null,
+      },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(3);
+
+    expect(result.summary.usersScored).toBe(1);
+    // Chips don't carry over: active_chip should be null → normal captain 2x
+    // p1 (captain): appearance 2 × 2 = 4, p2: appearance 2 = 2 → total 6
+    expect(result.results[0].totalPoints).toBe(6);
+  });
+
+  it("handles sub_appearance event as an appearance marker", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: {
+        data: [
+          { action: "appearance", position: null, points: 2 },
+          { action: "sub_appearance", position: null, points: 1 },
+        ],
+        error: null,
+      },
+      player_match_events: {
+        data: [{ player_id: "p1", action: "sub_appearance", quantity: 1 }],
+        error: null,
+      },
+      player_stats: { data: [], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // sub_appearance counts as appearance marker → no extra appearance pts added
+    // p1: sub_appearance = 1pt, captain 2x → 2
+    expect(result.results[0].totalPoints).toBe(2);
+  });
+
+  it("scores multiple users independently", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+      { user_id: "u2", player_id: "p2", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: {
+        data: [
+          { id: "p1", position: "MID", is_lady: false },
+          { id: "p2", position: "FWD", is_lady: false },
+        ],
+        error: null,
+      },
+      scoring_rules: {
+        data: [
+          { action: "appearance", position: null, points: 2 },
+          { action: "goal", position: "MID", points: 5 },
+          { action: "goal", position: "FWD", points: 4 },
+        ],
+        error: null,
+      },
+      player_match_events: {
+        data: [
+          { player_id: "p1", action: "appearance", quantity: 1 },
+          { player_id: "p1", action: "goal", quantity: 2 },
+          { player_id: "p2", action: "appearance", quantity: 1 },
+          { player_id: "p2", action: "goal", quantity: 1 },
+        ],
+        error: null,
+      },
+      player_stats: { data: [], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    expect(result.summary.usersScored).toBe(2);
+    // u1: p1 captain, appearance(2)+goal(5×2)=12, ×2 captain = 24
+    const u1 = result.results.find((r) => r.userId === "u1");
+    expect(u1?.totalPoints).toBe(24);
+    // u2: p2 captain, appearance(2)+goal(4)=6, ×2 captain = 12
+    const u2 = result.results.find((r) => r.userId === "u2");
+    expect(u2?.totalPoints).toBe(12);
+  });
+
+  it("throws on upsert error (line 488 branch)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [], error: null },
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: { data: [], error: null },
+      player_stats: { data: [{ player_id: "p1", did_play: true }], error: null },
+      user_weekly_scores: { data: null, error: { message: "Upsert failed" } },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    await expect(calculateGameweekScores(1)).rejects.toThrow("Failed to upsert scores: Upsert failed");
+  });
+
+  it("skips rollover when previous roster is empty (line 328 branch)", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: [], error: null },
+      "user_rosters:2": { data: [{ user_id: "u1" }], error: null }, // u1 has previous rosters
+      "user_rosters:3": { data: [{ gameweek_id: 2 }], error: null }, // latest GW = 2
+      "user_rosters:4": { data: [], error: null },  // but roster is empty!
+      matches: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(3);
+
+    // Empty prev roster → skip rollover → no rosters at all
+    expect(result.results).toEqual([]);
+    expect(result.summary.usersScored).toBe(0);
+  });
+
+  it("skips rollover when no latest GW found (line 318-319 branch)", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: [], error: null },
+      "user_rosters:2": { data: [{ user_id: "u1" }], error: null },
+      "user_rosters:3": { data: [], error: null }, // no latest GW found
+      matches: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(5);
+
+    expect(result.results).toEqual([]);
+  });
+
+  it("handles player with no metadata (line 442 branch — is_lady defaults to false)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+      { user_id: "u1", player_id: "p_unknown", is_starting_9: true, is_captain: false, is_vice_captain: false, multiplier: 1, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [], error: null },
+      players: {
+        // p_unknown is NOT in players table → no metadata
+        data: [{ id: "p1", position: "MID", is_lady: false }],
+        error: null,
+      },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_stats: {
+        data: [
+          { player_id: "p1", did_play: true },
+          { player_id: "p_unknown", did_play: true },
+        ],
+        error: null,
+      },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // p1 (captain): appearance 2 × 2 = 4
+    // p_unknown: no meta → is_lady defaults to false, position defaults to MID
+    //   appearance 2 (not 2x since not lady) = 2
+    expect(result.results[0].totalPoints).toBe(6);
+  });
+
+  it("handles rollover upsert error gracefully (line 347 branch)", async () => {
+    const prevRoster = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: [], error: null },
+      "user_rosters:2": { data: [{ user_id: "u1" }], error: null },
+      "user_rosters:3": { data: [{ gameweek_id: 2 }], error: null },
+      "user_rosters:4": { data: prevRoster, error: null },
+      "user_rosters:5": { data: null, error: { message: "Upsert conflict" } }, // rollover upsert fails
+      matches: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(3);
+
+    // Rollover upsert failed → rolledOverRows not added → no rosters
+    expect(result.results).toEqual([]);
+    expect(result.summary.usersScored).toBe(0);
+  });
+
+  it("handles null prevRoster from DB (line 328 null branch)", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: [], error: null },
+      "user_rosters:2": { data: [{ user_id: "u1" }], error: null },
+      "user_rosters:3": { data: [{ gameweek_id: 2 }], error: null },
+      "user_rosters:4": { data: null, error: null }, // null data
+      matches: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(3);
+
+    expect(result.results).toEqual([]);
+  });
+
+  it("handles event for player with no metadata (line 412-413 branch)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+      { user_id: "u1", player_id: "p_ghost", is_starting_9: true, is_captain: false, is_vice_captain: false, multiplier: 1, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: {
+        // p_ghost NOT in players table → meta is undefined in events loop
+        data: [{ id: "p1", position: "MID", is_lady: false }],
+        error: null,
+      },
+      scoring_rules: {
+        data: [
+          { action: "appearance", position: null, points: 2 },
+          { action: "goal", position: "MID", points: 5 },
+        ],
+        error: null,
+      },
+      player_match_events: {
+        data: [
+          { player_id: "p1", action: "appearance", quantity: 1 },
+          { player_id: "p_ghost", action: "appearance", quantity: 1 },
+          { player_id: "p_ghost", action: "goal", quantity: 1 },
+        ],
+        error: null,
+      },
+      player_stats: { data: [], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // p1 (captain): appearance(2) × 2 = 4
+    // p_ghost: no meta → position defaults to MID, is_lady defaults to false
+    //   appearance(2) + goal(MID=5) = 7
+    expect(result.results[0].totalPoints).toBe(11);
+  });
+
+  it("handles player_stats with did_play=false (line 429-430 branch)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+      { user_id: "u1", player_id: "p2", is_starting_9: true, is_captain: false, is_vice_captain: false, multiplier: 1, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [], error: null },
+      players: {
+        data: [
+          { id: "p1", position: "MID", is_lady: false },
+          { id: "p2", position: "DEF", is_lady: false },
+        ],
+        error: null,
+      },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_stats: {
+        data: [
+          { player_id: "p1", did_play: true },
+          { player_id: "p2", did_play: false }, // did NOT play — should not get appearance
+        ],
+        error: null,
+      },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // p1 (captain): appearance 2 × 2 = 4
+    // p2: did_play=false → no appearance → 0 pts
+    expect(result.results[0].totalPoints).toBe(4);
+  });
+
+  it("handles null player_stats data (line 429 ?? branch)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_match_events: {
+        data: [{ player_id: "p1", action: "appearance", quantity: 1 }],
+        error: null,
+      },
+      player_stats: { data: null, error: null }, // null data
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // p1 captain: appearance(2) × 2 = 4
+    expect(result.results[0].totalPoints).toBe(4);
+  });
+
+  it("handles null matches data (line 376 ?? branch)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: null, error: null }, // null data, no error
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_stats: { data: [{ player_id: "p1", did_play: true }], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // No matches → no events path, but player_stats says played → appearance pts
+    // captain: 2 × 2 = 4
+    expect(result.results[0].totalPoints).toBe(4);
+  });
+
+  it("handles null players data (line 387 ?? branch)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [], error: null },
+      players: { data: null, error: null }, // null players data, no error
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_stats: { data: [{ player_id: "p1", did_play: true }], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // No player metadata → defaults to MID, is_lady=false
+    // captain: 2 × 2 = 4
+    expect(result.results[0].totalPoints).toBe(4);
+  });
+
+  it("handles null events data (line 409 ?? branch)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: { data: [{ id: "p1", position: "MID", is_lady: false }], error: null },
+      scoring_rules: {
+        data: [{ action: "appearance", position: null, points: 2 }],
+        error: null,
+      },
+      player_match_events: { data: null, error: null }, // null events, no error
+      player_stats: { data: [{ player_id: "p1", did_play: true }], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // No events → appearance from player_stats
+    // captain: 2 × 2 = 4
+    expect(result.results[0].totalPoints).toBe(4);
+  });
+
+  it("handles null explicit rosters and null allRosteredUsers (lines 292, 301, 360 branches)", async () => {
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: null, error: null }, // null explicit rosters
+      "user_rosters:2": { data: null, error: null }, // null allRosteredUsers
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    expect(result.results).toEqual([]);
+    expect(result.summary.usersScored).toBe(0);
+  });
+
+  it("handles event with null quantity (defaults to 1)", async () => {
+    const rosterRows = [
+      { user_id: "u1", player_id: "p1", is_starting_9: true, is_captain: true, is_vice_captain: false, multiplier: 2, active_chip: null, bench_order: null },
+    ];
+
+    const mockSb = createMockSupabase({
+      "user_rosters:1": { data: rosterRows, error: null },
+      "user_rosters:2": { data: [], error: null },
+      matches: { data: [{ id: "m1" }], error: null },
+      players: { data: [{ id: "p1", position: "FWD", is_lady: false }], error: null },
+      scoring_rules: {
+        data: [
+          { action: "goal", position: "FWD", points: 4 },
+          { action: "appearance", position: null, points: 2 },
+        ],
+        error: null,
+      },
+      player_match_events: {
+        data: [
+          { player_id: "p1", action: "appearance", quantity: 1 },
+          { player_id: "p1", action: "goal", quantity: null }, // null quantity
+        ],
+        error: null,
+      },
+      player_stats: { data: [], error: null },
+      user_weekly_scores: { data: [], error: null },
+    });
+    vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
+
+    const result = await calculateGameweekScores(1);
+
+    // p1 (captain): appearance(2) + goal(4 × null??1 = 4) = 6, × 2 = 12
+    expect(result.results[0].totalPoints).toBe(12);
   });
 });

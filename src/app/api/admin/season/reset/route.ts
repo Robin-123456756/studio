@@ -29,6 +29,7 @@ export async function POST(req: Request) {
 
     // Delete transactional data in order (respecting FK constraints)
     const deletions = [
+      supabase.from("current_squads").delete().neq("user_id", ""),
       supabase.from("user_rosters").delete().neq("user_id", ""),
       supabase.from("user_weekly_scores").delete().neq("user_id", ""),
       supabase.from("user_chips").delete().neq("user_id", ""),

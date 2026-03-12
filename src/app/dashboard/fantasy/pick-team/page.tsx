@@ -87,18 +87,6 @@ import {
   EmptySlot,
 } from "@/lib/pitch-helpers";
 
-function loadIds(key: string) {
-  try {
-    const raw = localStorage.getItem(key);
-    const arr = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(arr)) return [];
-    // Deduplicate — stale localStorage can contain duplicate IDs
-    return [...new Set(arr.map(String))];
-  } catch {
-    return [];
-  }
-}
-
 type TabKey = "pitch" | "list" | "squad";
 
 function formatNumber(value?: number | null) {
@@ -777,7 +765,7 @@ export default function PickTeamPage() {
       });
   }, []);
 
-  function toggleChip(chip: ChipKey) {
+  async function toggleChip(chip: ChipKey) {
     if (usedChips.includes(chip)) {
       showMsg(`${chip.replace("_", " ")} has already been used this season.`, "error");
       return;
@@ -800,18 +788,57 @@ export default function PickTeamPage() {
     if (activeChip === chip) {
       // Deactivate
       if (chip === "free_hit") {
-        // Restore backup squad
-        try {
-          const backup = localStorage.getItem(LS_FREE_HIT_BACKUP);
-          if (backup) {
-            const backupIds: string[] = JSON.parse(backup);
-            localStorage.setItem(LS_SQUAD, JSON.stringify(backupIds));
-            localStorage.setItem(LS_PICKS, JSON.stringify(backupIds));
-            localStorage.removeItem(LS_FREE_HIT_BACKUP);
-            localStorage.removeItem(LS_FREE_HIT_GW);
-            window.dispatchEvent(new Event("tbl_squad_updated"));
+        // Restore backup squad from DB
+        const gw = gwId ?? nextGW?.id ?? currentGW?.id ?? null;
+        if (gw) {
+          try {
+            const res = await fetch(`/api/free-hit-backup?gw_id=${gw}`, {
+              method: "DELETE",
+              credentials: "same-origin",
+            });
+            if (res.ok) {
+              const json = await res.json();
+              if (json.restored) {
+                const restoredSquad: string[] = json.restored.squadIds ?? [];
+                const restoredStarting: string[] = json.restored.startingIds ?? [];
+                const restoredCaptain: string | null = json.restored.captainId ?? null;
+                const restoredVice: string | null = json.restored.viceId ?? null;
+
+                // Update localStorage
+                localStorage.setItem(LS_SQUAD, JSON.stringify(restoredSquad));
+                localStorage.setItem(LS_PICKS, JSON.stringify(restoredSquad));
+                localStorage.setItem(LS_STARTING, JSON.stringify(restoredStarting));
+                if (restoredCaptain) localStorage.setItem(LS_CAPTAIN, restoredCaptain);
+                else localStorage.removeItem(LS_CAPTAIN);
+                if (restoredVice) localStorage.setItem(LS_VICE, restoredVice);
+                else localStorage.removeItem(LS_VICE);
+                localStorage.removeItem(LS_FREE_HIT_BACKUP);
+                localStorage.removeItem(LS_FREE_HIT_GW);
+
+                // Update React state so the page reflects the restored squad
+                setPickedIds(restoredSquad);
+                setStartingIds(restoredStarting);
+                setCaptainId(restoredCaptain);
+                setViceId(restoredVice);
+                // Always reset bench order — clears stale Free Hit bench priority
+                setBenchOrder(json.restored.benchOrder ?? []);
+                setSavedPickedIds(restoredSquad);
+                setSavedStartingIds(restoredStarting);
+                setSavedCaptainId(restoredCaptain);
+                setSavedViceId(restoredVice);
+
+                window.dispatchEvent(new Event("tbl_squad_updated"));
+              }
+            } else {
+              const json = await res.json().catch(() => ({}));
+              showMsg(json?.error || "Failed to restore squad", "error");
+              return;
+            }
+          } catch {
+            showMsg("Failed to restore squad — check your connection", "error");
+            return;
           }
-        } catch { /* ignore */ }
+        }
       }
       setActiveChip(null);
       localStorage.removeItem(LS_ACTIVE_CHIP);
@@ -824,16 +851,38 @@ export default function PickTeamPage() {
     }
   }
 
-  function activateFreeHit() {
-    // Backup current squad before activating
+  async function activateFreeHit() {
+    const gw = gwId ?? nextGW?.id ?? currentGW?.id ?? null;
+
+    // Backup current squad to DB before activating
+    if (gw) {
+      try {
+        const res = await fetch("/api/free-hit-backup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ gameweekId: gw }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          showMsg(json?.error || "Failed to backup squad for Free Hit", "error");
+          return;
+        }
+      } catch {
+        showMsg("Failed to backup squad — check your connection", "error");
+        return;
+      }
+    }
+
+    // Also keep localStorage backup as a fast cache
     try {
       const currentSquad = localStorage.getItem(LS_SQUAD);
       if (currentSquad) {
         localStorage.setItem(LS_FREE_HIT_BACKUP, currentSquad);
       }
-      const gw = nextGW?.id ?? currentGW?.id ?? null;
       if (gw) localStorage.setItem(LS_FREE_HIT_GW, String(gw));
     } catch { /* ignore */ }
+
     setActiveChip("free_hit");
     localStorage.setItem(LS_ACTIVE_CHIP, "free_hit");
     setShowFreeHitModal(false);
@@ -920,39 +969,9 @@ export default function PickTeamPage() {
 
 
   // ----------------------------
-  // load local cache + all players
-  // Squad comes from Transfers (LS_SQUAD), starting lineup is managed here
+  // load all players (DB is the source of truth for squad/lineup — loaded separately)
   // ----------------------------
   React.useEffect(() => {
-    // Primary source: LS_SQUAD from Transfers page
-    const squad = loadIds(LS_SQUAD);
-    // Fallback to legacy picks if squad is empty
-    const picks = squad.length > 0 ? squad : loadIds(LS_PICKS);
-    const starting = loadIds(LS_STARTING);
-
-    setPickedIds(picks);
-    setStartingIds(starting);
-
-    // Also update saved state for change tracking
-    setSavedPickedIds(picks);
-    setSavedStartingIds(starting);
-
-    const savedCaptain = localStorage.getItem(LS_CAPTAIN);
-    const savedVice = localStorage.getItem(LS_VICE);
-    if (savedCaptain) {
-      setCaptainId(savedCaptain);
-      setSavedCaptainId(savedCaptain);
-    }
-    if (savedVice) {
-      setViceId(savedVice);
-      setSavedViceId(savedVice);
-    }
-
-    // Sync legacy key if needed
-    if (squad.length > 0 && picks !== squad) {
-      localStorage.setItem(LS_PICKS, JSON.stringify(squad));
-    }
-
     (async () => {
       try {
         setLoading(true);
@@ -1090,130 +1109,74 @@ export default function PickTeamPage() {
         setMsg(null);
         const data = await loadRosterFromDb(gwId);
 
-        // Only use DB data if localStorage doesn't already have a full 17-player squad.
-        // Transfers writes to localStorage before redirecting here, and the DB save
-        // may have failed (e.g. trigger issues), so localStorage is the fresher source.
-        const localSquad = loadIds(LS_SQUAD);
-        const localHasFullSquad = localSquad.length === 17;
+        if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
 
-        // If roster was rolled over from a previous GW, there's no actual save
-        // for this GW yet — don't use it as the "saved" baseline.
-        const isRollover = data.rolledOverFromGw != null;
-        const dbSquadHasTeamOverflow = Array.isArray(data.squadIds)
-          ? hasTeamOverflow(data.squadIds)
-          : false;
-
+        // DB is the source of truth. Use DB data for everything.
         if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
-          if (!localHasFullSquad) {
-            // No local squad — use DB data (real save or rollover) as both
-            // the active state AND the baseline for change tracking
-            setPickedIds(data.squadIds);
-            setStartingIds(data.startingIds ?? []);
-            setSavedPickedIds(data.squadIds);
-            setSavedStartingIds(data.startingIds ?? []);
+          setPickedIds(data.squadIds);
+          setSavedPickedIds(data.squadIds);
 
-            localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
-            localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
-            localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds ?? []));
-          } else if (!isRollover && !dbSquadHasTeamOverflow) {
-            // localStorage has a full squad AND the DB has a real save for this GW.
-            // Use the DB state as the baseline so we can detect unsaved changes.
-            setSavedPickedIds(data.squadIds);
-            setSavedStartingIds(data.startingIds ?? []);
+          // Sync localStorage cache (so transfers page stays in sync)
+          localStorage.setItem(LS_SQUAD, JSON.stringify(data.squadIds));
+          localStorage.setItem(LS_PICKS, JSON.stringify(data.squadIds));
+
+          if (Array.isArray(data.startingIds) && data.startingIds.length === 10) {
+            // DB has full starting lineup — use it
+            setStartingIds(data.startingIds);
+            setSavedStartingIds(data.startingIds);
+            localStorage.setItem(LS_STARTING, JSON.stringify(data.startingIds));
+          } else {
+            // Squad saved but no starting lineup yet (squad-only save from transfers).
+            // Auto-select starting 10.
+            const squadPlayers = data.squadIds
+              .map((id: string) => players.find((p) => p.id === id))
+              .filter(Boolean) as Player[];
+
+            if (squadPlayers.length === 17) {
+              const autoStarting = buildStartingFromSquad(squadPlayers);
+              if (autoStarting.length === 10) {
+                setStartingIds(autoStarting);
+                localStorage.setItem(LS_STARTING, JSON.stringify(autoStarting));
+
+                // Auto-pick captain/vice from starting by highest points
+                const startingPlayers = autoStarting
+                  .map((id) => squadPlayers.find((p) => p.id === id))
+                  .filter(Boolean) as Player[];
+                const byPts = [...startingPlayers].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+                const autoCap = byPts[0]?.id ?? null;
+                const autoVice = byPts[1]?.id ?? null;
+
+                if (autoCap) {
+                  setCaptainId(autoCap);
+                  localStorage.setItem(LS_CAPTAIN, autoCap);
+                }
+                if (autoVice) {
+                  setViceId(autoVice);
+                  localStorage.setItem(LS_VICE, autoVice);
+                }
+
+                setMsg("Starting lineup auto-selected. Review and save your team.");
+              }
+            }
           }
-          // If localStorage has full squad + rollover: savedPickedIds stays as
-          // the current pickedIds (set during localStorage load), no false diff.
-        }
 
-        if (data.captainId) {
-          if (!localHasFullSquad) {
+          if (data.captainId) {
             setCaptainId(data.captainId);
             setSavedCaptainId(data.captainId);
             localStorage.setItem(LS_CAPTAIN, data.captainId);
-          } else if (!isRollover && !dbSquadHasTeamOverflow) {
-            setSavedCaptainId(data.captainId);
           }
-        }
-        if (data.viceId) {
-          if (!localHasFullSquad) {
+          if (data.viceId) {
             setViceId(data.viceId);
             setSavedViceId(data.viceId);
             localStorage.setItem(LS_VICE, data.viceId);
-          } else if (!isRollover && !dbSquadHasTeamOverflow) {
-            setSavedViceId(data.viceId);
           }
-        }
-
-        // Restore bench order from DB
-        if (Array.isArray(data.benchOrder) && data.benchOrder.length > 0) {
-          if (!localHasFullSquad) {
+          if (Array.isArray(data.benchOrder) && data.benchOrder.length > 0) {
             setBenchOrder(data.benchOrder);
           }
         }
 
-        if (data.teamName) localStorage.setItem("tbl_team_name", data.teamName);
-
-        // If DB has a full roster with starting lineup, we're done
-        if (Array.isArray(data.squadIds) && data.squadIds.length > 0 &&
-            Array.isArray(data.startingIds) && data.startingIds.length === 10) {
-          setDbLoaded(true);
-          return;
-        }
-
-        // localStorage has a full squad (from Transfers) but no starting lineup yet —
-        // auto-select starting 10, captain, and vice from the squad
-        if (localHasFullSquad && startingIds.length < 10) {
-          const squadPlayers = localSquad
-            .map((id) => players.find((p) => p.id === id))
-            .filter(Boolean) as Player[];
-
-          if (squadPlayers.length === 17) {
-            const autoStarting = buildStartingFromSquad(squadPlayers);
-            if (autoStarting.length === 10) {
-              setStartingIds(autoStarting);
-              localStorage.setItem(LS_STARTING, JSON.stringify(autoStarting));
-
-              // Auto-pick captain/vice from starting by highest points
-              const startingPlayers = autoStarting
-                .map((id) => squadPlayers.find((p) => p.id === id))
-                .filter(Boolean) as Player[];
-              const byPts = [...startingPlayers].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
-              const autoCap = byPts[0]?.id ?? null;
-              const autoVice = byPts[1]?.id ?? null;
-
-              if (autoCap && !captainId) {
-                setCaptainId(autoCap);
-                localStorage.setItem(LS_CAPTAIN, autoCap);
-              }
-              if (autoVice && !viceId) {
-                setViceId(autoVice);
-                localStorage.setItem(LS_VICE, autoVice);
-              }
-
-              setMsg("Starting lineup auto-selected. Review and save your team.");
-            }
-          }
-          setDbLoaded(true);
-          return;
-        }
-
-        // If DB has squad but no starting lineup, also auto-select
-        if (Array.isArray(data.squadIds) && data.squadIds.length > 0) {
-          setDbLoaded(true);
-          return;
-        }
-
-        // localStorage has a full squad (e.g. DB save failed on flaky connection) —
-        // don't redirect, let the user review and re-save from here
-        if (localHasFullSquad) {
-          setDbLoaded(true);
-          return;
-        }
-
-        // No roster in DB and no localStorage squad — redirect to transfers
-        // so the user picks their own squad instead of getting a random one
-        window.location.href = "/dashboard/transfers";
-        return;
+        // No squad in DB — show empty pitch (user needs to go to Transfers first)
+        setDbLoaded(true);
     } catch (e: any) {
       console.error("DB roster load failed:", e?.message ?? e);
       setDbLoaded(true);
@@ -1349,26 +1312,26 @@ export default function PickTeamPage() {
     const dl = new Date(activeGW.deadline_time).getTime();
     return Number.isFinite(dl) && now > dl;
   }, [activeGW?.deadline_time, now]);
-  const chipsList: { key: ChipKey; name: string; icon: React.ReactNode }[] = [
-    { key: "bench_boost", name: "Bench Boost", icon: (
+  const chipsList: { key: ChipKey; name: string; desc: string; icon: React.ReactNode }[] = [
+    { key: "bench_boost", name: "Bench Boost", desc: "Bench players score this GW", icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path d="M4 14h16M6 10V4h12v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M4 14v4h16v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     )},
-    { key: "triple_captain", name: "Triple Captain", icon: (
+    { key: "triple_captain", name: "Triple Captain", desc: "Captain scores 3x points", icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path d="M12 2l3 6h6l-5 4 2 7-6-4-6 4 2-7-5-4h6l3-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     )},
-    { key: "wildcard", name: "Wildcard", icon: (
+    { key: "wildcard", name: "Wildcard", desc: "Unlimited free transfers", icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.8" />
         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
         <path d="M12 6v3M12 15v3M6 12h3M15 12h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
     )},
-    { key: "free_hit", name: "Free Hit", icon: (
+    { key: "free_hit", name: "Free Hit", desc: "Temp squad for one GW", icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
@@ -1404,18 +1367,6 @@ export default function PickTeamPage() {
     }
     const fallback = String(player.teamShort ?? player.teamName ?? "").trim().toLowerCase();
     return fallback.length > 0 ? fallback : null;
-  }
-
-  function hasTeamOverflow(ids: string[], maxPerTeam = 3) {
-    const counts = new Map<string, number>();
-    for (const id of ids) {
-      const key = teamKeyForPlayer(playerById.get(id));
-      if (!key) continue;
-      const next = (counts.get(key) ?? 0) + 1;
-      if (next > maxPerTeam) return true;
-      counts.set(key, next);
-    }
-    return false;
   }
 
   // ----------------------------
@@ -2706,6 +2657,11 @@ export default function PickTeamPage() {
                   Long-press to reorder
                 </span>
               )}
+              {!selectedForSwap && !selectedBenchSwap && (
+                <div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>
+                  Numbers set auto-sub priority if a starter doesn&apos;t play
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 4, padding: "0 4px" }}>
               {bench.map((p, index) => {
@@ -2932,6 +2888,7 @@ export default function PickTeamPage() {
             <button
               key={chip.key}
               onClick={() => toggleChip(chip.key)}
+              title={chip.desc}
               style={{
                 flex: 1,
                 background: isActive
@@ -2976,6 +2933,15 @@ export default function PickTeamPage() {
                 color: isActive ? "#fff" : "hsl(var(--foreground))",
               }}>
                 {chip.name}
+              </span>
+              <span style={{
+                fontSize: 7,
+                color: isActive ? "rgba(255,255,255,0.7)" : "hsl(var(--muted-foreground))",
+                lineHeight: 1.2,
+                textAlign: "center",
+                padding: "0 2px",
+              }}>
+                {chip.desc}
               </span>
               <span
                 style={{

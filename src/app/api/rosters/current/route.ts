@@ -49,7 +49,27 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = data ?? [];
+  let rows = data ?? [];
+
+  // FPL pattern: if no roster for this GW, fall back to current_squads
+  // (always up-to-date — synced on every roster save)
+  if (rows.length === 0) {
+    const { data: currentSquad, error: csErr } = await supabase
+      .from("current_squads")
+      .select("player_id, is_starting, is_captain, is_vice_captain, bench_order")
+      .eq("user_id", userId);
+
+    if (!csErr && currentSquad && currentSquad.length > 0) {
+      rows = currentSquad.map((r) => ({
+        player_id: r.player_id,
+        is_starting_9: r.is_starting,
+        is_captain: r.is_captain,
+        is_vice_captain: r.is_vice_captain,
+        multiplier: r.is_captain ? 2 : 1,
+      }));
+    }
+  }
+
   const multiplierByPlayer = Object.fromEntries(
     rows.map((r) => [String(r.player_id), Number(r.multiplier ?? 1)])
   );

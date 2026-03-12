@@ -58,7 +58,7 @@ const ruleSections: RuleSection[] = [
     icon: <ArrowLeftRight className="h-5 w-5" />,
     rules: [
       "You get 1 free transfer per gameweek",
-      "Unused free transfers roll over (max 2 saved)",
+      "Unused free transfers roll over (max 5 saved)",
       "Additional transfers cost -4 points each (a 'hit')",
       "Transfers lock when the gameweek deadline passes",
       "Wildcard chip allows unlimited free transfers for one gameweek",

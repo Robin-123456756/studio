@@ -55,10 +55,27 @@ export async function GET(req: Request) {
 
     if (teamId) query = query.eq("team_id", teamId);
 
-    const { data, error } = await query;
+    // ── Phase 1: Fire independent queries in parallel ──
+    const [
+      playersResult,
+      managerCountResult,
+      upcomingMatchesResult,
+    ] = await Promise.all([
+      query,
+      supabase.from("fantasy_teams").select("user_id", { count: "exact", head: true }),
+      supabase
+        .from("matches")
+        .select(`
+          home_team_uuid, away_team_uuid,
+          home_team:teams!matches_home_team_uuid_fkey (short_name),
+          away_team:teams!matches_away_team_uuid_fkey (short_name)
+        `)
+        .eq("is_played", false)
+        .order("gameweek_id", { ascending: true }),
+    ]);
 
+    const { data, error } = playersResult;
     if (error) {
-      // Error logged server-side only in development
       if (process.env.NODE_ENV === "development") console.log("SUPABASE ERROR /api/players", error);
       return NextResponse.json(
         { error: error.message, details: error },
@@ -67,143 +84,83 @@ export async function GET(req: Request) {
     }
 
     const playerIds = (data ?? []).map((p: any) => String(p.id));
-    const ownershipMap = new Map<string, number>();
+    const registeredManagers = typeof managerCountResult.count === "number" ? managerCountResult.count : 0;
 
-    const { count: managerCount } = await supabase
-      .from("fantasy_teams")
-      .select("user_id", { count: "exact", head: true });
-    const registeredManagers = typeof managerCount === "number" ? managerCount : 0;
-
-    if (playerIds.length > 0) {
-      let currentGwId: number | null = null;
-
-      const { data: currentGw } = await supabase
-        .from("gameweeks")
-        .select("id")
-        .eq("is_current", true)
-        .maybeSingle();
-
-      if (currentGw?.id) {
-        currentGwId = Number(currentGw.id);
-      } else {
-        const { data: latestGw } = await supabase
-          .from("gameweeks")
-          .select("id")
-          .order("id", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        currentGwId = latestGw?.id ? Number(latestGw.id) : null;
-      }
-
-      if (currentGwId) {
-        let rosterRows: any[] | null = null;
-
-        // Try current gameweek first
-        const { data: gwRows } = await supabase
-          .from("user_rosters")
-          .select("player_id,user_id")
-          .eq("gameweek_id", currentGwId)
-          .in("player_id", playerIds);
-
-        rosterRows = gwRows;
-
-        // Fallback: if no rosters for current GW, use latest roster per user across all GWs
-        if (!rosterRows || rosterRows.length === 0) {
-          const { data: allRosters } = await supabase
-            .from("user_rosters")
-            .select("player_id,user_id,gameweek_id")
-            .in("player_id", playerIds)
-            .order("gameweek_id", { ascending: false });
-
-          if (allRosters && allRosters.length > 0) {
-            // Keep only the latest gameweek entry per user
-            const latestGwByUser = new Map<string, number>();
-            for (const r of allRosters) {
-              const uid = String((r as any).user_id);
-              const gw = Number((r as any).gameweek_id);
-              if (!latestGwByUser.has(uid) || gw > latestGwByUser.get(uid)!) {
-                latestGwByUser.set(uid, gw);
-              }
-            }
-            rosterRows = allRosters.filter((r: any) => {
-              const uid = String(r.user_id);
-              return Number(r.gameweek_id) === latestGwByUser.get(uid);
-            });
-          }
-        }
-
-        const ownersByPlayer = new Map<string, Set<string>>();
-        const activeUsers = new Set<string>();
-
-        for (const row of rosterRows ?? []) {
-          const pid = String((row as any).player_id);
-          const uid = String((row as any).user_id);
-          if (!ownersByPlayer.has(pid)) ownersByPlayer.set(pid, new Set<string>());
-          ownersByPlayer.get(pid)!.add(uid);
-          activeUsers.add(uid);
-        }
-
-        // If nobody has fully registered a fantasy team yet, use active roster users.
-        const denominator = registeredManagers > 0 ? registeredManagers : activeUsers.size;
-
-        for (const pid of playerIds) {
-          const selectedCount = ownersByPlayer.get(pid)?.size ?? 0;
-          const ownershipPct =
-            denominator > 0 ? Math.round((selectedCount / denominator) * 1000) / 10 : 0;
-          ownershipMap.set(pid, ownershipPct);
-        }
-      }
-    }
-
-    // Build next-opponent map: team_uuid → opponent short_name
+    // Build next-opponent map from already-fetched matches
     const nextOpponentMap = new Map<string, string>();
-    {
-      // Fetch upcoming (unplayed) matches, sorted by gameweek
-      const { data: upcomingMatches } = await supabase
-        .from("matches")
-        .select(`
-          home_team_uuid, away_team_uuid,
-          home_team:teams!matches_home_team_uuid_fkey (short_name),
-          away_team:teams!matches_away_team_uuid_fkey (short_name)
-        `)
-        .eq("is_played", false)
-        .order("gameweek_id", { ascending: true });
-
-      if (upcomingMatches && upcomingMatches.length > 0) {
-        // For each team, take the FIRST unplayed match (nearest fixture)
-        for (const m of upcomingMatches) {
-          const homeUuid = (m as any).home_team_uuid;
-          const awayUuid = (m as any).away_team_uuid;
-          const homeShort = (m as any).home_team?.short_name;
-          const awayShort = (m as any).away_team?.short_name;
-
-          // Home team's next opponent is the away team, and vice versa
-          if (homeUuid && awayShort && !nextOpponentMap.has(homeUuid)) {
-            nextOpponentMap.set(homeUuid, awayShort);
-          }
-          if (awayUuid && homeShort && !nextOpponentMap.has(awayUuid)) {
-            nextOpponentMap.set(awayUuid, homeShort);
-          }
+    const upcomingMatches = upcomingMatchesResult.data;
+    if (upcomingMatches && upcomingMatches.length > 0) {
+      for (const m of upcomingMatches) {
+        const homeUuid = (m as any).home_team_uuid;
+        const awayUuid = (m as any).away_team_uuid;
+        const homeShort = (m as any).home_team?.short_name;
+        const awayShort = (m as any).away_team?.short_name;
+        if (homeUuid && awayShort && !nextOpponentMap.has(homeUuid)) {
+          nextOpponentMap.set(homeUuid, awayShort);
+        }
+        if (awayUuid && homeShort && !nextOpponentMap.has(awayUuid)) {
+          nextOpponentMap.set(awayUuid, homeShort);
         }
       }
     }
 
-    // Always compute points from player_stats (source of truth)
+    // ── Phase 2: Fire player-dependent queries in parallel ──
+    const ownershipMap = new Map<string, number>();
     const totalsMap = new Map<
       string,
       { points: number; goals: number; assists: number; appearances: number }
     >();
     const formMap = new Map<string, string>();
+    const priceChangeMap = new Map<string, number>();
 
     if (playerIds.length > 0) {
-      const { data: allStats } = await supabase
+      // Fire ownership, stats, and price queries in parallel
+      const ownershipPromise = supabase
+        .from("current_squads")
+        .select("player_id, user_id")
+        .in("player_id", playerIds);
+
+      const statsPromise = supabase
         .from("player_stats")
         .select("player_id, points, goals, assists, gameweek_id")
         .in("player_id", playerIds);
 
+      const pricePromise = supabase
+        .from("player_price_history")
+        .select("player_id, old_price, new_price")
+        .in("player_id", playerIds)
+        .order("changed_at", { ascending: false });
+
+      const [ownershipResult, statsResult, priceResult] = await Promise.all([
+        ownershipPromise,
+        statsPromise,
+        pricePromise,
+      ]);
+
+      // ── Ownership calculation (from current_squads — always up-to-date) ──
+      const ownersByPlayer = new Map<string, Set<string>>();
+      const allOwnerIds = new Set<string>();
+      for (const row of ownershipResult.data ?? []) {
+        const pid = String((row as any).player_id);
+        const uid = String((row as any).user_id);
+        if (!ownersByPlayer.has(pid)) ownersByPlayer.set(pid, new Set<string>());
+        ownersByPlayer.get(pid)!.add(uid);
+        allOwnerIds.add(uid);
+      }
+      // Use the larger of fantasy_teams count or distinct current_squads users
+      // so ownership can never exceed 100% (guards against count query failures)
+      const denominator = Math.max(registeredManagers, allOwnerIds.size, 1);
+      for (const pid of playerIds) {
+        const selectedCount = ownersByPlayer.get(pid)?.size ?? 0;
+        const ownershipPct =
+          denominator > 0 ? Math.round((selectedCount / denominator) * 1000) / 10 : 0;
+        ownershipMap.set(pid, ownershipPct);
+      }
+
+      // ── Points & form from player_stats ──
+      const allStats = statsResult.data;
       if (allStats && allStats.length > 0) {
         const gwSets = new Map<string, Set<number>>();
-
         for (const s of allStats) {
           const pid = String((s as any).player_id);
           const gwId = (s as any).gameweek_id;
@@ -227,35 +184,26 @@ export async function GET(req: Request) {
           gws.add(gwId);
           gwSets.set(pid, gws);
         }
-
         for (const [pid, gws] of gwSets) {
           const total = totalsMap.get(pid)?.points ?? 0;
           const gwCount = gws.size;
           formMap.set(pid, gwCount > 0 ? (total / gwCount).toFixed(1) : "0.0");
         }
       }
-    }
 
-    // Fetch latest price change per player (most recent entry)
-    const priceChangeMap = new Map<string, number>();
-    if (playerIds.length > 0) {
-      const { data: priceHistory } = await supabase
-        .from("player_price_history")
-        .select("player_id, old_price, new_price")
-        .in("player_id", playerIds)
-        .order("changed_at", { ascending: false });
-
+      // ── Price changes ──
+      const priceHistory = priceResult.data;
       if (priceHistory && priceHistory.length > 0) {
-        // Keep only the most recent change per player
         for (const row of priceHistory) {
-          const pid = String(row.player_id);
+          const pid = String((row as any).player_id);
           if (!priceChangeMap.has(pid)) {
-            priceChangeMap.set(pid, (row.new_price ?? 0) - (row.old_price ?? 0));
+            priceChangeMap.set(pid, ((row as any).new_price ?? 0) - ((row as any).old_price ?? 0));
           }
         }
       }
     }
 
+    // ── Build response ──
     const players = (data ?? []).map((p: any) => {
       const pid = String(p.id);
       const totals = totalsMap.get(pid) ?? null;

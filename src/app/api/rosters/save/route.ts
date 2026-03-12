@@ -9,12 +9,14 @@ export const dynamic = "force-dynamic";
 type Body = {
   gameweekId: number;
   squadIds: string[];      // 17
-  startingIds: string[];   // 10
-  captainId: string | null;
-  viceId: string | null;
+  startingIds?: string[];  // 10 (optional for squad-only saves)
+  captainId?: string | null;
+  viceId?: string | null;
   chip?: string | null;    // bench_boost | triple_captain | wildcard | free_hit
   teamName?: string | null;
   benchOrder?: string[] | null;  // ordered bench player IDs (1st sub first)
+  squadOnly?: boolean;     // true = save squad IDs only, skip starting/captain validation
+  transfers?: { outId: string; inId: string }[];  // FPL-style slot inheritance mapping
 };
 
 const VALID_CHIPS = ["bench_boost", "triple_captain", "wildcard", "free_hit"];
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
   const admin = getSupabaseServerOrThrow();
 
   const body = (await req.json()) as Body;
-  const { gameweekId, squadIds, startingIds, captainId, viceId, chip, teamName, benchOrder } = body;
+  const { gameweekId, squadIds, startingIds, captainId, viceId, chip, teamName, benchOrder, squadOnly, transfers } = body;
 
   // Upsert team name if provided
   if (teamName && typeof teamName === "string") {
@@ -98,13 +100,98 @@ export async function POST(req: Request) {
   }
 
   // ── Fix 4: Squad composition validation ──
-  const startingStrIds = (startingIds ?? []).map(String);
-  const capStr = captainId ? String(captainId) : null;
-  const viceStr = viceId ? String(viceId) : null;
+  let startingStrIds = (startingIds ?? []).map(String);
+  let capStr = captainId ? String(captainId) : null;
+  let viceStr = viceId ? String(viceId) : null;
 
-  const compositionError = validateSquadComposition(players, startingStrIds, capStr, viceStr);
-  if (compositionError) {
-    return NextResponse.json({ error: compositionError }, { status: 400 });
+  // Squad-only saves (from transfers page): preserve existing lineup data from DB.
+  // FPL-style slot inheritance: transferred-in player inherits the outgoing player's
+  // starting/captain/vice/bench_order slot instead of defaulting to bench.
+  const inheritedBenchOrder = new Map<string, number>();
+
+  if (squadOnly) {
+    // Try current GW roster first, then fall back to current_squads (FPL pattern:
+    // your current team is always available regardless of gameweek state)
+    let existingRoster: { player_id: string; is_starting_9?: boolean; is_starting?: boolean; is_captain: boolean; is_vice_captain: boolean; bench_order: number | null }[] = [];
+
+    const { data: gwRoster } = await admin
+      .from("user_rosters")
+      .select("player_id, is_starting_9, is_captain, is_vice_captain, bench_order")
+      .eq("user_id", userId)
+      .eq("gameweek_id", Number(gameweekId));
+
+    if (gwRoster && gwRoster.length > 0) {
+      existingRoster = gwRoster;
+    } else {
+      // No roster for this GW yet (first save of new GW) — use current_squads
+      const { data: currentSquad } = await admin
+        .from("current_squads")
+        .select("player_id, is_starting, is_captain, is_vice_captain, bench_order")
+        .eq("user_id", userId);
+
+      if (currentSquad && currentSquad.length > 0) {
+        existingRoster = currentSquad.map((r) => ({
+          player_id: r.player_id,
+          is_starting_9: r.is_starting,
+          is_captain: r.is_captain,
+          is_vice_captain: r.is_vice_captain,
+          bench_order: r.bench_order,
+        }));
+      }
+    }
+
+    if (existingRoster.length > 0) {
+      // Build lookup: playerId → existing roster row
+      const oldRowByPid = new Map<string, typeof existingRoster[0]>();
+      for (const r of existingRoster) {
+        oldRowByPid.set(String(r.player_id), r);
+      }
+
+      // Build transfer mapping: inId → outId (so we know which slot to inherit)
+      const transferMap = new Map<string, string>();
+      if (Array.isArray(transfers)) {
+        for (const t of transfers) {
+          transferMap.set(String(t.inId), String(t.outId));
+        }
+      }
+
+      // For each player in the new squad, determine their lineup status:
+      // - Kept player → preserve their existing slot
+      // - Transferred-in player → inherit outgoing player's slot
+      // - No mapping / no old roster → default to bench
+      const resolvedStarting: string[] = [];
+      let resolvedCap: string | null = null;
+      let resolvedVice: string | null = null;
+
+      for (const pid of uniqueSquadIds) {
+        // Check if this player was in the old roster (kept player)
+        let sourceRow = oldRowByPid.get(pid);
+
+        // If not, check if they're a transfer-in and inherit the out player's slot
+        if (!sourceRow) {
+          const outId = transferMap.get(pid);
+          if (outId) sourceRow = oldRowByPid.get(outId);
+        }
+
+        if (sourceRow) {
+          if (sourceRow.is_starting_9) resolvedStarting.push(pid);
+          if (sourceRow.is_captain) resolvedCap = pid;
+          if (sourceRow.is_vice_captain) resolvedVice = pid;
+          if (!sourceRow.is_starting_9 && sourceRow.bench_order != null) {
+            inheritedBenchOrder.set(pid, sourceRow.bench_order);
+          }
+        }
+      }
+
+      startingStrIds = resolvedStarting;
+      capStr = resolvedCap;
+      viceStr = resolvedVice;
+    }
+  } else {
+    const compositionError = validateSquadComposition(players, startingStrIds, capStr, viceStr);
+    if (compositionError) {
+      return NextResponse.json({ error: compositionError }, { status: 400 });
+    }
   }
 
   // ── Fix 5: Chip validation & recording ──
@@ -152,9 +239,15 @@ export async function POST(req: Request) {
   const rows = uniqueSquadIds.map((pid) => {
     const isStarter = startingSet.has(pid);
     let bench_order: number | null = null;
-    if (!isStarter && benchOrderArr.length > 0) {
-      const idx = benchOrderArr.indexOf(pid);
-      bench_order = idx >= 0 ? idx + 1 : null;
+    if (!isStarter) {
+      if (benchOrderArr.length > 0) {
+        // Explicit bench order provided (from pick-team page)
+        const idx = benchOrderArr.indexOf(pid);
+        bench_order = idx >= 0 ? idx + 1 : null;
+      } else {
+        // Inherited bench order from slot inheritance (squad-only saves)
+        bench_order = inheritedBenchOrder.get(pid) ?? null;
+      }
     }
     return {
       user_id: userId,
@@ -169,26 +262,63 @@ export async function POST(req: Request) {
     };
   });
 
-  // ── Delete + Insert roster ──
-  const { error: delErr } = await admin
-    .from("user_rosters")
-    .delete()
-    .eq("user_id", userId)
-    .eq("gameweek_id", Number(gameweekId));
-
-  if (delErr) {
-    console.error("CLEANUP ERROR /api/rosters/save", delErr);
-    return NextResponse.json({ error: delErr.message }, { status: 500 });
-  }
-
-  const { error: insertErr } = await admin
+  // ── Upsert first, then clean stale rows (safe order — old roster preserved if upsert fails) ──
+  const { error: upsertErr } = await admin
     .from("user_rosters")
     .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
 
-  if (insertErr) {
-    console.error("INSERT ERROR /api/rosters/save", insertErr);
-    return NextResponse.json({ error: insertErr.message }, { status: 500 });
+  if (upsertErr) {
+    console.error("UPSERT ERROR /api/rosters/save", upsertErr);
+    return NextResponse.json({ error: upsertErr.message }, { status: 500 });
   }
+
+  // Remove any stale rows from a previous squad that aren't in the new one
+  const { error: cleanupErr } = await admin
+    .from("user_rosters")
+    .delete()
+    .eq("user_id", userId)
+    .eq("gameweek_id", Number(gameweekId))
+    .not("player_id", "in", `(${uniqueSquadIds.join(",")})`);
+
+  if (cleanupErr) {
+    // Non-fatal: user has their new squad + possibly some stale rows
+    console.error("CLEANUP WARNING /api/rosters/save", cleanupErr);
+  }
+
+  // ── Sync current_squads (persistent ownership table) ──
+  const currentSquadRows = uniqueSquadIds.map((pid) => {
+    const isStarter = startingSet.has(pid);
+    let bench_order: number | null = null;
+    if (!isStarter && benchOrderArr.length > 0) {
+      const idx = benchOrderArr.indexOf(pid);
+      bench_order = idx >= 0 ? idx + 1 : null;
+    }
+    return {
+      user_id: userId,
+      player_id: pid,
+      is_starting: isStarter,
+      is_captain: capStr === pid,
+      is_vice_captain: viceStr === pid,
+      bench_order,
+    };
+  });
+
+  // Upsert new squad rows, then remove stale players
+  await admin
+    .from("current_squads")
+    .upsert(currentSquadRows, { onConflict: "user_id,player_id" })
+    .then(({ error }) => {
+      if (error) console.error("CURRENT_SQUADS UPSERT WARNING", error);
+    });
+
+  await admin
+    .from("current_squads")
+    .delete()
+    .eq("user_id", userId)
+    .not("player_id", "in", `(${uniqueSquadIds.join(",")})`)
+    .then(({ error }) => {
+      if (error) console.error("CURRENT_SQUADS CLEANUP WARNING", error);
+    });
 
   return NextResponse.json({ ok: true, inserted: rows.length });
 }

@@ -30,7 +30,6 @@ const menuItems = [
   { label: "Dream Team", href: "/dashboard/fantasy/dream-team" },
   { label: "Fixtures", href: "/dashboard/fixtures" },
   { label: "Player Statistics", href: "/dashboard/players" },
-  { label: "Set Piece Taker", href: "/dashboard/players" },
 ];
 
 function formatDeadlineShort(iso?: string | null) {
@@ -380,6 +379,30 @@ function FantasyPage() {
 
   const [teamName, setTeamName] = React.useState("My Team");
   const [showTeamNameModal, setShowTeamNameModal] = React.useState(false);
+
+  // Track whether user has built a squad (for onboarding banner)
+  const [hasSquad, setHasSquad] = React.useState<boolean | null>(null); // null = loading
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const uid = data.session?.user.id;
+        if (!uid) return;
+        const res = await fetch(`/api/rosters/current?user_id=${uid}`, {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setHasSquad(Array.isArray(json.squadIds) && json.squadIds.length === 17);
+        } else {
+          setHasSquad(false);
+        }
+      } catch {
+        setHasSquad(false);
+      }
+    })();
+  }, []);
 
   function editTeamName() {
     const next = window.prompt("Enter your team name:", teamName);
@@ -786,8 +809,50 @@ function FantasyPage() {
         </div>
         </div>
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-3">
         <PushPromptBanner />
+
+        {/* Onboarding banner for new users without a squad */}
+        {hasSquad === false && (
+          <Card className="rounded-2xl border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-[0_4px_20px_rgba(180,155,80,0.15)]">
+            <CardContent className="p-4 space-y-3">
+              <div className="text-base font-bold text-[#062C30]">
+                Welcome to Budo League Fantasy!
+              </div>
+              <div className="text-xs text-[#0D5C63]/80 leading-relaxed">
+                You&apos;re already in the <span className="font-semibold">Budo League</span>. Follow these steps to get started:
+              </div>
+              <div className="space-y-2">
+                <Link
+                  href="/dashboard/transfers"
+                  className="flex items-center gap-3 rounded-xl bg-white/80 border border-emerald-200 px-3 py-2.5 transition hover:bg-white active:scale-[0.98]"
+                >
+                  <div className="h-7 w-7 rounded-full bg-[#0D5C63] text-white grid place-items-center text-xs font-bold shrink-0">1</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-[#062C30]">Build your squad</div>
+                    <div className="text-[11px] text-muted-foreground">Pick 17 players within your budget</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-[#0D5C63] shrink-0" />
+                </Link>
+                <div className="flex items-center gap-3 rounded-xl bg-white/50 border border-gray-200 px-3 py-2.5 opacity-60">
+                  <div className="h-7 w-7 rounded-full bg-gray-300 text-white grid place-items-center text-xs font-bold shrink-0">2</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-500">Pick your starting 11</div>
+                    <div className="text-[11px] text-gray-400">Choose captain and formation</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 rounded-xl bg-white/50 border border-gray-200 px-3 py-2.5 opacity-60">
+                  <div className="h-7 w-7 rounded-full bg-gray-300 text-white grid place-items-center text-xs font-bold shrink-0">3</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-500">Compete for points</div>
+                    <div className="text-[11px] text-gray-400">Earn points when your players perform</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="overflow-hidden rounded-2xl bg-card shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
           {menuItems.map((item, i) => (
             <NavRow

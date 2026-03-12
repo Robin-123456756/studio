@@ -107,17 +107,6 @@ export function validateSquadComposition(
   }
 
   const startingPlayers = players.filter((p) => startingSet.has(p.id));
-  const startingTeamCounts = new Map<string, number>();
-  for (const p of startingPlayers) {
-    const key = teamKey(p);
-    if (!key) continue;
-    startingTeamCounts.set(key, (startingTeamCounts.get(key) ?? 0) + 1);
-  }
-  for (const [, count] of startingTeamCounts) {
-    if (count > 3) {
-      return `Max 3 players per team allowed in the starting lineup (found ${count}).`;
-    }
-  }
 
   const sPos = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
   for (const p of startingPlayers) {

@@ -170,26 +170,52 @@ function TransfersPageInner() {
     } catch { /* ignore */ }
   }, []);
 
-  function cancelFreeHit() {
-    try {
-      // Restore backup squad
-      const backup = localStorage.getItem("tbl_free_hit_backup");
-      if (backup) {
-        const backupIds: string[] = JSON.parse(backup);
-        localStorage.setItem("tbl_squad_player_ids", JSON.stringify(backupIds));
-        localStorage.setItem("tbl_picked_player_ids", JSON.stringify(backupIds));
-        setOriginalSquadIds(backupIds);
-        localStorage.removeItem("tbl_free_hit_backup");
-        localStorage.removeItem("tbl_free_hit_gw");
-      }
-      // Deactivate chip
-      localStorage.removeItem("tbl_active_chip");
-      setFreeHitActive(false);
-      setPendingTransfers([]);
-      setSelectedOutId(null);
-      setSearchQuery("");
-      window.dispatchEvent(new Event("tbl_squad_updated"));
-    } catch { /* ignore */ }
+  async function cancelFreeHit() {
+    const gw = gwId ?? nextGW?.id ?? currentGW?.id ?? null;
+    let restored = false;
+
+    // Restore backup squad from DB
+    if (gw) {
+      try {
+        const res = await fetch(`/api/free-hit-backup?gw_id=${gw}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.restored) {
+            const restoredIds: string[] = json.restored.squadIds;
+            localStorage.setItem("tbl_squad_player_ids", JSON.stringify(restoredIds));
+            localStorage.setItem("tbl_picked_player_ids", JSON.stringify(restoredIds));
+            setOriginalSquadIds(restoredIds);
+            restored = true;
+          }
+        }
+      } catch { /* DB restore failed — fall through to localStorage fallback */ }
+    }
+
+    // Fallback: try localStorage backup if DB restore didn't work
+    if (!restored) {
+      try {
+        const backup = localStorage.getItem("tbl_free_hit_backup");
+        if (backup) {
+          const backupIds: string[] = JSON.parse(backup);
+          localStorage.setItem("tbl_squad_player_ids", JSON.stringify(backupIds));
+          localStorage.setItem("tbl_picked_player_ids", JSON.stringify(backupIds));
+          setOriginalSquadIds(backupIds);
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Clean up localStorage state
+    localStorage.removeItem("tbl_free_hit_backup");
+    localStorage.removeItem("tbl_free_hit_gw");
+    localStorage.removeItem("tbl_active_chip");
+    setFreeHitActive(false);
+    setPendingTransfers([]);
+    setSelectedOutId(null);
+    setSearchQuery("");
+    window.dispatchEvent(new Event("tbl_squad_updated"));
     setShowCancelFreeHitModal(false);
   }
 
@@ -370,6 +396,55 @@ function TransfersPageInner() {
     const timer = setTimeout(() => setTeamLimitError(null), 3500);
     return () => clearTimeout(timer);
   }, [teamLimitError]);
+
+  // Save squad to DB (squad-only, no starting lineup — pick-team handles that)
+  const [squadSaving, setSquadSaving] = React.useState(false);
+  const [squadSaveMsg, setSquadSaveMsg] = React.useState<{ text: string; type: "success" | "error" } | null>(null);
+  React.useEffect(() => {
+    if (!squadSaveMsg) return;
+    const timer = setTimeout(() => setSquadSaveMsg(null), 4000);
+    return () => clearTimeout(timer);
+  }, [squadSaveMsg]);
+
+  async function handleSaveSquad() {
+    if (squadSaving) return;
+    if (!gwIdForRoster) {
+      setSquadSaveMsg({ text: "No active gameweek yet.", type: "error" });
+      return;
+    }
+    const ids = effectiveSquadIds;
+    if (ids.length !== 17) {
+      setSquadSaveMsg({ text: `Squad must be 17 players (you have ${ids.length}).`, type: "error" });
+      return;
+    }
+
+    setSquadSaving(true);
+    try {
+      const teamName = (localStorage.getItem("tbl_team_name") || "").trim() || undefined;
+      const res = await fetch("/api/rosters/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          gameweekId: gwIdForRoster,
+          squadIds: ids,
+          squadOnly: true,
+          teamName,
+          transfers: pendingTransfers,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Save failed");
+
+      // Update localStorage to stay in sync
+      saveSquadIds(ids);
+      setSquadSaveMsg({ text: "Squad saved! Go to Pick Team to set your lineup.", type: "success" });
+    } catch (e: any) {
+      setSquadSaveMsg({ text: e?.message || "Failed to save squad.", type: "error" });
+    } finally {
+      setSquadSaving(false);
+    }
+  }
 
   React.useEffect(() => {
     if (originalSquadIds.length === 0) return;
@@ -1416,25 +1491,35 @@ function TransfersPageInner() {
               </span>
             </button>
           ) : effectiveSquad.length >= 17 ? (
-            <Link
-              href="/dashboard/fantasy/pick-team"
+            <button
+              type="button"
+              onClick={handleSaveSquad}
+              disabled={squadSaving || locked}
               className={cn(
-                "block w-full py-3.5 rounded-full text-sm font-bold text-center text-white transition",
-                "hover:opacity-90"
+                "w-full py-3.5 rounded-full text-sm font-bold text-center text-white transition",
+                squadSaving || locked ? "bg-gray-400 cursor-not-allowed" : "hover:opacity-90"
               )}
-              style={{ background: "#0D5C63", color: "#FFFFFF" }}
+              style={!squadSaving && !locked ? { background: "#0D5C63", color: "#FFFFFF" } : undefined}
             >
-              Save Squad & Pick Team
-            </Link>
-          ) : (
-            <div className="text-center text-xs text-muted-foreground py-2">
-              Tap a player on the pitch to start a transfer
+              {squadSaving ? "Saving..." : "Save Squad"}
+            </button>
+          ) : effectiveSquad.length === 0 ? (
+            <div className="text-center py-3 space-y-1.5">
+              <div className="text-sm font-semibold text-foreground">Build your squad</div>
+              <div className="text-xs text-muted-foreground">
+                Tap an empty slot on the pitch to add your first player.
+                <br />
+                You need 17 players to complete your squad.
+              </div>
             </div>
-          )}
-
-          {effectiveSquad.length < 17 && effectiveSquad.length > 0 && (
-            <div className="text-center text-xs text-muted-foreground">
-              {17 - effectiveSquad.length} player{17 - effectiveSquad.length !== 1 ? "s" : ""} remaining
+          ) : (
+            <div className="text-center py-2 space-y-1">
+              <div className="text-xs text-muted-foreground">
+                Tap an empty slot to keep adding players
+              </div>
+              <div className="text-xs font-medium text-foreground">
+                {17 - effectiveSquad.length} player{17 - effectiveSquad.length !== 1 ? "s" : ""} remaining
+              </div>
             </div>
           )}
         </div>
@@ -1521,6 +1606,32 @@ function TransfersPageInner() {
               onClick={() => setTeamLimitError(null)}
               className="h-7 w-7 rounded-full grid place-items-center hover:bg-gray-100 shrink-0"
             >
+              <X className="h-3.5 w-3.5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* === SQUAD SAVE TOAST === */}
+      {squadSaveMsg && (
+        <div className="fixed bottom-20 inset-x-0 z-50 flex justify-center px-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className={cn(
+            "flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-xl max-w-sm w-full",
+            squadSaveMsg.type === "success" ? "border-green-200 bg-white" : "border-red-200 bg-white"
+          )}>
+            <div className="h-9 w-9 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: squadSaveMsg.type === "success" ? "linear-gradient(135deg, #00FF87, #04F5FF)" : "linear-gradient(135deg, #ef4444, #dc2626)" }}>
+              {squadSaveMsg.type === "success" ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke={squadSaveMsg.type === "success" ? "#37003C" : "#fff"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              ) : (
+                <X className="h-4 w-4 text-white" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-gray-900">{squadSaveMsg.type === "success" ? "Squad saved" : "Save failed"}</div>
+              <div className="text-xs text-gray-500">{squadSaveMsg.text}</div>
+            </div>
+            <button type="button" onClick={() => setSquadSaveMsg(null)} className="h-7 w-7 rounded-full grid place-items-center hover:bg-gray-100 shrink-0">
               <X className="h-3.5 w-3.5 text-gray-400" />
             </button>
           </div>

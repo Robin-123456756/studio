@@ -154,9 +154,12 @@ function LeaguesContent() {
         <>
           {/* Invitational Leagues */}
           <div className="mt-6">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 mb-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 mb-1">
               Invitational Leagues
             </h2>
+            <p className="text-[10px] text-muted-foreground px-1 mb-2">
+              Private leagues you create or join with an invite code
+            </p>
             <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)] overflow-hidden">
               {invitational.length === 0 ? (
                 <CardContent className="py-6 text-center text-sm text-muted-foreground">
@@ -175,9 +178,12 @@ function LeaguesContent() {
           {/* General Leagues */}
           {general.length > 0 && (
             <div className="mt-6 mb-6">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 mb-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1 mb-1">
                 General Leagues
               </h2>
+              <p className="text-[10px] text-muted-foreground px-1 mb-2">
+                Everyone is automatically entered — compete against all managers
+              </p>
               <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)] overflow-hidden">
                 <div className="divide-y divide-border">
                   {general.map((league) => (

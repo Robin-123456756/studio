@@ -56,9 +56,9 @@ export async function GET(req: Request) {
           .maybeSingle()
       : { data: null };
 
-    // Rollover: 1 base + min(1, unused from previous) = max 2
+    // Rollover: 1 base + unused from previous, capped at 5
     const unused = prev ? Math.max(0, prev.free_transfers - prev.used_transfers) : 0;
-    freeTransfers = Math.min(2, 1 + Math.min(1, unused));
+    freeTransfers = Math.min(5, 1 + unused);
     usedTransfers = 0;
     wildcardActive = false;
     freeHitActive = false;
@@ -208,7 +208,7 @@ export async function POST(req: Request) {
       : { data: null };
 
     const unused = prev ? Math.max(0, prev.free_transfers - prev.used_transfers) : 0;
-    const freeTransfers = Math.min(2, 1 + Math.min(1, unused));
+    const freeTransfers = Math.min(5, 1 + unused);
 
     // Check chips
     const { data: chips } = await admin

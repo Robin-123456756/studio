@@ -264,22 +264,28 @@ function TransferNextPageInner() {
         let captainId = localStorage.getItem("tbl_captain_id") || null;
         let viceId = localStorage.getItem("tbl_vice_captain_id") || null;
 
-        // If no starting lineup in localStorage, load from DB (e.g. new device)
-        if (startingIds.length === 0) {
-          try {
-            const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
-            const dbRoster = await res.json();
-            if (res.ok && Array.isArray(dbRoster.startingIds)) {
+        // Always fetch DB roster for bench order (no localStorage key for it)
+        // and as fallback for starting/captain/vice when localStorage is empty
+        let benchOrderIds: string[] = [];
+        try {
+          const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
+          const dbRoster = await res.json();
+          if (res.ok) {
+            // Bench order always comes from DB (not stored in localStorage)
+            if (Array.isArray(dbRoster.benchOrder)) benchOrderIds = dbRoster.benchOrder;
+            // Starting/captain/vice: use localStorage if available, DB as fallback
+            if (startingIds.length === 0 && Array.isArray(dbRoster.startingIds)) {
               startingIds = dbRoster.startingIds;
-              if (dbRoster.captainId) captainId = dbRoster.captainId;
-              if (dbRoster.viceId) viceId = dbRoster.viceId;
             }
-          } catch { /* proceed with empty */ }
-        }
+            if (!captainId && dbRoster.captainId) captainId = dbRoster.captainId;
+            if (!viceId && dbRoster.viceId) viceId = dbRoster.viceId;
+          }
+        } catch { /* proceed with what we have */ }
 
-        // Map outgoing → incoming for starting lineup, captain, vice
+        // Map outgoing → incoming for starting lineup, captain, vice, bench order
         for (const t of pendingTransfers) {
           startingIds = startingIds.map((id) => (id === t.outId ? t.inId : id));
+          benchOrderIds = benchOrderIds.map((id) => (id === t.outId ? t.inId : id));
           if (captainId === t.outId) captainId = t.inId;
           if (viceId === t.outId) viceId = t.inId;
         }
@@ -295,6 +301,7 @@ function TransferNextPageInner() {
           startingIds,
           captainId,
           viceId,
+          benchOrder: benchOrderIds.length > 0 ? benchOrderIds : undefined,
         });
       } catch (e: any) {
         setSaveError(e?.message ?? "Could not save transfers. Please review your squad rules and try again.");
