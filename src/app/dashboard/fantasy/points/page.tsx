@@ -661,6 +661,7 @@ function PointsPage() {
   const isHighestView = viewParam === "highest";
   const isManagerView = viewParam === "manager";
   const managerUserId = searchParams.get("user_id");
+  const gwIdParam = searchParams.get("gw_id");
 
   const [userId, setUserId] = React.useState<string | null>(null);
   const [allGWs, setAllGWs] = React.useState<ApiGameweek[]>([]);
@@ -687,6 +688,15 @@ function PointsPage() {
   // Highest / manager view info
   const [highestUserName, setHighestUserName] = React.useState<string | null>(null);
   const [managerName, setManagerName] = React.useState<string | null>(null);
+
+  // Header stats
+  const [teamName, setTeamName] = React.useState<string | null>(null);
+  const [averagePoints, setAveragePoints] = React.useState<number | null>(null);
+  const [highestPoints, setHighestPoints] = React.useState<number | null>(null);
+  const [gwRank, setGwRank] = React.useState<number | null>(null);
+  const [totalManagers, setTotalManagers] = React.useState<number | null>(null);
+  const [highestUserId, setHighestUserId] = React.useState<string | null>(null);
+  const [usedTransfers, setUsedTransfers] = React.useState(0);
 
   // Scoring rules (loaded once for PointsBreakdown)
   const [scoringRules, setScoringRules] = React.useState<ScoringRulesMap | null>(null);
@@ -739,16 +749,38 @@ function PointsPage() {
         if (!res.ok) throw new Error(json?.error || "Failed to load gameweeks");
 
         const all: ApiGameweek[] = json.all ?? [];
-        setAllGWs(all);
-
         const curId = json.current?.id ?? null;
+
+        // Only show GWs up to and including the current one (no future unplayed GWs)
+        const navigable = all.filter((g) => curId != null && g.id <= curId);
+        setAllGWs(navigable);
+
         setCurrentGwId(curId);
-        setSelectedGwId(curId);
+
+        // Honour ?gw_id= from the URL (e.g. "Highest →" link from another GW)
+        const urlGwId = gwIdParam ? Number(gwIdParam) : NaN;
+        const validUrlGw = Number.isFinite(urlGwId) && navigable.some((g) => g.id === urlGwId);
+        setSelectedGwId(validUrlGw ? urlGwId : curId);
       } catch (e: any) {
         setError(e?.message || "Failed to load gameweeks");
       }
     })();
   }, []);
+
+  // Sync selectedGwId when URL ?gw_id= changes via client-side navigation.
+  // The mount effect above sets it once; this handles subsequent param changes
+  // without a full remount (e.g. navigating between "Highest" links for different GWs).
+  // NOTE: selectedGwId is intentionally NOT in the deps — we only react to URL
+  // changes, not to arrow/selector navigation. Including it would snap the user
+  // back to the URL's gw_id every time they used the in-page arrows.
+  React.useEffect(() => {
+    if (allGWs.length === 0) return; // gameweeks not loaded yet
+    const urlGwId = gwIdParam ? Number(gwIdParam) : NaN;
+    if (!Number.isFinite(urlGwId)) return; // no gw_id in URL — leave as-is
+    const valid = allGWs.some((g) => g.id === urlGwId);
+    if (valid) setSelectedGwId(urlGwId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gwIdParam, allGWs]);
 
   // Load data for selected GW
   React.useEffect(() => {
@@ -761,110 +793,47 @@ function PointsPage() {
         setLoading(true);
         setError(null);
 
-        if (isHighestView) {
-          // ── Highest view: use existing API (unchanged) ──
-          const highestRes = await fetch(
-            `/api/rosters/highest?gw_id=${selectedGwId}`,
-            { cache: "no-store" }
-          );
-          const rosterJson = await highestRes.json();
-          if (!highestRes.ok) throw new Error(rosterJson?.error || "No rosters found");
-          setHighestUserName(rosterJson.teamName ?? "Top Scorer");
+        {
+          // ── All views use /api/fantasy-gw-details (one scoring source of truth) ──
+          //
+          // Highest view: the URL may contain a user_id from the "Highest →" link,
+          // but that user_id is only valid for the GW that was showing when the link
+          // was clicked. If the user navigated to a different GW via arrows/selector,
+          // we must re-discover the highest scorer for the NEW GW.
+          const urlGwId = gwIdParam ? Number(gwIdParam) : null;
+          const gwMatchesUrl = urlGwId === selectedGwId;
+          const highestTargetId =
+            isHighestView && managerUserId && gwMatchesUrl
+              ? managerUserId
+              : null;
 
-          const effectiveGwId = rosterJson.gwId ?? selectedGwId;
-          if (effectiveGwId !== selectedGwId) {
-            setSelectedGwId(effectiveGwId);
+          let gwDetailsUrl: string;
+          if (highestTargetId) {
+            gwDetailsUrl = `/api/fantasy-gw-details?gw_id=${selectedGwId}&user_id=${highestTargetId}`;
+          } else if (isManagerView && managerUserId) {
+            gwDetailsUrl = `/api/fantasy-gw-details?gw_id=${selectedGwId}&user_id=${managerUserId}`;
+          } else {
+            gwDetailsUrl = `/api/fantasy-gw-details?gw_id=${selectedGwId}`;
           }
-
-          const squadIds: string[] = rosterJson?.squadIds ?? [];
-          const sIds: string[] = rosterJson?.startingIds?.length > 0
-            ? rosterJson.startingIds
-            : squadIds;
-          const capId: string | null = rosterJson?.captainId ?? null;
-          const vcId: string | null = rosterJson?.viceId ?? null;
-          const mults: Record<string, number> = rosterJson?.multiplierByPlayer ?? {};
-
-          if (squadIds.length === 0) {
-            setSquad([]); setStartingIds([]); setCaptainId(null);
-            setViceId(null); setMultipliers({}); setTotalGwPoints(0);
-            setAutoSubs([]); setActiveChip(null); setTransferCost(0);
-            setCaptainActivated("none"); setCaptainMultiplier(2);
-            setIsBackfilled(false); setLoading(false);
-            return;
-          }
-
-          // Fetch player info + stats for highest view (same as before)
-          const [playersRes, statsRes] = await Promise.all([
-            fetch(`/api/players?ids=${squadIds.join(",")}`, { cache: "no-store" }),
-            fetch(`/api/player-stats?gw_id=${effectiveGwId}`, { cache: "no-store" }),
-          ]);
-
-          const playersJson = await playersRes.json();
-          const statsJson = await statsRes.json();
-
-          if (cancelled) return;
-          if (!playersRes.ok) throw new Error(playersJson?.error || "Failed to load players");
-
-          const players: PlayerInfo[] = (playersJson.players ?? []).map((p: any) => ({
-            id: p.id, name: p.name, webName: p.webName, position: p.position,
-            teamShort: p.teamShort, teamName: p.teamName, isLady: p.isLady, price: p.price,
-          }));
-
-          const statsMap = new Map<string, PlayerStat>();
-          for (const s of statsJson.stats ?? []) {
-            const pid = String(s.playerId);
-            const existing = statsMap.get(pid);
-            if (existing) {
-              existing.points += s.points ?? 0;
-              existing.goals += s.goals ?? 0;
-              existing.assists += s.assists ?? 0;
-              existing.cleanSheet = existing.cleanSheet || s.cleanSheet;
-              existing.yellowCards += s.yellowCards ?? 0;
-              existing.redCards += s.redCards ?? 0;
-              existing.ownGoals += s.ownGoals ?? 0;
-            } else {
-              statsMap.set(pid, {
-                playerId: pid, gameweekId: s.gameweekId, points: s.points ?? 0,
-                goals: s.goals ?? 0, assists: s.assists ?? 0,
-                cleanSheet: s.cleanSheet ?? false, yellowCards: s.yellowCards ?? 0,
-                redCards: s.redCards ?? 0, ownGoals: s.ownGoals ?? 0,
-                playerName: s.playerName ?? "",
-              });
-            }
-          }
-
-          const squadPlayers: SquadPlayer[] = players
-            .filter((p) => squadIds.includes(p.id))
-            .map((p) => {
-              const stat = statsMap.get(p.id) ?? null;
-              return { ...p, gwPoints: stat?.points ?? 0, stat };
-            });
-
-          let total = 0;
-          for (const id of sIds) {
-            const p = squadPlayers.find((sp) => sp.id === id);
-            if (!p) continue;
-            const mult = Number(mults[id] ?? (id === capId ? 2 : 1));
-            const m = Number.isFinite(mult) && mult > 0 ? mult : 1;
-            total += p.gwPoints * m;
-          }
-
-          if (cancelled) return;
-          setSquad(squadPlayers); setStartingIds(sIds); setCaptainId(capId);
-          setViceId(vcId); setMultipliers(mults); setTotalGwPoints(total);
-          setAutoSubs([]); setActiveChip(null); setTransferCost(0);
-          setCaptainActivated("none"); setCaptainMultiplier(2);
-          setIsBackfilled(false);
-        } else {
-          // ── Normal / Manager view: use unified API ──
-          const gwDetailsUrl = isManagerView && managerUserId
-            ? `/api/fantasy-gw-details?gw_id=${selectedGwId}&user_id=${managerUserId}`
-            : `/api/fantasy-gw-details?gw_id=${selectedGwId}`;
-          const res = await fetch(gwDetailsUrl, { cache: "no-store" });
-          const json = await res.json();
+          let res = await fetch(gwDetailsUrl, { cache: "no-store" });
+          let json = await res.json();
           if (!res.ok) throw new Error(json?.error || "Failed to load scoring details");
 
           if (cancelled) return;
+
+          // Highest view without a known target: we fetched our own data to discover
+          // the highest scorer, now re-fetch with their user_id for full details.
+          if (isHighestView && !highestTargetId) {
+            if (!json.highestUserId) {
+              // No matches processed yet — nothing to show
+              throw new Error("No scores available for this gameweek yet");
+            }
+            const highestUrl = `/api/fantasy-gw-details?gw_id=${selectedGwId}&user_id=${json.highestUserId}`;
+            res = await fetch(highestUrl, { cache: "no-store" });
+            json = await res.json();
+            if (!res.ok) throw new Error(json?.error || "Failed to load highest scorer");
+            if (cancelled) return;
+          }
 
           const squadIds: string[] = json.squadIds ?? [];
 
@@ -873,7 +842,11 @@ function PointsPage() {
             setViceId(null); setMultipliers({}); setTotalGwPoints(0);
             setAutoSubs([]); setActiveChip(null); setTransferCost(0);
             setCaptainActivated("none"); setCaptainMultiplier(2);
-            setIsBackfilled(false); setLoading(false);
+            setIsBackfilled(false); setTeamName(null);
+            setAveragePoints(null); setHighestPoints(null);
+            setGwRank(null); setTotalManagers(null);
+            setHighestUserId(null); setUsedTransfers(0);
+            setLoading(false);
             return;
           }
 
@@ -930,6 +903,16 @@ function PointsPage() {
           setCaptainActivated(json.captainActivated ?? "none");
           setCaptainMultiplier(capMult);
           setIsBackfilled(json.isBackfilled ?? false);
+          setTeamName(json.teamName ?? null);
+          setAveragePoints(json.averagePoints ?? null);
+          setHighestPoints(json.highestPoints ?? null);
+          setGwRank(json.gwRank ?? null);
+          setTotalManagers(json.totalManagers ?? null);
+          setHighestUserId(json.highestUserId ?? null);
+          setUsedTransfers(json.usedTransfers ?? 0);
+          if (isHighestView) {
+            setHighestUserName(json.teamName ?? "Top Scorer");
+          }
           if (isManagerView && json.managerTeamName) {
             setManagerName(json.managerTeamName);
           }
@@ -942,6 +925,11 @@ function PointsPage() {
     })();
 
     return () => { cancelled = true; };
+    // gwIdParam is read inside the loader (to check if URL user_id is stale)
+    // but should NOT be a trigger — selectedGwId is the source of truth for
+    // which GW to fetch. Including gwIdParam would cause a double-fetch on
+    // every "Highest →" click (gwIdParam and selectedGwId update separately).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, selectedGwId, isHighestView, isManagerView, managerUserId]);
 
   // GW navigation
@@ -1029,8 +1017,8 @@ function PointsPage() {
           )}
         >
           <div className="p-4 text-white">
-            {/* Back button + title + share */}
-            <div className="flex items-center gap-3 mb-4">
+            {/* Back button + share */}
+            <div className="flex items-center gap-3 mb-1">
               <Link
                 href="/dashboard/fantasy"
                 className="h-9 w-9 rounded-full bg-white/10 grid place-items-center hover:bg-white/20"
@@ -1038,13 +1026,7 @@ function PointsPage() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Link>
-              <div className="flex-1 text-sm font-semibold text-white/80">
-                {isHighestView
-                  ? `Highest Score${highestUserName ? ` - ${highestUserName}` : ""}`
-                  : isManagerView
-                    ? managerName ?? "Manager"
-                    : "Points"}
-              </div>
+              <div className="flex-1" />
               {!loading && squad.length > 0 && !isManagerView && (
                 <button
                   type="button"
@@ -1057,8 +1039,19 @@ function PointsPage() {
               )}
             </div>
 
+            {/* Team name — centered like FPL */}
+            <div className="text-center mb-2">
+              <div className="text-base font-bold">
+                {isHighestView
+                  ? highestUserName ?? "Top Scorer"
+                  : isManagerView
+                    ? managerName ?? "Manager"
+                    : teamName ?? "My Team"}
+              </div>
+            </div>
+
             {/* GW selector */}
-            <div className="flex items-center justify-center gap-4 mb-2">
+            <div className="flex items-center justify-center gap-4 mb-3">
               <button
                 type="button"
                 onClick={goPrev}
@@ -1105,28 +1098,85 @@ function PointsPage() {
               </button>
             </div>
 
-            {/* Total points */}
-            <div className="text-center pb-3">
-              <div className="text-4xl font-extrabold tabular-nums">
-                {loading ? "--" : totalGwPoints}
+            {/* Row 1: Average | Total Pts (gross) | Highest → — all on same basis */}
+            <div className="flex items-center justify-center gap-3 pb-2">
+              {/* Average */}
+              <div className="flex-1 text-center">
+                <div className="text-2xl font-extrabold tabular-nums">
+                  {loading ? "--" : (averagePoints ?? "--")}
+                </div>
+                <div className="text-[11px] font-semibold text-white/60 mt-0.5">
+                  Average
+                </div>
               </div>
-              {/* Transfer cost deduction */}
-              {!loading && !isHighestView && transferCost > 0 && (
-                <div className="mt-1">
-                  <span className="text-xs font-semibold text-red-300">
-                    -{transferCost} transfer cost
-                  </span>
-                  <div className="text-lg font-extrabold tabular-nums text-white/90">
-                    {netPoints} net
+
+              {/* Total Pts — highlighted teal box (gross, comparable with avg/highest) */}
+              <div
+                className="flex-shrink-0 rounded-xl px-5 py-2 text-center"
+                style={{
+                  background: "linear-gradient(135deg, #0D5C63, #14919B)",
+                  boxShadow: "0 4px 16px rgba(13,92,99,0.4)",
+                  minWidth: 100,
+                }}
+              >
+                <div className="text-3xl font-extrabold tabular-nums">
+                  {loading ? "--" : totalGwPoints}
+                </div>
+                <div className="text-[11px] font-bold text-white/80 mt-0.5">
+                  Total Pts
+                </div>
+              </div>
+
+              {/* Highest — tappable when data exists, plain text otherwise */}
+              {!loading && highestUserId ? (
+                <Link
+                  href={`/dashboard/fantasy/points?view=highest&gw_id=${selectedGwId}&user_id=${highestUserId}`}
+                  className="flex-1 text-center group"
+                >
+                  <div className="text-2xl font-extrabold tabular-nums">
+                    {highestPoints ?? "--"}
+                  </div>
+                  <div className="text-[11px] font-semibold text-white/60 mt-0.5 flex items-center justify-center gap-0.5">
+                    Highest
+                    <ChevronRight className="h-3 w-3 opacity-60 group-hover:opacity-100 transition" />
+                  </div>
+                </Link>
+              ) : (
+                <div className="flex-1 text-center">
+                  <div className="text-2xl font-extrabold tabular-nums">
+                    {loading ? "--" : (highestPoints ?? "--")}
+                  </div>
+                  <div className="text-[11px] font-semibold text-white/60 mt-0.5">
+                    Highest
                   </div>
                 </div>
               )}
-              {(!transferCost || transferCost === 0 || isHighestView) && (
-                <div className="mt-1 text-xs font-semibold text-white/70">
-                  GW Points
-                </div>
-              )}
             </div>
+
+            {/* Row 2: GW Rank | Transfers (with net after deduction) */}
+            {!loading && !isHighestView && (
+              <div className="flex items-center justify-between px-2 pb-3">
+                {/* GW Rank */}
+                <div className="text-[11px] font-semibold text-white/60">
+                  {gwRank != null && totalManagers != null ? (
+                    <>GW Rank: <span className="text-white font-bold">#{gwRank}</span> of {totalManagers}</>
+                  ) : null}
+                </div>
+
+                {/* Transfers + net deduction */}
+                <div className="text-[11px] font-semibold text-white/60">
+                  {transferCost > 0 ? (
+                    <>
+                      {usedTransfers} transfer{usedTransfers !== 1 ? "s" : ""}
+                      <span className="text-red-300 ml-1">(-{transferCost})</span>
+                      <span className="text-white font-bold ml-1">{netPoints} net</span>
+                    </>
+                  ) : usedTransfers > 0 ? (
+                    <>{usedTransfers} transfer{usedTransfers !== 1 ? "s" : ""}</>
+                  ) : null}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1155,8 +1205,73 @@ function PointsPage() {
           </div>
         ) : (
           <>
-            {/* Chip banner */}
-            {!isHighestView && activeChip && <ChipBanner chip={activeChip} />}
+            {/* Chip banner — show for all views */}
+            {activeChip && <ChipBanner chip={activeChip} />}
+
+            {/* Top Team summary card (highest view enrichment) */}
+            {isHighestView && squad.length > 0 && (() => {
+              // Use the actual activated captain (respects vice-captain fallback)
+              const effectiveCaptainId = captainActivated === "vice" ? viceId : captainId;
+              const effectiveCaptainPlayer = effectiveCaptainId
+                ? squad.find((p) => p.id === effectiveCaptainId)
+                : null;
+              const captainHaul = effectiveCaptainPlayer
+                ? effectiveCaptainPlayer.gwPoints * (captainActivated !== "none" ? captainMultiplier : 1)
+                : 0;
+              const captainLabel = captainActivated === "vice" ? "Vice-Captain" : "Captain";
+
+              const starters = squad.filter((p) => startingIds.includes(p.id));
+              const biggestHaul = starters.length > 0
+                ? starters.reduce((best, p) => (p.gwPoints > best.gwPoints ? p : best), starters[0])
+                : null;
+              const aboveAvg = averagePoints != null ? totalGwPoints - averagePoints : null;
+              return (
+                <div
+                  style={{
+                    margin: "0 0 2px",
+                    padding: "12px 16px",
+                    background: "linear-gradient(135deg, #062C30, #0D5C63)",
+                    color: "#fff",
+                    fontSize: 12,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <div className="text-sm font-bold">{highestUserName ?? "Top Scorer"}</div>
+                      <div className="text-[11px] text-white/60">GW {selectedGwId} Top Team</div>
+                    </div>
+                    {aboveAvg != null && aboveAvg > 0 && (
+                      <div
+                        className="rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+                        style={{ background: "rgba(5,150,105,0.3)", color: "#6EE7B7" }}
+                      >
+                        +{aboveAvg} above avg
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-4 text-[11px] text-white/70">
+                    {effectiveCaptainPlayer && captainActivated !== "none" && (
+                      <div>
+                        <span className="text-white/50">{captainLabel}: </span>
+                        <span className="text-white font-semibold">
+                          {shortName(effectiveCaptainPlayer.name, effectiveCaptainPlayer.webName)}
+                          {" "}({captainHaul} pts)
+                        </span>
+                      </div>
+                    )}
+                    {biggestHaul && biggestHaul.id !== effectiveCaptainId && biggestHaul.gwPoints > 0 && (
+                      <div>
+                        <span className="text-white/50">Biggest haul: </span>
+                        <span className="text-white font-semibold">
+                          {shortName(biggestHaul.name, biggestHaul.webName)}
+                          {" "}({biggestHaul.gwPoints} pts)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Backfill banner for pre-signup GWs */}
             {isBackfilled && (

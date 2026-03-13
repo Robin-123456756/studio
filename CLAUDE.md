@@ -1,4 +1,8 @@
-# CLAUDE.md — Budo League Fantasy App
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# Budo League Fantasy App
 
 ## Your Identity
 You are Raymond's senior engineering partner on the Budo League Fantasy Football app.
@@ -118,6 +122,36 @@ psql -f /tmp/query.sql
 | Auth       | Supabase Auth                 | Email confirmation required     |
 | Timezone   | Africa/Kampala (UTC+3)        | All user-facing times           |
 | Deploy     | Vercel                        | Edge-compatible API routes      |
+
+## Build & Development Commands
+
+```bash
+npm run dev          # Start dev server on port 3001
+npm run build        # Production build (Next.js)
+npm run lint         # ESLint (also runs during Vercel builds)
+npm run typecheck    # TypeScript type checking (tsc --noEmit)
+npm test             # Run all tests (vitest)
+npm run test:watch   # Run tests in watch mode
+npx vitest run src/lib/scoring-engine.test.ts   # Run a single test file
+```
+
+- **Test framework**: Vitest with `globals: true` (no need to import `describe`/`it`/`expect`)
+- **Test files**: Co-located in `src/lib/*.test.ts` (scoring-engine, roster-validation, leaderboard-utils, invite-code)
+- **PWA dev preview**: `npm run dev:pwa` enables service worker in dev mode
+- **ESLint errors are ignored during builds** (`ignoreDuringBuilds: true` in next.config)
+- **Cron jobs**: Two Vercel crons defined in `vercel.json` — deadline reminders (daily 5am UTC) and GW summary (daily 6am UTC)
+
+## Key Modules (Architecture)
+
+- `src/lib/scoring-engine.ts` — Core fantasy scoring: auto-substitution, vice-captain activation, chip logic (Bench Boost, Triple Captain). Replaces old Supabase RPCs.
+- `src/lib/roster-validation.ts` — Validates squad composition: formation rules, lady player requirements, team limits, budget checks.
+- `src/lib/leaderboard-utils.ts` — `computeStandings()` shared by main league and mini-leagues. Formula: `Pts = W*3 + D`.
+- `src/lib/lady-points-logic.ts` — Lady player 2x multiplier logic (positive actions only).
+- `src/lib/supabase-admin.ts` — `getSupabaseServerOrThrow()` for server-side Supabase with service role key.
+- `src/lib/supabaseClient.ts` — Client-side Supabase instance (anon key).
+- `src/lib/fantasyDb.ts` — Client-side fantasy DB helpers (roster save, team name upsert).
+- `src/lib/rate-limit.ts` — Simple rate limiter for API routes.
+- `src/app/api/` — ~25 API route groups. Key ones: `players`, `matches`, `rosters`, `standings`, `transfers`, `chips`, `voice-admin`, `cron/`.
 
 ## Auth Rules
 - **Client-side**: Use `supabase.auth.getSession()` — NEVER `getUser()`

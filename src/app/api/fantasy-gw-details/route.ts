@@ -3,6 +3,11 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { computeUserScore } from "@/lib/scoring-engine";
 import type { RosterRow, PlayerMeta, PlayerStat } from "@/lib/scoring-engine";
+import {
+  computeTransferCost,
+  computeLeagueStats,
+  stripChipsForRollover,
+} from "@/lib/gw-details-utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -73,12 +78,7 @@ export async function GET(req: Request) {
           .eq("gameweek_id", prevGwId);
 
         if (prevRows && prevRows.length > 0) {
-          // Reset chips & captain multiplier — chips are one-time, never roll over
-          rows = prevRows.map((r: any) => ({
-            ...r,
-            active_chip: null,
-            multiplier: r.is_captain ? 2 : 1,
-          }));
+          rows = stripChipsForRollover(prevRows);
           rosterSourceGwId = prevGwId;
         }
       }
@@ -105,12 +105,7 @@ export async function GET(req: Request) {
           .eq("gameweek_id", firstGwId);
 
         if (firstRows && firstRows.length > 0) {
-          // Reset chips & captain multiplier — same as backward rollover
-          rows = firstRows.map((r: any) => ({
-            ...r,
-            active_chip: null,
-            multiplier: r.is_captain ? 2 : 1,
-          }));
+          rows = stripChipsForRollover(firstRows);
           rosterSourceGwId = firstGwId;
           isBackfilled = true;
         }
@@ -277,8 +272,10 @@ export async function GET(req: Request) {
     const isTripleCaptain = activeChip === "triple_captain";
     const captainMultiplier = isTripleCaptain ? 3 : 2;
 
-    // ── 5. Transfer cost (skip for backfilled pre-signup GWs and manager views) ──
+    // ── 5. Transfer cost + counts (skip for backfilled pre-signup GWs and manager views) ──
     let transferCost = 0;
+    let freeTransfers = 0;
+    let usedTransfers = 0;
     if (!isBackfilled && !isManagerView) {
       const { data: transferState } = await admin
         .from("user_transfer_state")
@@ -288,22 +285,136 @@ export async function GET(req: Request) {
         .maybeSingle();
 
       if (transferState) {
-        const isWcOrFh = transferState.wildcard_active || transferState.free_hit_active;
-        transferCost = isWcOrFh
-          ? 0
-          : Math.max(0, transferState.used_transfers - transferState.free_transfers) * 4;
+        freeTransfers = transferState.free_transfers ?? 0;
+        usedTransfers = transferState.used_transfers ?? 0;
+        const isWcOrFh = !!(transferState.wildcard_active || transferState.free_hit_active);
+        transferCost = computeTransferCost(freeTransfers, usedTransfers, isWcOrFh);
       }
     }
 
-    // ── 5b. Fetch team name for manager views ──
-    let managerTeamName: string | null = null;
-    if (isManagerView) {
+    // ── 5b. Fetch team name (always — used in header) ──
+    let teamName: string | null = null;
+    {
       const { data: ft } = await admin
         .from("fantasy_teams")
         .select("name")
         .eq("user_id", userId)
         .maybeSingle();
-      managerTeamName = ft?.name ?? null;
+      teamName = ft?.name ?? null;
+    }
+
+    // ── 5c. Compute league-wide average and highest for this GW ──
+    // Uses the real scoring engine (computeUserScore) so numbers match
+    // the dedicated /api/rosters/highest route exactly.
+    // Uses statsGwId (not gwId) so rollover GWs stay consistent.
+    let averagePoints: number | null = null;
+    let highestPoints: number | null = null;
+    let gwRank: number | null = null;
+    let totalManagers: number | null = null;
+    let highestUserId: string | null = null;
+
+    if (gwMatchIds.length > 0) {
+      const { data: allRosters } = await admin
+        .from("user_rosters")
+        .select("user_id, player_id, is_starting_9, is_captain, is_vice_captain, multiplier, active_chip, bench_order")
+        .eq("gameweek_id", statsGwId);
+
+      if (allRosters && allRosters.length > 0) {
+        // Collect all player IDs across every user's roster
+        const allPlayerIds = [...new Set(allRosters.map((r: any) => String(r.player_id)))];
+
+        // Fetch ALL events for this GW's matches
+        const { data: allEvents } = await admin
+          .from("player_match_events")
+          .select("player_id, points_awarded, quantity")
+          .in("match_id", gwMatchIds);
+
+        // Also fetch did_play from player_stats for all players
+        const { data: allStatsData } = await admin
+          .from("player_stats")
+          .select("player_id, did_play")
+          .eq("gameweek_id", statsGwId)
+          .in("player_id", allPlayerIds);
+
+        // Build points map and played-set from events
+        const allPointsMap = new Map<string, number>();
+        const allPlayedFromEvents = new Set<string>();
+        for (const e of allEvents ?? []) {
+          const pid = String(e.player_id);
+          allPointsMap.set(
+            pid,
+            (allPointsMap.get(pid) ?? 0) + (e.points_awarded ?? 0) * (e.quantity ?? 1)
+          );
+          allPlayedFromEvents.add(pid);
+        }
+
+        // Build statsMap for scoring engine (points + did_play per player)
+        const allStatsMap = new Map<string, PlayerStat>();
+        for (const pid of allPlayerIds) {
+          const didPlayFromStats = (allStatsData ?? []).some(
+            (s: any) => String(s.player_id) === pid && s.did_play
+          );
+          allStatsMap.set(pid, {
+            player_id: pid,
+            points: allPointsMap.get(pid) ?? 0,
+            did_play: allPlayedFromEvents.has(pid) || didPlayFromStats,
+          });
+        }
+
+        // Fetch player metadata (position, is_lady) for formation & lady-swap checks
+        const { data: allPlayerMeta } = await admin
+          .from("players")
+          .select("id, position, is_lady")
+          .in("id", allPlayerIds);
+
+        const allMetaMap = new Map<string, PlayerMeta>();
+        for (const p of allPlayerMeta ?? []) {
+          allMetaMap.set(String(p.id), {
+            id: String(p.id),
+            position: p.position,
+            is_lady: p.is_lady,
+          });
+        }
+
+        // Group rosters by user
+        const byUser = new Map<string, RosterRow[]>();
+        for (const r of allRosters) {
+          const uid = String(r.user_id);
+          if (!byUser.has(uid)) byUser.set(uid, []);
+          byUser.get(uid)!.push({
+            user_id: uid,
+            player_id: String(r.player_id),
+            is_starting_9: r.is_starting_9,
+            is_captain: r.is_captain,
+            is_vice_captain: r.is_vice_captain,
+            multiplier: r.multiplier ?? 1,
+            active_chip: r.active_chip ?? null,
+            bench_order: r.bench_order ?? null,
+          });
+        }
+
+        // Run the real scoring engine for each user
+        const userScoreEntries: { uid: string; pts: number }[] = [];
+        for (const [uid, rows] of byUser) {
+          const userResult = computeUserScore(rows, allStatsMap, allMetaMap);
+          userScoreEntries.push({ uid, pts: userResult.totalPoints });
+        }
+
+        if (userScoreEntries.length > 0) {
+          const leagueStats = computeLeagueStats(
+            userScoreEntries,
+            result.totalPoints,
+            isBackfilled,
+          );
+          if (leagueStats) {
+            averagePoints = leagueStats.averagePoints;
+            highestPoints = leagueStats.highestPoints;
+            gwRank = leagueStats.gwRank;
+            totalManagers = leagueStats.totalManagers;
+            highestUserId = leagueStats.highestUserId;
+          }
+        }
+      }
     }
 
     // ── 6. Build player list ──
@@ -346,9 +457,17 @@ export async function GET(req: Request) {
       activeChip: isBackfilled ? null : activeChip,
       captainMultiplier,
       transferCost,
+      freeTransfers,
+      usedTransfers,
       players,
       isBackfilled,
-      ...(isManagerView && { managerTeamName }),
+      teamName,
+      averagePoints,
+      highestPoints,
+      gwRank,
+      totalManagers,
+      highestUserId,
+      ...(isManagerView && { managerTeamName: teamName }),
     });
   } catch (e: any) {
     return NextResponse.json(
