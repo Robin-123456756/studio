@@ -93,7 +93,7 @@ type ScoringRules = Record<string, number>;
  * Returns a map of "action:POSITION" → points (e.g. "goal:FWD" → 4).
  * Fresh load on every call (no stale cache between gameweeks).
  */
-async function loadScoringRules(): Promise<ScoringRules> {
+export async function loadScoringRules(): Promise<ScoringRules> {
   const supabase = getSupabaseServerOrThrow();
   const { data, error } = await supabase
     .from("scoring_rules")

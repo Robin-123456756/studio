@@ -75,6 +75,7 @@ export async function GET(req: Request) {
       playerName: string;
       playerId: string;
       goals: number;
+      penalties: number;
       assists: number;
       yellowCards: number;
       redCards: number;
@@ -88,7 +89,7 @@ export async function GET(req: Request) {
       const matchIds = rows.map((m: any) => m.id);
       const { data: rawEvents } = await supabase
         .from("player_match_events")
-        .select("match_id, player_id, action, quantity")
+        .select("match_id, player_id, action, quantity, penalties")
         .in("match_id", matchIds);
 
       if (rawEvents && rawEvents.length > 0) {
@@ -111,6 +112,7 @@ export async function GET(req: Request) {
               playerId: e.player_id,
               playerName: p?.web_name ?? p?.name ?? "Unknown",
               goals: 0,
+              penalties: 0,
               assists: 0,
               yellowCards: 0,
               redCards: 0,
@@ -122,7 +124,10 @@ export async function GET(req: Request) {
           const entry = matchMap.get(e.player_id)!;
           const qty = Number(e.quantity ?? 1);
           const act = (e.action ?? "").toLowerCase();
-          if (act === "goal") entry.goals += qty;
+          if (act === "goal") {
+            entry.goals += qty;
+            entry.penalties += Number(e.penalties ?? 0);
+          }
           else if (act === "assist") entry.assists += qty;
           else if (act === "yellow_card" || act === "yellow") entry.yellowCards += qty;
           else if (act === "red_card" || act === "red") entry.redCards += qty;

@@ -57,9 +57,35 @@ export async function GET() {
       : gws.find((g) => !isFinished(g))) ??
     null;
 
+  // Check which GWs have at least one played/final match.
+  // On query failure, default every GW to hasPlayedMatches: true so a
+  // transient DB error doesn't blank the entire GW navigation.
+  const gwIds = gws.map((g) => g.id);
+  let gwsWithMatches: Set<number> | null = null;
+
+  if (gwIds.length > 0) {
+    const { data: playedMatches, error: matchErr } = await supabase
+      .from("matches")
+      .select("gameweek_id")
+      .in("gameweek_id", gwIds)
+      .or("is_played.eq.true,is_final.eq.true");
+
+    if (!matchErr && playedMatches) {
+      gwsWithMatches = new Set<number>();
+      for (const m of playedMatches) {
+        gwsWithMatches.add(m.gameweek_id);
+      }
+    }
+  }
+
+  const enrichedGws = gws.map((g) => ({
+    ...g,
+    hasPlayedMatches: gwsWithMatches ? gwsWithMatches.has(g.id) : true,
+  }));
+
   return NextResponse.json({
     current: current ?? null,
     next: next ?? null,
-    all: gws,
+    all: enrichedGws,
   });
 }

@@ -1087,6 +1087,7 @@ type ManualPlayer = {
 type PlayerEvents = {
   appeared: boolean;
   goals: number;
+  penalties: number;
   assists: number;
   clean_sheet: boolean;
   yellow: boolean;
@@ -1098,7 +1099,7 @@ type PlayerEvents = {
 };
 
 const DEFAULT_EVENTS: PlayerEvents = {
-  appeared: false, goals: 0, assists: 0, clean_sheet: false,
+  appeared: false, goals: 0, penalties: 0, assists: 0, clean_sheet: false,
   yellow: false, red: false, own_goal: 0, pen_miss: 0,
   pen_save: 0, save_3: 0,
 };
@@ -1183,12 +1184,12 @@ function ManualView({ matchId, onSaved }: { matchId: number | null; onSaved?: ()
     setSaveResult(null);
 
     // Build events array: only players who appeared
-    const events: { playerId: string; actions: { action: string; quantity: number }[] }[] = [];
+    const events: { playerId: string; actions: { action: string; quantity: number; penalties?: number }[] }[] = [];
     for (const [playerId, ev] of Object.entries(playerEvents)) {
       if (!ev.appeared) continue;
-      const actions: { action: string; quantity: number }[] = [];
+      const actions: { action: string; quantity: number; penalties?: number }[] = [];
       actions.push({ action: "appearance", quantity: 1 });
-      if (ev.goals > 0) actions.push({ action: "goal", quantity: ev.goals });
+      if (ev.goals > 0) actions.push({ action: "goal", quantity: ev.goals, penalties: ev.penalties || 0 });
       if (ev.assists > 0) actions.push({ action: "assist", quantity: ev.assists });
       if (ev.clean_sheet) actions.push({ action: "clean_sheet", quantity: 1 });
       if (ev.yellow) actions.push({ action: "yellow", quantity: 1 });
@@ -1342,7 +1343,7 @@ function ManualView({ matchId, onSaved }: { matchId: number | null; onSaved?: ()
                   {/* Event summary icons (when collapsed + has events) */}
                   {!isExpanded && playerHasEvents && (
                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                      {ev.goals > 0 && <span style={{ fontSize: 12 }}>⚽{ev.goals > 1 ? ev.goals : ""}</span>}
+                      {ev.goals > 0 && <span style={{ fontSize: 12 }}>⚽{ev.goals > 1 ? ev.goals : ""}{ev.penalties > 0 ? `(${ev.penalties}P)` : ""}</span>}
                       {ev.assists > 0 && <span style={{ fontSize: 12 }}>🅰️{ev.assists > 1 ? ev.assists : ""}</span>}
                       {ev.clean_sheet && <span style={{ fontSize: 12 }}>🛡️</span>}
                       {ev.yellow && <span style={{ fontSize: 12 }}>🟨</span>}
@@ -1360,7 +1361,16 @@ function ManualView({ matchId, onSaved }: { matchId: number | null; onSaved?: ()
                   <div style={{ padding: "8px 16px 12px", backgroundColor: BG_SURFACE }}>
                     {/* Goals stepper */}
                     <ManualStepper label="Goals" icon="⚽" value={ev.goals} max={10}
-                      onChange={(v) => updateEvent(player.id, "goals", v)} />
+                      onChange={(v) => {
+                        updateEvent(player.id, "goals", v);
+                        // Cap penalties at new goals value
+                        if (ev.penalties > v) updateEvent(player.id, "penalties", v);
+                      }} />
+                    {/* Penalties stepper (only when goals > 0) */}
+                    {ev.goals > 0 && (
+                      <ManualStepper label="Penalties" icon="Ⓟ" value={ev.penalties} max={ev.goals}
+                        onChange={(v) => updateEvent(player.id, "penalties", v)} />
+                    )}
                     {/* Assists stepper */}
                     <ManualStepper label="Assists" icon="🅰️" value={ev.assists} max={10}
                       onChange={(v) => updateEvent(player.id, "assists", v)} />

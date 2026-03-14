@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
-import { computeUserScore } from "@/lib/scoring-engine";
+import { computeUserScore, norm, lookupPoints, loadScoringRules } from "@/lib/scoring-engine";
 import type { RosterRow, PlayerMeta, PlayerStat } from "@/lib/scoring-engine";
 import {
   computeTransferCost,
@@ -132,10 +132,10 @@ export async function GET(req: Request) {
       });
     }
 
-    // For backfilled GWs, always look up stats for the REQUESTED GW,
-    // not the roster's source GW. For normal/backward rollover, use the
-    // roster's GW (existing behavior).
-    const statsGwId = isBackfilled ? gwId : rosterSourceGwId;
+    // Always look up stats for the REQUESTED GW — like FPL, we want to
+    // see how the roster (even if rolled over from a previous GW) performed
+    // in the GW the user is viewing.
+    const statsGwId = gwId;
 
     // Build typed roster rows for scoring engine
     const rosterRows: RosterRow[] = rows.map((r: any) => ({
@@ -155,79 +155,16 @@ export async function GET(req: Request) {
     const viceId = rosterRows.find((r) => r.is_vice_captain)?.player_id ?? null;
     const activeChip = rosterRows.find((r) => r.active_chip)?.active_chip ?? null;
 
-    // ── 2. Compute points from player_match_events (source of truth) ──
+    // ── 2. Compute points from player_match_events using scoring rules ──
+    //    (recalculates from action + rules, matching the scoring engine —
+    //     never relies on pre-stored points_awarded which can be stale/0)
     const { data: gwMatches } = await admin
       .from("matches")
       .select("id")
       .eq("gameweek_id", statsGwId);
     const gwMatchIds = (gwMatches ?? []).map((m: any) => m.id);
 
-    const pointsMap = new Map<string, number>();
-    const playedFromEvents = new Set<string>();
-
-    if (gwMatchIds.length > 0) {
-      const { data: events } = await admin
-        .from("player_match_events")
-        .select("player_id, points_awarded, quantity")
-        .in("match_id", gwMatchIds)
-        .in("player_id", squadIds);
-
-      for (const e of events ?? []) {
-        const pid = String(e.player_id);
-        const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
-        pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
-        playedFromEvents.add(pid);
-      }
-    }
-
-    // Also check player_stats.did_play
-    const { data: statsData } = await admin
-      .from("player_stats")
-      .select("player_id, did_play, points, goals, assists, clean_sheet, yellow_cards, red_cards, own_goals")
-      .eq("gameweek_id", statsGwId)
-      .in("player_id", squadIds);
-
-    // Build unified stats map for scoring engine
-    const statsMap = new Map<string, PlayerStat>();
-    for (const pid of squadIds) {
-      const didPlayFromStats = (statsData ?? []).some(
-        (s: any) => String(s.player_id) === pid && s.did_play
-      );
-      statsMap.set(pid, {
-        player_id: pid,
-        points: pointsMap.get(pid) ?? 0,
-        did_play: playedFromEvents.has(pid) || didPlayFromStats,
-      });
-    }
-
-    // Build per-player stat breakdown from player_stats rows (for UI display)
-    const statBreakdownMap = new Map<string, {
-      goals: number; assists: number; cleanSheet: boolean;
-      yellowCards: number; redCards: number; ownGoals: number;
-    }>();
-    for (const s of statsData ?? []) {
-      const pid = String(s.player_id);
-      const existing = statBreakdownMap.get(pid);
-      if (existing) {
-        existing.goals += s.goals ?? 0;
-        existing.assists += s.assists ?? 0;
-        existing.cleanSheet = existing.cleanSheet || (s.clean_sheet ?? false);
-        existing.yellowCards += s.yellow_cards ?? 0;
-        existing.redCards += s.red_cards ?? 0;
-        existing.ownGoals += s.own_goals ?? 0;
-      } else {
-        statBreakdownMap.set(pid, {
-          goals: s.goals ?? 0,
-          assists: s.assists ?? 0,
-          cleanSheet: s.clean_sheet ?? false,
-          yellowCards: s.yellow_cards ?? 0,
-          redCards: s.red_cards ?? 0,
-          ownGoals: s.own_goals ?? 0,
-        });
-      }
-    }
-
-    // ── 3. Fetch player metadata ──
+    // We need player metadata early for rules-based recalculation (position, is_lady)
     const { data: playerData } = await admin
       .from("players")
       .select(
@@ -258,7 +195,98 @@ export async function GET(req: Request) {
       });
     }
 
-    // ── 4. Run scoring engine ──
+    // Load scoring rules (same as scoring engine)
+    const rules = await loadScoringRules();
+
+    const pointsMap = new Map<string, number>();
+    const playedFromEvents = new Set<string>();
+    const hasAppearanceEvent = new Set<string>();
+
+    if (gwMatchIds.length > 0) {
+      const { data: events } = await admin
+        .from("player_match_events")
+        .select("player_id, action, quantity")
+        .in("match_id", gwMatchIds)
+        .in("player_id", squadIds);
+
+      for (const e of events ?? []) {
+        const pid = String(e.player_id);
+        const meta = metaMap.get(pid);
+        const position = norm(meta?.position);
+        const isLady = meta?.is_lady ?? false;
+        const pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+        pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
+        playedFromEvents.add(pid);
+        if (e.action === "appearance" || e.action === "sub_appearance") hasAppearanceEvent.add(pid);
+      }
+    }
+
+    // Also check player_stats.did_play
+    const { data: statsData } = await admin
+      .from("player_stats")
+      .select("player_id, did_play, points, goals, penalties, assists, clean_sheet, yellow_cards, red_cards, own_goals")
+      .eq("gameweek_id", statsGwId)
+      .in("player_id", squadIds);
+
+    const playedFromStats = new Set<string>();
+    for (const s of statsData ?? []) {
+      if (s.did_play) playedFromStats.add(String(s.player_id));
+    }
+
+    // Add appearance points for players who played but don't have an
+    // appearance event (mirrors scoring engine step 3f)
+    for (const pid of squadIds) {
+      if (hasAppearanceEvent.has(pid)) continue;
+      const played = playedFromEvents.has(pid) || playedFromStats.has(pid);
+      if (played) {
+        const meta = metaMap.get(pid);
+        const position = norm(meta?.position);
+        const isLady = meta?.is_lady ?? false;
+        const appearancePts = lookupPoints(rules, "appearance", position, isLady);
+        pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + appearancePts);
+      }
+    }
+
+    // Build unified stats map for scoring engine
+    const statsMap = new Map<string, PlayerStat>();
+    for (const pid of squadIds) {
+      statsMap.set(pid, {
+        player_id: pid,
+        points: pointsMap.get(pid) ?? 0,
+        did_play: playedFromEvents.has(pid) || playedFromStats.has(pid),
+      });
+    }
+
+    // Build per-player stat breakdown from player_stats rows (for UI display)
+    const statBreakdownMap = new Map<string, {
+      goals: number; penalties: number; assists: number; cleanSheet: boolean;
+      yellowCards: number; redCards: number; ownGoals: number;
+    }>();
+    for (const s of statsData ?? []) {
+      const pid = String(s.player_id);
+      const existing = statBreakdownMap.get(pid);
+      if (existing) {
+        existing.goals += s.goals ?? 0;
+        existing.penalties += s.penalties ?? 0;
+        existing.assists += s.assists ?? 0;
+        existing.cleanSheet = existing.cleanSheet || (s.clean_sheet ?? false);
+        existing.yellowCards += s.yellow_cards ?? 0;
+        existing.redCards += s.red_cards ?? 0;
+        existing.ownGoals += s.own_goals ?? 0;
+      } else {
+        statBreakdownMap.set(pid, {
+          goals: s.goals ?? 0,
+          penalties: s.penalties ?? 0,
+          assists: s.assists ?? 0,
+          cleanSheet: s.clean_sheet ?? false,
+          yellowCards: s.yellow_cards ?? 0,
+          redCards: s.red_cards ?? 0,
+          ownGoals: s.own_goals ?? 0,
+        });
+      }
+    }
+
+    // ── 3. Run scoring engine ──
     const result = computeUserScore(rosterRows, statsMap, metaMap);
 
     // Derive effective starting IDs from scoring engine auto-subs
@@ -323,10 +351,10 @@ export async function GET(req: Request) {
         // Collect all player IDs across every user's roster
         const allPlayerIds = [...new Set(allRosters.map((r: any) => String(r.player_id)))];
 
-        // Fetch ALL events for this GW's matches
+        // Fetch ALL events for this GW's matches (action-based, matching scoring engine)
         const { data: allEvents } = await admin
           .from("player_match_events")
-          .select("player_id, points_awarded, quantity")
+          .select("player_id, action, quantity")
           .in("match_id", gwMatchIds);
 
         // Also fetch did_play from player_stats for all players
@@ -335,31 +363,6 @@ export async function GET(req: Request) {
           .select("player_id, did_play")
           .eq("gameweek_id", statsGwId)
           .in("player_id", allPlayerIds);
-
-        // Build points map and played-set from events
-        const allPointsMap = new Map<string, number>();
-        const allPlayedFromEvents = new Set<string>();
-        for (const e of allEvents ?? []) {
-          const pid = String(e.player_id);
-          allPointsMap.set(
-            pid,
-            (allPointsMap.get(pid) ?? 0) + (e.points_awarded ?? 0) * (e.quantity ?? 1)
-          );
-          allPlayedFromEvents.add(pid);
-        }
-
-        // Build statsMap for scoring engine (points + did_play per player)
-        const allStatsMap = new Map<string, PlayerStat>();
-        for (const pid of allPlayerIds) {
-          const didPlayFromStats = (allStatsData ?? []).some(
-            (s: any) => String(s.player_id) === pid && s.did_play
-          );
-          allStatsMap.set(pid, {
-            player_id: pid,
-            points: allPointsMap.get(pid) ?? 0,
-            did_play: allPlayedFromEvents.has(pid) || didPlayFromStats,
-          });
-        }
 
         // Fetch player metadata (position, is_lady) for formation & lady-swap checks
         const { data: allPlayerMeta } = await admin
@@ -373,6 +376,50 @@ export async function GET(req: Request) {
             id: String(p.id),
             position: p.position,
             is_lady: p.is_lady,
+          });
+        }
+
+        // Build points map from events using scoring rules (same as scoring engine)
+        const allPointsMap = new Map<string, number>();
+        const allPlayedFromEvents = new Set<string>();
+        const allHasAppearance = new Set<string>();
+        for (const e of allEvents ?? []) {
+          const pid = String(e.player_id);
+          const meta = allMetaMap.get(pid);
+          const position = norm(meta?.position);
+          const isLady = meta?.is_lady ?? false;
+          const pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+          allPointsMap.set(pid, (allPointsMap.get(pid) ?? 0) + pts);
+          allPlayedFromEvents.add(pid);
+          if (e.action === "appearance" || e.action === "sub_appearance") allHasAppearance.add(pid);
+        }
+
+        // did_play set from player_stats
+        const allPlayedFromStats = new Set<string>();
+        for (const s of allStatsData ?? []) {
+          if (s.did_play) allPlayedFromStats.add(String(s.player_id));
+        }
+
+        // Add appearance points for players who played but lack an appearance event
+        for (const pid of allPlayerIds) {
+          if (allHasAppearance.has(pid)) continue;
+          const played = allPlayedFromEvents.has(pid) || allPlayedFromStats.has(pid);
+          if (played) {
+            const meta = allMetaMap.get(pid);
+            const position = norm(meta?.position);
+            const isLady = meta?.is_lady ?? false;
+            const appearancePts = lookupPoints(rules, "appearance", position, isLady);
+            allPointsMap.set(pid, (allPointsMap.get(pid) ?? 0) + appearancePts);
+          }
+        }
+
+        // Build statsMap for scoring engine (points + did_play per player)
+        const allStatsMap = new Map<string, PlayerStat>();
+        for (const pid of allPlayerIds) {
+          allStatsMap.set(pid, {
+            player_id: pid,
+            points: allPointsMap.get(pid) ?? 0,
+            did_play: allPlayedFromEvents.has(pid) || allPlayedFromStats.has(pid),
           });
         }
 
@@ -433,6 +480,7 @@ export async function GET(req: Request) {
         stat: breakdown
           ? {
               goals: breakdown.goals,
+              penalties: breakdown.penalties,
               assists: breakdown.assists,
               cleanSheet: breakdown.cleanSheet,
               yellowCards: breakdown.yellowCards,

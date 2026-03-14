@@ -79,6 +79,9 @@ export async function writeToDatabase({
 
   // 1. Insert each stat event
   for (const entry of entries) {
+    // Look up penalties from the original actions (only for goal action)
+    const penaltiesForGoal = entry.actions?.find((a) => a.action === "goal")?.penalties ?? 0;
+
     for (const action of entry.pointsBreakdown) {
       const { data, error } = await supabase
         .from("player_match_events")
@@ -91,6 +94,7 @@ export async function writeToDatabase({
           input_method: inputMethod,
           entered_by: adminId,
           voice_transcript: transcript,
+          ...(action.action === "goal" ? { penalties: penaltiesForGoal } : {}),
         }, {
           onConflict: 'player_id,match_id,action',
         })
@@ -147,6 +151,7 @@ export async function writeToDatabase({
     for (const entry of entries) {
       const bd = entry.pointsBreakdown;
       const goals = bd.filter((a) => a.action === "goal").reduce((s, a) => s + a.quantity, 0);
+      const penalties = entry.actions?.find((a) => a.action === "goal")?.penalties ?? 0;
       const assists = bd.filter((a) => a.action === "assist").reduce((s, a) => s + a.quantity, 0);
       const yellowCards = bd.filter((a) => a.action === "yellow").reduce((s, a) => s + a.quantity, 0);
       const redCards = bd.filter((a) => a.action === "red").reduce((s, a) => s + a.quantity, 0);
@@ -161,6 +166,7 @@ export async function writeToDatabase({
             gameweek_id: gwId,
             did_play: true,
             goals,
+            penalties,
             assists,
             yellow_cards: yellowCards,
             red_cards: redCards,

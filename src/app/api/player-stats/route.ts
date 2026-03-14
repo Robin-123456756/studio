@@ -81,14 +81,15 @@ export async function GET(req: Request) {
     const gwMatchIds = (playedMatches ?? []).map((m: any) => m.id);
     const eventPointsMap = new Map<string, number>(); // key: playerId__gameweekId
 
-    // Also track goals/assists from events (source of truth over player_stats)
-    const eventGoalsMap = new Map<string, number>();   // key: playerId__gameweekId
-    const eventAssistsMap = new Map<string, number>(); // key: playerId__gameweekId
+    // Also track goals/assists/penalties from events (source of truth over player_stats)
+    const eventGoalsMap = new Map<string, number>();      // key: playerId__gameweekId
+    const eventPenaltiesMap = new Map<string, number>();   // key: playerId__gameweekId
+    const eventAssistsMap = new Map<string, number>();     // key: playerId__gameweekId
 
     if (gwMatchIds.length > 0 && playerIds.length > 0) {
       const { data: events } = await supabase
         .from("player_match_events")
-        .select("player_id, match_id, action, quantity, points_awarded")
+        .select("player_id, match_id, action, quantity, points_awarded, penalties")
         .in("match_id", gwMatchIds)
         .in("player_id", playerIds);
 
@@ -103,6 +104,7 @@ export async function GET(req: Request) {
 
         if (e.action === "goal") {
           eventGoalsMap.set(key, (eventGoalsMap.get(key) ?? 0) + qty);
+          eventPenaltiesMap.set(key, (eventPenaltiesMap.get(key) ?? 0) + (e.penalties ?? 0));
         } else if (e.action === "assist") {
           eventAssistsMap.set(key, (eventAssistsMap.get(key) ?? 0) + qty);
         }
@@ -135,6 +137,7 @@ export async function GET(req: Request) {
       const evtKey = `${s.player_id}__${s.gameweek_id}`;
       const points = eventPointsMap.get(evtKey) ?? 0;
       const goals = eventGoalsMap.get(evtKey) ?? s.goals ?? 0;
+      const penalties = eventPenaltiesMap.get(evtKey) ?? s.penalties ?? 0;
       const assists = eventAssistsMap.get(evtKey) ?? s.assists ?? 0;
 
       return {
@@ -143,6 +146,7 @@ export async function GET(req: Request) {
         gameweekId: s.gameweek_id,
         points,
         goals,
+        penalties,
         assists,
         cleanSheet,
         yellowCards: s.yellow_cards ?? 0,

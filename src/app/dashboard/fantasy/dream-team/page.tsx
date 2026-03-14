@@ -17,6 +17,7 @@ import {
 type ApiGameweek = {
   id: number;
   name?: string | null;
+  hasPlayedMatches?: boolean;
 };
 
 type DreamPlayer = {
@@ -102,7 +103,7 @@ function DreamPlayerCard({
       )}
 
       {/* Kit */}
-      <div style={{ width: 38, height: 38 }}>
+      <div style={{ width: 38, height: 32, overflow: "hidden" }}>
         <Kit color={kitColor} />
       </div>
 
@@ -121,6 +122,9 @@ function DreamPlayerCard({
           overflow: "hidden",
           textOverflow: "ellipsis",
           lineHeight: 1.3,
+          marginTop: -2,
+          position: "relative",
+          zIndex: 2,
         }}
       >
         {display}
@@ -175,13 +179,22 @@ function DreamTeamContent() {
       try {
         const res = await fetch("/api/gameweeks/current", { credentials: "same-origin" });
         const json = await res.json();
-        if (!res.ok) return;
-        const gws: ApiGameweek[] = (json.all ?? []).sort(
+        if (!res.ok) { setLoading(false); return; }
+        const allGws: ApiGameweek[] = (json.all ?? []).sort(
           (a: ApiGameweek, b: ApiGameweek) => a.id - b.id
         );
+        // Only show GWs that have at least one played match
+        const gws = allGws.filter((g) => g.hasPlayedMatches);
         setAllGWs(gws);
-        const current = json.current;
-        setSelectedGwId(current?.id ?? gws[gws.length - 1]?.id ?? null);
+
+        // If no GWs have played matches yet, clear loading for empty state
+        if (gws.length === 0) {
+          setSelectedGwId(null);
+          setLoading(false);
+          return;
+        }
+
+        setSelectedGwId(gws[gws.length - 1].id);
       } catch { /* ignore */ }
     })();
   }, []);
@@ -332,6 +345,10 @@ function DreamTeamContent() {
           </div>
         ) : error ? (
           <div className="text-center py-16 text-sm text-red-500">{error}</div>
+        ) : selectedGwId === null ? (
+          <div className="text-center py-16 text-sm text-muted-foreground">
+            No matches have been played yet
+          </div>
         ) : players.length === 0 ? (
           <div className="text-center py-16 text-sm text-muted-foreground">
             No data for Gameweek {selectedGwId}

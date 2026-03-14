@@ -23,6 +23,7 @@ export type InputMethod = "voice" | "manual" | "csv" | "api";
 export interface AIAction {
   action: StatAction;
   quantity: number;
+  penalties?: number;
 }
 
 export interface AIEntry {

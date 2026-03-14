@@ -29,6 +29,14 @@ interface Match {
   away_short: string;
 }
 
+interface GoalScorer {
+  playerId: string;
+  playerName: string;
+  goals: number;
+  penalties: number;
+  team: "home" | "away";
+}
+
 interface Gameweek {
   id: number;
   matches: Match[];
@@ -44,6 +52,8 @@ export default function AdminScoresPage() {
   const [saving, setSaving] = useState<number | null>(null);
   const [savingAll, setSavingAll] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [matchScorers, setMatchScorers] = useState<Record<number, GoalScorer[]>>({});
+  const [savingPenalty, setSavingPenalty] = useState<string | null>(null);
 
   // Load matches
   useEffect(() => {
@@ -163,6 +173,50 @@ export default function AdminScoresPage() {
     }
     setSavingAll(false);
   }, [activeGW, gameweeks, editedScores]);
+
+  // Fetch goal scorers for current GW matches
+  const loadScorers = useCallback(async (matchIds: number[]) => {
+    try {
+      const res = await fetch(`/api/admin/match-scorers?matchIds=${matchIds.join(",")}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setMatchScorers((prev) => ({ ...prev, ...data.scorers }));
+    } catch {
+      // non-critical
+    }
+  }, []);
+
+  // Load scorers when GW changes
+  useEffect(() => {
+    if (!activeGW || gameweeks.length === 0) return;
+    const gw = gameweeks.find((g) => g.id === activeGW);
+    if (!gw) return;
+    const playedMatchIds = gw.matches.filter((m) => m.is_played).map((m) => m.id);
+    if (playedMatchIds.length > 0) loadScorers(playedMatchIds);
+  }, [activeGW, gameweeks, loadScorers]);
+
+  const updatePenalty = useCallback(async (matchId: number, playerId: string, newPenalties: number) => {
+    const key = `${matchId}-${playerId}`;
+    setSavingPenalty(key);
+    try {
+      const res = await fetch("/api/admin/match-scorers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId, playerId, penalties: newPenalties }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      // Update local state
+      setMatchScorers((prev) => {
+        const scorers = (prev[matchId] ?? []).map((s) =>
+          s.playerId === playerId ? { ...s, penalties: newPenalties } : s
+        );
+        return { ...prev, [matchId]: scorers };
+      });
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err.message });
+    }
+    setSavingPenalty(null);
+  }, []);
 
   const activeMatches = gameweeks.find((g) => g.id === activeGW)?.matches || [];
   const hasChanges = activeMatches.some((m) => {
@@ -372,6 +426,65 @@ export default function AdminScoresPage() {
                       >
                         {isSaving ? "Saving..." : "Save This Match"}
                       </button>
+                    </div>
+                  )}
+
+                  {/* Goal scorers with penalty toggles */}
+                  {match.is_played && matchScorers[match.id]?.length > 0 && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BORDER}` }}>
+                      <div style={{ fontSize: 10, color: TEXT_MUTED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                        Goal Scorers — Penalty Tracking
+                      </div>
+                      {matchScorers[match.id].map((scorer) => {
+                        const penKey = `${match.id}-${scorer.playerId}`;
+                        const isSavingPen = savingPenalty === penKey;
+                        return (
+                          <div key={scorer.playerId} style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            padding: "6px 0", borderBottom: `1px solid ${BORDER}`,
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                                backgroundColor: scorer.team === "home" ? `${ACCENT}20` : `${WARNING}20`,
+                                color: scorer.team === "home" ? ACCENT : WARNING,
+                              }}>{scorer.team === "home" ? "H" : "A"}</span>
+                              <span style={{ fontSize: 13, fontWeight: 500, color: TEXT_PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {scorer.playerName}
+                              </span>
+                              <span style={{ fontSize: 11, color: TEXT_MUTED }}>⚽{scorer.goals > 1 ? scorer.goals : ""}</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                              <span style={{ fontSize: 11, color: TEXT_MUTED, marginRight: 4 }}>Pen:</span>
+                              <button
+                                onClick={() => updatePenalty(match.id, scorer.playerId, Math.max(0, scorer.penalties - 1))}
+                                disabled={scorer.penalties <= 0 || isSavingPen}
+                                style={{
+                                  width: 22, height: 22, borderRadius: 4, border: `1px solid ${BORDER}`,
+                                  backgroundColor: BG_SURFACE, color: TEXT_SECONDARY, cursor: scorer.penalties > 0 && !isSavingPen ? "pointer" : "not-allowed",
+                                  fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
+                                  opacity: scorer.penalties > 0 ? 1 : 0.3,
+                                }}
+                              >−</button>
+                              <span style={{
+                                width: 22, textAlign: "center", fontSize: 13, fontWeight: 700,
+                                fontFamily: "'JetBrains Mono', monospace",
+                                color: scorer.penalties > 0 ? ACCENT : TEXT_MUTED,
+                              }}>{scorer.penalties}</span>
+                              <button
+                                onClick={() => updatePenalty(match.id, scorer.playerId, Math.min(scorer.goals, scorer.penalties + 1))}
+                                disabled={scorer.penalties >= scorer.goals || isSavingPen}
+                                style={{
+                                  width: 22, height: 22, borderRadius: 4, border: `1px solid ${BORDER}`,
+                                  backgroundColor: BG_SURFACE, color: TEXT_SECONDARY, cursor: scorer.penalties < scorer.goals && !isSavingPen ? "pointer" : "not-allowed",
+                                  fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
+                                  opacity: scorer.penalties < scorer.goals ? 1 : 0.3,
+                                }}
+                              >+</button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

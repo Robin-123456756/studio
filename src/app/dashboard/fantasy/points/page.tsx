@@ -41,6 +41,7 @@ type PlayerStat = {
   gameweekId: number;
   points: number;
   goals: number;
+  penalties: number;
   assists: number;
   cleanSheet: boolean;
   yellowCards: number;
@@ -405,7 +406,7 @@ function PointsBreakdown({
   const rows: { label: string; value: string; pts: number }[] = [];
 
   if (stat) {
-    if (stat.goals > 0) rows.push({ label: "Goals scored", value: String(stat.goals), pts: stat.goals * lookupActionPoints(scoringRules, "goal", pos, lady, 5) });
+    if (stat.goals > 0) rows.push({ label: stat.penalties > 0 ? `Goals scored (${stat.penalties}P)` : "Goals scored", value: String(stat.goals), pts: stat.goals * lookupActionPoints(scoringRules, "goal", pos, lady, 5) });
     if (stat.assists > 0) rows.push({ label: "Assists", value: String(stat.assists), pts: stat.assists * lookupActionPoints(scoringRules, "assist", pos, lady, 3) });
     if (stat.cleanSheet) rows.push({ label: "Clean sheet", value: "Yes", pts: lookupActionPoints(scoringRules, "clean_sheet", pos, lady, 4) });
     if (stat.yellowCards > 0) rows.push({ label: "Yellow cards", value: String(stat.yellowCards), pts: stat.yellowCards * lookupActionPoints(scoringRules, "yellow", pos, lady, -1) });
@@ -751,7 +752,7 @@ function PointsPage() {
         const all: ApiGameweek[] = json.all ?? [];
         const curId = json.current?.id ?? null;
 
-        // Only show GWs up to and including the current one (no future unplayed GWs)
+        // FPL-style: show all GWs up to and including current (0 pts if unplayed)
         const navigable = all.filter((g) => curId != null && g.id <= curId);
         setAllGWs(navigable);
 
@@ -865,6 +866,7 @@ function PointsPage() {
                   gameweekId: json.gwId,
                   points: p.gwPoints ?? 0,
                   goals: p.stat.goals ?? 0,
+                  penalties: p.stat.penalties ?? 0,
                   assists: p.stat.assists ?? 0,
                   cleanSheet: p.stat.cleanSheet ?? false,
                   yellowCards: p.stat.yellowCards ?? 0,

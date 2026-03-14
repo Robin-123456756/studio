@@ -41,6 +41,7 @@ type MatchEvent = {
   playerName: string;
   playerId: string;
   goals: number;
+  penalties: number;
   assists: number;
   yellowCards: number;
   redCards: number;
@@ -289,7 +290,10 @@ function MatchRow({ g }: { g: UiGame }) {
           <div className="text-right space-y-0.5">
             {homeGoals.map((e) => (
               <div key={e.playerId}>
-                {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
+                {e.playerName}{" "}
+                {e.goals > 1
+                  ? `(${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
+                  : e.penalties > 0 ? "(P)" : ""}
               </div>
             ))}
             {homeAssists.map((e) => (
@@ -302,7 +306,10 @@ function MatchRow({ g }: { g: UiGame }) {
           <div className="space-y-0.5">
             {awayGoals.map((e) => (
               <div key={e.playerId}>
-                {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""}
+                {e.playerName}{" "}
+                {e.goals > 1
+                  ? `(${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
+                  : e.penalties > 0 ? "(P)" : ""}
               </div>
             ))}
             {awayAssists.map((e) => (

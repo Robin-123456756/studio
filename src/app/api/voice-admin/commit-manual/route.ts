@@ -103,6 +103,9 @@ export async function POST(request: NextRequest) {
         player.is_lady
       );
 
+      // Build a lookup of penalties from the original actions
+      const penaltiesForGoal = finalActions.find((a) => a.action === "goal")?.penalties ?? 0;
+
       // 4. Upsert each action into player_match_events
       for (const item of breakdown) {
         const { data, error } = await supabase
@@ -117,6 +120,7 @@ export async function POST(request: NextRequest) {
               input_method: "manual",
               entered_by: adminId,
               voice_transcript: null,
+              ...(item.action === "goal" ? { penalties: penaltiesForGoal } : {}),
             },
             { onConflict: "player_id,match_id,action" }
           )
@@ -136,6 +140,7 @@ export async function POST(request: NextRequest) {
       // 6. Sync aggregated stats to player_stats (drives the DB trigger)
       if (gwId) {
         const goals = finalActions.filter((a) => a.action === "goal").reduce((sum, a) => sum + a.quantity, 0);
+        const penalties = finalActions.filter((a) => a.action === "goal").reduce((sum, a) => sum + (a.penalties ?? 0), 0);
         const assists = finalActions.filter((a) => a.action === "assist").reduce((sum, a) => sum + a.quantity, 0);
         const yellowCards = finalActions.filter((a) => a.action === "yellow").reduce((sum, a) => sum + a.quantity, 0);
         const redCards = finalActions.filter((a) => a.action === "red").reduce((sum, a) => sum + a.quantity, 0);
@@ -150,6 +155,7 @@ export async function POST(request: NextRequest) {
               gameweek_id: gwId,
               did_play: true,
               goals,
+              penalties,
               assists,
               yellow_cards: yellowCards,
               red_cards: redCards,
