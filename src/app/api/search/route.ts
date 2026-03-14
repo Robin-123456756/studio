@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { rateLimitResponse, RATE_LIMIT_STANDARD } from "@/lib/rate-limit";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
+    // Rate limit by IP (no auth required for search)
+    const ip = req.headers.get("x-forwarded-for") ?? "anon";
+    const rl = rateLimitResponse("search", ip, RATE_LIMIT_STANDARD);
+    if (rl) return rl;
+
     const supabase = getSupabaseServerOrThrow();
     const url = new URL(req.url);
     const q = (url.searchParams.get("q") ?? "").trim();
@@ -83,10 +90,7 @@ export async function GET(req: Request) {
       players: players ?? [],
       matches: matchesFiltered,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Search route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Search failed", "SEARCH_FAILED", 500, e);
   }
 }

@@ -400,7 +400,7 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
   if (gwMatchIds.length > 0) {
     const { data: events, error: eventsErr } = await supabase
       .from("player_match_events")
-      .select("player_id, action, quantity")
+      .select("player_id, action, quantity, points_awarded")
       .in("match_id", gwMatchIds)
       .in("player_id", allPlayerIds);
 
@@ -411,7 +411,10 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
       const meta = metaMap.get(pid);
       const position = norm(meta?.position);
       const isLady = meta?.is_lady ?? false;
-      const pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+      // Bonus uses stored points_awarded directly (variable 3/2/1, not in scoring_rules)
+      const pts = e.action === "bonus"
+        ? (e.points_awarded ?? 0) * (e.quantity ?? 1)
+        : lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
       pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
       playedFromEvents.add(pid);
       if (e.action === "appearance" || e.action === "sub_appearance") hasAppearanceEvent.add(pid);

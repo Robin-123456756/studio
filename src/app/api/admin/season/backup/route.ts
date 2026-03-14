@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,7 @@ export async function POST() {
         "Content-Disposition": `attachment; filename="budo-league-backup-${date}.json"`,
       },
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Backup failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Season backup failed", "SEASON_BACKUP_FAILED", 500, e);
   }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function GET() {
     .order("name", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("Failed to fetch teams", "TEAMS_FETCH_FAILED", 500, error);
   }
 
   // Get player counts per team
@@ -68,12 +69,12 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to create team", "TEAM_CREATE_FAILED", 500, error);
     }
 
     return NextResponse.json({ team: data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to create team" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to create team", "TEAM_CREATE_FAILED", 500, e);
   }
 }
 
@@ -109,12 +110,12 @@ export async function PATCH(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to update team", "TEAM_UPDATE_FAILED", 500, error);
     }
 
     return NextResponse.json({ team: data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to update team" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to update team", "TEAM_UPDATE_FAILED", 500, e);
   }
 }
 
@@ -152,11 +153,11 @@ export async function DELETE(req: Request) {
       .eq("team_uuid", team_uuid);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to delete team", "TEAM_DELETE_FAILED", 500, error);
     }
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to delete team" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to delete team", "TEAM_DELETE_FAILED", 500, e);
   }
 }

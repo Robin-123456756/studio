@@ -23,32 +23,15 @@ export default function AdminNewPlayerPage() {
   const [price, setPrice] = React.useState("0");
   const [points, setPoints] = React.useState("0");
 
-  // admin password (for x-admin-password header)
-  const [adminPassword, setAdminPassword] = React.useState("");
-  const [rememberPassword, setRememberPassword] = React.useState(true);
-
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
-
-  // Load saved admin password from localStorage (nice for you as the admin)
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("tbl_admin_password");
-    if (saved) {
-      setAdminPassword(saved);
-    }
-  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (!adminPassword.trim()) {
-      setError("Admin password is required.");
-      return;
-    }
     if (!name.trim() || !position || !teamId.trim()) {
       setError("Name, position and team are required.");
       return;
@@ -56,15 +39,11 @@ export default function AdminNewPlayerPage() {
 
     setSubmitting(true);
     try {
-      if (rememberPassword && typeof window !== "undefined") {
-        window.localStorage.setItem("tbl_admin_password", adminPassword);
-      }
-
       const res = await fetch("/api/admin/players", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": adminPassword,
         },
         body: JSON.stringify({
           name: name.trim(),
@@ -124,37 +103,6 @@ export default function AdminNewPlayerPage() {
           <Link href="/dashboard/admin/players">Back</Link>
         </Button>
       </div>
-
-      {/* Admin password card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Admin access</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="adminPassword">Admin password (x-admin-password)</Label>
-            <Input
-              id="adminPassword"
-              type="password"
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              placeholder="Enter ADMIN_PASSWORD from env"
-            />
-          </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={rememberPassword}
-              onChange={(e) => setRememberPassword(e.target.checked)}
-            />
-            Remember on this device
-          </label>
-          <p className="text-[11px] text-muted-foreground">
-            This password is checked by <code>/api/admin/players</code> using the{" "}
-            <code>ADMIN_PASSWORD</code> environment variable.
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Player form */}
       <Card>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +99,7 @@ export async function GET() {
     users.sort((a: any, b: any) => b.totalPoints - a.totalPoints);
 
     return NextResponse.json({ users, currentGwId });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to load users" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load users", "USERS_FETCH_FAILED", 500, e);
   }
 }

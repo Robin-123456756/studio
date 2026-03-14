@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { supabaseServer } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-error";
+import { rateLimitResponse, RATE_LIMIT_STANDARD } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,21 +18,30 @@ export async function GET() {
       .limit(50);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to fetch reviews", "REVIEWS_FETCH_FAILED", 500, error);
     }
 
     return NextResponse.json({ reviews: data ?? [] });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch reviews", "REVIEWS_FETCH_ERROR", 500, e);
   }
 }
 
+const REVIEW_RATE_LIMIT = { maxRequests: 3, windowMs: 60 * 1000 }; // 3 per min per IP
+
 export async function POST(req: Request) {
   try {
-    const supabase = getSupabaseServerOrThrow();
+    // Phase 1.3: Use auth to get real user_id instead of trusting body.userId
+    const supabase = await supabaseServer();
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth?.user?.id ?? null; // anonymous reviews allowed
+
+    // Phase 3: Rate limit by user or IP
+    const rateLimitKey = userId ?? req.headers.get("x-forwarded-for") ?? "anon";
+    const blocked = rateLimitResponse("reviews", rateLimitKey, REVIEW_RATE_LIMIT);
+    if (blocked) return blocked;
+
+    const admin = getSupabaseServerOrThrow();
     const body = await req.json();
 
     const message = String(body?.message ?? "").trim();
@@ -50,26 +62,23 @@ export async function POST(req: Request) {
     }
 
     const payload = {
-      user_id: body?.userId ?? null,   // optional
-      name: body?.name ?? null,        // optional
-      email: body?.email ?? null,      // optional
+      user_id: userId,              // from auth token, not body
+      name: body?.name ?? null,
+      email: body?.email ?? null,
       rating: ratingNum,
       message,
       page: body?.page ?? "Reviews",
       device: body?.device ?? null,
     };
 
-    const { error } = await supabase.from("reviews").insert(payload);
+    const { error } = await admin.from("reviews").insert(payload);
 
     if (error) {
-      return NextResponse.json({ error: error.message, details: error }, { status: 500 });
+      return apiError("Failed to submit review", "REVIEW_INSERT_FAILED", 500, error);
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to submit review", "REVIEW_POST_ERROR", 500, e);
   }
 }

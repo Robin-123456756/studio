@@ -3,6 +3,37 @@ import { getToken } from "next-auth/jwt";
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 
+// ── Security Headers (Phase 1.1) ──
+// Applied to every response that passes through middleware.
+const SECURITY_HEADERS: Record<string, string> = {
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' blob: data: https://*.supabase.co",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ].join("; "),
+};
+
+/** Apply security headers to a NextResponse */
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -12,7 +43,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/sw.js" ||
     pathname.startsWith("/workbox-")
   ) {
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next());
   }
 
   // Supabase session refresh (keeps auth cookies alive)
@@ -43,7 +74,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/admin") || pathname.startsWith("/api/voice-admin");
 
   if (pathname === "/admin/login" || pathname.startsWith("/api/auth")) {
-    return supabaseResponse;
+    return applySecurityHeaders(supabaseResponse);
   }
 
   if (!isAdminRoute) {
@@ -73,7 +104,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return supabaseResponse;
+  return applySecurityHeaders(supabaseResponse);
 }
 
 export const config = {

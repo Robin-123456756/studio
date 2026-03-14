@@ -3,6 +3,7 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { sendPushToAll } from "@/lib/push-notifications";
 import { buildMatchStartedPush } from "@/lib/push-message-builders";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
       .eq("id", matchId);
 
     if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      return apiError("Failed to start match", "MATCH_START_UPDATE_FAILED", 500, updateErr);
     }
 
     // Send "KICK OFF!" push (fire-and-forget)
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
     ).catch(() => {});
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to start match", "MATCH_START_FAILED", 500, e);
   }
 }

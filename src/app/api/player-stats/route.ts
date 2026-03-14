@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await query;
     if (error) {
-      return NextResponse.json({ error: error.message, details: error }, { status: 500 });
+      return apiError("Failed to fetch player stats", "PLAYER_STATS_FETCH_FAILED", 500, error);
     }
 
     // 2. Fetch players + teams for enrichment
@@ -81,10 +82,11 @@ export async function GET(req: Request) {
     const gwMatchIds = (playedMatches ?? []).map((m: any) => m.id);
     const eventPointsMap = new Map<string, number>(); // key: playerId__gameweekId
 
-    // Also track goals/assists/penalties from events (source of truth over player_stats)
+    // Also track goals/assists/penalties/bonus from events (source of truth over player_stats)
     const eventGoalsMap = new Map<string, number>();      // key: playerId__gameweekId
     const eventPenaltiesMap = new Map<string, number>();   // key: playerId__gameweekId
     const eventAssistsMap = new Map<string, number>();     // key: playerId__gameweekId
+    const eventBonusMap = new Map<string, number>();       // key: playerId__gameweekId
 
     if (gwMatchIds.length > 0 && playerIds.length > 0) {
       const { data: events } = await supabase
@@ -107,6 +109,8 @@ export async function GET(req: Request) {
           eventPenaltiesMap.set(key, (eventPenaltiesMap.get(key) ?? 0) + (e.penalties ?? 0));
         } else if (e.action === "assist") {
           eventAssistsMap.set(key, (eventAssistsMap.get(key) ?? 0) + qty);
+        } else if (e.action === "bonus") {
+          eventBonusMap.set(key, (eventBonusMap.get(key) ?? 0) + pts);
         }
       }
     }
@@ -139,6 +143,7 @@ export async function GET(req: Request) {
       const goals = eventGoalsMap.get(evtKey) ?? s.goals ?? 0;
       const penalties = eventPenaltiesMap.get(evtKey) ?? s.penalties ?? 0;
       const assists = eventAssistsMap.get(evtKey) ?? s.assists ?? 0;
+      const bonus = eventBonusMap.get(evtKey) ?? 0;
 
       return {
         id: s.id,
@@ -148,6 +153,7 @@ export async function GET(req: Request) {
         goals,
         penalties,
         assists,
+        bonus,
         cleanSheet,
         yellowCards: s.yellow_cards ?? 0,
         redCards: s.red_cards ?? 0,
@@ -271,10 +277,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ stats });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch player stats", "PLAYER_STATS_FETCH_FAILED", 500, e);
   }
 }

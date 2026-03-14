@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export async function GET(request: Request) {
   try {
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
           )
         )
       `)
-      .eq("match_id", parseInt(matchId))
+      .eq("match_id", Number(matchId))
       .order("id", { ascending: true });
 
     if (error) throw error;
@@ -95,8 +96,7 @@ export async function GET(request: Request) {
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch (error: any) {
-    if (process.env.NODE_ENV === "development") console.error("CSV export error:", error);
-    return NextResponse.json({ error: error.message || "Export failed" }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Export failed", "CSV_EXPORT_FAILED", 500, error);
   }
 }

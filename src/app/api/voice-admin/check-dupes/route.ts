@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
         const { data } = await supabase
           .from("player_match_events")
           .select("id, quantity")
-          .eq("match_id", parseInt(matchId))
+          .eq("match_id", Number(matchId))
           .eq("player_id", playerId)
           .eq("action", action.action);
 
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ dupes, hasDupes: dupes.length > 0 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Duplicate check failed", "CHECK_DUPES_FAILED", 500, error);
   }
 }

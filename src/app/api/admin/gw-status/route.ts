@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +80,7 @@ export async function GET() {
       scoresCalculated,
       usersPicked: uniquePickers,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to load GW status" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load gameweek status", "GW_STATUS_LOAD_FAILED", 500, e);
   }
 }

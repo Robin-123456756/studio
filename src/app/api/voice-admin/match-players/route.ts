@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 /**
  * GET /api/voice-admin/match-players?matchId=31
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     const { data: match, error: matchErr } = await supabase
       .from("matches")
       .select("id, home_team_uuid, away_team_uuid")
-      .eq("id", parseInt(matchId))
+      .eq("id", Number(matchId))
       .single();
 
     if (matchErr || !match) {
@@ -72,11 +73,7 @@ export async function GET(request: NextRequest) {
         players: sortPlayers(awayPlayers),
       },
     });
-  } catch (error: any) {
-    if (process.env.NODE_ENV === "development") console.error("[MatchPlayers] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch match players", message: error.message },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return apiError("Failed to fetch match players", "MATCH_PLAYERS_FETCH_FAILED", 500, error);
   }
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { rateLimitResponse, RATE_LIMIT_STANDARD } from "@/lib/rate-limit";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,9 @@ export async function GET() {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
+  const rl = rateLimitResponse("chips", auth.user.id, RATE_LIMIT_STANDARD);
+  if (rl) return rl;
+
   const { data, error } = await supabase
     .from("user_chips")
     .select("chip, gameweek_id, activated_at")
@@ -18,7 +23,7 @@ export async function GET() {
     .order("activated_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("Failed to fetch chips", "CHIPS_FETCH_FAILED", 500, error);
   }
 
   // Return a simple array of chip names already used

@@ -1,6 +1,7 @@
 // src/app/api/gameweeks/current/route.ts
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,7 +16,7 @@ export async function GET() {
     .order("id", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("Failed to load gameweeks", "GAMEWEEKS_FETCH_FAILED", 500, error);
   }
 
   const gws = (gameweeks ?? []) as any[];

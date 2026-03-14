@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { rateLimitResponse, RATE_LIMIT_DESTRUCTIVE } from "@/lib/rate-limit";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
       errors: errors.length > 0 ? errors : undefined,
       message: "Season data has been reset.",
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Reset failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to reset season", "SEASON_RESET_FAILED", 500, e);
   }
 }

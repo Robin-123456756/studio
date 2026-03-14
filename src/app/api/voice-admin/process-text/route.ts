@@ -2,11 +2,18 @@
 import { processTextInput } from "@/lib/voice-admin/pipeline";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { rateLimitResponse, RATE_LIMIT_HEAVY } from "@/lib/rate-limit";
+import { apiError } from "@/lib/api-error";
 
 export async function POST(request: Request) {
   try {
-    const { error: authErr } = await requireAdminSession();
+    const { error: authErr, session } = await requireAdminSession();
     if (authErr) return authErr;
+
+    // Rate limit: 5 text processing calls per minute
+    const adminKey = session?.user?.email ?? "admin";
+    const rl = rateLimitResponse("voice-process-text", adminKey, RATE_LIMIT_HEAVY);
+    if (rl) return rl;
     const body = await request.json();
     const { text, matchId } = body;
     if (!text || !matchId) {
@@ -36,9 +43,14 @@ export async function POST(request: Request) {
       }
     }
 
-    const result = await processTextInput(text, parseInt(matchId), playerNames);
+    const matchIdNum = Number(matchId);
+    if (!Number.isFinite(matchIdNum)) {
+      return NextResponse.json({ error: "Invalid matchId" }, { status: 400 });
+    }
+
+    const result = await processTextInput(text, matchIdNum, playerNames);
     return NextResponse.json(result);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to process text input", "PROCESS_TEXT_FAILED", 500, error);
   }
 }

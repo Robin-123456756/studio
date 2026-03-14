@@ -16,7 +16,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // ---------- Types ----------
@@ -681,19 +680,31 @@ export default function DashboardPage() {
         className={cn("opacity-0 animate-slide-up animate-stagger-3")}
         style={staggerStyle}
       >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Button asChild className="rounded-2xl w-full">
-            <Link href="/dashboard/more/tbl-rules">TBL fantasy rules</Link>
-          </Button>
-          <Button asChild variant="outline" className="rounded-2xl w-full">
-            <Link href="/dashboard/fantasy">Open fantasy</Link>
-          </Button>
-          <Button asChild variant="outline" className="rounded-2xl w-full">
-            <Link href="/dashboard/explore">Explore teams</Link>
-          </Button>
-          <Button asChild className="rounded-2xl w-full">
-            <Link href="/dashboard/matches">Go to matches</Link>
-          </Button>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Link
+            href="/dashboard/more/tbl-rules"
+            className="btn-red-border flex items-center justify-center px-4 py-2.5 text-sm font-semibold bg-card text-foreground active:bg-[#C8102E] active:text-white transition-colors duration-150"
+          >
+            TBL fantasy rules
+          </Link>
+          <Link
+            href="/dashboard/fantasy"
+            className="btn-red-border flex items-center justify-center px-4 py-2.5 text-sm font-semibold bg-card text-foreground active:bg-[#C8102E] active:text-white transition-colors duration-150"
+          >
+            Open fantasy
+          </Link>
+          <Link
+            href="/dashboard/explore"
+            className="btn-red-border flex items-center justify-center px-4 py-2.5 text-sm font-semibold bg-card text-foreground active:bg-[#C8102E] active:text-white transition-colors duration-150"
+          >
+            Explore teams
+          </Link>
+          <Link
+            href="/dashboard/matches"
+            className="btn-red-border flex items-center justify-center px-4 py-2.5 text-sm font-semibold bg-card text-foreground active:bg-[#C8102E] active:text-white transition-colors duration-150"
+          >
+            Go to matches
+          </Link>
         </div>
       </section>
 

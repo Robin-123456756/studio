@@ -1,28 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { calcTotalPoints } from "@/lib/voice-admin";
 import type { AIAction } from "@/lib/voice-admin/types";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { autoAssignBonus } from "@/lib/bonus-calculator";
+import { parseBody } from "@/lib/validate";
+import { apiError } from "@/lib/api-error";
 
-interface ManualEvent {
-  playerId: string;
-  actions: AIAction[];
-}
+const VALID_ACTIONS = [
+  "appearance", "goal", "assist", "clean_sheet", "own_goal",
+  "pen_miss", "pen_save", "save_3", "yellow", "red",
+] as const;
 
-interface ManualPayload {
-  matchId: number;
-  events: ManualEvent[];
-}
+const ManualEntrySchema = z.object({
+  matchId: z.number().int().positive(),
+  events: z.array(z.object({
+    playerId: z.string().min(1),
+    actions: z.array(z.object({
+      action: z.enum(VALID_ACTIONS),
+      quantity: z.number().int().min(0).max(100),
+      penalties: z.number().int().min(0).optional(),
+    })),
+  })).min(1),
+});
 
 export async function POST(request: NextRequest) {
   try {
     const { error: authErr } = await requireAdminSession();
     if (authErr) return authErr;
 
-    const body: ManualPayload = await request.json();
-    const { matchId, events } = body;
+    const raw = await request.json();
+    const parsed = parseBody(ManualEntrySchema, raw);
+    if (!parsed.success) return parsed.error;
+    const { matchId, events } = parsed.data;
 
-    if (!matchId || !events || !Array.isArray(events) || events.length === 0) {
+    if (!matchId || !events || events.length === 0) {
       return NextResponse.json(
         { error: "matchId and non-empty events array required" },
         { status: 400 }
@@ -183,17 +196,23 @@ export async function POST(request: NextRequest) {
       .select("id")
       .single();
 
+    // 8. Auto-assign bonus points (3/2/1) to top BPS performers
+    let bonusWarning: string | undefined;
+    try {
+      await autoAssignBonus(matchId);
+    } catch (err: any) {
+      bonusWarning = `Bonus recalculation failed: ${err?.message ?? "unknown error"}`;
+      console.error(`[commit-manual] ${bonusWarning}`);
+    }
+
     return NextResponse.json({
       success: true,
       playersUpdated: totalPlayersUpdated,
       eventsCreated: eventIds.length,
       auditLogId: auditRow?.id ?? null,
+      bonusWarning,
     });
-  } catch (error: any) {
-    if (process.env.NODE_ENV === "development") console.error("[Manual] Commit error:", error);
-    return NextResponse.json(
-      { error: "Manual commit failed", message: error.message },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return apiError("Manual commit failed", "MANUAL_COMMIT_FAILED", 500, error);
   }
 }

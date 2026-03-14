@@ -3,6 +3,8 @@ import { processTextInput } from "@/lib/voice-admin/pipeline";
 import { getOpenAIApiKey } from "@/lib/openai/api-key";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { rateLimitResponse, RATE_LIMIT_HEAVY } from "@/lib/rate-limit";
+import { apiError } from "@/lib/api-error";
 
 /**
  * Fetch player names for both teams in a match.
@@ -36,8 +38,13 @@ async function getMatchPlayerNames(matchId: number): Promise<string[]> {
 
 export async function POST(request: Request) {
   try {
-    const { error: authErr } = await requireAdminSession();
+    const { error: authErr, session } = await requireAdminSession();
     if (authErr) return authErr;
+
+    // Rate limit: 5 voice processing calls per minute
+    const adminKey = session?.user?.email ?? "admin";
+    const rl = rateLimitResponse("voice-process", adminKey, RATE_LIMIT_HEAVY);
+    if (rl) return rl;
 
     const openAIApiKey = getOpenAIApiKey();
 
@@ -53,7 +60,11 @@ export async function POST(request: Request) {
     }
 
     // ── Step 0: Fetch player names for this match ─────
-    const playerNames = await getMatchPlayerNames(parseInt(matchId));
+    const matchIdNum = Number(matchId);
+    if (!Number.isFinite(matchIdNum) || matchIdNum < 1) {
+      return NextResponse.json({ error: "Invalid matchId" }, { status: 400 });
+    }
+    const playerNames = await getMatchPlayerNames(matchIdNum);
 
     // ── Step 1: Whisper transcription ──────────────────
     const whisperForm = new FormData();
@@ -95,7 +106,7 @@ export async function POST(request: Request) {
     }
 
     // ── Step 2: Feed transcript into pipeline (with player names for GPT) ─
-    const result = await processTextInput(transcript, parseInt(matchId), playerNames);
+    const result = await processTextInput(transcript, matchIdNum, playerNames);
 
     return NextResponse.json({
       ...result,
@@ -105,8 +116,7 @@ export async function POST(request: Request) {
         duration: whisperData.duration || null,
       },
     });
-  } catch (error: any) {
-    if (process.env.NODE_ENV === "development") console.error("Voice process error:", error);
-    return NextResponse.json({ error: error.message || "Internal error" }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Voice processing failed", "VOICE_PROCESS_FAILED", 500, error);
   }
 }

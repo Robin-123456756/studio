@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { autoAssignBonus } from "@/lib/bonus-calculator";
+import { parseBody } from "@/lib/validate";
+import { apiError } from "@/lib/api-error";
+
+const MatchScoresSchema = z.object({
+  matches: z.array(z.object({
+    id: z.number().int().positive(),
+    home_goals: z.preprocess(Number, z.number().int().min(0)),
+    away_goals: z.preprocess(Number, z.number().int().min(0)),
+    is_played: z.boolean().optional(),
+    is_final: z.boolean().optional(),
+  })).min(1),
+});
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -53,12 +67,12 @@ export async function GET() {
     }
 
     const gameweeks = Object.entries(gwMap)
-      .map(([id, matches]) => ({ id: parseInt(id), matches }))
+      .map(([id, matches]) => ({ id: Number(id), matches }))
       .sort((a, b) => a.id - b.id);
 
     return NextResponse.json({ gameweeks });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to fetch match scores", "MATCH_SCORES_FETCH_FAILED", 500, error);
   }
 }
 
@@ -68,11 +82,10 @@ export async function PUT(req: Request) {
 
   try {
     const supabase = getSupabase();
-    const { matches } = await req.json();
-
-    if (!matches || !Array.isArray(matches) || matches.length === 0) {
-      return NextResponse.json({ error: "matches array is required" }, { status: 400 });
-    }
+    const raw = await req.json();
+    const validated = parseBody(MatchScoresSchema, raw);
+    if (!validated.success) return validated.error;
+    const { matches } = validated.data;
 
     let updated = 0;
     let cleanSheetsAwarded = 0;
@@ -93,6 +106,7 @@ export async function PUT(req: Request) {
       return isLady && base > 0 ? base * 2 : base;
     }
 
+    let bonusWarning: string | undefined;
     for (const match of matches) {
       const { id, home_goals, away_goals } = match;
       if (id === undefined || home_goals === undefined || away_goals === undefined) continue;
@@ -101,8 +115,8 @@ export async function PUT(req: Request) {
       const { error } = await supabase
         .from("matches")
         .update({
-          home_goals: parseInt(home_goals),
-          away_goals: parseInt(away_goals),
+          home_goals: Number(home_goals),
+          away_goals: Number(away_goals),
           is_played: true,
         })
         .eq("id", id);
@@ -121,8 +135,8 @@ export async function PUT(req: Request) {
 
       // Award clean sheets to teams that conceded 0 goals
       const cleanSheetTeams: string[] = [];
-      if (parseInt(away_goals) === 0) cleanSheetTeams.push(matchData.home_team_uuid);
-      if (parseInt(home_goals) === 0) cleanSheetTeams.push(matchData.away_team_uuid);
+      if (Number(away_goals) === 0) cleanSheetTeams.push(matchData.home_team_uuid);
+      if (Number(home_goals) === 0) cleanSheetTeams.push(matchData.away_team_uuid);
 
       for (const teamUuid of cleanSheetTeams) {
         const { data: players } = await supabase
@@ -172,8 +186,8 @@ export async function PUT(req: Request) {
 
       // Remove clean sheets for teams that DID concede
       const concededTeams: string[] = [];
-      if (parseInt(away_goals) > 0) concededTeams.push(matchData.home_team_uuid);
-      if (parseInt(home_goals) > 0) concededTeams.push(matchData.away_team_uuid);
+      if (Number(away_goals) > 0) concededTeams.push(matchData.home_team_uuid);
+      if (Number(home_goals) > 0) concededTeams.push(matchData.away_team_uuid);
 
       for (const teamUuid of concededTeams) {
         const { data: players } = await supabase
@@ -199,14 +213,22 @@ export async function PUT(req: Request) {
             .eq("gameweek_id", matchData.gameweek_id);
         }
       }
+
+      // Auto-assign bonus points (3/2/1) to top BPS performers
+      try {
+        await autoAssignBonus(id);
+      } catch (err: any) {
+        bonusWarning = `Bonus recalculation failed for match ${id}: ${err?.message ?? "unknown error"}`;
+        console.error(`[match-scores] ${bonusWarning}`);
+      }
     }
 
     // Update player total_points
     const { error: ptError } = await supabase.rpc("recalculate_all_player_points");
     // Ignore if function doesn't exist yet
 
-    return NextResponse.json({ success: true, updated, cleanSheetsAwarded });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, updated, cleanSheetsAwarded, bonusWarning });
+  } catch (error: unknown) {
+    return apiError("Failed to update match scores", "MATCH_SCORES_UPDATE_FAILED", 500, error);
   }
 }

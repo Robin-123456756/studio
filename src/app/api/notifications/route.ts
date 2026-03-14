@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { supabaseServer } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-error";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -36,27 +37,22 @@ export async function GET(req: Request) {
     // Use authenticated user's ID instead of trusting query param
     const userId = auth.user.id;
 
-    let notificationsQuery = supabase
+    // BOLA: always scope to authenticated user (no conditional — userId is always set after auth check)
+    const notificationsQuery = supabase
       .from("notifications")
       .select("id, title, message, type, is_read, link, created_at")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(limit);
-
-    if (userId) {
-      notificationsQuery = notificationsQuery.eq("user_id", userId);
-    }
 
     const { data: notifications, error: notificationsError } = await notificationsQuery;
     if (notificationsError) throw notificationsError;
 
-    let unreadQuery = supabase
+    const unreadQuery = supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
-      .eq("is_read", false);
-
-    if (userId) {
-      unreadQuery = unreadQuery.eq("user_id", userId);
-    }
+      .eq("is_read", false)
+      .eq("user_id", userId);
 
     const { count: unreadCount, error: unreadError } = await unreadQuery;
     if (unreadError) throw unreadError;
@@ -65,11 +61,8 @@ export async function GET(req: Request) {
       notifications: notifications || [],
       unreadCount: unreadCount ?? 0,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { notifications: [], unreadCount: 0, error: error?.message || "Failed to fetch notifications" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return apiError("Failed to fetch notifications", "NOTIFICATIONS_GET_FAILED", 500, error);
   }
 }
 
@@ -95,18 +88,14 @@ export async function PUT(req: Request) {
         return NextResponse.json({ error: "Valid notification id is required" }, { status: 400 });
       }
 
-      let updateQuery = supabase
+      // BOLA: always scope to authenticated user
+      const { data, error } = await supabase
         .from("notifications")
         .update({ is_read: true })
         .eq("id", id)
+        .eq("user_id", userId)
         .select("id")
         .limit(1);
-
-      if (userId) {
-        updateQuery = updateQuery.eq("user_id", userId);
-      }
-
-      const { data, error } = await updateQuery;
       if (error) throw error;
       if (!data || data.length === 0) {
         return NextResponse.json({ error: "Notification not found" }, { status: 404 });
@@ -122,15 +111,14 @@ export async function PUT(req: Request) {
             .filter((id: number) => !Number.isNaN(id))
         : [];
 
+      // BOLA: always scope to authenticated user
       let updateQuery = supabase
         .from("notifications")
         .update({ is_read: true })
         .eq("is_read", false)
+        .eq("user_id", userId)
         .select("id");
 
-      if (userId) {
-        updateQuery = updateQuery.eq("user_id", userId);
-      }
       if (ids.length > 0) {
         updateQuery = updateQuery.in("id", ids);
       }
@@ -142,10 +130,7 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Failed to update notifications" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return apiError("Failed to update notifications", "NOTIFICATIONS_PUT_FAILED", 500, error);
   }
 }

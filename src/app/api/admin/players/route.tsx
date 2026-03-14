@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
   if (teamId !== null) query = query.eq("team_id", teamId);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return apiError("Failed to fetch players", "PLAYERS_FETCH_FAILED", 500, error);
 
   // ✅ map into the UI shape your Fantasy/Pick pages expect
   const players = (data ?? []).map((p: any) => ({
@@ -110,7 +111,7 @@ export async function PATCH(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to update player", "PLAYER_UPDATE_FAILED", 500, error);
     }
 
     // Log price change if it actually changed
@@ -123,8 +124,8 @@ export async function PATCH(req: Request) {
     }
 
     return NextResponse.json({ player: data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to update player" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to update player", "PLAYER_PATCH_FAILED", 500, e);
   }
 }
 
@@ -149,11 +150,11 @@ export async function DELETE(req: Request) {
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to delete player", "PLAYER_DELETE_FAILED", 500, error);
     }
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to delete player" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to delete player", "PLAYER_DELETE_FAILED", 500, e);
   }
 }

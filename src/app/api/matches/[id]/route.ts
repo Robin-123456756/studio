@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -135,10 +136,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
         away_events,
       },
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch match details", "MATCH_DETAIL_FETCH_FAILED", 500, e);
   }
 }

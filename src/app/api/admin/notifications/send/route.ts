@@ -4,6 +4,7 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { rateLimitResponse, RATE_LIMIT_HEAVY } from "@/lib/rate-limit";
 import { sendPushToAll } from "@/lib/push-notifications";
 import { buildBroadcastPush } from "@/lib/push-message-builders";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
       .select("user_id");
 
     if (mError) {
-      return NextResponse.json({ error: mError.message }, { status: 500 });
+      return apiError("Failed to fetch managers", "NOTIF_MANAGERS_FETCH_FAILED", 500, mError);
     }
 
     const uniqueUserIds = [...new Set((managers ?? []).map((m: any) => m.user_id))];
@@ -62,15 +63,15 @@ export async function POST(req: Request) {
       .insert(rows);
 
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      return apiError("Failed to insert notifications", "NOTIF_INSERT_FAILED", 500, insertError);
     }
 
     // Also send web push notification (fire-and-forget)
     sendPushToAll(buildBroadcastPush(title.trim(), message.trim())).catch(() => {});
 
     return NextResponse.json({ sent: uniqueUserIds.length });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to send notifications" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to send notifications", "NOTIF_SEND_FAILED", 500, e);
   }
 }
 
@@ -88,7 +89,7 @@ export async function GET() {
 
     const uniqueCount = new Set((managers ?? []).map((m: any) => m.user_id)).size;
     return NextResponse.json({ managerCount: uniqueCount });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load manager count", "NOTIF_MANAGER_COUNT_FAILED", 500, e);
   }
 }

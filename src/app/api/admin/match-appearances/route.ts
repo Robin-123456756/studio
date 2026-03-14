@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { autoAssignBonus } from "@/lib/bonus-calculator";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
       .order("kickoff_time", { ascending: true });
 
     if (matchErr) {
-      return NextResponse.json({ error: matchErr.message }, { status: 500 });
+      return apiError("Failed to fetch matches", "APPEARANCES_MATCH_FETCH_FAILED", 500, matchErr);
     }
     if (!matches || matches.length === 0) {
       return NextResponse.json({ matches: [] });
@@ -156,8 +158,8 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ gwId, matches: result });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Route crashed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load match appearances", "APPEARANCES_GET_FAILED", 500, e);
   }
 }
 
@@ -235,7 +237,7 @@ export async function POST(req: Request) {
         .from("player_match_events")
         .insert(newEvents);
       if (evtErr) {
-        return NextResponse.json({ error: `Failed to insert events: ${evtErr.message}` }, { status: 500 });
+        return apiError("Failed to insert appearance events", "APPEARANCES_EVENT_INSERT_FAILED", 500, evtErr);
       }
     }
 
@@ -251,8 +253,17 @@ export async function POST(req: Request) {
         .from("player_stats")
         .upsert(statsRows, { onConflict: "player_id,gameweek_id" });
       if (statsErr) {
-        return NextResponse.json({ error: `Failed to update stats: ${statsErr.message}` }, { status: 500 });
+        return apiError("Failed to update player stats", "APPEARANCES_STATS_UPDATE_FAILED", 500, statsErr);
       }
+    }
+
+    // 4. Recalculate bonus — appearances affect BPS rankings
+    let bonusWarning: string | undefined;
+    try {
+      await autoAssignBonus(matchId);
+    } catch (err: any) {
+      bonusWarning = `Bonus recalculation failed: ${err?.message ?? "unknown error"}`;
+      console.error(`[match-appearances] ${bonusWarning}`);
     }
 
     const startedCount = appearances.filter((a) => a.status === "started").length;
@@ -262,8 +273,9 @@ export async function POST(req: Request) {
       startedCount,
       subCount,
       totalProcessed: appearances.length,
+      bonusWarning,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Route crashed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to save match appearances", "APPEARANCES_POST_FAILED", 500, e);
   }
 }

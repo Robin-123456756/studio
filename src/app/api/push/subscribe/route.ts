@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { rateLimitResponse } from "@/lib/rate-limit";
+import { apiError } from "@/lib/api-error";
+
+const RATE_LIMIT_10 = { maxRequests: 10, windowMs: 60 * 1000 };
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +40,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
+  // Rate limit: 10 subscription requests per minute
+  const rl = rateLimitResponse("push-subscribe", userId, RATE_LIMIT_10);
+  if (rl) return rl;
+
   try {
     const body = await req.json();
     const { endpoint, keys } = body;
@@ -59,12 +67,12 @@ export async function POST(req: Request) {
       );
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to save push subscription", "PUSH_SUBSCRIBE_FAILED", 500, error);
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to save push subscription", "PUSH_SUBSCRIBE_CRASHED", 500, e);
   }
 }
 
@@ -91,7 +99,7 @@ export async function DELETE(req: Request) {
       .eq("endpoint", endpoint);
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to remove push subscription", "PUSH_UNSUBSCRIBE_CRASHED", 500, e);
   }
 }

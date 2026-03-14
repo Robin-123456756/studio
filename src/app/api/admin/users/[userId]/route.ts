@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -78,8 +79,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ userId:
       chips: chipsRes.data ?? [],
       gwScores: scoresRes.data ?? [],
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to load user" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load user", "USER_FETCH_FAILED", 500, e);
   }
 }
 
@@ -104,10 +105,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ userId
       .update({ name: name.trim() })
       .eq("user_id", userId);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return apiError("Failed to update team name", "TEAM_NAME_UPDATE_FAILED", 500, error);
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to update" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to update user", "USER_UPDATE_FAILED", 500, e);
   }
 }

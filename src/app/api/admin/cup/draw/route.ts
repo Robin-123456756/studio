@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -162,10 +163,7 @@ export async function POST(req: Request) {
       byes: numByes,
       roundNames,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Failed to generate draw" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to generate cup draw", "CUP_DRAW_FAILED", 500, e);
   }
 }

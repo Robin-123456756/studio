@@ -412,6 +412,7 @@ function PointsBreakdown({
     if (stat.yellowCards > 0) rows.push({ label: "Yellow cards", value: String(stat.yellowCards), pts: stat.yellowCards * lookupActionPoints(scoringRules, "yellow", pos, lady, -1) });
     if (stat.redCards > 0) rows.push({ label: "Red cards", value: String(stat.redCards), pts: stat.redCards * lookupActionPoints(scoringRules, "red", pos, lady, -3) });
     if (stat.ownGoals > 0) rows.push({ label: "Own goals", value: String(stat.ownGoals), pts: stat.ownGoals * lookupActionPoints(scoringRules, "own_goal", pos, lady, -2) });
+    if ((stat as any).bonus > 0) rows.push({ label: "Bonus", value: String((stat as any).bonus), pts: (stat as any).bonus });
   }
 
   if (rows.length === 0 && rawPts > 0) {
@@ -654,6 +655,260 @@ function PointsPitch({
   );
 }
 
+// ── List View ──
+
+function PointsListView({
+  squad,
+  startingIds,
+  captainId,
+  viceId,
+  multipliers,
+  isTripleCaptain,
+  captainActivated,
+  subbedOutIds,
+  subbedInIds,
+  autoSubs,
+  isHighestView,
+  playerMap,
+  onSelectPlayer,
+}: {
+  squad: SquadPlayer[];
+  startingIds: string[];
+  captainId: string | null;
+  viceId: string | null;
+  multipliers: Record<string, number>;
+  isTripleCaptain?: boolean;
+  captainActivated?: "captain" | "vice" | "none";
+  subbedOutIds?: Set<string>;
+  subbedInIds?: Set<string>;
+  autoSubs: AutoSub[];
+  isHighestView: boolean;
+  playerMap: Map<string, SquadPlayer>;
+  onSelectPlayer: (player: SquadPlayer) => void;
+}) {
+  const normalized = squad.map((p) => ({
+    ...p,
+    position: normalizePosition(p.position),
+  }));
+  const { starting, bench } = splitStartingAndBench(normalized, startingIds);
+  const g = groupByPosition(starting);
+
+  const sections = [
+    { title: "Goalkeepers", players: g.Goalkeepers },
+    { title: "Defenders", players: g.Defenders },
+    { title: "Midfielders", players: g.Midfielders },
+    { title: "Forwards", players: g.Forwards },
+  ];
+
+  const getAutoSubStatus = (id: string): "subbed-in" | "subbed-out" | null => {
+    if (subbedInIds?.has(id)) return "subbed-in";
+    if (subbedOutIds?.has(id)) return "subbed-out";
+    return null;
+  };
+
+  const renderPlayerRow = (p: SquadPlayer & { position?: string | null }, isBench?: boolean) => {
+    const displayName = shortName(p.name, p.webName);
+    const isCap = captainId === p.id;
+    const isVc = viceId === p.id;
+    const isGK = normalizePosition(p.position) === "Goalkeeper";
+    const kitColor = getKitColor(p.teamShort);
+    const mult = multipliers[p.id] ?? 1;
+    const pts = p.gwPoints * mult;
+    const subStatus = getAutoSubStatus(p.id);
+    const isActivatedVice = captainActivated === "vice" && viceId === p.id;
+
+    return (
+      <div key={p.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+        <button
+          type="button"
+          onClick={() => onSelectPlayer(p)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "12px 16px",
+            background: subStatus === "subbed-in"
+              ? "rgba(5,150,105,0.06)"
+              : subStatus === "subbed-out"
+                ? "rgba(220,38,38,0.06)"
+                : "transparent",
+            width: "100%",
+            cursor: "pointer",
+            border: "none",
+            textAlign: "left",
+          }}
+        >
+          {/* Info icon */}
+          <div style={{
+            width: 20, height: 20, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <span style={{
+              fontFamily: "Georgia, 'Times New Roman', serif",
+              fontStyle: "italic",
+              fontSize: 15,
+              fontWeight: 400,
+              color: "hsl(var(--muted-foreground))",
+              opacity: 0.6,
+              lineHeight: 1,
+            }}>i</span>
+          </div>
+
+          {/* Kit */}
+          <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
+            <Kit color={kitColor} isGK={isGK} size={36} />
+          </div>
+
+          {/* Player name + team */}
+          <div style={{
+            flex: 1, minWidth: 0,
+            paddingRight: 8,
+            borderRight: "1px solid hsl(var(--border))",
+            marginRight: 8,
+          }}>
+            <div style={{
+              fontSize: 14, fontWeight: 700, color: "hsl(var(--foreground))",
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              lineHeight: 1.3,
+              display: "flex", alignItems: "center", gap: 4,
+            }}>
+              {displayName}
+              {p.isLady && (
+                <span style={{
+                  display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                  background: "#FF69B4", border: "1px solid #FF1493",
+                  marginLeft: 3, verticalAlign: "middle",
+                }} />
+              )}
+              {isCap && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 16, height: 16, borderRadius: "50%",
+                  background: isTripleCaptain
+                    ? "linear-gradient(135deg, #C8102E, #8B0000)"
+                    : "linear-gradient(135deg, #FFD700, #FFA500)",
+                  color: isTripleCaptain ? "#fff" : "#000",
+                  fontSize: isTripleCaptain ? 7 : 9,
+                  fontWeight: 900,
+                }}>{isTripleCaptain ? "TC" : "C"}</span>
+              )}
+              {isVc && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 16, height: 16, borderRadius: "50%",
+                  background: isActivatedVice
+                    ? "linear-gradient(135deg, #FFD700, #FFA500)"
+                    : "linear-gradient(135deg, #f5e6c8, #ddd0b0)",
+                  border: isActivatedVice ? "none" : "1px solid hsl(var(--border))",
+                  color: "#000", fontSize: 9, fontWeight: 900,
+                }}>V</span>
+              )}
+              {/* Auto-sub indicator */}
+              {subStatus === "subbed-in" && (
+                <span style={{
+                  fontSize: 9, fontWeight: 800, color: "#059669",
+                  background: "rgba(5,150,105,0.15)", padding: "1px 4px",
+                  borderRadius: 4, marginLeft: 2,
+                }}>{"\u2191"} IN</span>
+              )}
+              {subStatus === "subbed-out" && (
+                <span style={{
+                  fontSize: 9, fontWeight: 800, color: "#DC2626",
+                  background: "rgba(220,38,38,0.15)", padding: "1px 4px",
+                  borderRadius: 4, marginLeft: 2,
+                }}>{"\u2193"} OUT</span>
+              )}
+            </div>
+            <div style={{
+              fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
+              marginTop: 2,
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}>
+              {p.teamShort ?? "--"}
+            </div>
+          </div>
+
+          {/* GW Points */}
+          <div style={{ width: 50, textAlign: "right", flexShrink: 0 }}>
+            <span style={{
+              fontSize: 15,
+              fontWeight: 800,
+              color: pts > 0 ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+            }}>
+              {pts}
+            </span>
+          </div>
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="-mx-2 rounded-xl border bg-card overflow-hidden">
+      {/* Column Headers */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          padding: "16px 16px 10px",
+          borderBottom: "1px solid hsl(var(--border))",
+        }}
+      >
+        <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))", textAlign: "left" }}>
+          Player
+        </div>
+        <div style={{ width: 50, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>
+          Pts
+        </div>
+      </div>
+
+      {/* Starters by position */}
+      {sections.map((section) => (
+        <div key={section.title}>
+          {section.players.length > 0 && (
+            <>
+              <div style={{ padding: "16px 16px 8px", borderTop: "1px solid hsl(var(--border))" }}>
+                <h2 style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "hsl(var(--foreground))",
+                }}>
+                  {section.title}
+                </h2>
+              </div>
+              {section.players.map((p) => renderPlayerRow(p as SquadPlayer))}
+            </>
+          )}
+        </div>
+      ))}
+
+      {/* Substitutes */}
+      {bench.length > 0 && (
+        <>
+          <div style={{ padding: "16px 16px 8px", borderTop: "2px solid hsl(var(--border))" }}>
+            <h2 style={{
+              margin: 0,
+              fontSize: 16,
+              fontWeight: 700,
+              color: "hsl(var(--foreground))",
+            }}>
+              Substitutes
+            </h2>
+          </div>
+          {bench.map((p) => renderPlayerRow(p as SquadPlayer, true))}
+        </>
+      )}
+
+      {/* Auto-subs summary */}
+      {!isHighestView && autoSubs.length > 0 && (
+        <div className="px-4 pb-3">
+          <AutoSubsSummary autoSubs={autoSubs} playerMap={playerMap} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ──
 
 function PointsPage() {
@@ -701,6 +956,9 @@ function PointsPage() {
 
   // Scoring rules (loaded once for PointsBreakdown)
   const [scoringRules, setScoringRules] = React.useState<ScoringRulesMap | null>(null);
+
+  // View tab
+  const [tab, setTab] = React.useState<"pitch" | "list">("pitch");
 
   // Bottom sheet
   const [selectedPlayer, setSelectedPlayer] = React.useState<SquadPlayer | null>(null);
@@ -1183,6 +1441,34 @@ function PointsPage() {
         </div>
       </div>
 
+      {/* Pitch / List tabs */}
+      {!loading && !error && squad.length > 0 && (
+        <div className="flex items-center justify-center mt-2">
+          <div className="inline-flex rounded-lg bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => setTab("pitch")}
+              className={cn(
+                "px-5 py-1.5 rounded-md text-sm font-semibold transition",
+                tab === "pitch" ? "bg-background shadow text-foreground" : "text-muted-foreground"
+              )}
+            >
+              Pitch View
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("list")}
+              className={cn(
+                "px-5 py-1.5 rounded-md text-sm font-semibold transition",
+                tab === "list" ? "bg-background shadow text-foreground" : "text-muted-foreground"
+              )}
+            >
+              List View
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="mt-2">
         {loading ? (
@@ -1292,24 +1578,48 @@ function PointsPage() {
               </div>
             )}
 
-            <PointsPitch
-              squad={squad}
-              startingIds={startingIds}
-              captainId={captainId}
-              viceId={viceId}
-              multipliers={multipliers}
-              isTripleCaptain={activeChip === "triple_captain"}
-              captainActivated={captainActivated}
-              subbedOutIds={subbedOutIds}
-              subbedInIds={subbedInIds}
-              onSelectPlayer={setSelectedPlayer}
-            />
+            {/* Pitch view */}
+            {tab === "pitch" && (
+              <>
+                <PointsPitch
+                  squad={squad}
+                  startingIds={startingIds}
+                  captainId={captainId}
+                  viceId={viceId}
+                  multipliers={multipliers}
+                  isTripleCaptain={activeChip === "triple_captain"}
+                  captainActivated={captainActivated}
+                  subbedOutIds={subbedOutIds}
+                  subbedInIds={subbedInIds}
+                  onSelectPlayer={setSelectedPlayer}
+                />
 
-            {/* Auto-subs summary */}
-            {!isHighestView && autoSubs.length > 0 && (
-              <div className="px-4">
-                <AutoSubsSummary autoSubs={autoSubs} playerMap={playerMap} />
-              </div>
+                {/* Auto-subs summary */}
+                {!isHighestView && autoSubs.length > 0 && (
+                  <div className="px-4">
+                    <AutoSubsSummary autoSubs={autoSubs} playerMap={playerMap} />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* List view */}
+            {tab === "list" && (
+              <PointsListView
+                squad={squad}
+                startingIds={startingIds}
+                captainId={captainId}
+                viceId={viceId}
+                multipliers={multipliers}
+                isTripleCaptain={activeChip === "triple_captain"}
+                captainActivated={captainActivated}
+                subbedOutIds={subbedOutIds}
+                subbedInIds={subbedInIds}
+                autoSubs={autoSubs}
+                isHighestView={isHighestView}
+                playerMap={playerMap}
+                onSelectPlayer={setSelectedPlayer}
+              />
             )}
           </>
         )}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   BG_DARK, BG_CARD, BG_SURFACE, BORDER, ACCENT,
   TEXT_PRIMARY, TEXT_SECONDARY, TEXT_MUTED, ERROR, SUCCESS, WARNING,
-  btnGreen, btnMuted, globalResetCSS,
+  btnMuted, globalResetCSS,
 } from "@/lib/admin-theme";
 
 interface Gameweek { id: number; name: string | null; is_current: boolean | null }
@@ -17,15 +17,16 @@ interface Match {
   away_goals: number;
   is_played: boolean;
 }
-interface Performer {
+interface BpsPerformer {
   playerId: string;
   playerName: string;
   position: string;
-  matchPoints: number;
-  currentBonus: number;
+  bpsScore: number;
+  bonus: number;
 }
 
 const POS_COLORS: Record<string, string> = { GK: "#F59E0B", DEF: "#3B82F6", MID: "#10B981", FWD: "#EF4444" };
+const BONUS_COLORS: Record<number, string> = { 3: "#FFD700", 2: "#C0C0C0", 1: "#CD7F32" };
 
 export default function BonusPointsPage() {
   const router = useRouter();
@@ -33,11 +34,8 @@ export default function BonusPointsPage() {
   const [selectedGw, setSelectedGw] = useState<number | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<string | null>(null);
-  const [performers, setPerformers] = useState<Performer[]>([]);
-  const [bonusAssignments, setBonusAssignments] = useState<Record<string, number>>({});
+  const [performers, setPerformers] = useState<BpsPerformer[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/gameweeks")
@@ -72,19 +70,10 @@ export default function BonusPointsPage() {
   async function loadPerformers(matchId: string) {
     setSelectedMatch(matchId);
     setLoading(true);
-    setMessage(null);
     try {
       const res = await fetch(`/api/admin/bonus-points?match_id=${matchId}`);
       const data = await res.json();
-      const perfs = data.performers || [];
-      setPerformers(perfs);
-
-      // Pre-fill existing bonus assignments
-      const existing: Record<string, number> = {};
-      for (const p of perfs) {
-        if (p.currentBonus > 0) existing[p.playerId] = p.currentBonus;
-      }
-      setBonusAssignments(existing);
+      setPerformers(data.performers || []);
     } catch {
       setPerformers([]);
     } finally {
@@ -92,40 +81,7 @@ export default function BonusPointsPage() {
     }
   }
 
-  function toggleBonus(playerId: string, points: number) {
-    setBonusAssignments((prev) => {
-      const next = { ...prev };
-      if (next[playerId] === points) {
-        delete next[playerId];
-      } else {
-        // Check if this bonus value is already assigned to someone else
-        const existing = Object.entries(next).find(([pid, pts]) => pts === points && pid !== playerId);
-        if (existing) delete next[existing[0]];
-        next[playerId] = points;
-      }
-      return next;
-    });
-  }
-
-  async function saveBonus() {
-    if (!selectedMatch) return;
-    setSaving(true);
-    setMessage(null);
-    try {
-      const bonuses = Object.entries(bonusAssignments).map(([player_id, points]) => ({ player_id, points }));
-      const res = await fetch("/api/admin/bonus-points", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: selectedMatch, bonuses }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      setMessage({ type: "success", text: "Bonus points saved!" });
-    } catch {
-      setMessage({ type: "error", text: "Failed to save bonus points." });
-    } finally {
-      setSaving(false);
-    }
-  }
+  const bonusWinners = performers.filter((p) => p.bonus > 0);
 
   return (
     <>
@@ -133,9 +89,9 @@ export default function BonusPointsPage() {
       <div style={{ minHeight: "100vh", background: BG_DARK, color: TEXT_PRIMARY, fontFamily: "'Outfit', system-ui, sans-serif", padding: "24px 16px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <button onClick={() => router.push("/admin")} style={{ ...btnMuted, marginBottom: 16 }}>← Back to Dashboard</button>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>Bonus Points</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>Bonus Points (Auto)</h1>
           <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 20px" }}>
-            Assign 3/2/1 bonus points to top performers in each match.
+            Top 3 performers per match are automatically awarded 3/2/1 bonus points based on BPS ranking. Ties share the same bonus.
           </p>
 
           {/* GW Selector */}
@@ -191,18 +147,45 @@ export default function BonusPointsPage() {
             </div>
           )}
 
-          {/* Performers Table */}
+          {/* BPS Rankings */}
           {selectedMatch && (
             loading ? (
-              <div style={{ padding: 30, textAlign: "center", color: TEXT_MUTED }}>Loading performers...</div>
+              <div style={{ padding: 30, textAlign: "center", color: TEXT_MUTED }}>Loading BPS rankings...</div>
             ) : performers.length === 0 ? (
-              <div style={{ padding: 30, textAlign: "center", color: TEXT_MUTED }}>No player events for this match.</div>
+              <div style={{ padding: 30, textAlign: "center", color: TEXT_MUTED }}>No player events for this match yet.</div>
             ) : (
               <>
+                {/* Bonus winners banner */}
+                {bonusWinners.length > 0 && (
+                  <div style={{
+                    display: "flex", gap: 12, marginBottom: 16, padding: "14px 16px",
+                    backgroundColor: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
+                    flexWrap: "wrap",
+                  }}>
+                    {bonusWinners
+                      .sort((a, b) => b.bonus - a.bonus)
+                      .map((w) => (
+                      <div key={w.playerId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{
+                          width: 28, height: 28, borderRadius: "50%", display: "inline-flex",
+                          alignItems: "center", justifyContent: "center",
+                          backgroundColor: BONUS_COLORS[w.bonus] ?? TEXT_MUTED,
+                          color: "#000", fontWeight: 700, fontSize: 13,
+                        }}>{w.bonus}</span>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{w.playerName}</div>
+                          <div style={{ fontSize: 10, color: TEXT_MUTED }}>BPS: {w.bpsScore}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Full BPS table */}
                 <div style={{ borderRadius: 10, border: `1px solid ${BORDER}`, overflow: "hidden", marginBottom: 16 }}>
                   <div style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 60px 80px 50px 50px 50px",
+                    gridTemplateColumns: "40px 1fr 60px 80px 60px",
                     padding: "10px 14px",
                     background: BG_SURFACE,
                     fontSize: 11,
@@ -211,25 +194,25 @@ export default function BonusPointsPage() {
                     textTransform: "uppercase",
                     gap: 8,
                   }}>
+                    <div>#</div>
                     <div>Player</div>
                     <div>Pos</div>
-                    <div style={{ textAlign: "right" }}>Match Pts</div>
-                    <div style={{ textAlign: "center" }}>3</div>
-                    <div style={{ textAlign: "center" }}>2</div>
-                    <div style={{ textAlign: "center" }}>1</div>
+                    <div style={{ textAlign: "right" }}>BPS</div>
+                    <div style={{ textAlign: "center" }}>Bonus</div>
                   </div>
 
-                  {performers.slice(0, 15).map((p, i) => (
+                  {performers.slice(0, 20).map((p, i) => (
                     <div key={p.playerId} style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 60px 80px 50px 50px 50px",
+                      gridTemplateColumns: "40px 1fr 60px 80px 60px",
                       padding: "10px 14px",
-                      background: i % 2 === 0 ? BG_CARD : BG_DARK,
+                      background: p.bonus > 0 ? `${BONUS_COLORS[p.bonus]}08` : i % 2 === 0 ? BG_CARD : BG_DARK,
                       fontSize: 13,
                       gap: 8,
                       alignItems: "center",
                       borderBottom: `1px solid ${BORDER}22`,
                     }}>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", color: TEXT_MUTED, fontSize: 12 }}>{i + 1}</div>
                       <div style={{ fontWeight: 600 }}>{p.playerName}</div>
                       <div>
                         <span style={{
@@ -238,53 +221,28 @@ export default function BonusPointsPage() {
                           color: POS_COLORS[p.position] || TEXT_MUTED,
                         }}>{p.position}</span>
                       </div>
-                      <div style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>{p.matchPoints}</div>
-                      {[3, 2, 1].map((pts) => (
-                        <div key={pts} style={{ textAlign: "center" }}>
-                          <button
-                            onClick={() => toggleBonus(p.playerId, pts)}
-                            style={{
-                              width: 30, height: 30, borderRadius: "50%",
-                              border: bonusAssignments[p.playerId] === pts ? `2px solid ${ACCENT}` : `1px solid ${BORDER}`,
-                              background: bonusAssignments[p.playerId] === pts ? ACCENT : "transparent",
-                              color: bonusAssignments[p.playerId] === pts ? "#000" : TEXT_MUTED,
-                              fontWeight: 700, fontSize: 12, cursor: "pointer",
-                            }}
-                          >
-                            {pts}
-                          </button>
-                        </div>
-                      ))}
+                      <div style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
+                        {p.bpsScore}
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        {p.bonus > 0 ? (
+                          <span style={{
+                            display: "inline-flex", width: 28, height: 28, borderRadius: "50%",
+                            alignItems: "center", justifyContent: "center",
+                            backgroundColor: BONUS_COLORS[p.bonus],
+                            color: "#000", fontWeight: 700, fontSize: 12,
+                          }}>{p.bonus}</span>
+                        ) : (
+                          <span style={{ color: TEXT_MUTED, fontSize: 11 }}>—</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Summary + Save */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: 12, color: TEXT_MUTED }}>
-                    {Object.keys(bonusAssignments).length === 0
-                      ? "Click circles to assign bonus points"
-                      : `${Object.keys(bonusAssignments).length} player(s) assigned bonus`}
-                  </div>
-                  <button
-                    onClick={saveBonus}
-                    disabled={saving}
-                    style={{ ...btnGreen, opacity: saving ? 0.5 : 1 }}
-                  >
-                    {saving ? "Saving..." : "Save Bonus Points"}
-                  </button>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, textAlign: "center" }}>
+                  Bonus is auto-calculated from BPS. No manual assignment needed.
                 </div>
-
-                {message && (
-                  <div style={{
-                    marginTop: 12, padding: 10, borderRadius: 8, fontSize: 13,
-                    background: message.type === "success" ? `${SUCCESS}15` : `${ERROR}15`,
-                    color: message.type === "success" ? SUCCESS : ERROR,
-                    border: `1px solid ${message.type === "success" ? SUCCESS : ERROR}44`,
-                  }}>
-                    {message.text}
-                  </div>
-                )}
               </>
             )
           )}

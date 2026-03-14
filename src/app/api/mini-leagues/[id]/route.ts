@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { computeStandings } from "@/lib/leaderboard-utils";
 import { computeH2HStandings } from "@/lib/h2h-utils";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -89,8 +90,8 @@ export async function GET(
       },
       standings,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Route crashed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load league standings", "LEAGUE_STANDINGS_FAILED", 500, e);
   }
 }
 
@@ -140,11 +141,11 @@ export async function PATCH(
       .eq("id", leagueId);
 
     if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      return apiError("Failed to rename league", "LEAGUE_UPDATE_FAILED", 500, updateErr);
     }
 
     return NextResponse.json({ updated: true, name });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Route crashed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to update league", "LEAGUE_PATCH_FAILED", 500, e);
   }
 }

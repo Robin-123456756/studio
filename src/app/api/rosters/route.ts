@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
     .eq("user_id", auth.user.id)
     .eq("gameweek_id", gwId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return apiError("Failed to fetch roster", "ROSTER_FETCH_FAILED", 500, error);
 
   // If no roster for this GW, try rolling over from the most recent previous GW
   let rows = data ?? [];

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { computeUserScore } from "@/lib/scoring-engine";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
       .eq("gameweek_id", gwId);
 
     if (rosterErr) {
-      return NextResponse.json({ error: rosterErr.message }, { status: 500 });
+      return apiError("Failed to fetch rosters for highest scorer", "HIGHEST_ROSTER_FETCH_FAILED", 500, rosterErr);
     }
 
     if (firstTry && firstTry.length > 0) {
@@ -198,10 +199,7 @@ export async function GET(req: Request) {
       viceId: bestRows.find((r: any) => r.is_vice_captain)?.player_id ?? null,
       multiplierByPlayer,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch highest scorer", "HIGHEST_SCORER_FETCH_FAILED", 500, e);
   }
 }

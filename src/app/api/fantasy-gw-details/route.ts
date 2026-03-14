@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { computeUserScore, norm, lookupPoints, loadScoringRules } from "@/lib/scoring-engine";
 import type { RosterRow, PlayerMeta, PlayerStat } from "@/lib/scoring-engine";
+import { apiError } from "@/lib/api-error";
 import {
   computeTransferCost,
   computeLeagueStats,
@@ -52,7 +53,7 @@ export async function GET(req: Request) {
       .eq("gameweek_id", gwId);
 
     if (rosterErr) {
-      return NextResponse.json({ error: rosterErr.message }, { status: 500 });
+      return apiError("Failed to load roster", "GW_DETAILS_ROSTER_FAILED", 500, rosterErr);
     }
 
     let rows = rosterData ?? [];
@@ -202,10 +203,12 @@ export async function GET(req: Request) {
     const playedFromEvents = new Set<string>();
     const hasAppearanceEvent = new Set<string>();
 
+    const bonusMap = new Map<string, number>(); // playerId → bonus points (3/2/1)
+
     if (gwMatchIds.length > 0) {
       const { data: events } = await admin
         .from("player_match_events")
-        .select("player_id, action, quantity")
+        .select("player_id, action, quantity, points_awarded")
         .in("match_id", gwMatchIds)
         .in("player_id", squadIds);
 
@@ -214,7 +217,15 @@ export async function GET(req: Request) {
         const meta = metaMap.get(pid);
         const position = norm(meta?.position);
         const isLady = meta?.is_lady ?? false;
-        const pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+
+        // Bonus uses stored points_awarded directly (not from scoring_rules)
+        let pts: number;
+        if (e.action === "bonus") {
+          pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
+          bonusMap.set(pid, (bonusMap.get(pid) ?? 0) + pts);
+        } else {
+          pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+        }
         pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
         playedFromEvents.add(pid);
         if (e.action === "appearance" || e.action === "sub_appearance") hasAppearanceEvent.add(pid);
@@ -354,7 +365,7 @@ export async function GET(req: Request) {
         // Fetch ALL events for this GW's matches (action-based, matching scoring engine)
         const { data: allEvents } = await admin
           .from("player_match_events")
-          .select("player_id, action, quantity")
+          .select("player_id, action, quantity, points_awarded")
           .in("match_id", gwMatchIds);
 
         // Also fetch did_play from player_stats for all players
@@ -388,7 +399,10 @@ export async function GET(req: Request) {
           const meta = allMetaMap.get(pid);
           const position = norm(meta?.position);
           const isLady = meta?.is_lady ?? false;
-          const pts = lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+          // Bonus uses stored points_awarded directly (not from scoring_rules)
+          const pts = e.action === "bonus"
+            ? (e.points_awarded ?? 0) * (e.quantity ?? 1)
+            : lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
           allPointsMap.set(pid, (allPointsMap.get(pid) ?? 0) + pts);
           allPlayedFromEvents.add(pid);
           if (e.action === "appearance" || e.action === "sub_appearance") allHasAppearance.add(pid);
@@ -486,8 +500,11 @@ export async function GET(req: Request) {
               yellowCards: breakdown.yellowCards,
               redCards: breakdown.redCards,
               ownGoals: breakdown.ownGoals,
+              bonus: bonusMap.get(pid) ?? 0,
             }
-          : null,
+          : bonusMap.has(pid)
+            ? { goals: 0, penalties: 0, assists: 0, cleanSheet: false, yellowCards: 0, redCards: 0, ownGoals: 0, bonus: bonusMap.get(pid) ?? 0 }
+            : null,
       };
     });
 
@@ -517,10 +534,7 @@ export async function GET(req: Request) {
       highestUserId,
       ...(isManagerView && { managerTeamName: teamName }),
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch gameweek details", "GW_DETAILS_FETCH_FAILED", 500, e);
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { commitToDB } from "@/lib/voice-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,10 +18,15 @@ export async function POST(request: NextRequest) {
     // Use authenticated session user instead of client-sent adminId
     const adminId = (session!.user as any).id;
 
+    const matchIdNum = Number(matchId);
+    if (!Number.isFinite(matchIdNum)) {
+      return NextResponse.json({ error: "Invalid matchId" }, { status: 400 });
+    }
+
     const result = await commitToDB({
-      matchId: parseInt(matchId),
+      matchId: matchIdNum,
       entries,
-      adminId: typeof adminId === "string" ? parseInt(adminId) : adminId,
+      adminId: typeof adminId === "string" ? Number(adminId) : adminId,
       transcript: transcript || "",
       aiInterpretation: aiInterpretation || {},
     });
@@ -30,8 +36,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `Saved ${result.eventCount} events for ${result.playerCount} players`,
     });
-  } catch (error: any) {
-    if (process.env.NODE_ENV === "development") console.error("[DB] Write error:", error);
-    return NextResponse.json({ error: "Database write failed", message: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Database write failed", "DB_WRITE_FAILED", 500, error);
   }
 }

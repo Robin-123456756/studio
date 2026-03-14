@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { supabaseServer } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
       .eq("is_current", true)
       .maybeSingle();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return apiError("Failed to fetch current gameweek", "CURRENT_ROSTER_GW_FETCH_FAILED", 500, error);
     gwId = current?.id ?? NaN;
   }
 
@@ -47,7 +48,7 @@ export async function GET(req: Request) {
     .eq("user_id", userId)
     .eq("gameweek_id", gwId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return apiError("Failed to fetch current roster", "CURRENT_ROSTER_FETCH_FAILED", 500, error);
 
   let rows = data ?? [];
 

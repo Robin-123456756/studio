@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
         .maybeSingle();
 
       if (latestErr) {
-        return NextResponse.json({ error: latestErr.message }, { status: 500 });
+        return apiError("Failed to fetch latest gameweek", "STANDINGS_GW_FETCH_FAILED", 500, latestErr);
       }
 
       toGwResolved = latestPlayed?.gameweek_id ?? null;
@@ -54,7 +55,7 @@ export async function GET(req: Request) {
       .order("name", { ascending: true });
 
     if (teamsErr) {
-      return NextResponse.json({ error: teamsErr.message }, { status: 500 });
+      return apiError("Failed to fetch teams for standings", "STANDINGS_TEAMS_FETCH_FAILED", 500, teamsErr);
     }
 
     const rowsMap = new Map<string, Row>();
@@ -106,7 +107,7 @@ export async function GET(req: Request) {
 
     const { data: matches, error: matchesErr } = await matchesQuery;
     if (matchesErr) {
-      return NextResponse.json({ error: matchesErr.message }, { status: 500 });
+      return apiError("Failed to fetch matches for standings", "STANDINGS_MATCHES_FETCH_FAILED", 500, matchesErr);
     }
 
     // ── Lady points detection ──
@@ -221,10 +222,7 @@ export async function GET(req: Request) {
       { rows, range: { from_gw: fromGw, to_gw: toGwResolved } },
       { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }
     );
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch standings", "STANDINGS_FETCH_FAILED", 500, e);
   }
 }

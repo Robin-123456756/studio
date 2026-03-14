@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
     }
 
     const { data, error } = await query;
-    if (error) return NextResponse.json({ error: error.message, details: error }, { status: 500 });
+    if (error) return apiError("Failed to fetch matches", "MATCHES_FETCH_FAILED", 500, error);
 
     const rows = data ?? [];
     const teamIds = Array.from(
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
             .in("team_uuid", teamIds)
         : { data: [], error: null };
 
-    if (teamsErr) return NextResponse.json({ error: teamsErr.message, details: teamsErr }, { status: 500 });
+    if (teamsErr) return apiError("Failed to fetch teams for matches", "MATCHES_TEAMS_FETCH_FAILED", 500, teamsErr);
 
     const teamMap = new Map<string, any>();
     for (const t of teams ?? []) teamMap.set(t.team_uuid, t);
@@ -80,6 +81,7 @@ export async function GET(req: Request) {
       yellowCards: number;
       redCards: number;
       ownGoals: number;
+      bonus: number;
       isLady: boolean;
     };
     const eventsByMatch = new Map<number, Map<string, MatchEvent>>();
@@ -89,7 +91,7 @@ export async function GET(req: Request) {
       const matchIds = rows.map((m: any) => m.id);
       const { data: rawEvents } = await supabase
         .from("player_match_events")
-        .select("match_id, player_id, action, quantity, penalties")
+        .select("match_id, player_id, action, quantity, penalties, points_awarded")
         .in("match_id", matchIds);
 
       if (rawEvents && rawEvents.length > 0) {
@@ -117,6 +119,7 @@ export async function GET(req: Request) {
               yellowCards: 0,
               redCards: 0,
               ownGoals: 0,
+              bonus: 0,
               isLady: p?.is_lady ?? false,
             });
           }
@@ -132,6 +135,7 @@ export async function GET(req: Request) {
           else if (act === "yellow_card" || act === "yellow") entry.yellowCards += qty;
           else if (act === "red_card" || act === "red") entry.redCards += qty;
           else if (act === "own_goal") entry.ownGoals += qty;
+          else if (act === "bonus") entry.bonus += Number(e.points_awarded ?? 0);
         }
       }
     }
@@ -176,10 +180,7 @@ export async function GET(req: Request) {
       { matches },
       { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }
     );
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch matches", "MATCHES_FETCH_FAILED", 500, e);
   }
 }

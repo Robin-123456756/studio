@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
     .eq("team_uuid", teamUuid)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return apiError("Failed to fetch team", "TEAM_FETCH_FAILED", 500, error);
   if (!data) return NextResponse.json({ error: "Team not found" }, { status: 404 });
 
   return NextResponse.json({ team: data });

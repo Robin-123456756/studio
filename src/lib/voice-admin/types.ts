@@ -129,6 +129,7 @@ export interface DBWriteResult {
   auditLogId: number;
   eventCount: number;
   playerCount: number;
+  bonusWarning?: string;
 }
 
 export interface CSVExportResult {

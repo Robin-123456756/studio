@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -154,7 +155,7 @@ export async function GET() {
       teams: { teamRankings },
       engagement: { pickBreakdown, transferBreakdown, chipBreakdown },
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load analytics", "ANALYTICS_LOAD_FAILED", 500, e);
   }
 }

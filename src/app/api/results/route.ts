@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
       .order("kickoff_time", { ascending: true });
 
     if (error) {
-      return NextResponse.json({ error: error.message, details: error }, { status: 500 });
+      return apiError("Failed to fetch results", "RESULTS_FETCH_FAILED", 500, error);
     }
 
     const rows = data ?? [];
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
     }));
 
     return NextResponse.json({ results });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? String(e) }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to fetch results", "RESULTS_FETCH_FAILED", 500, e);
   }
 }

@@ -348,7 +348,7 @@ export default function VoiceAdminPage() {
       </div>
 
       <main>
-        {view === "manual" && <ManualView matchId={selectedMatchId} onSaved={() => setHistoryRefreshKey(k => k + 1)} />}
+        {view === "manual" && <ManualView matchId={selectedMatchId} onSaved={() => { setHistoryRefreshKey(k => k + 1); setView("capture"); }} />}
         {view === "capture" && <CaptureView matchId={selectedMatchId} onResult={handleResult} showLogout={!!session?.user} />}
         {view === "confirm" && pipelineResult && <ConfirmView pipelineResult={pipelineResult} matchId={selectedMatchId} onConfirm={handleConfirm} onCancel={handleCancel} adminId={Number((session?.user as any)?.userId) || 1} />}
         {view === "history" && <HistoryView inMemoryHistory={history} refreshKey={historyRefreshKey} />}
@@ -1210,7 +1210,8 @@ function ManualView({ matchId, onSaved }: { matchId: number | null; onSaved?: ()
       const data = await res.json();
       if (res.ok) {
         setSaveResult({ success: true, message: `Saved ${data.eventsCreated} events for ${data.playersUpdated} players` });
-        onSaved?.();
+        // Brief delay so user sees the success banner before navigating away
+        setTimeout(() => onSaved?.(), 1200);
       } else {
         setSaveResult({ success: false, message: data.message || data.error || "Save failed" });
       }

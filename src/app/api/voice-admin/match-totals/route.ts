@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,18 +14,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "matchId query parameter required" }, { status: 400 });
     }
 
+    const matchIdNum = Number(matchId);
+    if (!Number.isFinite(matchIdNum)) {
+      return NextResponse.json({ error: "Invalid matchId" }, { status: 400 });
+    }
+
     const supabase = getSupabaseServerOrThrow();
     const { data, error } = await supabase
       .from("player_match_totals")
       .select("*")
-      .eq("match_id", parseInt(matchId))
+      .eq("match_id", matchIdNum)
       .order("total_points", { ascending: false });
 
     if (error) throw error;
 
     return NextResponse.json({ totals: data || [] });
-  } catch (error: any) {
-    return NextResponse.json({ error: "Failed to fetch match totals" }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to fetch match totals", "MATCH_TOTALS_FETCH_FAILED", 500, error);
   }
 }
 

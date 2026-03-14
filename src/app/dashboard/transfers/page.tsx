@@ -295,7 +295,7 @@ function TransfersPageInner() {
     }
 
     (async () => {
-      const res = await fetch(`/api/rosters?gw_id=${gwIdForRoster}`, { cache: "no-store" });
+      const res = await fetch(`/api/rosters?gw_id=${gwIdForRoster}`, { cache: "no-store", credentials: "same-origin" });
       const json = await res.json();
 
       if (!res.ok || !Array.isArray(json.squadIds) || json.squadIds.length === 0) {

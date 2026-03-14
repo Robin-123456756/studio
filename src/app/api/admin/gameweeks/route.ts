@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 const EAT_OFFSET = "+03:00";
@@ -30,7 +31,7 @@ export async function GET() {
     .order("id", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("Failed to fetch gameweeks", "GAMEWEEKS_FETCH_FAILED", 500, error);
   }
 
   return NextResponse.json({ gameweeks: data ?? [] });
@@ -84,12 +85,12 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to create gameweek", "GAMEWEEK_CREATE_FAILED", 500, error);
     }
 
     return NextResponse.json({ gameweek: data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to create gameweek" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to create gameweek", "GAMEWEEK_CREATE_FAILED", 500, e);
   }
 }
 
@@ -135,12 +136,12 @@ export async function PATCH(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to update gameweek", "GAMEWEEK_UPDATE_FAILED", 500, error);
     }
 
     return NextResponse.json({ gameweek: data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to update gameweek" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to update gameweek", "GAMEWEEK_UPDATE_FAILED", 500, e);
   }
 }
 
@@ -171,7 +172,7 @@ export async function DELETE(req: Request) {
       .maybeSingle();
 
     if (findError) {
-      return NextResponse.json({ error: findError.message }, { status: 500 });
+      return apiError("Failed to find gameweek", "GAMEWEEK_FIND_FAILED", 500, findError);
     }
 
     if (!existing) {
@@ -200,11 +201,11 @@ export async function DELETE(req: Request) {
           { status: 400 }
         );
       }
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      return apiError("Failed to delete gameweek", "GAMEWEEK_DELETE_FAILED", 500, deleteError);
     }
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to delete gameweek" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to delete gameweek", "GAMEWEEK_DELETE_FAILED", 500, e);
   }
 }

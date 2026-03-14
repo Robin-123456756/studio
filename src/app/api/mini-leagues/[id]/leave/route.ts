@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,18 @@ export async function DELETE(
       );
     }
 
+    // BOLA: Verify user is actually a member before deleting
+    const { data: membership } = await sb
+      .from("mini_league_members")
+      .select("league_id")
+      .eq("league_id", leagueId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ error: "You are not a member of this league" }, { status: 403 });
+    }
+
     // Delete membership
     const { error: delErr } = await sb
       .from("mini_league_members")
@@ -49,11 +62,11 @@ export async function DELETE(
       .eq("user_id", userId);
 
     if (delErr) {
-      return NextResponse.json({ error: delErr.message }, { status: 500 });
+      return apiError("Failed to leave league", "LEAGUE_LEAVE_FAILED", 500, delErr);
     }
 
     return NextResponse.json({ left: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Route crashed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to leave league", "LEAGUE_LEAVE_CRASHED", 500, e);
   }
 }

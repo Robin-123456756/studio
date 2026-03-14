@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { supabaseServer } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +35,7 @@ export async function GET() {
     const res = NextResponse.json({ rules });
     res.headers.set("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
     return res;
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Failed to load scoring rules" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to load scoring rules", "SCORING_RULES_FAILED", 500, e);
   }
 }

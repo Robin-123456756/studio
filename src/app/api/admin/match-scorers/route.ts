@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -82,8 +83,8 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ scorers });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to fetch match scorers", "MATCH_SCORERS_FETCH_FAILED", 500, error);
   }
 }
 
@@ -130,7 +131,7 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to update penalties", "PENALTIES_UPDATE_FAILED", 500, error);
   }
 }

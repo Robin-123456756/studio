@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 const EAT_OFFSET = "+03:00";
 
 function getSupabase() {
@@ -99,8 +100,8 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ events });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to fetch fixtures", "FIXTURES_FETCH_FAILED", 500, error);
   }
 }
 
@@ -178,8 +179,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to create fixture", "FIXTURE_CREATE_FAILED", 500, error);
   }
 }
 
@@ -234,8 +235,8 @@ export async function PATCH(req: Request) {
 
     if (error) throw new Error(`Failed to update match: ${error.message}`);
     return NextResponse.json({ success: true, match: data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to update fixture", "FIXTURE_UPDATE_FAILED", 500, error);
   }
 }
 
@@ -281,8 +282,8 @@ export async function DELETE(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Failed to delete fixture", "FIXTURE_DELETE_FAILED", 500, error);
   }
 }
 

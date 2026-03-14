@@ -138,9 +138,8 @@ export function AppSidebar() {
             <button className="w-full flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:size-10">
               <Avatar className="size-9">
                 <AvatarImage
-                  src="https://picsum.photos/seed/admin/100/100"
+                  src="/tbl-logo.png"
                   alt="Admin"
-                  data-ai-hint="person avatar"
                 />
                 <AvatarFallback>A</AvatarFallback>
               </Avatar>

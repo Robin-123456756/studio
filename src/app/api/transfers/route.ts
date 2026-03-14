@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { rateLimitResponse } from "@/lib/rate-limit";
+import { parseBody } from "@/lib/validate";
+
+const RATE_LIMIT_10 = { maxRequests: 10, windowMs: 60 * 1000 };
+
+const TransferSchema = z.object({
+  gameweekId: z.number().int().positive(),
+  playerOutId: z.string().min(1),
+  playerInId: z.string().min(1),
+});
 
 export const dynamic = "force-dynamic";
 
@@ -121,19 +132,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
   const userId = auth.user.id;
+
+  // Rate limit: 10 transfers per minute
+  const rl = rateLimitResponse("transfer", userId, RATE_LIMIT_10);
+  if (rl) return rl;
+
   const admin = getSupabaseServerOrThrow();
 
-  const body = await req.json().catch(() => null);
-  const gameweekId = Number(body?.gameweekId ?? "");
-  const playerOutId = body?.playerOutId ? String(body.playerOutId) : null;
-  const playerInId = body?.playerInId ? String(body.playerInId) : null;
+  const rawBody = await req.json().catch(() => null);
+  const validated = parseBody(TransferSchema, rawBody);
+  if (!validated.success) return validated.error;
+  const { gameweekId, playerOutId, playerInId } = validated.data;
 
-  if (!Number.isFinite(gameweekId) || gameweekId < 1) {
-    return NextResponse.json({ error: "gameweekId is required" }, { status: 400 });
-  }
-  if (!playerOutId || !playerInId) {
-    return NextResponse.json({ error: "playerOutId and playerInId are required" }, { status: 400 });
-  }
   if (playerOutId === playerInId) {
     return NextResponse.json({ error: "Cannot transfer a player for themselves" }, { status: 400 });
   }

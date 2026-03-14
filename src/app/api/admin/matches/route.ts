@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,11 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to schedule match", "MATCH_CREATE_FAILED", 500, error);
     }
 
     return NextResponse.json({ match: data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to schedule match" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to schedule match", "MATCH_CREATE_FAILED", 500, e);
   }
 }

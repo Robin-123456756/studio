@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("Failed to load free hit backup", "FREE_HIT_BACKUP_FETCH_FAILED", 500, error);
   }
 
   if (!data) {
@@ -129,8 +130,7 @@ export async function POST(req: Request) {
     );
 
   if (upsertErr) {
-    console.error("FREE HIT BACKUP UPSERT ERROR", upsertErr);
-    return NextResponse.json({ error: "Failed to save backup" }, { status: 500 });
+    return apiError("Failed to save free hit backup", "FREE_HIT_BACKUP_SAVE_FAILED", 500, upsertErr);
   }
 
   return NextResponse.json({ ok: true, squadIds });
@@ -166,7 +166,7 @@ export async function DELETE(req: Request) {
     .maybeSingle();
 
   if (fetchErr) {
-    return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+    return apiError("Failed to fetch free hit backup", "FREE_HIT_BACKUP_RESTORE_FETCH_FAILED", 500, fetchErr);
   }
 
   if (!backup || !backup.squad_ids || backup.squad_ids.length === 0) {
@@ -207,8 +207,7 @@ export async function DELETE(req: Request) {
     .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
 
   if (upsertErr) {
-    console.error("FREE HIT RESTORE UPSERT ERROR", upsertErr);
-    return NextResponse.json({ error: "Failed to restore roster" }, { status: 500 });
+    return apiError("Failed to restore roster from backup", "FREE_HIT_RESTORE_FAILED", 500, upsertErr);
   }
 
   // Clean stale rows (players from the FH squad that aren't in the backup)

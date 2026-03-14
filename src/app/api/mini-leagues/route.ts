@@ -3,7 +3,9 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { generateInviteCode } from "@/lib/invite-code";
 import { computeStandings } from "@/lib/leaderboard-utils";
+import { rateLimitResponse, RATE_LIMIT_HEAVY } from "@/lib/rate-limit";
 import { generateAndSaveH2HFixtures } from "@/lib/h2h-utils";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,7 @@ export async function GET() {
       .eq("user_id", userId);
 
     if (memErr) {
-      return NextResponse.json({ error: memErr.message }, { status: 500 });
+      return apiError("Failed to fetch memberships", "MEMBERSHIP_FETCH_FAILED", 500, memErr);
     }
 
     const leagueIds = (memberships ?? []).map((m: any) => m.league_id);
@@ -40,7 +42,7 @@ export async function GET() {
       .in("id", leagueIds);
 
     if (lgErr) {
-      return NextResponse.json({ error: lgErr.message }, { status: 500 });
+      return apiError("Failed to fetch leagues", "LEAGUE_FETCH_FAILED", 500, lgErr);
     }
 
     // For each league, fetch members and compute user's rank + movement
@@ -78,8 +80,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ leagues: result });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Route crashed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load leagues", "LEAGUES_GET_FAILED", 500, e);
   }
 }
 
@@ -92,6 +94,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
     const userId = auth.user.id;
+
+    // Rate limit: 5 league creations per minute
+    const rl = rateLimitResponse("create-league", userId, RATE_LIMIT_HEAVY);
+    if (rl) return rl;
+
     const sb = getSupabaseServerOrThrow();
 
     const body = await req.json();
@@ -133,7 +140,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertErr) {
-      return NextResponse.json({ error: insertErr.message }, { status: 500 });
+      return apiError("Failed to create league", "LEAGUE_INSERT_FAILED", 500, insertErr);
     }
 
     // Auto-join creator
@@ -143,7 +150,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ league }, { status: 201 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Route crashed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to create league", "LEAGUE_CREATE_FAILED", 500, e);
   }
 }

@@ -3,6 +3,7 @@ import { calcPoints } from "./points-calculator";
 import type { ResolvedEntry, DBWriteResult } from "./types";
 import { sendPushToAll } from "@/lib/push-notifications";
 import { buildGoalPush, buildCardPush } from "@/lib/push-message-builders";
+import { autoAssignBonus } from "@/lib/bonus-calculator";
 
 /**
  * Write validated voice entries directly to the database.
@@ -244,12 +245,22 @@ export async function writeToDatabase({
     // Push must never crash the DB write flow
   }
 
+  // 8. Auto-assign bonus points (3/2/1) to top BPS performers
+  let bonusWarning: string | undefined;
+  try {
+    await autoAssignBonus(matchId);
+  } catch (err: any) {
+    bonusWarning = `Bonus recalculation failed: ${err?.message ?? "unknown error"}`;
+    console.error(`[db-writer] ${bonusWarning}`);
+  }
+
   return {
     success: true,
     eventIds,
     auditLogId,
     eventCount: eventIds.length,
     playerCount: entries.length,
+    bonusWarning,
   };
 }
 
@@ -258,7 +269,7 @@ export async function writeToDatabase({
  */
 export async function undoEntry(
   auditLogId: number
-): Promise<{ success: boolean; deletedCount: number }> {
+): Promise<{ success: boolean; deletedCount: number; bonusWarning?: string }> {
   const supabase = getSupabaseServerOrThrow();
 
   // 1. Get the audit log entry
@@ -300,7 +311,23 @@ export async function undoEntry(
 
   // 6. Materialized view is auto-refreshed by DB trigger on player_match_events
 
-  return { success: true, deletedCount: count || 0 };
+  // 7. Recalculate bonus for this match (events changed)
+  let bonusWarning: string | undefined;
+  try {
+    const { data: auditFull } = await supabase
+      .from("voice_audit_log")
+      .select("match_id")
+      .eq("id", auditLogId)
+      .single();
+    if (auditFull?.match_id) {
+      await autoAssignBonus(auditFull.match_id);
+    }
+  } catch (err: any) {
+    bonusWarning = `Bonus recalculation failed: ${err?.message ?? "unknown error"}`;
+    console.error(`[db-writer:undo] ${bonusWarning}`);
+  }
+
+  return { success: true, deletedCount: count || 0, bonusWarning };
 }
 
 /**

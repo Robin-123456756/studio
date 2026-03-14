@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { rateLimitResponse, RATE_LIMIT_HEAVY } from "@/lib/rate-limit";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
         .select("id");
 
       if (error) {
-        return NextResponse.json({ error: error.message, validationErrors: errors }, { status: 500 });
+        return apiError("Failed to import players", "PLAYERS_IMPORT_DB_FAILED", 500, error);
       }
       inserted = data?.length ?? 0;
     }
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
       skipped: errors.length,
       validationErrors: errors,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Import failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to import players", "PLAYERS_IMPORT_FAILED", 500, e);
   }
 }

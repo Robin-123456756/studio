@@ -268,7 +268,7 @@ function TransferNextPageInner() {
         // and as fallback for starting/captain/vice when localStorage is empty
         let benchOrderIds: string[] = [];
         try {
-          const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
+          const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store", credentials: "same-origin" });
           const dbRoster = await res.json();
           if (res.ok) {
             // Bench order always comes from DB (not stored in localStorage)

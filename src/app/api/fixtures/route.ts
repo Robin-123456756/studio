@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await query;
     if (error)
-      return NextResponse.json({ error: error.message, details: error }, { status: 500 });
+      return apiError("Failed to fetch fixtures", "FIXTURES_FETCH_FAILED", 500, error);
 
     const rows = data ?? [];
 
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
         : { data: [], error: null };
 
     if (teamsErr)
-      return NextResponse.json({ error: teamsErr.message, details: teamsErr }, { status: 500 });
+      return apiError("Failed to fetch teams for fixtures", "FIXTURES_TEAMS_FETCH_FAILED", 500, teamsErr);
 
     const teamMap = new Map<string, any>();
     for (const t of teams ?? []) teamMap.set(t.team_uuid, t);
@@ -106,10 +107,7 @@ export async function GET(req: Request) {
       { fixtures },
       { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } }
     );
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch fixtures", "FIXTURES_FETCH_FAILED", 500, e);
   }
 }

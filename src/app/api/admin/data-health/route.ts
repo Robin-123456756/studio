@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -164,7 +165,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ warnings });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to check data health" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to check data health", "DATA_HEALTH_CHECK_FAILED", 500, e);
   }
 }

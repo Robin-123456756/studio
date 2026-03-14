@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,11 +54,7 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ matches });
-  } catch (error: any) {
-    if (process.env.NODE_ENV === "development") console.error("[Data] Fetch matches error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch matches", message: error.message },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return apiError("Failed to fetch matches", "MATCHES_FETCH_FAILED", 500, error);
   }
 }

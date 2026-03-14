@@ -13,9 +13,14 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pwa:assets": "node scripts/generate-pwa-assets.mjs"
+    "pwa:assets": "node scripts/generate-pwa-assets.mjs",
+    "agent:bugs": "npx tsx agents/bug-finder.ts",
+    "agent:tests": "npx tsx agents/test-writer.ts",
+    "agent:review": "npx tsx agents/code-reviewer.ts",
+    "agent:db": "npx tsx agents/db-inspector.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.76",
     "@anthropic-ai/sdk": "^0.74.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
       offset,
       limit,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to load audit log" }, { status: 500 });
+  } catch (e: unknown) {
+    return apiError("Failed to load audit log", "AUDIT_LOG_LOAD_FAILED", 500, e);
   }
 }

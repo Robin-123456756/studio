@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,8 @@ export async function GET(req: Request) {
     }
     const supabase = getSupabaseServerOrThrow();
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limitParam = Number(searchParams.get("limit") ?? 50);
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 50;
     const gw = searchParams.get("gw");
 
     let query = supabase
@@ -24,7 +26,11 @@ export async function GET(req: Request) {
       .limit(limit);
 
     if (gw) {
-      query = query.eq("gameweek_id", parseInt(gw));
+      const gwNum = Number(gw);
+      if (!Number.isFinite(gwNum)) {
+        return NextResponse.json({ error: "Invalid gameweek" }, { status: 400 });
+      }
+      query = query.eq("gameweek_id", gwNum);
     }
 
     const { data, error } = await query;
@@ -32,7 +38,7 @@ export async function GET(req: Request) {
     if (error) throw error;
 
     return NextResponse.json({ feed: data || [] });
-  } catch {
-    return NextResponse.json({ feed: [] });
+  } catch (e: unknown) {
+    return apiError("Failed to load activity feed", "ACTIVITY_FEED_FAILED", 500, e);
   }
 }

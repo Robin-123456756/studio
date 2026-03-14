@@ -1,8 +1,26 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { BUDGET_TOTAL } from "@/lib/constants";
 import { validateSquadComposition } from "@/lib/roster-validation";
+import { parseBody } from "@/lib/validate";
+import { rateLimitResponse } from "@/lib/rate-limit";
+
+const RATE_LIMIT_10 = { maxRequests: 10, windowMs: 60 * 1000 };
+
+const SaveRosterSchema = z.object({
+  gameweekId: z.number().int().positive(),
+  squadIds: z.array(z.string().min(1)).min(1).max(17),
+  startingIds: z.array(z.string()).optional(),
+  captainId: z.string().nullable().optional(),
+  viceId: z.string().nullable().optional(),
+  chip: z.enum(["bench_boost", "triple_captain", "wildcard", "free_hit"]).nullable().optional(),
+  teamName: z.string().max(30).nullable().optional(),
+  benchOrder: z.array(z.string()).nullable().optional(),
+  squadOnly: z.boolean().optional(),
+  transfers: z.array(z.object({ outId: z.string(), inId: z.string() })).optional(),
+});
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +48,17 @@ export async function POST(req: Request) {
   }
   const userId = auth.user.id;
 
+  // Rate limit: 10 saves per minute
+  const rl = rateLimitResponse("roster-save", userId, RATE_LIMIT_10);
+  if (rl) return rl;
+
   // Use admin client for writes (RLS may restrict user_rosters inserts)
   const admin = getSupabaseServerOrThrow();
 
-  const body = (await req.json()) as Body;
+  const rawBody = await req.json();
+  const validated = parseBody(SaveRosterSchema, rawBody);
+  if (!validated.success) return validated.error;
+  const body = validated.data as Body;
   const { gameweekId, squadIds, startingIds, captainId, viceId, chip, teamName, benchOrder, squadOnly, transfers } = body;
 
   // Upsert team name if provided
@@ -269,7 +294,7 @@ export async function POST(req: Request) {
 
   if (upsertErr) {
     console.error("UPSERT ERROR /api/rosters/save", upsertErr);
-    return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save roster" }, { status: 500 });
   }
 
   // Remove any stale rows from a previous squad that aren't in the new one

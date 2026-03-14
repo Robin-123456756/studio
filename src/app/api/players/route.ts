@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -76,11 +77,7 @@ export async function GET(req: Request) {
 
     const { data, error } = playersResult;
     if (error) {
-      if (process.env.NODE_ENV === "development") console.log("SUPABASE ERROR /api/players", error);
-      return NextResponse.json(
-        { error: error.message, details: error },
-        { status: 500 }
-      );
+      return apiError("Failed to fetch players", "PLAYERS_FETCH_FAILED", 500, error);
     }
 
     const playerIds = (data ?? []).map((p: any) => String(p.id));
@@ -243,12 +240,8 @@ export async function GET(req: Request) {
       { players },
       { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } }
     );
-  } catch (e: any) {
-    if (process.env.NODE_ENV === "development") console.log("ROUTE CRASH /api/players", e);
-    return NextResponse.json(
-      { error: String(e?.message ?? e) },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch players", "PLAYERS_FETCH_FAILED", 500, e);
   }
 }
 
@@ -281,14 +274,11 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return apiError("Failed to add player", "PLAYER_INSERT_FAILED", 500, error);
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Failed to add player" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return apiError("Failed to add player", "PLAYER_INSERT_FAILED", 500, error);
   }
 }

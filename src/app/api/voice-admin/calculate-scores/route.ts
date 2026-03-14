@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { calculateGameweekScores } from "@/lib/scoring-engine";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { apiError } from "@/lib/api-error";
 
 export async function POST(request: Request) {
   try {
@@ -42,8 +43,7 @@ export async function POST(request: Request) {
       leaderboard,
       message: `Scores calculated for ${result.summary.usersScored} users in GW${gameweekId}`,
     });
-  } catch (error: any) {
-    if (process.env.NODE_ENV === "development") console.error("Score calculation error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return apiError("Score calculation failed", "SCORE_CALC_FAILED", 500, error);
   }
 }

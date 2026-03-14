@@ -46,6 +46,7 @@ type MatchEvent = {
   yellowCards: number;
   redCards: number;
   ownGoals: number;
+  bonus: number;
   isLady: boolean;
 };
 

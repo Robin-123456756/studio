@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { supabaseServer } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -161,11 +162,8 @@ export async function GET(req: Request) {
     });
     res.headers.set("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
     return res;
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message ?? "Route crashed" },
-      { status: 500 }
-    );
+  } catch (e: unknown) {
+    return apiError("Failed to fetch dream team", "DREAM_TEAM_FETCH_FAILED", 500, e);
   }
 }
 
