@@ -20,7 +20,6 @@
     "agent:db": "npx tsx agents/db-inspector.ts"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.76",
     "@anthropic-ai/sdk": "^0.74.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
