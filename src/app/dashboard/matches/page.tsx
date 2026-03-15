@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -327,8 +328,12 @@ function MatchRow({ g }: { g: UiGame }) {
 
 /* ---------------- Page ---------------- */
 
-export default function MatchesPage() {
-  const [tab, setTab] = React.useState<"matches" | "table" | "stats">("matches");
+function MatchesContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = React.useState<"matches" | "table" | "stats">(
+    initialTab === "table" || initialTab === "stats" ? initialTab : "matches"
+  );
 
   const [allGws, setAllGws] = React.useState<ApiGameweek[]>([]);
   const [gwId, setGwId] = React.useState<number | null>(null);
@@ -886,7 +891,7 @@ export default function MatchesPage() {
                                 <TableCell className="py-2 px-2 text-center whitespace-nowrap">
                                   {oppInfo ? (
                                     <div className="flex items-center justify-center gap-1">
-                                      <Image src={oppInfo.logoUrl} alt={oppInfo.name} width={16} height={16} className="shrink-0 object-contain" />
+                                      <img src={oppInfo.logoUrl} alt={oppInfo.name} width={16} height={16} className="shrink-0 object-contain" />
                                       <span className="text-[10px] text-muted-foreground">
                                         {oppInfo.short} ({opp!.isHome ? "H" : "A"})
                                       </span>
@@ -912,12 +917,15 @@ export default function MatchesPage() {
                             <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
                             <TableHead className="pr-1">Team</TableHead>
                             <TableHead className="px-1 text-center">Form</TableHead>
+                            <TableHead className="px-2 text-center">Next</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {visibleRows.map((r, idx) => {
                             const pos = idx + 1;
                             const form = teamForm.get(r.teamId) ?? [];
+                            const opp = nextOpponent.get(r.teamId);
+                            const oppInfo = opp ? teamNameMap.get(opp.opponentId) : null;
                             return (
                               <TableRow key={r.teamId} className="text-[12px]">
                                 <TableCell className="py-2 pl-2 pr-1">
@@ -952,6 +960,18 @@ export default function MatchesPage() {
                                       ))
                                     )}
                                   </div>
+                                </TableCell>
+                                <TableCell className="py-2 px-2 text-center whitespace-nowrap">
+                                  {oppInfo ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <img src={oppInfo.logoUrl} alt={oppInfo.name} width={16} height={16} className="shrink-0 object-contain" />
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {oppInfo.short} ({opp!.isHome ? "H" : "A"})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground">—</span>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             );
@@ -1357,5 +1377,13 @@ export default function MatchesPage() {
 
       <div className="h-24 md:hidden" />
     </div>
+  );
+}
+
+export default function MatchesPage() {
+  return (
+    <React.Suspense fallback={<div className="mx-auto w-full max-w-md px-4 pt-10 text-sm text-muted-foreground">Loading...</div>}>
+      <MatchesContent />
+    </React.Suspense>
   );
 }

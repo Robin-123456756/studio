@@ -22,6 +22,8 @@ function isActiveRoute(pathname: string, href: string) {
 export default function MobileBottomNav() {
   const pathname = usePathname();
 
+  if (pathname === "/dashboard/fantasy/points") return null;
+
   return (
     <nav
       aria-label="Bottom navigation"

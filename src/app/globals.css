@@ -99,8 +99,8 @@ html {
 
     /* Radius & elevation */
     --radius: 14px;
-    --shadow-1: 0 10px 30px rgba(40, 30, 10, 0.08);
-    --shadow-2: 0 25px 60px rgba(40, 30, 10, 0.10);
+    --shadow-1: 0 10px 30px rgba(0, 0, 0, 0.05);
+    --shadow-2: 0 25px 60px rgba(0, 0, 0, 0.08);
 
     /* Sidebar */
     --sidebar-background: 42 50% 85%;

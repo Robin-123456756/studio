@@ -1,0 +1,3 @@
+-- No-op: this migration was an earlier duplicate of 20260315181142_feed_media_upgrade.
+-- All changes (columns, RPC, indexes) are applied by that later migration using
+-- IF NOT EXISTS / CREATE OR REPLACE, so this file is intentionally empty.

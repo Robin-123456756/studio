@@ -6,15 +6,52 @@ import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_SIZE = 3 * 1024 * 1024; // 3 MB
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm"];
+const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3 MB
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
 const VALID_CATEGORIES = [
-  "announcement",
-  "matchday",
-  "player_spotlight",
-  "deadline",
-  "general",
+  "announcement", "matchday", "player_spotlight", "deadline", "general",
+  "breaking", "transfer_news", "match_report",
 ] as const;
+const VALID_LAYOUTS = ["hero", "split", "feature", "gallery", "video", "quick"] as const;
+const VALID_STATUSES = ["draft", "published", "scheduled"] as const;
+
+/** Upload a file to Supabase Storage and return its public URL */
+async function uploadFile(
+  supabase: ReturnType<typeof getSupabaseServerOrThrow>,
+  bucket: string,
+  file: File | Blob,
+  prefix: string
+): Promise<string> {
+  const ext = file instanceof File ? (file.name.split(".").pop() || "bin") : "jpg";
+  const filePath = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, buffer, { contentType: file instanceof File ? file.type : "image/jpeg", upsert: false });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  return data.publicUrl;
+}
+
+/** Resolve admin user ID from session */
+async function resolveAdminId(
+  supabase: ReturnType<typeof getSupabaseServerOrThrow>,
+  session: any
+): Promise<number | null> {
+  const adminUsername = session?.user?.name || session?.user?.userId;
+  if (!adminUsername) return null;
+  const { data } = await supabase
+    .from("admin_users")
+    .select("id")
+    .eq("username", adminUsername)
+    .single();
+  return data?.id ?? null;
+}
 
 /** GET /api/admin/feed-media — list all feed media (admin view, includes inactive) */
 export async function GET() {
@@ -36,7 +73,7 @@ export async function GET() {
   return NextResponse.json({ items: data ?? [] });
 }
 
-/** POST /api/admin/feed-media — upload image + create feed media item */
+/** POST /api/admin/feed-media — create a new feed media item */
 export async function POST(req: Request) {
   const { session, error: authErr } = await requireAdminSession(SUPER_ADMIN_ONLY);
   if (authErr) return authErr;
@@ -50,80 +87,100 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+    const video = formData.get("video") as File | null;
+    const thumbnail = formData.get("thumbnail") as File | null;
     const title = (formData.get("title") as string | null)?.trim();
     const body = (formData.get("body") as string | null)?.trim() || null;
     const category = (formData.get("category") as string | null) || "general";
+    const layout = (formData.get("layout") as string | null) || "hero";
     const isPinned = formData.get("is_pinned") === "true";
     const gameweekId = formData.get("gameweek_id") as string | null;
+    const status = (formData.get("status") as string | null) || "published";
+    const publishAt = (formData.get("publish_at") as string | null) || null;
+    const galleryCount = parseInt((formData.get("gallery_count") as string | null) || "0", 10);
 
-    if (!file) {
-      return NextResponse.json({ error: "No image file provided." }, { status: 400 });
-    }
     if (!title) {
       return NextResponse.json({ error: "Title is required." }, { status: 400 });
     }
     if (!VALID_CATEGORIES.includes(category as any)) {
-      return NextResponse.json(
-        { error: `Invalid category. Allowed: ${VALID_CATEGORIES.join(", ")}` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `Invalid category.` }, { status: 400 });
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: `Invalid file type "${file.type}". Allowed: JPEG, PNG, WebP.` },
-        { status: 400 }
-      );
+    if (!VALID_LAYOUTS.includes(layout as any)) {
+      return NextResponse.json({ error: `Invalid layout.` }, { status: 400 });
     }
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { error: `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max: 3MB.` },
-        { status: 400 }
-      );
+    if (!VALID_STATUSES.includes(status as any)) {
+      return NextResponse.json({ error: `Invalid status.` }, { status: 400 });
+    }
+    if (status === "scheduled" && !publishAt) {
+      return NextResponse.json({ error: "Scheduled items require a publish date & time." }, { status: 400 });
     }
 
-    // Upload to Supabase Storage
-    const ext = file.name.split(".").pop() || "jpg";
-    const filePath = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    const { error: uploadError } = await supabase.storage
-      .from("feed-media")
-      .upload(filePath, buffer, { contentType: file.type, upsert: false });
-
-    if (uploadError) {
-      return apiError("Failed to upload image", "FEED_MEDIA_UPLOAD_FAILED", 500, uploadError);
+    // Upload image
+    let imageUrl: string | null = null;
+    if (file) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        return NextResponse.json({ error: `Invalid image type "${file.type}". Allowed: JPEG, PNG, WebP.` }, { status: 400 });
+      }
+      if (file.size > MAX_IMAGE_SIZE) {
+        return NextResponse.json({ error: `Image too large. Max: 3MB.` }, { status: 400 });
+      }
+      imageUrl = await uploadFile(supabase, "feed-media", file, "img");
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from("feed-media")
-      .getPublicUrl(filePath);
-
-    const imageUrl = publicUrlData.publicUrl;
-
-    // Resolve admin user ID from session
-    const adminUsername = (session!.user as any).name || (session!.user as any).userId;
-    let createdBy: number | null = null;
-    if (adminUsername) {
-      const { data: adminRow } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("username", adminUsername)
-        .single();
-      createdBy = adminRow?.id ?? null;
+    // Upload video
+    let videoUrl: string | null = null;
+    let thumbnailUrl: string | null = null;
+    if (video) {
+      if (!ALLOWED_VIDEO_TYPES.includes(video.type)) {
+        return NextResponse.json({ error: `Invalid video type. Allowed: MP4, WebM.` }, { status: 400 });
+      }
+      if (video.size > MAX_VIDEO_SIZE) {
+        return NextResponse.json({ error: `Video too large. Max: 50MB.` }, { status: 400 });
+      }
+      videoUrl = await uploadFile(supabase, "feed-media", video, "vid");
+    }
+    if (thumbnail) {
+      if (!ALLOWED_IMAGE_TYPES.includes(thumbnail.type)) {
+        return NextResponse.json({ error: "Invalid thumbnail type." }, { status: 400 });
+      }
+      if (thumbnail.size > MAX_IMAGE_SIZE) {
+        return NextResponse.json({ error: "Thumbnail too large. Max: 3MB." }, { status: 400 });
+      }
+      thumbnailUrl = await uploadFile(supabase, "feed-media", thumbnail, "thumb");
     }
 
-    // Insert feed_media row
+    // Upload gallery images (capped at 10)
+    const mediaUrls: string[] = [];
+    const safeGalleryCount = Math.min(galleryCount, 10);
+    for (let i = 0; i < safeGalleryCount; i++) {
+      const gFile = formData.get(`gallery_${i}`) as File | null;
+      if (gFile && ALLOWED_IMAGE_TYPES.includes(gFile.type) && gFile.size <= MAX_IMAGE_SIZE) {
+        const url = await uploadFile(supabase, "feed-media", gFile, `gal${i}`);
+        mediaUrls.push(url);
+      }
+    }
+
+    const createdBy = await resolveAdminId(supabase, session!);
+
+    const insertData: Record<string, any> = {
+      title,
+      body,
+      image_url: imageUrl,
+      video_url: videoUrl,
+      thumbnail_url: thumbnailUrl,
+      category,
+      layout,
+      is_pinned: isPinned,
+      status,
+      publish_at: status === "scheduled" && publishAt ? publishAt : null,
+      gameweek_id: gameweekId ? parseInt(gameweekId, 10) : null,
+      media_urls: mediaUrls.length > 0 ? mediaUrls : null,
+      created_by: createdBy,
+    };
+
     const { data: inserted, error: insertError } = await supabase
       .from("feed_media")
-      .insert({
-        title,
-        body,
-        image_url: imageUrl,
-        category,
-        is_pinned: isPinned,
-        gameweek_id: gameweekId ? parseInt(gameweekId, 10) : null,
-        created_by: createdBy,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -134,6 +191,124 @@ export async function POST(req: Request) {
     return NextResponse.json({ item: inserted }, { status: 201 });
   } catch (e: unknown) {
     return apiError("Failed to create feed media", "FEED_MEDIA_CREATE_FAILED", 500, e);
+  }
+}
+
+/** PUT /api/admin/feed-media — update an existing feed media item */
+export async function PUT(req: Request) {
+  const { session, error: authErr } = await requireAdminSession(SUPER_ADMIN_ONLY);
+  if (authErr) return authErr;
+
+  const supabase = getSupabaseServerOrThrow();
+
+  try {
+    const formData = await req.formData();
+    const id = formData.get("id") as string | null;
+    if (!id) {
+      return NextResponse.json({ error: "Missing id." }, { status: 400 });
+    }
+
+    const itemId = parseInt(id, 10);
+
+    // Handle reactivate
+    const reactivate = formData.get("reactivate") === "true";
+    if (reactivate) {
+      const { error } = await supabase
+        .from("feed_media")
+        .update({ is_active: true })
+        .eq("id", itemId);
+      if (error) {
+        return apiError("Failed to reactivate", "FEED_MEDIA_REACTIVATE_FAILED", 500, error);
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Build update object
+    const updates: Record<string, any> = {};
+
+    const title = (formData.get("title") as string | null)?.trim();
+    if (title) updates.title = title;
+
+    const body = formData.get("body") as string | null;
+    if (body !== null) updates.body = body.trim() || null;
+
+    const category = formData.get("category") as string | null;
+    if (category && VALID_CATEGORIES.includes(category as any)) updates.category = category;
+
+    const layout = formData.get("layout") as string | null;
+    if (layout && VALID_LAYOUTS.includes(layout as any)) updates.layout = layout;
+
+    const isPinned = formData.get("is_pinned");
+    if (isPinned !== null) updates.is_pinned = isPinned === "true";
+
+    const status = formData.get("status") as string | null;
+    if (status && VALID_STATUSES.includes(status as any)) updates.status = status;
+
+    const publishAt = formData.get("publish_at") as string | null;
+    if (status === "scheduled" && !publishAt) {
+      return NextResponse.json({ error: "Scheduled items require a publish date & time." }, { status: 400 });
+    }
+    if (status) {
+      updates.publish_at = status === "scheduled" && publishAt ? publishAt : null;
+    }
+
+    const gameweekId = formData.get("gameweek_id") as string | null;
+    if (gameweekId !== null) {
+      updates.gameweek_id = gameweekId ? parseInt(gameweekId, 10) : null;
+    }
+
+    // Handle new image upload
+    const file = formData.get("file") as File | null;
+    if (file && ALLOWED_IMAGE_TYPES.includes(file.type) && file.size <= MAX_IMAGE_SIZE) {
+      updates.image_url = await uploadFile(supabase, "feed-media", file, "img");
+    }
+
+    // Handle new video upload
+    const video = formData.get("video") as File | null;
+    if (video && ALLOWED_VIDEO_TYPES.includes(video.type) && video.size <= MAX_VIDEO_SIZE) {
+      updates.video_url = await uploadFile(supabase, "feed-media", video, "vid");
+    }
+
+    const thumbnail = formData.get("thumbnail") as File | null;
+    if (thumbnail && ALLOWED_IMAGE_TYPES.includes(thumbnail.type) && thumbnail.size <= MAX_IMAGE_SIZE) {
+      updates.thumbnail_url = await uploadFile(supabase, "feed-media", thumbnail, "thumb");
+    }
+
+    // Gallery images (capped at 10)
+    const galleryCount = Math.min(
+      parseInt((formData.get("gallery_count") as string | null) || "0", 10),
+      10
+    );
+    if (galleryCount > 0) {
+      const mediaUrls: string[] = [];
+      for (let i = 0; i < galleryCount; i++) {
+        const gFile = formData.get(`gallery_${i}`) as File | null;
+        if (gFile && ALLOWED_IMAGE_TYPES.includes(gFile.type) && gFile.size <= MAX_IMAGE_SIZE) {
+          const url = await uploadFile(supabase, "feed-media", gFile, `gal${i}`);
+          mediaUrls.push(url);
+        }
+      }
+      if (mediaUrls.length > 0) updates.media_urls = mediaUrls;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "No fields to update." }, { status: 400 });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("feed_media")
+      .update(updates)
+      .eq("id", itemId)
+      .select()
+      .single();
+
+    if (updateError) {
+      return apiError("Failed to update feed item", "FEED_MEDIA_UPDATE_FAILED", 500, updateError);
+    }
+
+    return NextResponse.json({ item: updated });
+  } catch (e: unknown) {
+    return apiError("Failed to update feed media", "FEED_MEDIA_UPDATE_FAILED", 500, e);
   }
 }
 

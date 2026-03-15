@@ -50,6 +50,7 @@ NUL
 
 # Claude Code local settings
 .claude/
+.mcp.json
 certificates
 
 # next-pwa build artifacts (regenerated on every build)

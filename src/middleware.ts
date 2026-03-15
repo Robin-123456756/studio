@@ -20,7 +20,7 @@ const SECURITY_HEADERS: Record<string, string> = {
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    "form-action 'self' https://accounts.google.com https://api.twitter.com https://twitter.com",
     "frame-ancestors 'none'",
     "upgrade-insecure-requests",
   ].join("; "),

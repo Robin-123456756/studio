@@ -206,7 +206,10 @@ export async function GET(req: Request) {
       const totals = totalsMap.get(pid) ?? null;
       const isLady = p.is_lady ?? false;
       const ladyMultiplier = isLady ? 2 : 1;
-      const rawPoints = totals ? totals.points : p.total_points ?? 0;
+      // total_points is maintained by increment_player_points / recalculate_all_player_points
+      // and already includes the lady 2x multiplier applied per action — do NOT multiply again.
+      // player_stats.points is never written by the scoring pipeline so it is always 0.
+      const rawPoints = p.total_points ?? 0;
       return {
         id: p.id,
         name: p.name ?? p.web_name ?? "--",
@@ -214,7 +217,7 @@ export async function GET(req: Request) {
         position: p.position,
         price: p.now_cost ?? null,
         priceChange: priceChangeMap.get(pid) ?? 0,
-        points: rawPoints * ladyMultiplier,
+        points: rawPoints,
         rawPoints,
         pointsMultiplier: ladyMultiplier,
         avatarUrl: p.avatar_url ?? null,

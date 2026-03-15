@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import DOMPurify from "dompurify";
 import { Clock, Crown, Newspaper, Repeat2, Trophy, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
@@ -183,11 +184,16 @@ type FeedMediaItem = {
   id: number;
   title: string;
   body: string | null;
-  image_url: string;
+  image_url: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
   category: string;
+  layout: string;
   is_pinned: boolean;
   gameweek_id: number | null;
+  media_urls: string[] | null;
   created_at: string;
+  view_count: number;
 };
 
 // ---------- Fantasy stats type ----------
@@ -544,15 +550,13 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [upcomingMatches.length]);
 
-  const visibleRows = expanded ? table : table.slice(0, 8);
+  const visibleRows = expanded ? table : table.slice(0, 5);
 
   const latestResult = recentMatches[resultIdx] ?? null;
   const nextFixture = upcomingMatches[fixtureIdx] ?? null;
 
   // Detect if any match is "live" (started by admin but not yet ended)
-  const hasLiveMatch = recentMatches.some(
-    (m) => m.is_played && !m.is_final
-  );
+  const hasLiveMatch = recentMatches.some((m) => m.is_played && !m.is_final);
 
   // Deadline countdown for current gameweek (fallback to next only if current is missing)
   const deadlineGameweek = currentGW ?? nextGW ?? null;
@@ -572,13 +576,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 animate-in fade-in-50">
-      {/* ── Hero: compact horizontal row ── */}
-      <section
-        className={cn("opacity-0 animate-slide-up animate-stagger-1")}
-        style={staggerStyle}
-      >
+
+      {/* ── Zone 0: Header strip ── */}
+      <section className={cn("opacity-0 animate-slide-up animate-stagger-1")} style={staggerStyle}>
         <div className="flex items-center gap-3 pt-2 bg-background">
-          {/* Logo — shrunk to ~100px */}
           <Image
             src="/tbl-logo.png"
             alt="The Budo League"
@@ -587,17 +588,13 @@ export default function DashboardPage() {
             className="h-auto w-[100px] object-contain shrink-0"
             priority
           />
-
-          {/* Right: GW context + deadline + updated */}
           <div className="flex-1 min-w-0 flex flex-col items-end gap-1">
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <span className="inline-block rounded-full bg-foreground/10 px-3 py-0.5 text-[10px] font-bold tracking-widest text-foreground/70 uppercase">
                 Season 9
               </span>
               {currentGW && (
-                <span className="text-[11px] font-semibold text-foreground/80">
-                  GW {currentGW.id}
-                </span>
+                <span className="text-[11px] font-semibold text-foreground/80">GW {currentGW.id}</span>
               )}
               {hasLiveMatch && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -609,170 +606,631 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-
-            {/* Deadline countdown pill */}
             {deadlineCountdown.tone !== "neutral" && (
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold",
-                  deadlinePillClass
-                )}
-              >
+              <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold", deadlinePillClass)}>
                 {deadlineCountdown.tone === "closed"
                   ? `GW ${deadlineGameweek?.id ?? "--"} deadline closed`
                   : `GW ${deadlineGameweek?.id ?? "--"} deadline: ${deadlineCountdown.label}`}
               </span>
             )}
-
-            {/* Updated indicator */}
             {lastUpdated && (
-              <span className="text-[10px] text-muted-foreground/70">
-                Updated {ago}
-              </span>
+              <span className="text-[10px] text-muted-foreground/70">Updated {ago}</span>
             )}
           </div>
         </div>
       </section>
 
-      {/* ── My Fantasy quick-glance + Best Lady ── */}
-      <section
-        className={cn("space-y-3 opacity-0 animate-slide-up animate-stagger-2")}
-        style={staggerStyle}
-      >
-        {/* My Fantasy Card */}
+      {/* ── Zone 1: Fantasy Hero scoreboard ── */}
+      <section className={cn("opacity-0 animate-slide-up animate-stagger-2")} style={staggerStyle}>
         <Link href="/dashboard/fantasy" className="block">
-          <div className="rounded-2xl border bg-card p-4 shadow-[var(--shadow-1)]">
-            {fantasyLoading && isLoggedIn === null ? (
-              /* Loading skeleton: 3-column */
-              <div className="flex items-center justify-around gap-4">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="flex flex-col items-center gap-1.5">
-                    <Skeleton className="h-7 w-12 rounded" />
-                    <Skeleton className="h-3 w-14 rounded" />
+          <div className="rounded-2xl bg-gradient-to-br from-[#37003C] via-[#4a0050] to-[#1a0025] p-5 relative overflow-hidden">
+            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5 pointer-events-none" />
+            <div className="absolute -right-4 -bottom-6 h-20 w-20 rounded-full bg-white/5 pointer-events-none" />
+            <div className="relative">
+              {fantasyLoading && isLoggedIn === null ? (
+                <div className="flex items-center justify-around gap-4">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex flex-col items-center gap-1.5">
+                      <Skeleton className="h-8 w-14 rounded bg-white/10" />
+                      <Skeleton className="h-3 w-14 rounded bg-white/10" />
+                    </div>
+                  ))}
+                </div>
+              ) : isLoggedIn && fantasyStats ? (
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-3">
+                    {fantasyStats.teamName} · Fantasy
                   </div>
-                ))}
-              </div>
-            ) : isLoggedIn && fantasyStats ? (
-              /* Logged in + has data: 3-column */
-              <div className="flex items-center justify-around gap-4">
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-1">
-                    <Trophy className="h-3.5 w-3.5 text-amber-500" />
-                    <span className="text-xl font-bold tabular-nums font-headline">
-                      {fantasyStats.rank ?? "—"}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground font-medium">Rank</span>
-                </div>
-                <div className="h-8 w-px bg-border" />
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold tabular-nums font-headline">
-                    {fantasyStats.totalPoints}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-medium">Total pts</span>
-                </div>
-                <div className="h-8 w-px bg-border" />
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold tabular-nums font-headline">
-                    {fantasyStats.gwPoints ?? "—"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-medium">GW pts</span>
-                </div>
-              </div>
-            ) : isLoggedIn ? (
-              /* Logged in, no data */
-              <div className="text-center text-sm text-muted-foreground py-1">
-                No scores yet — <span className="font-semibold text-primary">pick your team</span>
-              </div>
-            ) : (
-              /* Not logged in */
-              <div className="text-center text-sm text-muted-foreground py-1">
-                <span className="font-semibold text-primary">Sign in</span> to play fantasy
-              </div>
-            )}
-          </div>
-        </Link>
-
-          {/* Best Lady Player */}
-          <Card className="rounded-3xl overflow-hidden border-pink-200/40 dark:border-pink-500/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-headline">
-                <Crown className="h-4 w-4 text-pink-500" />
-                Best Lady Player
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-16 w-16 rounded-2xl shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-28 rounded" />
-                    <Skeleton className="h-3 w-20 rounded" />
-                    <Skeleton className="h-3 w-16 rounded" />
-                  </div>
-                </div>
-              ) : topLady ? (
-                <Link
-                  href={`/dashboard/players/${topLady.playerId}`}
-                  className="flex items-center gap-4 group"
-                >
-                  <div className="relative shrink-0">
-                    {topLady.avatarUrl ? (
-                      <img
-                        src={topLady.avatarUrl}
-                        alt={topLady.name}
-                        className="h-16 w-16 rounded-2xl object-cover border-2 border-pink-300/50"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/40 dark:to-pink-800/30 border-2 border-pink-300/50 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-pink-500/70">
-                          {topLady.name.charAt(0)}
+                  <div className="flex items-end justify-around gap-4">
+                    <div className="flex flex-col items-center">
+                      <span className="text-4xl font-black tabular-nums text-white leading-none">
+                        {fantasyStats.gwPoints ?? "—"}
+                      </span>
+                      <span className="text-[10px] text-white/60 font-medium mt-1">GW pts</span>
+                    </div>
+                    <div className="h-10 w-px bg-white/20" />
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-1">
+                        <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                        <span className="text-2xl font-bold tabular-nums text-white leading-none">
+                          {fantasyStats.rank ?? "—"}
                         </span>
                       </div>
-                    )}
-                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-pink-500 flex items-center justify-center">
-                      <Crown className="h-3 w-3 text-white" />
+                      <span className="text-[10px] text-white/60 font-medium mt-1">Rank</span>
+                    </div>
+                    <div className="h-10 w-px bg-white/20" />
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl font-bold tabular-nums text-white/80 leading-none">
+                        {fantasyStats.totalPoints}
+                      </span>
+                      <span className="text-[10px] text-white/60 font-medium mt-1">Total pts</span>
                     </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate group-hover:text-pink-500 transition-colors">
-                      {topLady.name}
+                </div>
+              ) : isLoggedIn ? (
+                <div className="text-center py-1">
+                  <div className="text-white/60 text-xs uppercase tracking-wider mb-1">Your Fantasy</div>
+                  <div className="text-white font-semibold">No scores yet — pick your team →</div>
+                </div>
+              ) : (
+                <div className="text-center py-2">
+                  <div className="text-white/50 text-xs uppercase tracking-wider mb-1.5">Budo League Fantasy</div>
+                  <div className="text-white font-bold text-base">Sign in to join the fantasy →</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Link>
+      </section>
+
+      {/* ── Zone 2: League Pulse — result + fixture side by side ── */}
+      <section className={cn("opacity-0 animate-slide-up animate-stagger-2")} style={staggerStyle}>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Latest result */}
+          <div className="rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Result</span>
+              {recentMatches.length > 1 && (
+                <span className="text-[9px] text-muted-foreground tabular-nums">{resultIdx + 1}/{recentMatches.length}</span>
+              )}
+            </div>
+            {loading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-6 w-14 rounded mx-auto" />
+              </div>
+            ) : latestResult ? (
+              <div className="flex flex-col items-center gap-1">
+                <div className="text-[10px] text-muted-foreground">{formatShortDate(latestResult.kickoff_time)}</div>
+                <div className="text-[11px] font-medium text-center leading-tight truncate w-full">
+                  {latestResult.home_team?.short_name ?? "—"}
+                </div>
+                <div className={cn(
+                  "text-xl font-black font-mono tabular-nums",
+                  changedIds.has(latestResult.id) && "text-emerald-500 animate-pulse"
+                )}>
+                  {latestResult.home_goals ?? "-"} - {latestResult.away_goals ?? "-"}
+                </div>
+                <div className="text-[11px] font-medium text-center leading-tight truncate w-full">
+                  {latestResult.away_team?.short_name ?? "—"}
+                </div>
+              </div>
+            ) : (
+              <div className="text-[11px] text-muted-foreground text-center py-3">No results yet</div>
+            )}
+          </div>
+
+          {/* Next fixture */}
+          <div className="rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next Up</span>
+              {upcomingMatches.length > 1 && (
+                <span className="text-[9px] text-muted-foreground tabular-nums">{fixtureIdx + 1}/{upcomingMatches.length}</span>
+              )}
+            </div>
+            {loading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-full rounded" />
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-3 w-3/4 rounded" />
+              </div>
+            ) : nextFixture ? (
+              <div className="space-y-1.5">
+                <div className="text-[10px] text-muted-foreground">{formatShortDate(nextFixture.kickoff_time)}</div>
+                <div className="text-[11px] font-semibold leading-tight">
+                  {nextFixture.home_team?.short_name ?? "—"} vs {nextFixture.away_team?.short_name ?? "—"}
+                </div>
+                <div className="text-[10px] text-muted-foreground">{formatKickoff(nextFixture.kickoff_time)}</div>
+              </div>
+            ) : (
+              <div className="text-[11px] text-muted-foreground text-center py-3">No fixtures yet</div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Zone 3: Star Players — Lady + GW Best side by side ── */}
+      <section className={cn("opacity-0 animate-slide-up animate-stagger-3")} style={staggerStyle}>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Best Lady */}
+          <div className="rounded-2xl border border-pink-200/40 dark:border-pink-500/20 bg-card p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Crown className="h-3.5 w-3.5 text-pink-500" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Lady</span>
+            </div>
+            {loading ? (
+              <div className="flex flex-col items-center gap-2">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <Skeleton className="h-3 w-full rounded" />
+                <Skeleton className="h-3 w-3/4 rounded" />
+              </div>
+            ) : topLady ? (
+              <Link href={`/dashboard/players/${topLady.playerId}`} className="block">
+                <div className="flex flex-col items-center text-center gap-1.5">
+                  <div className="relative">
+                    {topLady.avatarUrl ? (
+                      <img src={topLady.avatarUrl} alt={topLady.name} className="h-10 w-10 rounded-xl object-cover border-2 border-pink-300/50" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/40 dark:to-pink-800/30 border-2 border-pink-300/50 flex items-center justify-center">
+                        <span className="text-sm font-bold text-pink-500/70">{topLady.name.charAt(0)}</span>
+                      </div>
+                    )}
+                    <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-pink-500 flex items-center justify-center">
+                      <Crown className="h-2.5 w-2.5 text-white" />
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {topLady.teamName} &middot; {topLady.position ?? "—"}
+                  </div>
+                  <div className="text-[11px] font-semibold leading-tight truncate w-full">{topLady.name}</div>
+                  <div className="text-[10px] text-muted-foreground truncate w-full">{topLady.teamName}</div>
+                  <div className="text-sm font-bold text-pink-600 dark:text-pink-400 tabular-nums">{topLady.points} pts</div>
+                </div>
+              </Link>
+            ) : (
+              <div className="text-[11px] text-muted-foreground text-center py-3">Pending</div>
+            )}
+          </div>
+
+          {/* GW Top Performer */}
+          <div className="rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 p-3 relative overflow-hidden">
+            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_70%_30%,white_0%,transparent_60%)] pointer-events-none" />
+            <div className="relative">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Zap className="h-3.5 w-3.5 text-white/80" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">GW Best</span>
+              </div>
+              {loading ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Skeleton className="h-10 w-10 rounded-xl bg-white/20" />
+                  <Skeleton className="h-3 w-full rounded bg-white/20" />
+                  <Skeleton className="h-3 w-3/4 rounded bg-white/20" />
+                </div>
+              ) : topPerformer ? (
+                <Link href={`/dashboard/players/${topPerformer.playerId}`} className="block">
+                  <div className="flex flex-col items-center text-center gap-1.5">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <span className="text-sm font-bold text-white/90">{topPerformer.name.charAt(0)}</span>
                     </div>
-                    <div className="mt-1.5 flex items-center gap-3 text-xs">
-                      <span className="font-bold text-pink-600 dark:text-pink-400 tabular-nums">
-                        {topLady.points} pts
-                      </span>
-                      {topLady.goals > 0 && (
-                        <span className="text-muted-foreground tabular-nums">
-                          {topLady.goals}G
-                        </span>
-                      )}
-                      {topLady.assists > 0 && (
-                        <span className="text-muted-foreground tabular-nums">
-                          {topLady.assists}A
-                        </span>
-                      )}
-                    </div>
+                    <div className="text-[11px] font-semibold text-white leading-tight truncate w-full">{topPerformer.name}</div>
+                    <div className="text-[10px] text-white/60 truncate w-full">{topPerformer.teamName}</div>
+                    <div className="text-sm font-bold text-white tabular-nums">{topPerformer.points} pts</div>
                   </div>
                 </Link>
               ) : (
-                <div className="text-sm text-muted-foreground">
-                  Lady player stats will appear once matches are played.
-                </div>
+                <div className="text-[11px] text-white/60 text-center py-3">Pending</div>
               )}
-            </CardContent>
-          </Card>
-
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* ── Action buttons ── */}
-      <section
-        className={cn("opacity-0 animate-slide-up animate-stagger-3")}
-        style={staggerStyle}
-      >
+      {/* ── Zone 4: League Table ── */}
+      <section className={cn("opacity-0 animate-slide-up animate-stagger-3")} style={staggerStyle}>
+        <Card className="rounded-3xl">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-headline">League snapshot</CardTitle>
+              {table.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  {expanded ? "Show less" : "View full standings"}
+                </button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="px-2 pb-3">
+            {loading ? (
+              <div className="px-2 py-3 space-y-2.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <Skeleton className="h-5 w-5 rounded-full shrink-0" />
+                    <Skeleton className="h-4 flex-1 rounded" />
+                    <Skeleton className="h-4 w-6 rounded" />
+                    <Skeleton className="h-4 w-6 rounded" />
+                    <Skeleton className="h-4 w-8 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : table.length === 0 ? (
+              <div className="px-2 py-6 text-sm text-muted-foreground">No table data yet.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-[11px]">
+                    <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
+                    <TableHead className="w-[140px] pr-1">Team</TableHead>
+                    <TableHead className="w-[28px] px-1 text-center">PL</TableHead>
+                    <TableHead className="w-[28px] px-1 text-center">W</TableHead>
+                    <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
+                    <TableHead className="w-[28px] px-1 text-center">LP</TableHead>
+                    <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleRows.map((r, idx) => {
+                    const pos = idx + 1;
+                    const bar = posBarClass(pos);
+                    return (
+                      <TableRow key={r.teamId} className="text-[12px]">
+                        <TableCell className="py-2 pl-2 pr-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`h-5 w-1.5 rounded-full ${bar}`} />
+                            <span className="font-semibold tabular-nums">{pos}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2 pr-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Image src={r.logoUrl} alt={r.name} width={20} height={20} className="rounded-full shrink-0" />
+                            <span className="truncate text-[12px] font-medium">{r.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.PL}</TableCell>
+                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.W}</TableCell>
+                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums">{r.GD}</TableCell>
+                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-pink-600">{r.LP}</TableCell>
+                        <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">{r.Pts}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+            {!loading && table.length > 0 && (
+              <div className="pt-3 px-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-1.5 rounded-full bg-emerald-500" />
+                  <span>Main Cup</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-1.5 rounded-full bg-amber-500" />
+                  <span>Semivule Cup</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Zone 5: Activity Feed ── */}
+      <div className={cn("space-y-3 opacity-0 animate-slide-up animate-stagger-4")} style={staggerStyle}>
+        <div className="flex items-center justify-between px-1">
+          <h2 className="flex items-center gap-2 text-base font-headline font-semibold">
+            <Newspaper className="h-4 w-4" /> Latest
+          </h2>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-[180px] w-full rounded-2xl" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Pinned media hero */}
+            {(() => {
+              const pinned = feedMedia.find((m) => m.is_pinned);
+              if (!pinned) return null;
+              const hasVideo = !!pinned.video_url;
+              const mediaUrl = pinned.video_url || pinned.image_url;
+              return (
+                <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: 180 }}>
+                  {hasVideo ? (
+                    <video src={pinned.video_url!} muted loop autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+                  ) : mediaUrl ? (
+                    <img src={mediaUrl} alt={pinned.title} className="absolute inset-0 w-full h-full object-cover" />
+                  ) : null}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  <div className="relative flex flex-col justify-end p-4" style={{ minHeight: 180 }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CategoryPill category={pinned.category} />
+                      <span className="text-[10px] text-white/50">{timeAgo(pinned.created_at)}</span>
+                      {hasVideo && (
+                        <span className="text-[10px] text-white/50 bg-white/20 px-1.5 rounded">VIDEO</span>
+                      )}
+                    </div>
+                    <div className="text-white font-bold text-[15px] leading-tight">{pinned.title}</div>
+                    {pinned.body && (
+                      <div className="text-white/70 text-xs mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(pinned.body) }} />
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Match results */}
+            {recentMatches.slice(0, 3).map((m) => (
+              <Link
+                key={m.id}
+                href={`/match/${m.id}`}
+                className="block rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <CategoryPill category="result" />
+                  <span className="text-[10px] text-muted-foreground">
+                    {m.kickoff_time ? timeAgo(m.kickoff_time) : ""}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {m.home_team?.logo_url && (
+                      <Image src={m.home_team.logo_url} alt={m.home_team.short_name} width={24} height={24} className="rounded-full shrink-0" />
+                    )}
+                    <span className="text-sm font-medium truncate">{m.home_team?.short_name ?? "—"}</span>
+                  </div>
+                  <div className={cn(
+                    "shrink-0 rounded-lg bg-foreground/5 px-3 py-1 text-base font-bold font-mono tabular-nums",
+                    changedIds.has(m.id) && "text-emerald-500 animate-pulse"
+                  )}>
+                    {m.home_goals ?? "-"} - {m.away_goals ?? "-"}
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span className="text-sm font-medium truncate text-right">{m.away_team?.short_name ?? "—"}</span>
+                    {m.away_team?.logo_url && (
+                      <Image src={m.away_team.logo_url} alt={m.away_team.short_name} width={24} height={24} className="rounded-full shrink-0" />
+                    )}
+                  </div>
+                </div>
+                {(m.home_events?.some((e) => e.goals > 0) || m.away_events?.some((e) => e.goals > 0)) && (
+                  <div className="mt-2 pt-2 border-t text-[11px] text-muted-foreground truncate">
+                    {[
+                      ...(m.home_events?.filter((e) => e.goals > 0).map((e) =>
+                        `${e.playerName}${e.goals > 1 ? ` (${e.goals})` : ""}`
+                      ) ?? []),
+                      ...(m.away_events?.filter((e) => e.goals > 0).map((e) =>
+                        `${e.playerName}${e.goals > 1 ? ` (${e.goals})` : ""}`
+                      ) ?? []),
+                    ].join(", ")}
+                  </div>
+                )}
+              </Link>
+            ))}
+
+            {/* Transfer activity */}
+            {transfers.slice(0, 3).map((t: any, i: number) => (
+              <div
+                key={`tx-${i}`}
+                className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-1)]"
+              >
+                <Repeat2 className="h-4 w-4 text-purple-500 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm truncate">
+                    <span className="font-medium">{t.managerTeam ?? "A manager"}</span>
+                    {" signed "}
+                    <span className="font-semibold">{t.playerIn?.webName ?? t.playerIn?.name ?? "—"}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <CategoryPill category="transfer" />
+                  {t.createdAt && (
+                    <span className="text-[10px] text-muted-foreground">{timeAgo(t.createdAt)}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Admin media thumbnails (non-pinned) */}
+            {feedMedia
+              .filter((m) => !m.is_pinned)
+              .slice(0, 4)
+              .map((m) => {
+                const layout = m.layout || "hero";
+                const thumbUrl = m.thumbnail_url || m.image_url;
+                const hasVideo = !!m.video_url;
+                const isGallery = layout === "gallery" && m.media_urls && m.media_urls.length > 0;
+                const isQuick = layout === "quick";
+
+                // Quick update layout (text-only, accent border)
+                if (isQuick) {
+                  return (
+                    <div key={`media-${m.id}`} className="rounded-2xl border-l-4 border-purple-500 bg-card p-3 shadow-[var(--shadow-1)]">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CategoryPill category={m.category} />
+                        <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                      </div>
+                      <div className="text-sm font-semibold leading-tight">{m.title}</div>
+                      {m.body && (
+                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                      )}
+                    </div>
+                  );
+                }
+
+                // Split layout
+                if (layout === "split") {
+                  return (
+                    <div key={`media-${m.id}`} className="flex rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)]">
+                      {thumbUrl && (
+                        <div className="w-2/5 shrink-0 relative">
+                          <img src={thumbUrl} alt={m.title} className="w-full h-full min-h-[100px] object-cover" />
+                          {hasVideo && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
+                                <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-0.5" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex-1 p-3 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CategoryPill category={m.category} />
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                        </div>
+                        <div className="text-sm font-semibold leading-tight line-clamp-2">{m.title}</div>
+                        {m.body && (
+                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Feature layout (headline first, image below)
+                if (layout === "feature") {
+                  return (
+                    <div key={`media-${m.id}`} className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)]">
+                      <div className="p-3 pb-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CategoryPill category={m.category} />
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                        </div>
+                        <div className="text-base font-bold leading-tight">{m.title}</div>
+                        {m.body && (
+                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                        )}
+                      </div>
+                      {thumbUrl && (
+                        <img src={thumbUrl} alt={m.title} className="w-full h-32 object-cover" />
+                      )}
+                    </div>
+                  );
+                }
+
+                // Gallery layout
+                if (isGallery) {
+                  const imgs = m.media_urls!;
+                  return (
+                    <div key={`media-${m.id}`} className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)]">
+                      <div className="p-3 pb-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CategoryPill category={m.category} />
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                        </div>
+                        <div className="text-sm font-semibold leading-tight">{m.title}</div>
+                      </div>
+                      <div className="flex gap-0.5 px-0.5 pb-0.5">
+                        {imgs.slice(0, 3).map((url, i) => (
+                          <div key={i} className="flex-1 relative">
+                            <img src={url} alt="" className="w-full h-20 object-cover" />
+                            {i === 2 && imgs.length > 3 && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">+{imgs.length - 3}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Default: hero / video thumbnail card
+                return (
+                  <div
+                    key={`media-${m.id}`}
+                    className="flex gap-3 rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)]"
+                  >
+                    {thumbUrl ? (
+                      <div className="relative shrink-0">
+                        <img src={thumbUrl} alt={m.title} className="h-20 w-20 rounded-xl object-cover" />
+                        {hasVideo && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center">
+                              <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent ml-0.5" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-20 w-20 rounded-xl bg-muted shrink-0 flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">No img</span>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1 flex flex-col justify-center">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CategoryPill category={m.category} />
+                        <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                      </div>
+                      <div className="text-sm font-semibold leading-tight line-clamp-2">{m.title}</div>
+                      {m.body && (
+                        <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+            {/* Deadline reminder */}
+            {deadlineCountdown.tone !== "neutral" && deadlineCountdown.tone !== "closed" && (
+              <Link
+                href="/dashboard/fantasy"
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors",
+                  deadlineCountdown.tone === "critical"
+                    ? "bg-red-500/10 border border-red-500/20"
+                    : deadlineCountdown.tone === "urgent"
+                    ? "bg-orange-500/10 border border-orange-500/20"
+                    : "bg-amber-500/10 border border-amber-500/20"
+                )}
+              >
+                <Clock className={cn(
+                  "h-5 w-5 shrink-0",
+                  deadlineCountdown.tone === "critical" ? "text-red-500"
+                    : deadlineCountdown.tone === "urgent" ? "text-orange-500"
+                    : "text-amber-500"
+                )} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold">
+                    GW {deadlineGameweek?.id} deadline in {deadlineCountdown.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Make your transfers before it closes</div>
+                </div>
+                <CategoryPill category="deadline" />
+              </Link>
+            )}
+
+            {/* League leader */}
+            {table.length > 0 && (
+              <Link
+                href="/dashboard/matches?tab=table"
+                className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
+              >
+                <Trophy className="h-5 w-5 text-amber-500 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold">League leader: {table[0].name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {table[0].Pts} pts · {table[0].W}W {table[0].D}D {table[0].L}L
+                  </div>
+                </div>
+                <CategoryPill category="leader" />
+              </Link>
+            )}
+
+            {/* Empty state */}
+            {recentMatches.length === 0 && transfers.length === 0 && table.length === 0 && feedMedia.length === 0 && (
+              <div className="rounded-2xl border bg-card py-8 text-center text-sm text-muted-foreground">
+                No updates yet — check back once matches begin.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Zone 6: Quick Actions ── */}
+      <section className={cn("opacity-0 animate-slide-up animate-stagger-4")} style={staggerStyle}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Link
             href="/dashboard/more/tbl-rules"
@@ -801,509 +1259,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div
-        className={cn("grid gap-4 lg:grid-cols-[1.15fr_0.85fr] opacity-0 animate-slide-up animate-stagger-3")}
-        style={staggerStyle}
-      >
-        {/* League table */}
-        <Card className="rounded-3xl">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-headline">
-                League snapshot
-              </CardTitle>
-              {table.length > 8 && (
-                <button
-                  type="button"
-                  onClick={() => setExpanded((v) => !v)}
-                  className="text-xs font-semibold text-primary hover:underline"
-                >
-                  {expanded ? "Show less" : "View full standings"}
-                </button>
-              )}
-            </div>
-          </CardHeader>
-
-          <CardContent className="px-2 pb-3">
-            {loading ? (
-              <div className="px-2 py-3 space-y-2.5">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    <Skeleton className="h-5 w-5 rounded-full shrink-0" />
-                    <Skeleton className="h-4 flex-1 rounded" />
-                    <Skeleton className="h-4 w-6 rounded" />
-                    <Skeleton className="h-4 w-6 rounded" />
-                    <Skeleton className="h-4 w-8 rounded" />
-                  </div>
-                ))}
-              </div>
-            ) : table.length === 0 ? (
-              <div className="px-2 py-6 text-sm text-muted-foreground">
-                No table data yet.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="text-[11px]">
-                    <TableHead className="w-[42px] pl-2 pr-1">Pos</TableHead>
-                    <TableHead className="w-[140px] pr-1">Team</TableHead>
-                    <TableHead className="w-[28px] px-1 text-center">PL</TableHead>
-                    <TableHead className="w-[28px] px-1 text-center">W</TableHead>
-                    <TableHead className="w-[32px] px-1 text-center">GD</TableHead>
-                    <TableHead className="w-[28px] px-1 text-center">LP</TableHead>
-                    <TableHead className="w-[32px] px-1 text-center">Pts</TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {visibleRows.map((r, idx) => {
-                    const pos = idx + 1;
-                    const bar = posBarClass(pos);
-
-                    return (
-                      <TableRow key={r.teamId} className="text-[12px]">
-                        <TableCell className="py-2 pl-2 pr-1">
-                          <div className="flex items-center gap-1.5">
-                            <div className={`h-5 w-1.5 rounded-full ${bar}`} />
-                            <span className="font-semibold tabular-nums">
-                              {pos}
-                            </span>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="py-2 pr-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Image
-                              src={r.logoUrl}
-                              alt={r.name}
-                              width={20}
-                              height={20}
-                              className="rounded-full shrink-0"
-                            />
-                            <span className="truncate text-[12px] font-medium">
-                              {r.name}
-                            </span>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                          {r.PL}
-                        </TableCell>
-                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                          {r.W}
-                        </TableCell>
-                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums">
-                          {r.GD}
-                        </TableCell>
-                        <TableCell className="py-2 px-1 text-center font-mono tabular-nums text-pink-600">
-                          {r.LP}
-                        </TableCell>
-                        <TableCell className="py-2 px-1 text-center font-mono font-bold tabular-nums">
-                          {r.Pts}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-
-            {!loading && table.length > 0 && (
-              <div className="pt-3 px-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-1.5 rounded-full bg-emerald-500" />
-                  <span>Main Cup</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-1.5 rounded-full bg-amber-500" />
-                  <span>Semivule Cup</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Right column */}
-        <div className="space-y-4">
-          <Card className="rounded-3xl overflow-hidden shadow-[var(--shadow-1)]">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-headline">
-                  Latest result
-                </CardTitle>
-                {recentMatches.length > 1 && (
-                  <span className="text-[10px] tabular-nums text-muted-foreground">{resultIdx + 1}/{recentMatches.length}</span>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-3 py-1">
-                  <Skeleton className="h-3 w-20 rounded" />
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-5 w-40 rounded" />
-                    <Skeleton className="h-6 w-14 rounded" />
-                  </div>
-                </div>
-              ) : latestResult ? (
-                <div className="space-y-3">
-                  <div className="text-xs text-muted-foreground">
-                    {formatShortDate(latestResult.kickoff_time)}
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold truncate">
-                        {latestResult.home_team?.name ?? "—"} vs {latestResult.away_team?.name ?? "—"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {latestResult.home_team?.short_name ?? "—"} - {latestResult.away_team?.short_name ?? "—"}
-                      </div>
-                    </div>
-                    <div className={`shrink-0 text-lg font-bold font-mono tabular-nums transition-colors duration-300 ${latestResult && changedIds.has(latestResult.id) ? "text-emerald-500 animate-pulse" : ""}`}>
-                      {(latestResult.home_goals ?? "-") + " - " + (latestResult.away_goals ?? "-")}
-                    </div>
-                  </div>
-                  {/* Goal scorers */}
-                  {(latestResult.home_events?.length || latestResult.away_events?.length) ? (
-                    <div className="space-y-1 text-xs text-muted-foreground border-t pt-2">
-                      {latestResult.home_events?.filter((e) => e.goals > 0).map((e) => (
-                        <div key={e.playerId}>
-                          {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""} — {latestResult.home_team?.short_name}
-                        </div>
-                      ))}
-                      {latestResult.away_events?.filter((e) => e.goals > 0).map((e) => (
-                        <div key={e.playerId}>
-                          {e.playerName} {e.goals > 1 ? `(${e.goals})` : ""} — {latestResult.away_team?.short_name}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  No results recorded yet.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl overflow-hidden shadow-[var(--shadow-1)]">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-headline">Next fixture</CardTitle>
-                {upcomingMatches.length > 1 && (
-                  <span className="text-[10px] tabular-nums text-muted-foreground">{fixtureIdx + 1}/{upcomingMatches.length}</span>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-3 py-1">
-                  <Skeleton className="h-3 w-20 rounded" />
-                  <Skeleton className="h-5 w-44 rounded" />
-                  <Skeleton className="h-3 w-24 rounded" />
-                </div>
-              ) : nextFixture ? (
-                <div className="space-y-3">
-                  <div className="text-xs text-muted-foreground">
-                    {formatShortDate(nextFixture.kickoff_time)}
-                  </div>
-                  <div className="text-sm font-semibold">
-                    {nextFixture.home_team?.name ?? "—"} vs {nextFixture.away_team?.name ?? "—"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Kickoff {formatKickoff(nextFixture.kickoff_time)}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Fixtures will appear here once scheduled.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* ── Latest Feed ── */}
-      <div
-        className={cn("space-y-3 opacity-0 animate-slide-up animate-stagger-4")}
-        style={staggerStyle}
-      >
-        <div className="flex items-center justify-between px-1">
-          <h2 className="flex items-center gap-2 text-base font-headline font-semibold">
-            <Newspaper className="h-4 w-4" /> Latest
-          </h2>
-        </div>
-
-        {loading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-[180px] w-full rounded-2xl" />
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-2xl" />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {/* ── Hero Card: pinned admin media or top performer ── */}
-            {(() => {
-              const pinned = feedMedia.find((m) => m.is_pinned);
-              if (pinned) {
-                return (
-                  <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: 180 }}>
-                    <img
-                      src={pinned.image_url}
-                      alt={pinned.title}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                    <div className="relative flex flex-col justify-end p-4" style={{ minHeight: 180 }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <CategoryPill category={pinned.category} />
-                        <span className="text-[10px] text-white/50">{timeAgo(pinned.created_at)}</span>
-                      </div>
-                      <div className="text-white font-bold text-[15px] leading-tight">
-                        {pinned.title}
-                      </div>
-                      {pinned.body && (
-                        <div className="text-white/70 text-xs mt-1 line-clamp-2">
-                          {pinned.body}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-              // Fallback hero: top performer with gradient
-              if (topPerformer) {
-                return (
-                  <Link
-                    href={`/dashboard/players/${topPerformer.playerId}`}
-                    className="block relative rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700"
-                    style={{ minHeight: 140 }}
-                  >
-                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_70%_30%,white_0%,transparent_60%)]" />
-                    <div className="relative flex items-center gap-4 p-4" style={{ minHeight: 140 }}>
-                      {/* Large initial */}
-                      <div className="h-16 w-16 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                        <span className="text-3xl font-bold text-white/90">
-                          {topPerformer.name.charAt(0)}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CategoryPill category="player_spotlight" />
-                          <span className="text-[10px] text-white/50">GW {currentGW?.id ?? "—"}</span>
-                        </div>
-                        <div className="text-white font-bold text-[15px] leading-tight">
-                          Player of the Week
-                        </div>
-                        <div className="text-white/80 text-sm mt-0.5">
-                          {topPerformer.name}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-white/70">
-                          <span className="font-bold text-white tabular-nums">
-                            {topPerformer.points}pts
-                          </span>
-                          {topPerformer.goals > 0 && (
-                            <span className="tabular-nums">{topPerformer.goals}G</span>
-                          )}
-                          {topPerformer.assists > 0 && (
-                            <span className="tabular-nums">{topPerformer.assists}A</span>
-                          )}
-                          <span>{topPerformer.teamName}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              }
-              return null;
-            })()}
-
-            {/* ── Admin media cards (non-pinned, thumbnail style) ── */}
-            {feedMedia
-              .filter((m) => !m.is_pinned)
-              .slice(0, 3)
-              .map((m) => (
-                <div
-                  key={`media-${m.id}`}
-                  className="flex gap-3 rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)]"
-                >
-                  <img
-                    src={m.image_url}
-                    alt={m.title}
-                    className="h-20 w-20 rounded-xl object-cover shrink-0"
-                  />
-                  <div className="min-w-0 flex-1 flex flex-col justify-center">
-                    <div className="flex items-center gap-2 mb-1">
-                      <CategoryPill category={m.category} />
-                      <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
-                    </div>
-                    <div className="text-sm font-semibold leading-tight line-clamp-2">
-                      {m.title}
-                    </div>
-                    {m.body && (
-                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {m.body}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-            {/* ── Deadline reminder (tinted card) ── */}
-            {deadlineCountdown.tone !== "neutral" && deadlineCountdown.tone !== "closed" && (
-              <Link
-                href="/dashboard/fantasy"
-                className={cn(
-                  "flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors",
-                  deadlineCountdown.tone === "critical"
-                    ? "bg-red-500/10 border border-red-500/20"
-                    : deadlineCountdown.tone === "urgent"
-                    ? "bg-orange-500/10 border border-orange-500/20"
-                    : "bg-amber-500/10 border border-amber-500/20"
-                )}
-              >
-                <Clock className={cn(
-                  "h-5 w-5 shrink-0",
-                  deadlineCountdown.tone === "critical"
-                    ? "text-red-500"
-                    : deadlineCountdown.tone === "urgent"
-                    ? "text-orange-500"
-                    : "text-amber-500"
-                )} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold">
-                    GW {deadlineGameweek?.id} deadline in {deadlineCountdown.label}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Make your transfers before it closes
-                  </div>
-                </div>
-                <CategoryPill category="deadline" />
-              </Link>
-            )}
-
-            {/* ── Match results (with team logos) ── */}
-            {recentMatches.slice(0, 4).map((m) => (
-              <Link
-                key={m.id}
-                href={`/match/${m.id}`}
-                className="block rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <CategoryPill category="result" />
-                  <span className="text-[10px] text-muted-foreground">
-                    {m.kickoff_time ? timeAgo(m.kickoff_time) : ""}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  {/* Home */}
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {m.home_team?.logo_url && (
-                      <Image
-                        src={m.home_team.logo_url}
-                        alt={m.home_team.short_name}
-                        width={24}
-                        height={24}
-                        className="rounded-full shrink-0"
-                      />
-                    )}
-                    <span className="text-sm font-medium truncate">
-                      {m.home_team?.short_name ?? "—"}
-                    </span>
-                  </div>
-                  {/* Score */}
-                  <div className={cn(
-                    "shrink-0 rounded-lg bg-foreground/5 px-3 py-1 text-base font-bold font-mono tabular-nums",
-                    changedIds.has(m.id) && "text-emerald-500 animate-pulse"
-                  )}>
-                    {m.home_goals ?? "-"} - {m.away_goals ?? "-"}
-                  </div>
-                  {/* Away */}
-                  <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
-                    <span className="text-sm font-medium truncate text-right">
-                      {m.away_team?.short_name ?? "—"}
-                    </span>
-                    {m.away_team?.logo_url && (
-                      <Image
-                        src={m.away_team.logo_url}
-                        alt={m.away_team.short_name}
-                        width={24}
-                        height={24}
-                        className="rounded-full shrink-0"
-                      />
-                    )}
-                  </div>
-                </div>
-                {/* Goal scorers */}
-                {(m.home_events?.some((e) => e.goals > 0) || m.away_events?.some((e) => e.goals > 0)) && (
-                  <div className="mt-2 pt-2 border-t text-[11px] text-muted-foreground truncate">
-                    {[
-                      ...(m.home_events?.filter((e) => e.goals > 0).map((e) =>
-                        `${e.playerName}${e.goals > 1 ? ` (${e.goals})` : ""}`
-                      ) ?? []),
-                      ...(m.away_events?.filter((e) => e.goals > 0).map((e) =>
-                        `${e.playerName}${e.goals > 1 ? ` (${e.goals})` : ""}`
-                      ) ?? []),
-                    ].join(", ")}
-                  </div>
-                )}
-              </Link>
-            ))}
-
-            {/* ── Transfer activity (compact) ── */}
-            {transfers.slice(0, 3).map((t: any, i: number) => (
-              <div
-                key={`tx-${i}`}
-                className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-1)]"
-              >
-                <Repeat2 className="h-4 w-4 text-purple-500 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm truncate">
-                    <span className="font-medium">{t.managerTeam ?? "A manager"}</span>
-                    {" signed "}
-                    <span className="font-semibold">{t.playerIn?.webName ?? t.playerIn?.name ?? "—"}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <CategoryPill category="transfer" />
-                  {t.createdAt && (
-                    <span className="text-[10px] text-muted-foreground">{timeAgo(t.createdAt)}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {/* ── League leader ── */}
-            {table.length > 0 && (
-              <Link
-                href="/dashboard/standings"
-                className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
-              >
-                <Trophy className="h-5 w-5 text-amber-500 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold">
-                    League leader: {table[0].name}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {table[0].Pts} pts · {table[0].W}W {table[0].D}D {table[0].L}L
-                  </div>
-                </div>
-                <CategoryPill category="leader" />
-              </Link>
-            )}
-
-            {/* ── Empty state ── */}
-            {!topPerformer && recentMatches.length === 0 && transfers.length === 0 && table.length === 0 && feedMedia.length === 0 && (
-              <div className="rounded-2xl border bg-card py-8 text-center text-sm text-muted-foreground">
-                No updates yet — check back once matches begin.
-              </div>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
