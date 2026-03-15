@@ -1,57 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useTheme } from "next-themes";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
-
-type Mode = "light" | "dark" | "system";
-
-function ThemeRow() {
-  const { theme, setTheme, systemTheme } = useTheme();
-  const current = (theme ?? "system") as Mode;
-
-  const Btn = ({ value, label }: { value: Mode; label: string }) => {
-    const active = current === value;
-    return (
-      <button
-        type="button"
-        onClick={() => setTheme(value)}
-        className={cn(
-          "px-3 py-2 rounded-xl text-sm font-semibold transition",
-          active ? "bg-background shadow border" : "text-muted-foreground hover:bg-accent/20"
-        )}
-      >
-        {label}
-      </button>
-    );
-  };
-
-  return (
-    <div className="py-4 border-b border-border/60">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-base font-semibold">Appearance</div>
-          <div className="text-sm text-muted-foreground">
-            {current === "system"
-              ? `System (${systemTheme ?? "..."})`
-              : current === "dark"
-              ? "Dark"
-              : "Light"}
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-muted p-1 inline-flex shrink-0">
-          <Btn value="light" label="Light" />
-          <Btn value="dark" label="Dark" />
-          <Btn value="system" label="System" />
-        </div>
-      </div>
-    </div>
-  );
-}
+import { ThemeSettingRow } from "@/components/theme-setting";
 
 export default function SettingsPage() {
   return (
@@ -72,7 +25,9 @@ export default function SettingsPage() {
       </div>
 
       <div className="mt-4">
-        <ThemeRow />
+        <div className="py-4 border-b border-border/60">
+          <ThemeSettingRow />
+        </div>
         <PushNotificationToggle />
       </div>
     </div>

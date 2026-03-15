@@ -253,6 +253,23 @@ Sure! Let me refactor the entire roster system to be cleaner...
 [writes 400 lines of new code without asking]
 ```
 
+## Agents & Skills
+
+Custom agents and skills are in `.claude/` directory:
+
+### Agents (`.claude/agents/`)
+- **scorer-admin** — Match day operations: entering scores, calculating points, awarding bonuses
+- **fantasy-feature** — Building new features following established patterns
+- **db-manager** — Safe Supabase database operations (FK-aware delete/insert order)
+- **bug-fixer** — Methodical debugging with 3-strike rule (no round-robin fixes)
+- **ui-ux-reviewer** — UI/UX review agent
+
+### Skills (`.claude/skills/`)
+- **gameweek-setup** — Full gameweek creation (GW + matches + fixtures)
+- **new-api-route** — API route template with auth, error handling, caching
+- **new-component** — Component template with correct styling patterns
+- **supabase-query** — Common Supabase query patterns with correct FK join syntax
+
 ## Current Project State
 - Core app is functional: teams, players, gameweeks, matches, rosters, picks, transfers
 - FPL-inspired UI with pitch view, player cards, bottom sheets

@@ -218,6 +218,13 @@ export default function AdminDashboard() {
       color: "#6366F1",
     },
     {
+      title: "Feed Media",
+      description: "Upload images and announcements for the dashboard Latest feed.",
+      icon: "📰",
+      href: "/admin/feed-media",
+      color: "#8B5CF6",
+    },
+    {
       title: "Audit Log",
       description: "View all admin actions and voice entries.",
       icon: "📜",
@@ -671,6 +678,7 @@ export default function AdminDashboard() {
                   { label: "📋 Appearances", href: "/admin/appearances" },
                   { label: "⭐ Bonus Points", href: "/admin/bonus-points" },
                   { label: "📤 Import Players", href: "/admin/players/import" },
+                  { label: "📰 Feed Media", href: "/admin/feed-media" },
                   { label: "📜 Audit Log", href: "/admin/audit-log" },
                   { label: "📈 Analytics", href: "/admin/analytics" },
                   { label: "🔔 Send Notification", href: "/admin/notifications/send" },

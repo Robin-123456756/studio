@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
-type Mode = "light" | "dark" | "system";
+type Mode = "light" | "dark" | "gold" | "system";
 
 export function ThemeSettingRow() {
   const { theme, setTheme, systemTheme } = useTheme();
@@ -44,12 +44,15 @@ export function ThemeSettingRow() {
             ? `System (${systemTheme ?? "…"})`
             : current === "dark"
             ? "Dark"
+            : current === "gold"
+            ? "Gold"
             : "Light"}
         </div>
       </div>
 
       <div className="rounded-2xl bg-muted p-1 inline-flex shrink-0">
         <Button value="light" label="Light" />
+        <Button value="gold" label="Gold" />
         <Button value="dark" label="Dark" />
         <Button value="system" label="System" />
       </div>

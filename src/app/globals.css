@@ -12,7 +12,58 @@ html {
 /* Budo League Design System: Red, Black, White - Age-Friendly */
 @layer base {
   :root {
-    /* Core colors — Royal Gold */
+    /* Core colors — Crystal White */
+    --background: 0 0% 100%;
+    --foreground: 220 10% 8%;
+    --card: 210 20% 98%;
+    --card-foreground: 220 10% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 10% 8%;
+
+    /* Primary / accent */
+    --primary: 356 55% 42%;
+    --primary-foreground: 0 0% 98%;
+    --accent: 210 10% 95%;
+    --accent-foreground: 220 10% 8%;
+
+    /* Semantic */
+    --secondary: 210 10% 96%;
+    --secondary-foreground: 220 10% 8%;
+    --muted: 210 10% 96%;
+    --muted-foreground: 215 15% 42%;
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Borders, rings, inputs */
+    --border: 210 10% 90%;
+    --input: 210 10% 90%;
+    --ring: 356 55% 42%;
+
+    /* Charts */
+    --chart-1: 356 55% 42%;
+    --chart-2: 2 46% 56%;
+    --chart-3: 220 7% 36%;
+    --chart-4: 210 40% 50%;
+    --chart-5: 10 38% 58%;
+
+    /* Radius & elevation */
+    --radius: 14px;
+    --shadow-1: 0 10px 30px rgba(0, 0, 0, 0.05);
+    --shadow-2: 0 25px 60px rgba(0, 0, 0, 0.08);
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 10% 8%;
+    --sidebar-primary: 356 55% 42%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 210 10% 95%;
+    --sidebar-accent-foreground: 220 10% 8%;
+    --sidebar-border: 210 10% 90%;
+    --sidebar-ring: 356 55% 42%;
+  }
+
+  .gold {
+    /* Core colors — Royal Gold (original warm palette) */
     --background: 42 55% 88%;
     --foreground: 30 12% 10%;
     --card: 42 45% 93%;
@@ -115,8 +166,8 @@ html {
     font-size: 16px;
     line-height: 1.6;
     background-image:
-      radial-gradient(1100px 520px at 10% -10%, hsl(var(--primary) / 0.06), transparent 60%),
-      radial-gradient(900px 520px at 90% -20%, hsl(42 60% 50% / 0.08), transparent 55%),
+      radial-gradient(1100px 520px at 10% -10%, hsl(var(--primary) / 0.04), transparent 60%),
+      radial-gradient(900px 520px at 90% -20%, hsl(210 40% 50% / 0.04), transparent 55%),
       linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
   }
 

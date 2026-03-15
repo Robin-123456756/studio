@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeColorMeta } from "@/components/ThemeColorMeta";
 import { PwaStartupImages } from "@/app/pwa-startup-images";
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default function RootLayout({
         <meta
           name="theme-color"
           media="(prefers-color-scheme: light)"
-          content="#0D5C63"
+          content="#FFFFFF"
         />
         <meta
           name="theme-color"
@@ -42,6 +43,7 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-foreground">
         <ThemeProvider>
+          <ThemeColorMeta />
           {children}
         </ThemeProvider>
       </body>

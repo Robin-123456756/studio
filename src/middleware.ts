@@ -92,7 +92,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Role-based page blocking: scorer cannot access super-admin-only pages
-    const superAdminOnlyPages = ["/admin/season", "/admin/players/import"];
+    const superAdminOnlyPages = ["/admin/season", "/admin/players/import", "/admin/feed-media"];
     const userRole = token.role as string | undefined;
     if (userRole && userRole !== "superadmin") {
       const isBlocked = superAdminOnlyPages.some(
