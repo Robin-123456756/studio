@@ -182,6 +182,7 @@ export async function GET(req: Request) {
       .from("player_match_events")
       .select("player_id, match_id, action, quantity")
       .in("action", ["yellow", "red", "yellow_card", "red_card"]);
+    if (gwMatchIds.length > 0) eventsQ = eventsQ.in("match_id", gwMatchIds);
     if (playerId) eventsQ = eventsQ.eq("player_id", playerId);
     const { data: cardEvents } = await eventsQ;
 

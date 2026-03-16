@@ -113,16 +113,26 @@ export async function GET(req: Request) {
     // ── Lady points detection ──
     // Check BOTH player_stats AND player_match_events for lady players.
     // Voice admin writes to player_match_events; manual/CSV writes to player_stats.
+    // Scoped to the GW range being queried to avoid silent truncation.
 
-    // Source 1: player_stats (gameweek_id is a direct column)
-    const { data: playerStats } = await supabase
+    const matchIds = (matches ?? []).map((m: any) => m.id);
+
+    // Source 1: player_stats — scoped to GW range
+    let psQuery = supabase
       .from("player_stats")
       .select("gameweek_id, player_id");
+    if (Number.isFinite(fromGw)) psQuery = psQuery.gte("gameweek_id", fromGw);
+    if (Number.isFinite(toGwResolved)) psQuery = psQuery.lte("gameweek_id", toGwResolved!);
+    const { data: playerStats } = await psQuery;
 
-    // Source 2: player_match_events → join via matches to get gameweek_id
-    const { data: pmeData } = await supabase
+    // Source 2: player_match_events — scoped to the matches already fetched
+    let pmeQuery = supabase
       .from("player_match_events")
       .select("player_id, match_id, matches!inner(gameweek_id)");
+    if (matchIds.length > 0) {
+      pmeQuery = pmeQuery.in("match_id", matchIds);
+    }
+    const { data: pmeData } = await pmeQuery;
 
     // Combine all player IDs from both sources
     const allPlayerIds = new Set<string>();
