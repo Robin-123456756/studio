@@ -1,0 +1,14 @@
+.git
+.next
+node_modules
+coverage
+.vercel
+.idx
+.claude
+tmp
+certificates
+.env
+.env.*
+*.log
+nul
+NUL

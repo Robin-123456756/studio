@@ -1,0 +1,48 @@
+{
+  "name": "Budo League Sandbox",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/studio",
+  "remoteUser": "node",
+  "runArgs": [
+    "--init"
+  ],
+  "containerEnv": {
+    "NEXT_TELEMETRY_DISABLED": "1"
+  },
+  "mounts": [
+    "source=budo-league-node-modules,target=/workspaces/studio/node_modules,type=volume",
+    "source=budo-league-npm-cache,target=/home/node/.npm,type=volume"
+  ],
+  "forwardPorts": [
+    3001,
+    4000
+  ],
+  "portsAttributes": {
+    "3001": {
+      "label": "Next.js app",
+      "onAutoForward": "notify"
+    },
+    "4000": {
+      "label": "Genkit dev UI",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "npm.packageManager": "npm"
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  }
+}

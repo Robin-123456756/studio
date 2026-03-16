@@ -456,6 +456,21 @@ export default function DashboardPage() {
       const maxPlayedGw = allPlayed.reduce((max, m) => Math.max(max, m.gameweek_id ?? 0), 0);
       const newRecent = allPlayed.filter((m) => m.gameweek_id === maxPlayedGw);
 
+      // If top performer fetch returned empty (current GW has no stats yet),
+      // retry with the latest GW that actually has played matches
+      let perfStats: any[] = perfData.stats ?? [];
+      if (perfStats.length === 0 && maxPlayedGw > 0 && maxPlayedGw !== currentGwId) {
+        try {
+          const fallbackRes = await fetch(`/api/player-stats?gw_id=${maxPlayedGw}`, { cache: "no-store" });
+          if (fallbackRes.ok) {
+            const fallbackJson = await fallbackRes.json();
+            perfStats = fallbackJson.stats ?? [];
+          }
+        } catch {
+          // non-fatal
+        }
+      }
+
       // Detect score changes (skip on first load)
       if (!firstLoad.current) {
         const changed = new Set<string>();
@@ -486,17 +501,17 @@ export default function DashboardPage() {
       // Feed: transfers + top performer + admin media
       setTransfers(txData.transfers ?? []);
       setFeedMedia(mediaData.items ?? []);
-      const sortedPerf = (perfData.stats ?? [])
+      const sortedPerf = perfStats
         .sort((a: any, b: any) => (b.points ?? 0) - (a.points ?? 0));
       if (sortedPerf.length > 0) {
         const best = sortedPerf[0];
         setTopPerformer({
-          name: best.playerName ?? best.name ?? "—",
+          name: best.playerName ?? best.player?.name ?? best.name ?? "—",
           points: best.points ?? 0,
-          teamName: best.teamShortName ?? best.teamName ?? "—",
+          teamName: best.player?.teamShort ?? best.player?.teamName ?? best.teamShortName ?? best.teamName ?? "—",
           goals: best.goals ?? 0,
           assists: best.assists ?? 0,
-          isLady: best.isLady ?? false,
+          isLady: best.player?.isLady ?? best.isLady ?? false,
           playerId: best.playerId ?? "",
         });
       } else {
