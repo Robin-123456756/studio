@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { computeUserScore } from "@/lib/scoring-engine";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -116,13 +117,16 @@ export async function GET(req: Request) {
     const playedFromEvents = new Set<string>();
 
     if (gwMatchIds.length > 0) {
-      const { data: events } = await supabase
-        .from("player_match_events")
-        .select("player_id, points_awarded, quantity")
-        .in("match_id", gwMatchIds)
-        .in("player_id", allPlayerIds);
+      const events = await fetchAllRows((from, to) =>
+        supabase
+          .from("player_match_events")
+          .select("player_id, points_awarded, quantity")
+          .in("match_id", gwMatchIds)
+          .in("player_id", allPlayerIds)
+          .range(from, to)
+      );
 
-      for (const e of events ?? []) {
+      for (const e of events) {
         const pid = String(e.player_id);
         const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
         pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);

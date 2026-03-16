@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -89,13 +90,16 @@ export async function GET(req: Request) {
     const eventBonusMap = new Map<string, number>();       // key: playerId__gameweekId
 
     if (gwMatchIds.length > 0 && playerIds.length > 0) {
-      const { data: events } = await supabase
-        .from("player_match_events")
-        .select("player_id, match_id, action, quantity, points_awarded, penalties")
-        .in("match_id", gwMatchIds)
-        .in("player_id", playerIds);
+      const events = await fetchAllRows((from, to) =>
+        supabase
+          .from("player_match_events")
+          .select("player_id, match_id, action, quantity, points_awarded, penalties")
+          .in("match_id", gwMatchIds)
+          .in("player_id", playerIds)
+          .range(from, to)
+      );
 
-      for (const e of events ?? []) {
+      for (const e of events) {
         const pid = String(e.player_id);
         const matchGw = matchGwMap.get(e.match_id);
         if (!matchGw) continue;
@@ -178,15 +182,17 @@ export async function GET(req: Request) {
 
     // 6. Merge yellow/red cards from player_match_events
     //    (cards may exist as events but not in player_stats rows)
-    let eventsQ = supabase
-      .from("player_match_events")
-      .select("player_id, match_id, action, quantity")
-      .in("action", ["yellow", "red", "yellow_card", "red_card"]);
-    if (gwMatchIds.length > 0) eventsQ = eventsQ.in("match_id", gwMatchIds);
-    if (playerId) eventsQ = eventsQ.eq("player_id", playerId);
-    const { data: cardEvents } = await eventsQ;
+    const cardEvents = await fetchAllRows((from, to) => {
+      let q = supabase
+        .from("player_match_events")
+        .select("player_id, match_id, action, quantity")
+        .in("action", ["yellow", "red", "yellow_card", "red_card"]);
+      if (gwMatchIds.length > 0) q = q.in("match_id", gwMatchIds);
+      if (playerId) q = q.eq("player_id", playerId);
+      return q.range(from, to);
+    });
 
-    if (cardEvents && cardEvents.length > 0) {
+    if (cardEvents.length > 0) {
       // Fetch any players from card events not already in playersMap
       const cardPlayerIds = [...new Set(cardEvents.map((e: any) => e.player_id))];
       const missingPlayerIds = cardPlayerIds.filter((id: string) => !playersMap.has(id));

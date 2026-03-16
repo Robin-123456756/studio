@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +15,16 @@ export async function POST() {
 
   try {
     // Fetch all tables in parallel
+    // Most tables are small enough for a single fetch; player_match_events
+    // and user_rosters use paginated fetch to guarantee completeness.
     const [
       playersRes,
       teamsRes,
       gameweeksRes,
       matchesRes,
       playerStatsRes,
-      playerMatchEventsRes,
-      userRostersRes,
+      playerMatchEvents,
+      userRosters,
       userWeeklyScoresRes,
       userChipsRes,
       userTransfersRes,
@@ -34,8 +37,8 @@ export async function POST() {
       supabase.from("gameweeks").select("*"),
       supabase.from("matches").select("*"),
       supabase.from("player_stats").select("*"),
-      supabase.from("player_match_events").select("*"),
-      supabase.from("user_rosters").select("*"),
+      fetchAllRows((from, to) => supabase.from("player_match_events").select("*").range(from, to)),
+      fetchAllRows((from, to) => supabase.from("user_rosters").select("*").range(from, to)),
       supabase.from("user_weekly_scores").select("*"),
       supabase.from("user_chips").select("*"),
       supabase.from("user_transfers").select("*"),
@@ -53,8 +56,8 @@ export async function POST() {
         gameweeks: gameweeksRes.data ?? [],
         matches: matchesRes.data ?? [],
         player_stats: playerStatsRes.data ?? [],
-        player_match_events: playerMatchEventsRes.data ?? [],
-        user_rosters: userRostersRes.data ?? [],
+        player_match_events: playerMatchEvents,
+        user_rosters: userRosters,
         user_weekly_scores: userWeeklyScoresRes.data ?? [],
         user_chips: userChipsRes.data ?? [],
         user_transfers: userTransfersRes.data ?? [],
@@ -68,8 +71,8 @@ export async function POST() {
         gameweeks: (gameweeksRes.data ?? []).length,
         matches: (matchesRes.data ?? []).length,
         player_stats: (playerStatsRes.data ?? []).length,
-        player_match_events: (playerMatchEventsRes.data ?? []).length,
-        user_rosters: (userRostersRes.data ?? []).length,
+        player_match_events: playerMatchEvents.length,
+        user_rosters: userRosters.length,
         user_weekly_scores: (userWeeklyScoresRes.data ?? []).length,
         user_chips: (userChipsRes.data ?? []).length,
         user_transfers: (userTransfersRes.data ?? []).length,

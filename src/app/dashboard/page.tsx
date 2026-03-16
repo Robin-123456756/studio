@@ -194,6 +194,7 @@ type FeedMediaItem = {
   media_urls: string[] | null;
   created_at: string;
   view_count: number;
+  display_size?: string;
 };
 
 // ---------- Fantasy stats type ----------
@@ -951,27 +952,29 @@ export default function DashboardPage() {
               const hasVideo = !!pinned.video_url;
               const mediaUrl = pinned.video_url || pinned.image_url;
               return (
-                <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: 180 }}>
-                  {hasVideo ? (
-                    <video src={pinned.video_url!} muted loop autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
-                  ) : mediaUrl ? (
-                    <img src={mediaUrl} alt={pinned.title} className="absolute inset-0 w-full h-full object-cover" />
-                  ) : null}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="relative flex flex-col justify-end p-4" style={{ minHeight: 180 }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <CategoryPill category={pinned.category} />
-                      <span className="text-[10px] text-white/50">{timeAgo(pinned.created_at)}</span>
-                      {hasVideo && (
-                        <span className="text-[10px] text-white/50 bg-white/20 px-1.5 rounded">VIDEO</span>
+                <Link href={`/dashboard/feed/${pinned.id}`} className="block">
+                  <div className="relative rounded-2xl overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all" style={{ minHeight: 180 }}>
+                    {hasVideo ? (
+                      <video src={pinned.video_url!} muted loop autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+                    ) : mediaUrl ? (
+                      <img src={mediaUrl} alt={pinned.title} className="absolute inset-0 w-full h-full object-cover" />
+                    ) : null}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                    <div className="relative flex flex-col justify-end p-4" style={{ minHeight: 180 }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <CategoryPill category={pinned.category} />
+                        <span className="text-[10px] text-white/50">{timeAgo(pinned.created_at)}</span>
+                        {hasVideo && (
+                          <span className="text-[10px] text-white/50 bg-white/20 px-1.5 rounded">VIDEO</span>
+                        )}
+                      </div>
+                      <div className="text-white font-bold text-[15px] leading-tight">{pinned.title}</div>
+                      {pinned.body && (
+                        <div className="text-white/70 text-xs mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(pinned.body) }} />
                       )}
                     </div>
-                    <div className="text-white font-bold text-[15px] leading-tight">{pinned.title}</div>
-                    {pinned.body && (
-                      <div className="text-white/70 text-xs mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(pinned.body) }} />
-                    )}
                   </div>
-                </div>
+                </Link>
               );
             })()}
 
@@ -1049,78 +1052,118 @@ export default function DashboardPage() {
             {/* Admin media thumbnails (non-pinned) */}
             {feedMedia
               .filter((m) => !m.is_pinned)
-              .slice(0, 4)
+              .slice(0, 8)
               .map((m) => {
                 const layout = m.layout || "hero";
                 const thumbUrl = m.thumbnail_url || m.image_url;
                 const hasVideo = !!m.video_url;
                 const isGallery = layout === "gallery" && m.media_urls && m.media_urls.length > 0;
                 const isQuick = layout === "quick";
+                const size = m.display_size || "standard";
+                const isFeatured = size === "featured";
+
+                // Featured cards get a hero-style full-width treatment (like pinned)
+                if (isFeatured) {
+                  const heroImg = m.video_url || thumbUrl;
+                  return (
+                    <Link key={`media-${m.id}`} href={`/dashboard/feed/${m.id}`} className="block">
+                      <div className="relative rounded-2xl overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all" style={{ minHeight: 200 }}>
+                        {hasVideo ? (
+                          <video src={m.video_url!} muted loop autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+                        ) : heroImg ? (
+                          <img src={heroImg} alt={m.title} className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-violet-600 to-purple-800" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                        <div className="relative flex flex-col justify-end p-4" style={{ minHeight: 200 }}>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <CategoryPill category={m.category} />
+                            <span className="text-[10px] text-white/50">{timeAgo(m.created_at)}</span>
+                            {hasVideo && (
+                              <span className="text-[10px] text-white/50 bg-white/20 px-1.5 rounded">VIDEO</span>
+                            )}
+                          </div>
+                          <div className="text-white font-bold text-lg leading-tight">{m.title}</div>
+                          {m.body && (
+                            <div className="text-white/70 text-xs mt-1.5 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                }
 
                 // Quick update layout (text-only, accent border)
                 if (isQuick) {
                   return (
-                    <div key={`media-${m.id}`} className="rounded-2xl border-l-4 border-purple-500 bg-card p-3 shadow-[var(--shadow-1)]">
-                      <div className="flex items-center gap-2 mb-1">
-                        <CategoryPill category={m.category} />
-                        <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                    <Link key={`media-${m.id}`} href={`/dashboard/feed/${m.id}`} className="block">
+                      <div className="rounded-2xl border-l-4 border-purple-500 bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CategoryPill category={m.category} />
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                        </div>
+                        <div className="text-sm font-semibold leading-tight">{m.title}</div>
+                        {m.body && size !== "compact" && (
+                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                        )}
                       </div>
-                      <div className="text-sm font-semibold leading-tight">{m.title}</div>
-                      {m.body && (
-                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
-                      )}
-                    </div>
+                    </Link>
                   );
                 }
 
                 // Split layout
                 if (layout === "split") {
                   return (
-                    <div key={`media-${m.id}`} className="flex rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)]">
-                      {thumbUrl && (
-                        <div className="w-2/5 shrink-0 relative">
-                          <img src={thumbUrl} alt={m.title} className="w-full h-full min-h-[100px] object-cover" />
-                          {hasVideo && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
-                                <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-0.5" />
+                    <Link key={`media-${m.id}`} href={`/dashboard/feed/${m.id}`} className="block">
+                      <div className="flex rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                        {thumbUrl && (
+                          <div className="w-2/5 shrink-0 relative">
+                            <img src={thumbUrl} alt={m.title} className="w-full h-full min-h-[100px] object-cover" />
+                            {hasVideo && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
+                                  <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-0.5" />
+                                </div>
                               </div>
-                            </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex-1 p-3 flex flex-col justify-center">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CategoryPill category={m.category} />
+                            <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                          </div>
+                          <div className="text-sm font-semibold leading-tight line-clamp-2">{m.title}</div>
+                          {m.body && size !== "compact" && (
+                            <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
                           )}
                         </div>
-                      )}
-                      <div className="flex-1 p-3 flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CategoryPill category={m.category} />
-                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
-                        </div>
-                        <div className="text-sm font-semibold leading-tight line-clamp-2">{m.title}</div>
-                        {m.body && (
-                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
-                        )}
                       </div>
-                    </div>
+                    </Link>
                   );
                 }
 
                 // Feature layout (headline first, image below)
                 if (layout === "feature") {
                   return (
-                    <div key={`media-${m.id}`} className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)]">
-                      <div className="p-3 pb-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CategoryPill category={m.category} />
-                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                    <Link key={`media-${m.id}`} href={`/dashboard/feed/${m.id}`} className="block">
+                      <div className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                        <div className="p-3 pb-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CategoryPill category={m.category} />
+                            <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                          </div>
+                          <div className="text-base font-bold leading-tight">{m.title}</div>
+                          {m.body && size !== "compact" && (
+                            <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                          )}
                         </div>
-                        <div className="text-base font-bold leading-tight">{m.title}</div>
-                        {m.body && (
-                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
+                        {thumbUrl && (
+                          <img src={thumbUrl} alt={m.title} className="w-full h-32 object-cover" />
                         )}
                       </div>
-                      {thumbUrl && (
-                        <img src={thumbUrl} alt={m.title} className="w-full h-32 object-cover" />
-                      )}
-                    </div>
+                    </Link>
                   );
                 }
 
@@ -1128,63 +1171,70 @@ export default function DashboardPage() {
                 if (isGallery) {
                   const imgs = m.media_urls!;
                   return (
-                    <div key={`media-${m.id}`} className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)]">
-                      <div className="p-3 pb-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CategoryPill category={m.category} />
-                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
-                        </div>
-                        <div className="text-sm font-semibold leading-tight">{m.title}</div>
-                      </div>
-                      <div className="flex gap-0.5 px-0.5 pb-0.5">
-                        {imgs.slice(0, 3).map((url, i) => (
-                          <div key={i} className="flex-1 relative">
-                            <img src={url} alt="" className="w-full h-20 object-cover" />
-                            {i === 2 && imgs.length > 3 && (
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">+{imgs.length - 3}</span>
-                              </div>
-                            )}
+                    <Link key={`media-${m.id}`} href={`/dashboard/feed/${m.id}`} className="block">
+                      <div className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                        <div className="p-3 pb-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CategoryPill category={m.category} />
+                            <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
                           </div>
-                        ))}
+                          <div className="text-sm font-semibold leading-tight">{m.title}</div>
+                        </div>
+                        <div className="flex gap-0.5 px-0.5 pb-0.5">
+                          {imgs.slice(0, 3).map((url, i) => (
+                            <div key={i} className="flex-1 relative">
+                              <img src={url} alt="" className="w-full h-20 object-cover" />
+                              {i === 2 && imgs.length > 3 && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                  <span className="text-white font-bold text-sm">+{imgs.length - 3}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   );
                 }
 
                 // Default: hero / video thumbnail card
+                // Compact cards get smaller thumbnails
+                const thumbSize = size === "compact" ? "h-14 w-14" : "h-20 w-20";
                 return (
-                  <div
+                  <Link
                     key={`media-${m.id}`}
-                    className="flex gap-3 rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)]"
+                    href={`/dashboard/feed/${m.id}`}
+                    className="block"
                   >
-                    {thumbUrl ? (
-                      <div className="relative shrink-0">
-                        <img src={thumbUrl} alt={m.title} className="h-20 w-20 rounded-xl object-cover" />
-                        {hasVideo && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center">
-                              <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent ml-0.5" />
+                    <div className="flex gap-3 rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                      {thumbUrl ? (
+                        <div className="relative shrink-0">
+                          <img src={thumbUrl} alt={m.title} className={cn(thumbSize, "rounded-xl object-cover")} />
+                          {hasVideo && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center">
+                                <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent ml-0.5" />
+                              </div>
                             </div>
-                          </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={cn(thumbSize, "rounded-xl bg-muted shrink-0 flex items-center justify-center")}>
+                          <span className="text-xs text-muted-foreground">No img</span>
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CategoryPill category={m.category} />
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
+                        </div>
+                        <div className="text-sm font-semibold leading-tight line-clamp-2">{m.title}</div>
+                        {m.body && size !== "compact" && (
+                          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
                         )}
                       </div>
-                    ) : (
-                      <div className="h-20 w-20 rounded-xl bg-muted shrink-0 flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">No img</span>
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1 flex flex-col justify-center">
-                      <div className="flex items-center gap-2 mb-1">
-                        <CategoryPill category={m.category} />
-                        <span className="text-[10px] text-muted-foreground">{timeAgo(m.created_at)}</span>
-                      </div>
-                      <div className="text-sm font-semibold leading-tight line-clamp-2">{m.title}</div>
-                      {m.body && (
-                        <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(m.body!) }} />
-                      )}
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
 

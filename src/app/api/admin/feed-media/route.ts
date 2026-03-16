@@ -147,6 +147,7 @@ export async function POST(req: Request) {
     const sendPush = formData.get("send_push") === "true";
     const seriesId = formData.get("series_id") as string | null;
     const seriesOrder = formData.get("series_order") as string | null;
+    const displaySize = (formData.get("display_size") as string | null) || "standard";
 
     if (!title) {
       return NextResponse.json({ error: "Title is required." }, { status: 400 });
@@ -227,6 +228,7 @@ export async function POST(req: Request) {
       created_by: createdBy,
       series_id: seriesId ? parseInt(seriesId, 10) : null,
       series_order: seriesOrder ? parseInt(seriesOrder, 10) : 0,
+      display_size: ["compact", "standard", "featured"].includes(displaySize) ? displaySize : "standard",
     };
 
     const { data: inserted, error: insertError } = await supabase
@@ -311,6 +313,11 @@ export async function PUT(req: Request) {
     const gameweekId = formData.get("gameweek_id") as string | null;
     if (gameweekId !== null) {
       updates.gameweek_id = gameweekId ? parseInt(gameweekId, 10) : null;
+    }
+
+    const displaySize = formData.get("display_size") as string | null;
+    if (displaySize && ["compact", "standard", "featured"].includes(displaySize)) {
+      updates.display_size = displaySize;
     }
 
     // Handle new image upload

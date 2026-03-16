@@ -3,6 +3,7 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { autoAssignBonus } from "@/lib/bonus-calculator";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -86,10 +87,13 @@ export async function GET(req: Request) {
 
     // 6. Fetch player_match_events for this GW's matches (players with events definitely played)
     const matchIds = matches.map((m) => m.id);
-    const { data: events } = await supabase
-      .from("player_match_events")
-      .select("player_id, match_id, action")
-      .in("match_id", matchIds);
+    const events = await fetchAllRows((from, to) =>
+      supabase
+        .from("player_match_events")
+        .select("player_id, match_id, action")
+        .in("match_id", matchIds)
+        .range(from, to)
+    );
 
     // Map: player_id → set of match_ids where they have events
     const eventsMap = new Map<string, Set<number>>();

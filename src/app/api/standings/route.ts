@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -126,13 +127,13 @@ export async function GET(req: Request) {
     const { data: playerStats } = await psQuery;
 
     // Source 2: player_match_events — scoped to the matches already fetched
-    let pmeQuery = supabase
-      .from("player_match_events")
-      .select("player_id, match_id, matches!inner(gameweek_id)");
-    if (matchIds.length > 0) {
-      pmeQuery = pmeQuery.in("match_id", matchIds);
-    }
-    const { data: pmeData } = await pmeQuery;
+    const pmeData = await fetchAllRows((from, to) => {
+      let q = supabase
+        .from("player_match_events")
+        .select("player_id, match_id, matches!inner(gameweek_id)");
+      if (matchIds.length > 0) q = q.in("match_id", matchIds);
+      return q.range(from, to);
+    });
 
     // Combine all player IDs from both sources
     const allPlayerIds = new Set<string>();

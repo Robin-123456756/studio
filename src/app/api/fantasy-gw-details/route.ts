@@ -4,6 +4,7 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { computeUserScore, norm, lookupPoints, loadScoringRules } from "@/lib/scoring-engine";
 import type { RosterRow, PlayerMeta, PlayerStat } from "@/lib/scoring-engine";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import {
   computeTransferCost,
   computeLeagueStats,
@@ -206,13 +207,16 @@ export async function GET(req: Request) {
     const bonusMap = new Map<string, number>(); // playerId → bonus points (3/2/1)
 
     if (gwMatchIds.length > 0) {
-      const { data: events } = await admin
-        .from("player_match_events")
-        .select("player_id, action, quantity, points_awarded")
-        .in("match_id", gwMatchIds)
-        .in("player_id", squadIds);
+      const events = await fetchAllRows((from, to) =>
+        admin
+          .from("player_match_events")
+          .select("player_id, action, quantity, points_awarded")
+          .in("match_id", gwMatchIds)
+          .in("player_id", squadIds)
+          .range(from, to)
+      );
 
-      for (const e of events ?? []) {
+      for (const e of events) {
         const pid = String(e.player_id);
         const meta = metaMap.get(pid);
         const position = norm(meta?.position);
@@ -363,10 +367,13 @@ export async function GET(req: Request) {
         const allPlayerIds = [...new Set(allRosters.map((r: any) => String(r.player_id)))];
 
         // Fetch ALL events for this GW's matches (action-based, matching scoring engine)
-        const { data: allEvents } = await admin
-          .from("player_match_events")
-          .select("player_id, action, quantity, points_awarded")
-          .in("match_id", gwMatchIds);
+        const allEvents = await fetchAllRows((from, to) =>
+          admin
+            .from("player_match_events")
+            .select("player_id, action, quantity, points_awarded")
+            .in("match_id", gwMatchIds)
+            .range(from, to)
+        );
 
         // Also fetch did_play from player_stats for all players
         const { data: allStatsData } = await admin

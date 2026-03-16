@@ -14,7 +14,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("feed_media")
     .select(
-      "id, title, body, image_url, video_url, thumbnail_url, category, layout, is_pinned, gameweek_id, media_urls, created_at, view_count"
+      "id, title, body, image_url, video_url, thumbnail_url, category, layout, is_pinned, gameweek_id, media_urls, created_at, view_count, display_size"
     )
     .eq("is_active", true)
     .in("status", ["published"])
@@ -30,7 +30,7 @@ export async function GET() {
   const { data: scheduled } = await supabase
     .from("feed_media")
     .select(
-      "id, title, body, image_url, video_url, thumbnail_url, category, layout, is_pinned, gameweek_id, media_urls, created_at, view_count"
+      "id, title, body, image_url, video_url, thumbnail_url, category, layout, is_pinned, gameweek_id, media_urls, created_at, view_count, display_size"
     )
     .eq("is_active", true)
     .eq("status", "scheduled")

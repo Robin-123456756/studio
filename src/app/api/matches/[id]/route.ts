@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -63,16 +64,19 @@ export async function GET(_req: Request, { params }: RouteParams) {
       : { data: null };
 
     // 4. Enrich with player_match_events
-    const { data: rawEvents } = await supabase
-      .from("player_match_events")
-      .select("match_id, player_id, action, quantity")
-      .eq("match_id", matchId);
+    const rawEvents = await fetchAllRows((from, to) =>
+      supabase
+        .from("player_match_events")
+        .select("match_id, player_id, action, quantity")
+        .eq("match_id", matchId)
+        .range(from, to)
+    );
 
     const playerInfoMap = new Map<string, any>();
     const home_events: MatchEvent[] = [];
     const away_events: MatchEvent[] = [];
 
-    if (rawEvents && rawEvents.length > 0) {
+    if (rawEvents.length > 0) {
       const playerIds = [...new Set(rawEvents.map((e: any) => e.player_id))];
       const { data: playersData } = await supabase
         .from("players")

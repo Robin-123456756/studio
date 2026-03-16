@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -89,12 +90,15 @@ export async function GET(req: Request) {
 
     if (enrich && rows.length > 0) {
       const matchIds = rows.map((m: any) => m.id);
-      const { data: rawEvents } = await supabase
-        .from("player_match_events")
-        .select("match_id, player_id, action, quantity, penalties, points_awarded")
-        .in("match_id", matchIds);
+      const rawEvents = await fetchAllRows((from, to) =>
+        supabase
+          .from("player_match_events")
+          .select("match_id, player_id, action, quantity, penalties, points_awarded")
+          .in("match_id", matchIds)
+          .range(from, to)
+      );
 
-      if (rawEvents && rawEvents.length > 0) {
+      if (rawEvents.length > 0) {
         // Fetch player info for names + team + is_lady
         const playerIds = [...new Set(rawEvents.map((e: any) => e.player_id))];
         const { data: playersData } = await supabase

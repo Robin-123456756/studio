@@ -33,7 +33,7 @@ import {
   Pencil, Trash2, RotateCcw, X, GripVertical, FileText,
   CloudUpload, Sparkles, Wand2, Brain, BookOpen, CheckCircle2,
   AlertTriangle, Loader2, ChevronDown, ChevronUp, Clipboard,
-  Gauge, Lightbulb, Megaphone, Copy,
+  Gauge, Lightbulb, Megaphone, Copy, Maximize2, Minimize2, Square,
 } from "lucide-react";
 
 // Dynamic imports to keep initial bundle small
@@ -81,10 +81,12 @@ type FeedItem = {
   gameweek_id: number | null;
   created_at: string;
   view_count: number;
+  display_size: string;
 };
 
 type StatusFilter = "all" | "published" | "draft" | "scheduled";
 type ViewMode = "grid" | "list" | "calendar";
+type DisplaySize = "compact" | "standard" | "featured";
 
 /* ── Component ────────────────────────────────────────────────────────── */
 
@@ -115,6 +117,7 @@ export default function FeedMediaPage() {
   const [itemStatus, setItemStatus] = useState<"draft" | "review" | "approved" | "published" | "scheduled">("published");
   const [sendPush, setSendPush] = useState(false);
   const [publishAt, setPublishAt] = useState("");
+  const [displaySize, setDisplaySize] = useState<DisplaySize>("standard");
 
   // Series state
   type FeedSeries = { id: number; name: string; description: string | null };
@@ -444,6 +447,7 @@ export default function FeedMediaPage() {
       if (sendPush && itemStatus === "published") fd.append("send_push", "true");
       if (seriesId) fd.append("series_id", seriesId);
       if (seriesOrder) fd.append("series_order", seriesOrder);
+      fd.append("display_size", displaySize);
 
       if (editedImageBlob) {
         fd.append("file", editedImageBlob, imageFile?.name || "edited.jpg");
@@ -519,6 +523,7 @@ export default function FeedMediaPage() {
     setPublishAt(item.publish_at || "");
     setImagePreview(item.image_url);
     setVideoPreview(item.video_url);
+    setDisplaySize((item.display_size || "standard") as DisplaySize);
     setEditorTab("compose");
     setEditorOpen(true);
   }
@@ -575,6 +580,7 @@ export default function FeedMediaPage() {
     setPublishAt("");
     setSeriesId("");
     setSeriesOrder("");
+    setDisplaySize("standard");
     setImageFile(null);
     setImagePreview(null);
     setEditedImageBlob(null);
@@ -1364,6 +1370,44 @@ export default function FeedMediaPage() {
                     </div>
                   </div>
 
+                  {/* Display size picker */}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      Card Size on Dashboard
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { value: "compact" as DisplaySize, label: "Compact", icon: Minimize2, desc: "Small card, minimal text" },
+                        { value: "standard" as DisplaySize, label: "Standard", icon: Square, desc: "Default card size" },
+                        { value: "featured" as DisplaySize, label: "Featured", icon: Maximize2, desc: "Full-width hero card" },
+                      ]).map((s) => (
+                        <button
+                          key={s.value}
+                          type="button"
+                          onClick={() => setDisplaySize(s.value)}
+                          className={cn(
+                            "rounded-xl border p-3 text-center transition-all",
+                            displaySize === s.value
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-border hover:border-primary/30"
+                          )}
+                        >
+                          <s.icon className={cn(
+                            "h-5 w-5 mx-auto mb-1",
+                            displaySize === s.value ? "text-primary" : "text-muted-foreground"
+                          )} />
+                          <div className={cn(
+                            "text-xs font-semibold",
+                            displaySize === s.value ? "text-primary" : "text-foreground"
+                          )}>
+                            {s.label}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{s.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Series picker */}
                   {seriesList.length > 0 && (
                     <div className="flex gap-2 items-end">
@@ -1783,6 +1827,18 @@ function GridCard({
             <Badge variant="secondary" className="text-[10px] gap-0.5">
               <Pin className="h-2.5 w-2.5" />
               Pinned
+            </Badge>
+          )}
+          {item.display_size === "featured" && (
+            <Badge variant="secondary" className="text-[10px] gap-0.5 bg-primary/20 text-primary border-0">
+              <Maximize2 className="h-2.5 w-2.5" />
+              Featured
+            </Badge>
+          )}
+          {item.display_size === "compact" && (
+            <Badge variant="secondary" className="text-[10px] gap-0.5">
+              <Minimize2 className="h-2.5 w-2.5" />
+              Compact
             </Badge>
           )}
         </div>
