@@ -82,6 +82,17 @@ export function buildGwSummaryPush(
   };
 }
 
+/** Feed-media push — notify all users of a new post */
+export function buildFeedMediaPush(title: string, category: string): PushPayload {
+  const label = category === "breaking" ? "BREAKING" : "New Post";
+  return {
+    title: label,
+    body: title,
+    tag: "feed-media",
+    data: { link: "/dashboard" },
+  };
+}
+
 /** Deadline reminder push — "Gameweek 5 deadline in 24 hours!" */
 export function buildDeadlineReminderPush(
   gameweekId: number,

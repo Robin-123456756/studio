@@ -3,6 +3,9 @@ import { requireAdminSession, SUPER_ADMIN_ONLY } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { rateLimitResponse, RATE_LIMIT_HEAVY } from "@/lib/rate-limit";
 import { apiError } from "@/lib/api-error";
+import { sendPushToAll } from "@/lib/push-notifications";
+import { buildFeedMediaPush } from "@/lib/push-message-builders";
+import { scaffoldMatchDay } from "@/lib/match-day-planner";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +18,7 @@ const VALID_CATEGORIES = [
   "breaking", "transfer_news", "match_report",
 ] as const;
 const VALID_LAYOUTS = ["hero", "split", "feature", "gallery", "video", "quick"] as const;
-const VALID_STATUSES = ["draft", "published", "scheduled"] as const;
+const VALID_STATUSES = ["draft", "review", "approved", "published", "scheduled"] as const;
 
 /** Upload a file to Supabase Storage and return its public URL */
 async function uploadFile(
@@ -73,10 +76,53 @@ export async function GET() {
   return NextResponse.json({ items: data ?? [] });
 }
 
-/** POST /api/admin/feed-media — create a new feed media item */
+/** POST /api/admin/feed-media — create a new feed media item (or scaffold match day) */
 export async function POST(req: Request) {
   const { session, error: authErr } = await requireAdminSession(SUPER_ADMIN_ONLY);
   if (authErr) return authErr;
+
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action");
+
+  // Match Day Planner: scaffold 4 drafts from a match
+  if (action === "scaffold-matchday") {
+    const supabase = getSupabaseServerOrThrow();
+    const body = await req.json();
+    const matchId = body.match_id;
+    if (!matchId) return apiError("match_id required", "MISSING_MATCH_ID", 400);
+
+    const { data: match } = await supabase
+      .from("matches")
+      .select(`
+        id, gameweek_id, kickoff_time,
+        home_team:teams!matches_home_team_uuid_fkey(name, short_name),
+        away_team:teams!matches_away_team_uuid_fkey(name, short_name)
+      `)
+      .eq("id", matchId)
+      .maybeSingle();
+
+    if (!match) return apiError("Match not found", "MATCH_NOT_FOUND", 404);
+
+    const home = match.home_team as any;
+    const away = match.away_team as any;
+    const drafts = scaffoldMatchDay({
+      id: match.id,
+      gameweek_id: match.gameweek_id,
+      kickoff_time: match.kickoff_time,
+      home_team: home?.name || "Home",
+      away_team: away?.name || "Away",
+      home_short: home?.short_name || "HOM",
+      away_short: away?.short_name || "AWY",
+    });
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from("feed_media")
+      .insert(drafts.map((d) => ({ ...d, image_url: null })))
+      .select("id, title, status");
+
+    if (insertErr) return apiError("Failed to scaffold", "SCAFFOLD_FAILED", 500, insertErr);
+    return NextResponse.json({ items: inserted, count: inserted?.length ?? 0 }, { status: 201 });
+  }
 
   const userId = (session!.user as any).userId || session!.user?.name || "unknown";
   const rlResponse = rateLimitResponse("feed-media-upload", userId, RATE_LIMIT_HEAVY);
@@ -98,6 +144,9 @@ export async function POST(req: Request) {
     const status = (formData.get("status") as string | null) || "published";
     const publishAt = (formData.get("publish_at") as string | null) || null;
     const galleryCount = parseInt((formData.get("gallery_count") as string | null) || "0", 10);
+    const sendPush = formData.get("send_push") === "true";
+    const seriesId = formData.get("series_id") as string | null;
+    const seriesOrder = formData.get("series_order") as string | null;
 
     if (!title) {
       return NextResponse.json({ error: "Title is required." }, { status: 400 });
@@ -176,6 +225,8 @@ export async function POST(req: Request) {
       gameweek_id: gameweekId ? parseInt(gameweekId, 10) : null,
       media_urls: mediaUrls.length > 0 ? mediaUrls : null,
       created_by: createdBy,
+      series_id: seriesId ? parseInt(seriesId, 10) : null,
+      series_order: seriesOrder ? parseInt(seriesOrder, 10) : 0,
     };
 
     const { data: inserted, error: insertError } = await supabase
@@ -186,6 +237,11 @@ export async function POST(req: Request) {
 
     if (insertError) {
       return apiError("Failed to save feed item", "FEED_MEDIA_INSERT_FAILED", 500, insertError);
+    }
+
+    // Fire-and-forget push notification if toggled on and status is published
+    if (sendPush && status === "published" && title) {
+      sendPushToAll(buildFeedMediaPush(title, category)).catch(() => {});
     }
 
     return NextResponse.json({ item: inserted }, { status: 201 });
@@ -293,6 +349,26 @@ export async function PUT(req: Request) {
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update." }, { status: 400 });
+    }
+
+    // Version history: snapshot current row before updating
+    const { data: current } = await supabase
+      .from("feed_media")
+      .select("*")
+      .eq("id", itemId)
+      .maybeSingle();
+
+    if (current) {
+      const editedBy = await resolveAdminId(supabase, session!);
+      await supabase.from("feed_media_versions").insert({
+        feed_media_id: itemId,
+        title: current.title,
+        body: current.body,
+        category: current.category,
+        layout: current.layout,
+        snapshot: current,
+        edited_by: editedBy,
+      });
     }
 
     const { data: updated, error: updateError } = await supabase
