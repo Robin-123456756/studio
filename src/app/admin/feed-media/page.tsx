@@ -7,6 +7,7 @@ import DOMPurify from "dompurify";
 import dynamic from "next/dynamic";
 import type { LayoutType } from "@/components/admin/LayoutPicker";
 import type { GalleryImage } from "@/components/admin/GalleryUploader";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Dynamic imports to keep initial bundle small
 const ImageEditor = dynamic(() => import("@/components/admin/ImageEditor"), { ssr: false });
@@ -66,6 +67,7 @@ type EditorTab = "compose" | "media" | "preview";
 
 export default function FeedMediaPage() {
   const { data: session, status } = useSession();
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -391,13 +393,13 @@ export default function FeedMediaPage() {
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#0F172A", color: TEXT_PRIMARY }}>
-      <div style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
+      <div style={{ padding: isMobile ? 12 : 24, maxWidth: 960, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <Link href="/admin" style={{ color: ACCENT, fontSize: 13, textDecoration: "none" }}>
             &larr; Back to Admin
           </Link>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: TEXT_PRIMARY, marginTop: 8 }}>
+          <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, color: TEXT_PRIMARY, marginTop: 8 }}>
             Feed Media Manager
           </h1>
           <p style={{ color: TEXT_SECONDARY, fontSize: 14, marginTop: 4 }}>
@@ -408,31 +410,31 @@ export default function FeedMediaPage() {
         {/* ── EDITOR SECTION ─────────────────────────────────────────── */}
         <div style={{ background: BG_CARD, border: `1px solid ${BORDER}`, borderRadius: 12, marginBottom: 32, overflow: "hidden" }}>
           {/* Editor tabs */}
-          <div style={{ display: "flex", borderBottom: `1px solid ${BORDER}`, background: "#0F172A" }}>
+          <div style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", borderBottom: `1px solid ${BORDER}`, background: "#0F172A" }}>
             {(["compose", "media", "preview"] as const).map((t) => (
-              <button key={t} onClick={() => setEditorTab(t)} style={editorTabStyle(editorTab === t)}>
+              <button key={t} onClick={() => setEditorTab(t)} style={{ ...editorTabStyle(editorTab === t), flex: isMobile ? 1 : undefined, textAlign: "center" as const }}>
                 {t === "compose" ? "Compose" : t === "media" ? "Media" : "Preview"}
               </button>
             ))}
-            <div style={{ flex: 1 }} />
+            {!isMobile && <div style={{ flex: 1 }} />}
             {editingId && (
               <button
                 onClick={resetForm}
-                style={{ padding: "8px 16px", fontSize: 12, color: WARNING, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                style={{ padding: "8px 16px", fontSize: 12, color: WARNING, background: "none", border: "none", cursor: "pointer", fontWeight: 600, width: isMobile ? "100%" : undefined }}
               >
                 Cancel Edit
               </button>
             )}
           </div>
 
-          <form onSubmit={handleSubmit} style={{ padding: 20 }}>
+          <form onSubmit={handleSubmit} style={{ padding: isMobile ? 12 : 20 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 16 }}>
               {editingId ? `Editing Item #${editingId}` : "New Feed Item"}
             </h2>
 
             {/* ── COMPOSE TAB ─────────────────────────────────────────── */}
             {editorTab === "compose" && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 16 : 20 }}>
                 {/* Left column — content */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {/* Layout picker */}
@@ -481,7 +483,7 @@ export default function FeedMediaPage() {
                     <label style={{ display: "block", fontSize: 13, color: TEXT_SECONDARY, marginBottom: 6 }}>
                       Category
                     </label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: isMobile ? 4 : 6 }}>
                       {CATEGORIES.map((c) => (
                         <button
                           key={c.value}
@@ -708,14 +710,15 @@ export default function FeedMediaPage() {
                 <div style={{ color: ACCENT, fontSize: 13, fontWeight: 500 }}>{success}</div>
               )}
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10, flexWrap: "wrap" }}>
                 <button
                   type="submit"
                   disabled={uploading}
                   style={{
                     background: ACCENT, color: "#000", fontWeight: 700, fontSize: 14,
-                    border: "none", borderRadius: 8, padding: "10px 28px",
+                    border: "none", borderRadius: 8, padding: isMobile ? "12px 20px" : "10px 28px",
                     cursor: uploading ? "not-allowed" : "pointer", opacity: uploading ? 0.6 : 1,
+                    width: isMobile ? "100%" : undefined,
                   }}
                 >
                   {uploading
@@ -733,8 +736,9 @@ export default function FeedMediaPage() {
                     type="button"
                     onClick={resetForm}
                     style={{
-                      padding: "10px 20px", fontSize: 13, fontWeight: 600, borderRadius: 8,
+                      padding: isMobile ? "12px 20px" : "10px 20px", fontSize: 13, fontWeight: 600, borderRadius: 8,
                       border: `1px solid ${BORDER}`, background: "transparent", color: TEXT_SECONDARY, cursor: "pointer",
+                      width: isMobile ? "100%" : undefined,
                     }}
                   >
                     Cancel
@@ -746,13 +750,13 @@ export default function FeedMediaPage() {
         </div>
 
         {/* ── ITEMS LIST ─────────────────────────────────────────────── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT_PRIMARY }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", gap: isMobile ? 10 : 0, marginBottom: 16 }}>
+          <h2 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: TEXT_PRIMARY }}>
             Content Library ({filteredItems.length})
           </h2>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", WebkitOverflowScrolling: "touch" as any, paddingBottom: isMobile ? 4 : 0 }}>
             {(["all", "published", "draft", "scheduled"] as const).map((f) => (
-              <button key={f} onClick={() => setStatusFilter(f)} style={btnStyle(statusFilter === f)}>
+              <button key={f} onClick={() => setStatusFilter(f)} style={{ ...btnStyle(statusFilter === f), whiteSpace: "nowrap" as const }}>
                 {f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
             ))}
@@ -766,7 +770,7 @@ export default function FeedMediaPage() {
             {statusFilter === "all" ? "No feed items yet. Create your first one above." : `No ${statusFilter} items.`}
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: isMobile ? 12 : 16 }}>
             {filteredItems.map((item) => (
               <div
                 key={item.id}

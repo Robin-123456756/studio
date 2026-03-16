@@ -64,3 +64,6 @@ certificates
 /public/fallback-*.js.map
 .env*.local
 .claude/settings.local.json
+
+# Supabase local CLI state
+supabase/.temp/
