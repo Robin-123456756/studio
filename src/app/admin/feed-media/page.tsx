@@ -118,6 +118,7 @@ export default function FeedMediaPage() {
   const [sendPush, setSendPush] = useState(false);
   const [publishAt, setPublishAt] = useState("");
   const [displaySize, setDisplaySize] = useState<DisplaySize>("standard");
+  const [imageObjectPosition, setImageObjectPosition] = useState({ x: 50, y: 50 });
 
   // Series state
   type FeedSeries = { id: number; name: string; description: string | null };
@@ -163,6 +164,8 @@ export default function FeedMediaPage() {
 
   const imageRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const isDraggingImage = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, posX: 50, posY: 50 });
 
   /* ── Data loading ──────────────────────────────────────────────────── */
 
@@ -448,6 +451,7 @@ export default function FeedMediaPage() {
       if (seriesId) fd.append("series_id", seriesId);
       if (seriesOrder) fd.append("series_order", seriesOrder);
       fd.append("display_size", displaySize);
+      fd.append("image_position", JSON.stringify(imageObjectPosition));
 
       if (editedImageBlob) {
         fd.append("file", editedImageBlob, imageFile?.name || "edited.jpg");
@@ -581,6 +585,7 @@ export default function FeedMediaPage() {
     setSeriesId("");
     setSeriesOrder("");
     setDisplaySize("standard");
+    setImageObjectPosition({ x: 50, y: 50 });
     setImageFile(null);
     setImagePreview(null);
     setEditedImageBlob(null);
@@ -1387,26 +1392,55 @@ export default function FeedMediaPage() {
                             : "border-border hover:border-primary/40"
                         )}
                       >
-                        <div className="relative" style={{ minHeight: 140 }}>
+                        <div
+                          className="relative select-none touch-none"
+                          style={{ minHeight: 200 }}
+                          onPointerDown={(e) => {
+                            if (!imagePreview) return;
+                            isDraggingImage.current = true;
+                            dragStart.current = { x: e.clientX, y: e.clientY, posX: imageObjectPosition.x, posY: imageObjectPosition.y };
+                            e.currentTarget.setPointerCapture(e.pointerId);
+                          }}
+                          onPointerMove={(e) => {
+                            if (!isDraggingImage.current) return;
+                            const dx = e.clientX - dragStart.current.x;
+                            const dy = e.clientY - dragStart.current.y;
+                            setImageObjectPosition({
+                              x: Math.max(0, Math.min(100, dragStart.current.posX - dx * 0.5)),
+                              y: Math.max(0, Math.min(100, dragStart.current.posY - dy * 0.5)),
+                            });
+                          }}
+                          onPointerUp={() => { isDraggingImage.current = false; }}
+                        >
                           {imagePreview ? (
-                            <img src={imagePreview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                            <img
+                              src={imagePreview}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                              style={{ objectPosition: `${imageObjectPosition.x}% ${imageObjectPosition.y}%` }}
+                              draggable={false}
+                            />
                           ) : (
                             <div className="absolute inset-0 bg-gradient-to-br from-violet-600 to-purple-800" />
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                           <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <span
-                                className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded"
-                                style={{ backgroundColor: CAT_HEX[category] ?? "#8B5CF6" }}
-                              >
-                                {category.replace("_", " ")}
-                              </span>
-                            </div>
-                            <div className="text-sm font-bold leading-tight line-clamp-2">
+                            <div className="text-sm font-bold leading-tight line-clamp-2 mb-1">
                               {title || "Your headline here..."}
                             </div>
+                            <span
+                              className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded"
+                              style={{ backgroundColor: CAT_HEX[category] ?? "#8B5CF6" }}
+                            >
+                              {category.replace("_", " ")}
+                            </span>
                           </div>
+                          {imagePreview && (
+                            <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/50 text-white text-[10px] font-medium pointer-events-none">
+                              <GripVertical className="h-3 w-3" />
+                              Drag to reposition
+                            </div>
+                          )}
                         </div>
                         <div className={cn(
                           "px-3 py-1.5 text-[10px] font-semibold flex items-center gap-1.5",
@@ -1430,7 +1464,13 @@ export default function FeedMediaPage() {
                       >
                         <div className="flex items-start gap-3 p-3">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 mb-1">
+                            <div className="text-xs font-semibold leading-tight line-clamp-2">
+                              {title || "Your headline here..."}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                              Tap to read the full story...
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1.5">
                               <span
                                 className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded text-white"
                                 style={{ backgroundColor: CAT_HEX[category] ?? "#8B5CF6" }}
@@ -1438,12 +1478,6 @@ export default function FeedMediaPage() {
                                 {category.replace("_", " ")}
                               </span>
                               <span className="text-[9px] text-muted-foreground">2h ago</span>
-                            </div>
-                            <div className="text-xs font-semibold leading-tight line-clamp-2">
-                              {title || "Your headline here..."}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
-                              Tap to read the full story...
                             </div>
                           </div>
                           <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
@@ -1480,6 +1514,14 @@ export default function FeedMediaPage() {
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-semibold leading-tight line-clamp-2">
                               {title || "Your headline here..."}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span
+                                className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded text-white"
+                                style={{ backgroundColor: CAT_HEX[category] ?? "#8B5CF6" }}
+                              >
+                                {category.replace("_", " ")}
+                              </span>
                             </div>
                           </div>
                           <div className="h-10 w-10 rounded-md overflow-hidden flex-shrink-0 bg-muted">
@@ -1825,6 +1867,21 @@ export default function FeedMediaPage() {
 
               {/* ── Submit bar ────────────────────────────────────────── */}
               <div className="flex gap-2 mt-6 pt-4 border-t border-border sticky bottom-0 bg-background pb-2">
+                {editingId && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    disabled={uploading}
+                    onClick={() => {
+                      handleDelete(editingId);
+                      resetForm();
+                    }}
+                    className="shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   type="submit"
                   disabled={uploading}
