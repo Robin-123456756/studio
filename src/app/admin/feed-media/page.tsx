@@ -7,6 +7,7 @@ import DOMPurify from "dompurify";
 import dynamic from "next/dynamic";
 import type { LayoutType } from "@/components/admin/LayoutPicker";
 import type { GalleryImage } from "@/components/admin/GalleryUploader";
+import type { CardDesign } from "@/components/admin/CardDesigner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +35,7 @@ import {
   CloudUpload, Sparkles, Wand2, Brain, BookOpen, CheckCircle2,
   AlertTriangle, Loader2, ChevronDown, ChevronUp, Clipboard,
   Gauge, Lightbulb, Megaphone, Copy, Maximize2, Minimize2, Square,
+  Paintbrush,
 } from "lucide-react";
 
 // Dynamic imports to keep initial bundle small
@@ -44,6 +46,7 @@ const LayoutPicker = dynamic(() => import("@/components/admin/LayoutPicker"), { 
 const GalleryUploader = dynamic(() => import("@/components/admin/GalleryUploader"), { ssr: false });
 const FeedPreview = dynamic(() => import("@/components/admin/FeedPreview"), { ssr: false });
 const ContentCalendar = dynamic(() => import("@/components/admin/ContentCalendar"), { ssr: false });
+const CardDesigner = dynamic(() => import("@/components/admin/CardDesigner"), { ssr: false });
 
 /* ── Constants ────────────────────────────────────────────────────────── */
 
@@ -118,7 +121,15 @@ export default function FeedMediaPage() {
   const [sendPush, setSendPush] = useState(false);
   const [publishAt, setPublishAt] = useState("");
   const [displaySize, setDisplaySize] = useState<DisplaySize>("standard");
-  const [imageObjectPosition, setImageObjectPosition] = useState({ x: 50, y: 50 });
+  const [cardDesign, setCardDesign] = useState<CardDesign>({
+    filters: { brightness: 100, contrast: 100, saturation: 100 },
+    filterPreset: "original",
+    overlayColor: "#000000",
+    overlayOpacity: 60,
+    textOverlays: [],
+    badge: null,
+    imagePosition: { x: 50, y: 50 },
+  });
 
   // Series state
   type FeedSeries = { id: number; name: string; description: string | null };
@@ -451,7 +462,7 @@ export default function FeedMediaPage() {
       if (seriesId) fd.append("series_id", seriesId);
       if (seriesOrder) fd.append("series_order", seriesOrder);
       fd.append("display_size", displaySize);
-      fd.append("image_position", JSON.stringify(imageObjectPosition));
+      fd.append("card_design", JSON.stringify(cardDesign));
 
       if (editedImageBlob) {
         fd.append("file", editedImageBlob, imageFile?.name || "edited.jpg");
@@ -585,7 +596,15 @@ export default function FeedMediaPage() {
     setSeriesId("");
     setSeriesOrder("");
     setDisplaySize("standard");
-    setImageObjectPosition({ x: 50, y: 50 });
+    setCardDesign({
+      filters: { brightness: 100, contrast: 100, saturation: 100 },
+      filterPreset: "original",
+      overlayColor: "#000000",
+      overlayOpacity: 60,
+      textOverlays: [],
+      badge: null,
+      imagePosition: { x: 50, y: 50 },
+    });
     setImageFile(null);
     setImagePreview(null);
     setEditedImageBlob(null);
@@ -1069,6 +1088,10 @@ export default function FeedMediaPage() {
                     <ImageIcon className="h-3.5 w-3.5" />
                     Media
                   </TabsTrigger>
+                  <TabsTrigger value="design" className="flex-1 gap-1.5">
+                    <Paintbrush className="h-3.5 w-3.5" />
+                    Design
+                  </TabsTrigger>
                   <TabsTrigger value="preview" className="flex-1 gap-1.5">
                     <Eye className="h-3.5 w-3.5" />
                     Preview
@@ -1398,17 +1421,20 @@ export default function FeedMediaPage() {
                           onPointerDown={(e) => {
                             if (!imagePreview) return;
                             isDraggingImage.current = true;
-                            dragStart.current = { x: e.clientX, y: e.clientY, posX: imageObjectPosition.x, posY: imageObjectPosition.y };
+                            dragStart.current = { x: e.clientX, y: e.clientY, posX: cardDesign.imagePosition.x, posY: cardDesign.imagePosition.y };
                             e.currentTarget.setPointerCapture(e.pointerId);
                           }}
                           onPointerMove={(e) => {
                             if (!isDraggingImage.current) return;
                             const dx = e.clientX - dragStart.current.x;
                             const dy = e.clientY - dragStart.current.y;
-                            setImageObjectPosition({
-                              x: Math.max(0, Math.min(100, dragStart.current.posX - dx * 0.5)),
-                              y: Math.max(0, Math.min(100, dragStart.current.posY - dy * 0.5)),
-                            });
+                            setCardDesign((prev) => ({
+                              ...prev,
+                              imagePosition: {
+                                x: Math.max(0, Math.min(100, dragStart.current.posX - dx * 0.5)),
+                                y: Math.max(0, Math.min(100, dragStart.current.posY - dy * 0.5)),
+                              },
+                            }));
                           }}
                           onPointerUp={() => { isDraggingImage.current = false; }}
                         >
@@ -1417,7 +1443,7 @@ export default function FeedMediaPage() {
                               src={imagePreview}
                               alt=""
                               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                              style={{ objectPosition: `${imageObjectPosition.x}% ${imageObjectPosition.y}%` }}
+                              style={{ objectPosition: `${cardDesign.imagePosition.x}% ${cardDesign.imagePosition.y}%` }}
                               draggable={false}
                             />
                           ) : (
@@ -1846,6 +1872,18 @@ export default function FeedMediaPage() {
                       max={6}
                     />
                   )}
+                </TabsContent>
+
+                {/* ── DESIGN TAB ──────────────────────────────────────── */}
+                <TabsContent value="design">
+                  <CardDesigner
+                    imagePreview={imagePreview}
+                    title={title}
+                    category={category}
+                    catHex={CAT_HEX}
+                    design={cardDesign}
+                    onChange={setCardDesign}
+                  />
                 </TabsContent>
 
                 {/* ── PREVIEW TAB ──────────────────────────────────────── */}
