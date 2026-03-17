@@ -1370,41 +1370,136 @@ export default function FeedMediaPage() {
                     </div>
                   </div>
 
-                  {/* Display size picker */}
+                  {/* Display size picker — visual card previews */}
                   <div>
                     <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Card Size on Dashboard
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {([
-                        { value: "compact" as DisplaySize, label: "Compact", icon: Minimize2, desc: "Small card, minimal text" },
-                        { value: "standard" as DisplaySize, label: "Standard", icon: Square, desc: "Default card size" },
-                        { value: "featured" as DisplaySize, label: "Featured", icon: Maximize2, desc: "Full-width hero card" },
-                      ]).map((s) => (
-                        <button
-                          key={s.value}
-                          type="button"
-                          onClick={() => setDisplaySize(s.value)}
-                          className={cn(
-                            "rounded-xl border p-3 text-center transition-all",
-                            displaySize === s.value
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-border hover:border-primary/30"
+                    <div className="space-y-2">
+                      {/* ── Featured: full-width hero card with image + overlay ── */}
+                      <button
+                        type="button"
+                        onClick={() => setDisplaySize("featured")}
+                        className={cn(
+                          "w-full rounded-xl border-2 overflow-hidden transition-all text-left",
+                          displaySize === "featured"
+                            ? "border-primary shadow-md ring-2 ring-primary/20"
+                            : "border-border hover:border-primary/40"
+                        )}
+                      >
+                        <div className="relative" style={{ minHeight: 140 }}>
+                          {imagePreview ? (
+                            <img src={imagePreview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-violet-600 to-purple-800" />
                           )}
-                        >
-                          <s.icon className={cn(
-                            "h-5 w-5 mx-auto mb-1",
-                            displaySize === s.value ? "text-primary" : "text-muted-foreground"
-                          )} />
-                          <div className={cn(
-                            "text-xs font-semibold",
-                            displaySize === s.value ? "text-primary" : "text-foreground"
-                          )}>
-                            {s.label}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span
+                                className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded"
+                                style={{ backgroundColor: CAT_HEX[category] ?? "#8B5CF6" }}
+                              >
+                                {category.replace("_", " ")}
+                              </span>
+                            </div>
+                            <div className="text-sm font-bold leading-tight line-clamp-2">
+                              {title || "Your headline here..."}
+                            </div>
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5">{s.desc}</div>
-                        </button>
-                      ))}
+                        </div>
+                        <div className={cn(
+                          "px-3 py-1.5 text-[10px] font-semibold flex items-center gap-1.5",
+                          displaySize === "featured" ? "text-primary bg-primary/5" : "text-muted-foreground bg-muted/30"
+                        )}>
+                          <Maximize2 className="h-3 w-3" />
+                          Featured — full-width hero card
+                        </div>
+                      </button>
+
+                      {/* ── Standard: image top + text below ── */}
+                      <button
+                        type="button"
+                        onClick={() => setDisplaySize("standard")}
+                        className={cn(
+                          "w-full rounded-xl border-2 overflow-hidden transition-all text-left",
+                          displaySize === "standard"
+                            ? "border-primary shadow-md ring-2 ring-primary/20"
+                            : "border-border hover:border-primary/40"
+                        )}
+                      >
+                        <div className="flex items-start gap-3 p-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span
+                                className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded text-white"
+                                style={{ backgroundColor: CAT_HEX[category] ?? "#8B5CF6" }}
+                              >
+                                {category.replace("_", " ")}
+                              </span>
+                              <span className="text-[9px] text-muted-foreground">2h ago</span>
+                            </div>
+                            <div className="text-xs font-semibold leading-tight line-clamp-2">
+                              {title || "Your headline here..."}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                              Tap to read the full story...
+                            </div>
+                          </div>
+                          <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                            {imagePreview ? (
+                              <img src={imagePreview} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full bg-gradient-to-br from-violet-500/30 to-purple-600/30 flex items-center justify-center">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className={cn(
+                          "px-3 py-1.5 text-[10px] font-semibold flex items-center gap-1.5 border-t",
+                          displaySize === "standard" ? "text-primary bg-primary/5 border-primary/10" : "text-muted-foreground bg-muted/30 border-border"
+                        )}>
+                          <Square className="h-3 w-3" />
+                          Standard — default card size
+                        </div>
+                      </button>
+
+                      {/* ── Compact: text-only with tiny thumbnail ── */}
+                      <button
+                        type="button"
+                        onClick={() => setDisplaySize("compact")}
+                        className={cn(
+                          "w-full rounded-xl border-2 overflow-hidden transition-all text-left",
+                          displaySize === "compact"
+                            ? "border-primary shadow-md ring-2 ring-primary/20"
+                            : "border-border hover:border-primary/40"
+                        )}
+                      >
+                        <div className="flex items-center gap-3 p-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold leading-tight line-clamp-2">
+                              {title || "Your headline here..."}
+                            </div>
+                          </div>
+                          <div className="h-10 w-10 rounded-md overflow-hidden flex-shrink-0 bg-muted">
+                            {imagePreview ? (
+                              <img src={imagePreview} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full bg-gradient-to-br from-violet-500/30 to-purple-600/30 flex items-center justify-center">
+                                <ImageIcon className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className={cn(
+                          "px-3 py-1.5 text-[10px] font-semibold flex items-center gap-1.5 border-t",
+                          displaySize === "compact" ? "text-primary bg-primary/5 border-primary/10" : "text-muted-foreground bg-muted/30 border-border"
+                        )}>
+                          <Minimize2 className="h-3 w-3" />
+                          Compact — small card, headline only
+                        </div>
+                      </button>
                     </div>
                   </div>
 
