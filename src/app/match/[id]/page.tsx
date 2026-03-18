@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +67,15 @@ function formatMatchTime(iso: string | null) {
 
 export default function MatchPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const matchId = (params?.id as string) ?? "";
+  const gwParam = searchParams.get("gw");
+  const backHref = gwParam
+    ? `/dashboard/matches?tab=matches&gw=${gwParam}`
+    : "/dashboard/matches?tab=matches";
+  const tableHref = gwParam
+    ? `/dashboard/matches?tab=table&gw=${gwParam}`
+    : "/dashboard/matches?tab=table";
 
   const [match, setMatch] = React.useState<MatchDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -119,7 +127,7 @@ export default function MatchPage() {
     return (
       <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4">
         <Link
-          href="/dashboard/matches?tab=matches"
+          href={backHref}
           className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -143,7 +151,7 @@ export default function MatchPage() {
   return (
     <div className="mx-auto w-full max-w-app px-4 pt-4 pb-28 space-y-4 animate-in fade-in-50">
       <Link
-        href="/dashboard/matches?tab=matches"
+        href={backHref}
         className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -349,13 +357,13 @@ export default function MatchPage() {
 
       <div className="flex gap-4 pt-2">
         <Link
-          href="/dashboard/matches?tab=matches"
+          href={backHref}
           className="text-sm text-primary hover:underline"
         >
           Back to Matches
         </Link>
         <Link
-          href="/dashboard/matches?tab=table"
+          href={tableHref}
           className="text-sm text-muted-foreground hover:underline"
         >
           View Table

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -212,10 +212,27 @@ function posBarClass(pos: number) {
   return "bg-transparent";
 }
 
+/* ---------------- Skeleton loader for match rows ---------------- */
+
+function MatchRowSkeleton() {
+  return (
+    <div className="py-4">
+      <div className="grid grid-cols-[minmax(0,1fr)_28px_64px_28px_minmax(0,1fr)] items-center gap-x-2">
+        <div className="flex justify-end"><div className="h-3 w-20 rounded bg-muted animate-pulse" /></div>
+        <div className="h-7 w-7 rounded-full bg-muted animate-pulse justify-self-end" />
+        <div className="flex justify-center"><div className="h-5 w-10 rounded bg-muted animate-pulse" /></div>
+        <div className="h-7 w-7 rounded-full bg-muted animate-pulse justify-self-start" />
+        <div><div className="h-3 w-20 rounded bg-muted animate-pulse" /></div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- FPL-ish list row ---------------- */
 
-function MatchRow({ g }: { g: UiGame }) {
+function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => void }) {
   const showScore = g.status === "completed";
+  const isLive = showScore && !g.isFinal;
 
   const homeGoals = g.homeEvents?.filter((e) => e.goals > 0) ?? [];
   const awayGoals = g.awayEvents?.filter((e) => e.goals > 0) ?? [];
@@ -223,64 +240,95 @@ function MatchRow({ g }: { g: UiGame }) {
   const awayAssists = g.awayEvents?.filter((e) => e.assists > 0) ?? [];
   const hasEvents = homeGoals.length > 0 || awayGoals.length > 0;
 
+  // Bold the winning team name (Google Sports pattern)
+  const homeWin = showScore && (g.score1 ?? 0) > (g.score2 ?? 0);
+  const awayWin = showScore && (g.score2 ?? 0) > (g.score1 ?? 0);
+
   return (
-    <div className="py-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_24px_56px_24px_minmax(0,1fr)] items-center gap-x-2">
+    <div
+      className={cn(
+        "py-3.5 transition-colors cursor-pointer hover:bg-muted/30 -mx-1 px-1 rounded-lg",
+        isLive && "bg-red-500/[0.03]"
+      )}
+      onClick={() => onNavigate?.(g.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && onNavigate?.(g.id)}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_28px_64px_28px_minmax(0,1fr)] items-center gap-x-2">
+        {/* Home team name */}
         <div className="min-w-0 text-right">
-          <div className="truncate text-[12px] font-semibold leading-none">
+          <div className={cn(
+            "truncate text-[13px] leading-none",
+            homeWin ? "font-bold" : "font-medium",
+            !showScore && "font-medium"
+          )}>
             {g.team1.name}
           </div>
         </div>
 
-        <div className="h-6 w-6 justify-self-end overflow-hidden">
+        {/* Home logo */}
+        <div className="h-7 w-7 justify-self-end overflow-hidden">
           <Image
             src={g.team1.logoUrl}
             alt={g.team1.name}
-            width={24}
-            height={24}
-            className="h-6 w-6 object-contain"
+            width={28}
+            height={28}
+            className="h-7 w-7 object-contain"
           />
         </div>
 
+        {/* Score / Time center */}
         <div className="text-center">
           {showScore ? (
             <>
-              <div className="font-mono text-[13px] font-extrabold tabular-nums">
+              <div className={cn(
+                "font-mono text-[18px] font-extrabold tabular-nums leading-tight",
+                isLive && "text-red-600 dark:text-red-500"
+              )}>
                 {g.score1 ?? 0} - {g.score2 ?? 0}
               </div>
               {g.isFinal ? (
-                <div className="mt-0.5 text-[9px] font-semibold text-muted-foreground">
+                <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                   FT
                 </div>
               ) : (
-                <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-semibold text-emerald-600">
+                <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold text-red-600 dark:text-red-500">
                   <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
                   </span>
                   {g.minutes != null ? `${g.minutes}'` : "LIVE"}
                 </span>
               )}
             </>
           ) : (
-            <div className="text-[12px] font-extrabold tabular-nums">
-              {g.time}
+            <div className="space-y-0.5">
+              <div className="text-[13px] font-bold tabular-nums text-foreground">
+                {g.time}
+              </div>
             </div>
           )}
         </div>
 
-        <div className="h-6 w-6 justify-self-start overflow-hidden">
+        {/* Away logo */}
+        <div className="h-7 w-7 justify-self-start overflow-hidden">
           <Image
             src={g.team2.logoUrl}
             alt={g.team2.name}
-            width={24}
-            height={24}
-            className="h-6 w-6 object-contain"
+            width={28}
+            height={28}
+            className="h-7 w-7 object-contain"
           />
         </div>
 
+        {/* Away team name */}
         <div className="min-w-0">
-          <div className="truncate text-[12px] font-semibold leading-none">
+          <div className={cn(
+            "truncate text-[13px] leading-none",
+            awayWin ? "font-bold" : "font-medium",
+            !showScore && "font-medium"
+          )}>
             {g.team2.name}
           </div>
         </div>
@@ -288,18 +336,21 @@ function MatchRow({ g }: { g: UiGame }) {
 
       {/* Goal scorers & assists */}
       {showScore && hasEvents && (
-        <div className="mt-2 grid grid-cols-[1fr_56px_1fr] gap-x-2 text-[11px] text-muted-foreground">
+        <div className="mt-2 grid grid-cols-[1fr_64px_1fr] gap-x-2 text-[10px] text-muted-foreground">
           <div className="text-right space-y-0.5">
             {homeGoals.map((e) => (
-              <div key={e.playerId}>
-                {e.playerName}{" "}
-                {e.goals > 1
-                  ? `(${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
-                  : e.penalties > 0 ? "(P)" : ""}
+              <div key={e.playerId} className="flex items-center justify-end gap-1">
+                <span className="truncate">
+                  {e.playerName}
+                  {e.goals > 1
+                    ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
+                    : e.penalties > 0 ? " (P)" : ""}
+                </span>
+                <span className="shrink-0 text-[9px]">⚽</span>
               </div>
             ))}
             {homeAssists.map((e) => (
-              <div key={e.playerId + "-a"} className="text-[10px] italic">
+              <div key={e.playerId + "-a"} className="text-[10px] italic text-right">
                 {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
               </div>
             ))}
@@ -307,11 +358,14 @@ function MatchRow({ g }: { g: UiGame }) {
           <div />
           <div className="space-y-0.5">
             {awayGoals.map((e) => (
-              <div key={e.playerId}>
-                {e.playerName}{" "}
-                {e.goals > 1
-                  ? `(${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
-                  : e.penalties > 0 ? "(P)" : ""}
+              <div key={e.playerId} className="flex items-center gap-1">
+                <span className="shrink-0 text-[9px]">⚽</span>
+                <span className="truncate">
+                  {e.playerName}
+                  {e.goals > 1
+                    ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
+                    : e.penalties > 0 ? " (P)" : ""}
+                </span>
               </div>
             ))}
             {awayAssists.map((e) => (
@@ -329,14 +383,18 @@ function MatchRow({ g }: { g: UiGame }) {
 /* ---------------- Page ---------------- */
 
 function MatchesContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab");
+  const initialGw = searchParams.get("gw");
   const [tab, setTab] = React.useState<"matches" | "table" | "stats">(
     initialTab === "table" || initialTab === "stats" ? initialTab : "matches"
   );
 
   const [allGws, setAllGws] = React.useState<ApiGameweek[]>([]);
-  const [gwId, setGwId] = React.useState<number | null>(null);
+  const [gwId, setGwId] = React.useState<number | null>(
+    initialGw ? Number(initialGw) : null
+  );
 
   const [games, setGames] = React.useState<UiGame[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -389,7 +447,8 @@ function MatchesContent() {
           ? started[started.length - 1].id
           : json.current?.id ?? json.next?.id ?? null;
 
-        setGwId(defaultGw);
+        // Only set default if no gw was provided via query param
+        setGwId((prev) => prev ?? defaultGw);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load gameweeks");
       }
@@ -712,6 +771,14 @@ function MatchesContent() {
                   <div className="text-lg font-extrabold truncate">
                     {activeName}
                   </div>
+                  {activeGw?.deadline_time && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      Deadline: {new Intl.DateTimeFormat("en-GB", {
+                        day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+                        hour12: true, timeZone: "Africa/Kampala",
+                      }).format(new Date(activeGw.deadline_time))}
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -734,8 +801,10 @@ function MatchesContent() {
               {error ? <div className="text-sm text-red-600">{error}</div> : null}
 
               {loading ? (
-                <div className="text-sm text-muted-foreground py-6 text-center">
-                  Loading matches...
+                <div className="divide-y divide-border/40">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <MatchRowSkeleton key={i} />
+                  ))}
                 </div>
               ) : games.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center">
@@ -745,13 +814,13 @@ function MatchesContent() {
                 <div className="space-y-4">
                   {groupByDate(games).map(([date, list]) => (
                     <div key={date}>
-                      <div className="px-1 text-sm font-semibold text-muted-foreground">
+                      <div className="px-1 text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">
                         {formatDateHeading(date)}
                       </div>
 
-                      <div className="mt-2 divide-y divide-border/40">
+                      <div className="mt-1 divide-y divide-border/50">
                         {list.map((g) => (
-                          <MatchRow key={g.id} g={g} />
+                          <MatchRow key={g.id} g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
                         ))}
                       </div>
                     </div>
@@ -763,8 +832,15 @@ function MatchesContent() {
             {/* TABLE TAB */}
             <TabsContent value="table" className="mt-4">
               {standingsLoading ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Loading table...
+                <div className="space-y-2 py-2">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-2">
+                      <div className="h-3 w-4 rounded bg-muted animate-pulse" />
+                      <div className="h-5 w-5 rounded-full bg-muted animate-pulse" />
+                      <div className="h-3 flex-1 rounded bg-muted animate-pulse" />
+                      <div className="h-3 w-6 rounded bg-muted animate-pulse" />
+                    </div>
+                  ))}
                 </div>
               ) : standings.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
@@ -1013,8 +1089,19 @@ function MatchesContent() {
             {/* STATS TAB */}
             <TabsContent value="stats" className="mt-4">
               {statsLoading ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Loading stats...
+                <div className="space-y-3 py-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-3 w-3 rounded bg-muted animate-pulse" />
+                        <div className="space-y-1.5">
+                          <div className="h-3 w-24 rounded bg-muted animate-pulse" />
+                          <div className="h-2 w-14 rounded bg-muted animate-pulse" />
+                        </div>
+                      </div>
+                      <div className="h-4 w-5 rounded bg-muted animate-pulse" />
+                    </div>
+                  ))}
                 </div>
               ) : topScorers.length === 0 && topAssists.length === 0 && topCleanSheets.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
