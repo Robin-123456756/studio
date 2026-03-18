@@ -328,3 +328,8 @@ Custom agents and skills are in `.claude/` directory:
   container with `bg-background` (or `bg-card`). Animation wrappers with transforms or
   opacity create isolated stacking contexts that break mix-blend-mode — either remove the
   wrapper or add `bg-background` to it.
+
+### Context Management
+- Start a new session for each distinct task (don't chain 10 tasks in one conversation)
+- For large audits (like Playwright page crawls), use /clear to reset context after getting results
+- If you see "compaction" errors, just start a new session — no data is lost

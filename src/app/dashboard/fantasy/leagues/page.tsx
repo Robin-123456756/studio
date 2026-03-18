@@ -99,7 +99,7 @@ function LeaguesContent() {
           className={cn(
             "overflow-hidden rounded-b-3xl",
             "bg-gradient-to-br from-[#062C30] via-[#0D5C63] to-[#14919B]",
-            "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
+            "shadow-sm"
           )}
         >
           <div className="p-4 text-white">
@@ -160,7 +160,7 @@ function LeaguesContent() {
             <p className="text-[10px] text-muted-foreground px-1 mb-2">
               Private leagues you create or join with an invite code
             </p>
-            <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)] overflow-hidden">
+            <Card className="rounded-2xl shadow-sm overflow-hidden">
               {invitational.length === 0 ? (
                 <CardContent className="py-6 text-center text-sm text-muted-foreground">
                   No invitational leagues yet. Create one or join with an invite code!
@@ -184,7 +184,7 @@ function LeaguesContent() {
               <p className="text-[10px] text-muted-foreground px-1 mb-2">
                 Everyone is automatically entered — compete against all managers
               </p>
-              <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)] overflow-hidden">
+              <Card className="rounded-2xl shadow-sm overflow-hidden">
                 <div className="divide-y divide-border">
                   {general.map((league) => (
                     <LeagueRow key={league.id} league={league} />

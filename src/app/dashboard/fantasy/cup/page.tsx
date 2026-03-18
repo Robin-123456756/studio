@@ -197,7 +197,7 @@ function CupContent() {
           className={cn(
             "overflow-hidden rounded-b-3xl",
             "bg-gradient-to-br from-[#1a0a2e] via-[#37003C] to-[#6b1d5e]",
-            "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
+            "shadow-sm"
           )}
         >
           <div className="p-4 text-white">

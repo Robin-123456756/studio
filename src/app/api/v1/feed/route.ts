@@ -58,12 +58,14 @@ export async function GET(req: NextRequest) {
   const since = url.searchParams.get("since");
   const offset = (page - 1) * limit;
 
-  // Build query
+  const now = new Date().toISOString();
+
+  // Build query — include published items and overdue scheduled items
   let query = supabase
     .from("feed_media")
     .select("id, title, body, image_url, video_url, category, layout, is_pinned, gameweek_id, structured_data, og_image_url, created_at, view_count", { count: "exact" })
     .eq("is_active", true)
-    .eq("status", "published");
+    .or(`status.eq.published,and(status.eq.scheduled,publish_at.lte.${now})`);
 
   if (category) query = query.eq("category", category);
   if (since) query = query.gte("created_at", since);

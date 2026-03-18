@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdminSession } from "@/lib/admin-auth";
 import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
@@ -250,6 +251,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
+
     const supabase = getSupabaseAdmin();
     const body = await req.json();
 

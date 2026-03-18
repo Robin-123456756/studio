@@ -69,7 +69,7 @@ function JoinLeagueContent() {
           className={cn(
             "overflow-hidden rounded-b-3xl",
             "bg-[#0D5C63]",
-            "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
+            "shadow-sm"
           )}
         >
           <div className="p-4 text-white">
@@ -92,7 +92,7 @@ function JoinLeagueContent() {
 
       <div className="mt-6">
         {!joined ? (
-          <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+          <Card className="rounded-2xl shadow-sm">
             <CardContent className="p-5">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -137,7 +137,7 @@ function JoinLeagueContent() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+          <Card className="rounded-2xl shadow-sm">
             <CardContent className="p-5 space-y-5 text-center">
               <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto" />
               <div>

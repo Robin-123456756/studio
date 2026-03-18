@@ -23,12 +23,13 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getSupabaseServerOrThrow();
+  const now = new Date().toISOString();
   const { data: post } = await supabase
     .from("feed_media")
     .select("title, category, image_url")
     .eq("id", parseInt(id, 10))
     .eq("is_active", true)
-    .eq("status", "published")
+    .or(`status.eq.published,and(status.eq.scheduled,publish_at.lte.${now})`)
     .maybeSingle();
 
   if (!post) {

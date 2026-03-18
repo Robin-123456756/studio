@@ -580,6 +580,25 @@ export default function FeedMediaPage() {
     }
   };
 
+  const handlePermanentDelete = async (id: number) => {
+    if (!confirm("PERMANENTLY delete this post? This removes it from the database and deletes all media files. This cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/admin/feed-media?id=${id}&permanent=true`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      if (res.ok) {
+        toast({ title: "Permanently deleted", description: "Post and all media files have been removed." });
+        if (editingId === id) resetForm();
+        loadItems();
+      } else {
+        toast({ title: "Error", description: "Failed to permanently delete.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Network error.", variant: "destructive" });
+    }
+  };
+
   /* ── Form reset ────────────────────────────────────────────────────── */
 
   function resetForm() {
@@ -1016,6 +1035,7 @@ export default function FeedMediaPage() {
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onReactivate={handleReactivate}
+                  onPermanentDelete={handlePermanentDelete}
                 />
               ))}
             </div>
@@ -1030,6 +1050,7 @@ export default function FeedMediaPage() {
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onReactivate={handleReactivate}
+                  onPermanentDelete={handlePermanentDelete}
                 />
               ))}
             </div>
@@ -1970,12 +1991,14 @@ function GridCard({
   onDuplicate,
   onDelete,
   onReactivate,
+  onPermanentDelete,
 }: {
   item: FeedItem;
   onEdit: (item: FeedItem) => void;
   onDuplicate: (item: FeedItem) => void;
   onDelete: (id: number) => void;
   onReactivate: (id: number) => void;
+  onPermanentDelete: (id: number) => void;
 }) {
   return (
     <div
@@ -2116,17 +2139,30 @@ function GridCard({
                 <TooltipContent>Deactivate</TooltipContent>
               </Tooltip>
             ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onReactivate(item.id)}
-                    className="rounded-md p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Reactivate</TooltipContent>
-              </Tooltip>
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => onReactivate(item.id)}
+                      className="rounded-md p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reactivate</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => onPermanentDelete(item.id)}
+                      className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete permanently</TooltipContent>
+                </Tooltip>
+              </>
             )}
           </div>
         </div>
@@ -2143,12 +2179,14 @@ function ListRow({
   onDuplicate,
   onDelete,
   onReactivate,
+  onPermanentDelete,
 }: {
   item: FeedItem;
   onEdit: (item: FeedItem) => void;
   onDuplicate: (item: FeedItem) => void;
   onDelete: (id: number) => void;
   onReactivate: (id: number) => void;
+  onPermanentDelete: (id: number) => void;
 }) {
   return (
     <div
@@ -2250,19 +2288,34 @@ function ListRow({
             <TooltipContent>Deactivate</TooltipContent>
           </Tooltip>
         ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 hover:text-primary"
-                onClick={() => onReactivate(item.id)}
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Reactivate</TooltipContent>
-          </Tooltip>
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 hover:text-primary"
+                  onClick={() => onReactivate(item.id)}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Reactivate</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 hover:text-destructive"
+                  onClick={() => onPermanentDelete(item.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete permanently</TooltipContent>
+            </Tooltip>
+          </>
         )}
       </div>
     </div>

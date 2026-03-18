@@ -153,7 +153,7 @@ function MiniLeague() {
   const userEntry = entries.find((e) => e.userId === userId);
 
   return (
-    <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+    <Card className="rounded-2xl shadow-sm">
       <CardContent className="p-4">
         <div className="flex items-center gap-2">
           <Trophy className="h-4 w-4 text-amber-500" />
@@ -270,7 +270,7 @@ function RecentTransfers() {
   }, []);
 
   return (
-    <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+    <Card className="rounded-2xl shadow-sm">
       <CardContent className="p-4">
         <div className="flex items-center gap-2">
           <ArrowLeftRight className="h-4 w-4 text-emerald-500" />
@@ -688,7 +688,7 @@ function FantasyPage() {
           className={cn(
             "overflow-hidden rounded-b-3xl",
             "bg-gradient-to-br from-[#062C30] via-[#0D5C63] to-[#14919B]",
-            "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
+            "shadow-sm"
           )}
         >
           <div className="p-4 text-white">
@@ -814,7 +814,7 @@ function FantasyPage() {
 
         {/* Onboarding banner for new users without a squad */}
         {hasSquad === false && (
-          <Card className="rounded-2xl border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-[0_4px_20px_rgba(180,155,80,0.15)]">
+          <Card className="rounded-2xl border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-sm">
             <CardContent className="p-4 space-y-3">
               <div className="text-base font-bold text-[#062C30]">
                 Welcome to Budo League Fantasy!
@@ -853,7 +853,7 @@ function FantasyPage() {
           </Card>
         )}
 
-        <div className="overflow-hidden rounded-2xl bg-card shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+        <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
           {menuItems.map((item, i) => (
             <NavRow
               key={item.label}

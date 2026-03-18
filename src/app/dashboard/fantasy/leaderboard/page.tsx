@@ -101,7 +101,7 @@ function LeaderboardContent() {
           className={cn(
             "overflow-hidden rounded-b-3xl",
             "bg-[#0D5C63]",
-            "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
+            "shadow-sm"
           )}
         >
           <div className="p-4 text-white">
@@ -153,7 +153,7 @@ function LeaderboardContent() {
 
       {/* Table */}
       <div className="mt-4 px-0">
-        <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+        <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-0">
             {loading ? (
               <div className="p-4 space-y-3">

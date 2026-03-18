@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -10,6 +11,9 @@ function getSupabase() {
 
 export async function GET() {
   try {
+    const { error: authErr } = await requireAdminSession();
+    if (authErr) return authErr;
+
     const supabase = getSupabase();
 
     const [playersRes, teamsRes, matchesRes, usersRes, eventsRes, gwRes] = await Promise.all([
@@ -29,7 +33,7 @@ export async function GET() {
       eventsLogged: eventsRes.count || 0,
       currentGameweek: gwRes.data?.[0]?.gameweek_id || 1,
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({
       players: "—",
       teams: "—",

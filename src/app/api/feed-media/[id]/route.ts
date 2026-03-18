@@ -17,6 +17,10 @@ export async function GET(
 
   const supabase = getSupabaseServerOrThrow();
 
+  const now = new Date().toISOString();
+
+  // Accept published items, or scheduled items whose publish_at has passed
+  // (covers the race between the list-route promotion and this detail fetch).
   const { data, error } = await supabase
     .from("feed_media")
     .select(
@@ -24,7 +28,7 @@ export async function GET(
     )
     .eq("id", itemId)
     .eq("is_active", true)
-    .in("status", ["published"])
+    .or(`status.eq.published,and(status.eq.scheduled,publish_at.lte.${now})`)
     .maybeSingle();
 
   if (error) {

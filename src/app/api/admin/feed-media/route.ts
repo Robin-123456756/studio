@@ -395,24 +395,76 @@ export async function PUT(req: Request) {
   }
 }
 
-/** DELETE /api/admin/feed-media?id=N — soft-delete (deactivate) a feed media item */
+/** DELETE /api/admin/feed-media?id=N — soft-delete (deactivate) a feed media item
+ *  DELETE /api/admin/feed-media?id=N&permanent=true — hard-delete row + storage files */
 export async function DELETE(req: Request) {
   const { session, error: authErr } = await requireAdminSession(SUPER_ADMIN_ONLY);
   if (authErr) return authErr;
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
+  const permanent = searchParams.get("permanent") === "true";
 
   if (!id) {
     return NextResponse.json({ error: "Missing id parameter." }, { status: 400 });
   }
 
   const supabase = getSupabaseServerOrThrow();
+  const rowId = parseInt(id, 10);
 
+  /* ── Permanent delete: remove storage files + hard-delete row ────── */
+  if (permanent) {
+    // 1. Fetch row to get media URLs
+    const { data: row, error: fetchErr } = await supabase
+      .from("feed_media")
+      .select("image_url, video_url, thumbnail_url, media_urls")
+      .eq("id", rowId)
+      .single();
+
+    if (fetchErr || !row) {
+      return apiError("Feed item not found", "FEED_MEDIA_NOT_FOUND", 404, fetchErr);
+    }
+
+    // 2. Collect all storage paths from public URLs
+    const storagePaths: string[] = [];
+    const extractPath = (url: string | null) => {
+      if (!url) return;
+      // Public URL format: .../storage/v1/object/public/feed-media/<path>
+      const marker = "/storage/v1/object/public/feed-media/";
+      const idx = url.indexOf(marker);
+      if (idx !== -1) storagePaths.push(url.slice(idx + marker.length));
+    };
+
+    extractPath(row.image_url);
+    extractPath(row.video_url);
+    extractPath(row.thumbnail_url);
+    if (Array.isArray(row.media_urls)) {
+      row.media_urls.forEach((u: string) => extractPath(u));
+    }
+
+    // 3. Delete files from storage (best-effort, don't block on failure)
+    if (storagePaths.length > 0) {
+      await supabase.storage.from("feed-media").remove(storagePaths);
+    }
+
+    // 4. Hard-delete the row
+    const { error } = await supabase
+      .from("feed_media")
+      .delete()
+      .eq("id", rowId);
+
+    if (error) {
+      return apiError("Failed to permanently delete feed item", "FEED_MEDIA_DELETE_FAILED", 500, error);
+    }
+
+    return NextResponse.json({ success: true, permanent: true });
+  }
+
+  /* ── Soft-delete: just deactivate ──────────────────────────────────── */
   const { error } = await supabase
     .from("feed_media")
     .update({ is_active: false })
-    .eq("id", parseInt(id, 10));
+    .eq("id", rowId);
 
   if (error) {
     return apiError("Failed to delete feed item", "FEED_MEDIA_DELETE_FAILED", 500, error);

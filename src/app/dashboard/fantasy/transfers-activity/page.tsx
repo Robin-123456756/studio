@@ -63,7 +63,7 @@ function TransfersActivityContent() {
           className={cn(
             "overflow-hidden rounded-b-3xl",
             "bg-gradient-to-br from-[#062C30] via-[#0D5C63] to-[#14919B]",
-            "shadow-[0_8px_30px_rgba(180,155,80,0.35)]"
+            "shadow-sm"
           )}
         >
           <div className="p-4 text-white">
@@ -99,7 +99,7 @@ function TransfersActivityContent() {
       {/* Feed */}
       <div className="mt-4 space-y-2">
         {loading ? (
-          <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+          <Card className="rounded-2xl shadow-sm">
             <CardContent className="p-4 space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full rounded-lg" />
@@ -107,13 +107,13 @@ function TransfersActivityContent() {
             </CardContent>
           </Card>
         ) : error ? (
-          <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+          <Card className="rounded-2xl shadow-sm">
             <CardContent className="p-6 text-center text-sm text-red-500">
               {error}
             </CardContent>
           </Card>
         ) : transfers.length === 0 ? (
-          <Card className="rounded-2xl shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+          <Card className="rounded-2xl shadow-sm">
             <CardContent className="p-6 text-center text-sm text-muted-foreground">
               No transfers yet. Activity will appear here once managers start making moves.
             </CardContent>
@@ -122,7 +122,7 @@ function TransfersActivityContent() {
           transfers.map((t) => (
             <Card
               key={t.id}
-              className="rounded-2xl shadow-[0_2px_10px_rgba(180,155,80,0.15)]"
+              className="rounded-2xl shadow-sm"
             >
               <CardContent className="p-0">
                 <div className="flex gap-3 p-3">

@@ -67,3 +67,6 @@ certificates
 
 # Supabase local CLI state
 supabase/.temp/
+
+# Dev screenshots (Playwright / debug artifacts)
+screenshot-*.png

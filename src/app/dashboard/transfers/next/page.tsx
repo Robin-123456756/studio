@@ -384,7 +384,7 @@ function TransferNextPageInner() {
 
       {/* -- Transfer Card -- */}
       <div className="px-5 pt-2">
-        <div className="rounded-2xl border bg-card p-5 space-y-5 shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+        <div className="rounded-2xl border bg-card p-5 space-y-5 shadow-sm">
           {/* Banner */}
           <div
             className="rounded-full py-2.5 px-5 text-center"
@@ -491,7 +491,7 @@ function TransferNextPageInner() {
 
       {/* -- Points Overview -- */}
       <div className="px-5 pt-5">
-        <div className="rounded-2xl border bg-card p-5 border-l-4 border-l-primary shadow-[0_4px_20px_rgba(180,155,80,0.25)]">
+        <div className="rounded-2xl border bg-card p-5 border-l-4 border-l-primary shadow-sm">
           <h3 className="text-base font-extrabold mb-4">Points Overview</h3>
 
           {chipFree && (

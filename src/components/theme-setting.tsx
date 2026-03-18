@@ -36,7 +36,7 @@ export function ThemeSettingRow() {
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 py-3">
+    <div className="flex flex-col gap-2 py-3">
       <div className="min-w-0">
         <div className="text-sm font-semibold">Appearance</div>
         <div className="text-xs text-muted-foreground">
@@ -50,7 +50,7 @@ export function ThemeSettingRow() {
         </div>
       </div>
 
-      <div className="rounded-2xl bg-muted p-1 inline-flex shrink-0">
+      <div className="rounded-2xl bg-muted p-1 inline-flex self-start">
         <Button value="light" label="Light" />
         <Button value="gold" label="Gold" />
         <Button value="dark" label="Dark" />
