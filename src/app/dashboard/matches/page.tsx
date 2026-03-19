@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+// lucide icons removed — GW nav now uses chip selector
 
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
@@ -212,25 +212,88 @@ function posBarClass(pos: number) {
   return "bg-transparent";
 }
 
-/* ---------------- Skeleton loader for match rows ---------------- */
+/* ---------------- Skeleton loader for match cards ---------------- */
 
-function MatchRowSkeleton() {
+function MatchCardSkeleton() {
   return (
-    <div className="py-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_28px_64px_28px_minmax(0,1fr)] items-center gap-x-2">
-        <div className="flex justify-end"><div className="h-3 w-20 rounded bg-muted animate-pulse" /></div>
-        <div className="h-7 w-7 rounded-full bg-muted animate-pulse justify-self-end" />
-        <div className="flex justify-center"><div className="h-5 w-10 rounded bg-muted animate-pulse" /></div>
-        <div className="h-7 w-7 rounded-full bg-muted animate-pulse justify-self-start" />
-        <div><div className="h-3 w-20 rounded bg-muted animate-pulse" /></div>
+    <div className="rounded-2xl border bg-card p-4 space-y-3 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="h-10 w-10 rounded-full bg-muted" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-24 rounded bg-muted" />
+            <div className="h-2.5 w-12 rounded bg-muted" />
+          </div>
+        </div>
+        <div className="h-8 w-14 rounded-lg bg-muted mx-3" />
+        <div className="flex items-center gap-3 flex-1 justify-end">
+          <div className="space-y-1.5 text-right">
+            <div className="h-3.5 w-24 rounded bg-muted ml-auto" />
+            <div className="h-2.5 w-12 rounded bg-muted ml-auto" />
+          </div>
+          <div className="h-10 w-10 rounded-full bg-muted" />
+        </div>
       </div>
     </div>
   );
 }
 
-/* ---------------- FPL-ish list row ---------------- */
+/* ---------------- Stat bar row (FPL-style progress fill) ---------------- */
 
-function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => void }) {
+function StatBarRow({
+  rank,
+  label,
+  sublabel,
+  value,
+  maxValue,
+  color,
+  icon,
+  logo,
+}: {
+  rank: number;
+  label: string;
+  sublabel: string;
+  value: number;
+  maxValue: number;
+  color: string;
+  icon?: React.ReactNode;
+  logo?: string;
+}) {
+  const pct = maxValue > 0 ? Math.round((value / maxValue) * 100) : 0;
+  return (
+    <div className="group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors hover:bg-muted/30">
+      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums shrink-0">
+        {rank}
+      </span>
+      {logo && (
+        <Image src={logo} alt={label} width={20} height={20} className="shrink-0 object-contain" />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-sm font-medium leading-tight truncate">{label}</div>
+            <div className="text-[11px] text-muted-foreground">{sublabel}</div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {icon}
+            <span className="text-sm font-bold tabular-nums">{value}</span>
+          </div>
+        </div>
+        {/* Progress bar fill */}
+        <div className="mt-1.5 h-1 w-full rounded-full bg-muted/60 overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all duration-500", color)}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Match card (FPL/FotMob-inspired) ---------------- */
+
+function MatchCard({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => void }) {
   const showScore = g.status === "completed";
   const isLive = showScore && !g.isFinal;
 
@@ -240,142 +303,201 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
   const awayAssists = g.awayEvents?.filter((e) => e.assists > 0) ?? [];
   const hasEvents = homeGoals.length > 0 || awayGoals.length > 0;
 
-  // Bold the winning team name (Google Sports pattern)
+  // Collect card events for inline display
+  const homeCards = g.homeEvents?.filter((e) => e.yellowCards > 0 || e.redCards > 0) ?? [];
+  const awayCards = g.awayEvents?.filter((e) => e.yellowCards > 0 || e.redCards > 0) ?? [];
+  const hasCardEvents = homeCards.length > 0 || awayCards.length > 0;
+
   const homeWin = showScore && (g.score1 ?? 0) > (g.score2 ?? 0);
   const awayWin = showScore && (g.score2 ?? 0) > (g.score1 ?? 0);
 
   return (
     <div
       className={cn(
-        "py-3.5 transition-colors cursor-pointer hover:bg-muted/30 -mx-1 px-1 rounded-lg",
-        isLive && "bg-red-500/[0.03]"
+        "relative rounded-2xl border bg-card overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.99]",
+        isLive && "border-red-500/30 shadow-[0_0_0_1px_rgba(239,68,68,0.1)]"
       )}
       onClick={() => onNavigate?.(g.id)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onNavigate?.(g.id)}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_28px_64px_28px_minmax(0,1fr)] items-center gap-x-2">
-        {/* Home team name */}
-        <div className="min-w-0 text-right">
-          <div className={cn(
-            "truncate text-[13px] leading-none",
-            homeWin ? "font-bold" : "font-medium",
-            !showScore && "font-medium"
-          )}>
-            {g.team1.name}
-          </div>
-        </div>
+      {/* Live left-border accent (FotMob pattern) */}
+      {isLive && (
+        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500 rounded-l-2xl" />
+      )}
 
-        {/* Home logo */}
-        <div className="h-7 w-7 justify-self-end overflow-hidden">
-          <Image
-            src={g.team1.logoUrl}
-            alt={g.team1.name}
-            width={28}
-            height={28}
-            className="h-7 w-7 object-contain"
-          />
-        </div>
-
-        {/* Score / Time center */}
-        <div className="text-center">
-          {showScore ? (
-            <>
+      <div className="p-4">
+        {/* Main row: Home — Score — Away */}
+        <div className="flex items-center">
+          {/* Home side */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0 justify-end">
+            <div className="min-w-0 text-right">
               <div className={cn(
-                "font-mono text-[18px] font-extrabold tabular-nums leading-tight",
-                isLive && "text-red-600 dark:text-red-500"
+                "truncate text-[13px] leading-tight",
+                homeWin ? "font-bold" : "font-medium"
               )}>
-                {g.score1 ?? 0} - {g.score2 ?? 0}
-              </div>
-              {g.isFinal ? (
-                <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  FT
-                </div>
-              ) : (
-                <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold text-red-600 dark:text-red-500">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-                  </span>
-                  {g.minutes != null ? `${g.minutes}'` : "LIVE"}
-                </span>
-              )}
-            </>
-          ) : (
-            <div className="space-y-0.5">
-              <div className="text-[13px] font-bold tabular-nums text-foreground">
-                {g.time}
+                {g.team1.name}
               </div>
             </div>
-          )}
-        </div>
+            <div className="h-9 w-9 shrink-0">
+              <Image
+                src={g.team1.logoUrl}
+                alt={g.team1.name}
+                width={36}
+                height={36}
+                className="h-9 w-9 object-contain"
+              />
+            </div>
+          </div>
 
-        {/* Away logo */}
-        <div className="h-7 w-7 justify-self-start overflow-hidden">
-          <Image
-            src={g.team2.logoUrl}
-            alt={g.team2.name}
-            width={28}
-            height={28}
-            className="h-7 w-7 object-contain"
-          />
-        </div>
+          {/* Center: Score or Time */}
+          <div className="shrink-0 mx-3 min-w-[68px] text-center">
+            {showScore ? (
+              <div className={cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1",
+                isLive
+                  ? "bg-red-500 text-white"
+                  : "bg-muted/70"
+              )}>
+                <span className={cn(
+                  "font-mono text-lg font-extrabold tabular-nums",
+                  homeWin && !isLive && "text-foreground",
+                  awayWin && !isLive && "text-foreground"
+                )}>
+                  {g.score1 ?? 0}
+                </span>
+                <span className={cn(
+                  "text-xs font-medium",
+                  isLive ? "text-white/70" : "text-muted-foreground"
+                )}>-</span>
+                <span className={cn(
+                  "font-mono text-lg font-extrabold tabular-nums",
+                  homeWin && !isLive && "text-foreground",
+                  awayWin && !isLive && "text-foreground"
+                )}>
+                  {g.score2 ?? 0}
+                </span>
+              </div>
+            ) : (
+              <div className="inline-flex flex-col items-center">
+                <span className="text-sm font-bold tabular-nums">{g.time}</span>
+              </div>
+            )}
+            {/* Status label below score */}
+            {showScore && (
+              <div className="mt-1">
+                {g.isFinal ? (
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">FT</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 dark:text-red-400">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                    </span>
+                    {g.minutes != null ? `${g.minutes}'` : "LIVE"}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
-        {/* Away team name */}
-        <div className="min-w-0">
-          <div className={cn(
-            "truncate text-[13px] leading-none",
-            awayWin ? "font-bold" : "font-medium",
-            !showScore && "font-medium"
-          )}>
-            {g.team2.name}
+          {/* Away side */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="h-9 w-9 shrink-0">
+              <Image
+                src={g.team2.logoUrl}
+                alt={g.team2.name}
+                width={36}
+                height={36}
+                className="h-9 w-9 object-contain"
+              />
+            </div>
+            <div className="min-w-0">
+              <div className={cn(
+                "truncate text-[13px] leading-tight",
+                awayWin ? "font-bold" : "font-medium"
+              )}>
+                {g.team2.name}
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Goal scorers & assists — collapsible event strip */}
+        {showScore && hasEvents && (
+          <div className="mt-3 pt-3 border-t border-border/40">
+            <div className="grid grid-cols-[1fr_68px_1fr] gap-x-2 text-[10px] text-muted-foreground">
+              <div className="text-right space-y-0.5">
+                {homeGoals.map((e) => (
+                  <div key={e.playerId} className="flex items-center justify-end gap-1">
+                    <span className="truncate">
+                      {e.playerName}
+                      {e.goals > 1
+                        ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
+                        : e.penalties > 0 ? " (P)" : ""}
+                    </span>
+                    <span className="shrink-0 text-[9px]">⚽</span>
+                  </div>
+                ))}
+                {homeAssists.map((e) => (
+                  <div key={e.playerId + "-a"} className="italic text-right text-muted-foreground/70">
+                    {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-center">
+                <div className="w-px bg-border/50 self-stretch" />
+              </div>
+              <div className="space-y-0.5">
+                {awayGoals.map((e) => (
+                  <div key={e.playerId} className="flex items-center gap-1">
+                    <span className="shrink-0 text-[9px]">⚽</span>
+                    <span className="truncate">
+                      {e.playerName}
+                      {e.goals > 1
+                        ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
+                        : e.penalties > 0 ? " (P)" : ""}
+                    </span>
+                  </div>
+                ))}
+                {awayAssists.map((e) => (
+                  <div key={e.playerId + "-a"} className="italic text-muted-foreground/70">
+                    {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Yellow/Red card strip (FotMob inline events) */}
+        {showScore && hasCardEvents && (
+          <div className={cn("mt-2 pt-2", !hasEvents && "mt-3 pt-3 border-t border-border/40")}>
+            <div className="grid grid-cols-[1fr_68px_1fr] gap-x-2 text-[10px] text-muted-foreground">
+              <div className="text-right space-y-0.5">
+                {homeCards.map((e) => (
+                  <div key={e.playerId + "-c"} className="flex items-center justify-end gap-1">
+                    <span className="truncate">{e.playerName}</span>
+                    {e.yellowCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-yellow-400 shrink-0" />}
+                    {e.redCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-red-500 shrink-0" />}
+                  </div>
+                ))}
+              </div>
+              <div />
+              <div className="space-y-0.5">
+                {awayCards.map((e) => (
+                  <div key={e.playerId + "-c"} className="flex items-center gap-1">
+                    {e.yellowCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-yellow-400 shrink-0" />}
+                    {e.redCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-red-500 shrink-0" />}
+                    <span className="truncate">{e.playerName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Goal scorers & assists */}
-      {showScore && hasEvents && (
-        <div className="mt-2 grid grid-cols-[1fr_64px_1fr] gap-x-2 text-[10px] text-muted-foreground">
-          <div className="text-right space-y-0.5">
-            {homeGoals.map((e) => (
-              <div key={e.playerId} className="flex items-center justify-end gap-1">
-                <span className="truncate">
-                  {e.playerName}
-                  {e.goals > 1
-                    ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
-                    : e.penalties > 0 ? " (P)" : ""}
-                </span>
-                <span className="shrink-0 text-[9px]">⚽</span>
-              </div>
-            ))}
-            {homeAssists.map((e) => (
-              <div key={e.playerId + "-a"} className="text-[10px] italic text-right">
-                {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
-              </div>
-            ))}
-          </div>
-          <div />
-          <div className="space-y-0.5">
-            {awayGoals.map((e) => (
-              <div key={e.playerId} className="flex items-center gap-1">
-                <span className="shrink-0 text-[9px]">⚽</span>
-                <span className="truncate">
-                  {e.playerName}
-                  {e.goals > 1
-                    ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
-                    : e.penalties > 0 ? " (P)" : ""}
-                </span>
-              </div>
-            ))}
-            {awayAssists.map((e) => (
-              <div key={e.playerId + "-a"} className="text-[10px] italic">
-                {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -554,9 +676,17 @@ function MatchesContent() {
   const activeGw = allGws.find((g) => g.id === gwId);
   const activeName = activeGw?.name ?? (gwId ? `Match day ${gwId}` : "Match day —");
 
-  const currentIdx = startedGwIds.indexOf(gwId ?? -1);
-  const canPrev = currentIdx > 0;
-  const canNext = currentIdx >= 0 && currentIdx < startedGwIds.length - 1;
+  // (prev/next arrows removed — GW chip selector handles navigation)
+
+  // Auto-scroll the active GW chip into view — only when gwId changes
+  const gwChipContainerRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (gwId == null || !gwChipContainerRef.current) return;
+    const active = gwChipContainerRef.current.querySelector<HTMLElement>(`[data-gw="${gwId}"]`);
+    if (active) {
+      active.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    }
+  }, [gwId]);
 
   const visibleRows = expanded ? standings : standings.slice(0, 8);
 
@@ -748,79 +878,82 @@ function MatchesContent() {
             </TabsList>
 
             {/* MATCHES TAB */}
-            <TabsContent value="matches" className="mt-4 space-y-3">
-              {/* Matchday selector */}
-              <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = startedGwIds.indexOf(gwId ?? -1);
-                    if (idx > 0) setGwId(startedGwIds[idx - 1]);
-                  }}
-                  disabled={!canPrev}
-                  className={cn(
-                    "grid h-11 w-11 place-items-center rounded-full border bg-background",
-                    !canPrev && "opacity-40"
-                  )}
-                  aria-label="Previous matchday"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-
-                <div className="text-center min-w-0">
-                  <div className="text-lg font-extrabold truncate">
-                    {activeName}
+            <TabsContent value="matches" className="mt-4 space-y-4">
+              {/* Horizontal scrollable GW chip selector (ESPN/FotMob style) */}
+              {startedGwIds.length > 0 && (
+                <div className="-mx-4 px-4">
+                  <div ref={gwChipContainerRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+                    {startedGwIds.map((id) => {
+                      const gw = allGws.find((g) => g.id === id);
+                      const label = gw?.name ?? `MD ${id}`;
+                      const shortLabel = label.replace(/^(Match\s*day|Gameweek)\s*/i, "MD ");
+                      const isActive = id === gwId;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          data-gw={id}
+                          onClick={() => setGwId(id)}
+                          className={cn(
+                            "shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all whitespace-nowrap",
+                            isActive
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          {shortLabel}
+                        </button>
+                      );
+                    })}
                   </div>
-                  {activeGw?.deadline_time && (
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                      Deadline: {new Intl.DateTimeFormat("en-GB", {
-                        day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
-                        hour12: true, timeZone: "Africa/Kampala",
-                      }).format(new Date(activeGw.deadline_time))}
-                    </div>
-                  )}
                 </div>
+              )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = startedGwIds.indexOf(gwId ?? -1);
-                    if (idx >= 0 && idx < startedGwIds.length - 1) setGwId(startedGwIds[idx + 1]);
-                  }}
-                  disabled={!canNext}
-                  className={cn(
-                    "grid h-11 w-11 place-items-center rounded-full border bg-background",
-                    !canNext && "opacity-40"
-                  )}
-                  aria-label="Next matchday"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
+              {/* Active GW title + deadline */}
+              <div className="text-center">
+                <div className="text-lg font-extrabold truncate">{activeName}</div>
+                {activeGw?.deadline_time && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Deadline: {new Intl.DateTimeFormat("en-GB", {
+                      day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+                      hour12: true, timeZone: "Africa/Kampala",
+                    }).format(new Date(activeGw.deadline_time))}
+                  </div>
+                )}
               </div>
 
               {error ? <div className="text-sm text-red-600">{error}</div> : null}
 
               {loading ? (
-                <div className="divide-y divide-border/40">
+                <div className="space-y-3">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <MatchRowSkeleton key={i} />
+                    <MatchCardSkeleton key={i} />
                   ))}
                 </div>
               ) : games.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center">
-                  No matches found for this matchday.
+                <div className="py-10 text-center space-y-2">
+                  <div className="text-3xl">🏟️</div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    No matches scheduled for this matchday
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {groupByDate(games).map(([date, list]) => (
                     <div key={date}>
-                      <div className="px-1 text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        {formatDateHeading(date)}
+                      <div className="flex items-center gap-2 px-1 mb-2">
+                        <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          {formatDateHeading(date)}
+                        </div>
+                        <div className="text-[10px] font-medium text-muted-foreground/60 bg-muted/50 rounded-full px-2 py-0.5">
+                          {list.length} {list.length === 1 ? "match" : "matches"}
+                        </div>
+                        <div className="flex-1 h-px bg-border/40" />
                       </div>
 
-                      <div className="mt-1 divide-y divide-border/50">
+                      <div className="space-y-2.5">
                         {list.map((g) => (
-                          <MatchRow key={g.id} g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
+                          <MatchCard key={g.id} g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
                         ))}
                       </div>
                     </div>
@@ -1104,8 +1237,11 @@ function MatchesContent() {
                   ))}
                 </div>
               ) : topScorers.length === 0 && topAssists.length === 0 && topCleanSheets.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Stats will appear once matches have been played.
+                <div className="py-10 text-center space-y-2">
+                  <div className="text-3xl">📊</div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Stats will appear once matches have been played
+                  </div>
                 </div>
               ) : (
                 <>
@@ -1136,21 +1272,18 @@ function MatchesContent() {
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Top scorers
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-0.5">
                             {topScorers.map((s, i) => (
-                              <div
+                              <StatBarRow
                                 key={s.name + s.team}
-                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                  <div>
-                                    <div className="text-sm font-medium leading-tight">{s.name}</div>
-                                    <div className="text-[11px] text-muted-foreground">{s.team}</div>
-                                  </div>
-                                </div>
-                                <span className="text-sm font-bold tabular-nums">{s.goals}</span>
-                              </div>
+                                rank={i + 1}
+                                label={s.name}
+                                sublabel={s.team}
+                                value={s.goals}
+                                maxValue={topScorers[0]?.goals ?? 1}
+                                color="bg-emerald-500"
+                                icon={<span className="text-[10px]">⚽</span>}
+                              />
                             ))}
                           </div>
                         </div>
@@ -1161,21 +1294,18 @@ function MatchesContent() {
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Most clean sheets
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-0.5">
                             {topCleanSheets.map((c, i) => (
-                              <div
+                              <StatBarRow
                                 key={c.name + c.team}
-                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                  <div>
-                                    <div className="text-sm font-medium leading-tight">{c.name}</div>
-                                    <div className="text-[11px] text-muted-foreground">{c.team}</div>
-                                  </div>
-                                </div>
-                                <span className="text-sm font-bold tabular-nums">{c.cleanSheets}</span>
-                              </div>
+                                rank={i + 1}
+                                label={c.name}
+                                sublabel={c.team}
+                                value={c.cleanSheets}
+                                maxValue={topCleanSheets[0]?.cleanSheets ?? 1}
+                                color="bg-blue-500"
+                                icon={<span className="text-[10px]">🧤</span>}
+                              />
                             ))}
                           </div>
                         </div>
@@ -1186,21 +1316,18 @@ function MatchesContent() {
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Top assists
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-0.5">
                             {topAssists.map((a, i) => (
-                              <div
+                              <StatBarRow
                                 key={a.name + a.team}
-                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                  <div>
-                                    <div className="text-sm font-medium leading-tight">{a.name}</div>
-                                    <div className="text-[11px] text-muted-foreground">{a.team}</div>
-                                  </div>
-                                </div>
-                                <span className="text-sm font-bold tabular-nums">{a.assists}</span>
-                              </div>
+                                rank={i + 1}
+                                label={a.name}
+                                sublabel={a.team}
+                                value={a.assists}
+                                maxValue={topAssists[0]?.assists ?? 1}
+                                color="bg-violet-500"
+                                icon={<span className="text-[10px]">👟</span>}
+                              />
                             ))}
                           </div>
                         </div>
@@ -1240,54 +1367,42 @@ function MatchesContent() {
                           </div>
 
                           {disciplineTab === "yellow" && (
-                            <div className="space-y-1">
+                            <div className="space-y-0.5">
                               {topYellowCards.length === 0 ? (
                                 <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
                               ) : (
                                 topYellowCards.map((p, i) => (
-                                  <div
+                                  <StatBarRow
                                     key={p.name + p.team}
-                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                                  >
-                                    <div className="flex items-center gap-2.5">
-                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                      <div>
-                                        <div className="text-sm font-medium leading-tight">{p.name}</div>
-                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-sm font-bold tabular-nums">{p.yellowCards}</span>
-                                      <div className="w-3 h-4 rounded-[2px] bg-yellow-400" />
-                                    </div>
-                                  </div>
+                                    rank={i + 1}
+                                    label={p.name}
+                                    sublabel={p.team}
+                                    value={p.yellowCards}
+                                    maxValue={topYellowCards[0]?.yellowCards ?? 1}
+                                    color="bg-yellow-400"
+                                    icon={<div className="w-2.5 h-3 rounded-[1px] bg-yellow-400" />}
+                                  />
                                 ))
                               )}
                             </div>
                           )}
 
                           {disciplineTab === "red" && (
-                            <div className="space-y-1">
+                            <div className="space-y-0.5">
                               {topRedCards.length === 0 ? (
                                 <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
                               ) : (
                                 topRedCards.map((p, i) => (
-                                  <div
+                                  <StatBarRow
                                     key={p.name + p.team}
-                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                                  >
-                                    <div className="flex items-center gap-2.5">
-                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                      <div>
-                                        <div className="text-sm font-medium leading-tight">{p.name}</div>
-                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-sm font-bold tabular-nums">{p.redCards}</span>
-                                      <div className="w-3 h-4 rounded-[2px] bg-red-500" />
-                                    </div>
-                                  </div>
+                                    rank={i + 1}
+                                    label={p.name}
+                                    sublabel={p.team}
+                                    value={p.redCards}
+                                    maxValue={topRedCards[0]?.redCards ?? 1}
+                                    color="bg-red-500"
+                                    icon={<div className="w-2.5 h-3 rounded-[1px] bg-red-500" />}
+                                  />
                                 ))
                               )}
                             </div>
@@ -1305,19 +1420,18 @@ function MatchesContent() {
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Most goals
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-0.5">
                             {teamsByGoals.map((t, i) => (
-                              <div
+                              <StatBarRow
                                 key={t.team}
-                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                  <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
-                                  <span className="text-sm font-medium">{t.team}</span>
-                                </div>
-                                <span className="text-sm font-bold tabular-nums">{t.goals}</span>
-                              </div>
+                                rank={i + 1}
+                                label={t.team}
+                                sublabel=""
+                                value={t.goals}
+                                maxValue={teamsByGoals[0]?.goals ?? 1}
+                                color="bg-emerald-500"
+                                logo={t.logoUrl}
+                              />
                             ))}
                           </div>
                         </div>
@@ -1328,19 +1442,18 @@ function MatchesContent() {
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Most clean sheets
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-0.5">
                             {teamsByCS.map((t, i) => (
-                              <div
+                              <StatBarRow
                                 key={t.team}
-                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                  <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
-                                  <span className="text-sm font-medium">{t.team}</span>
-                                </div>
-                                <span className="text-sm font-bold tabular-nums">{t.cleanSheets}</span>
-                              </div>
+                                rank={i + 1}
+                                label={t.team}
+                                sublabel=""
+                                value={t.cleanSheets}
+                                maxValue={teamsByCS[0]?.cleanSheets ?? 1}
+                                color="bg-blue-500"
+                                logo={t.logoUrl}
+                              />
                             ))}
                           </div>
                         </div>
@@ -1351,19 +1464,18 @@ function MatchesContent() {
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Most assists
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-0.5">
                             {teamsByAssists.map((t, i) => (
-                              <div
+                              <StatBarRow
                                 key={t.team}
-                                className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                  <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
-                                  <span className="text-sm font-medium">{t.team}</span>
-                                </div>
-                                <span className="text-sm font-bold tabular-nums">{t.assists}</span>
-                              </div>
+                                rank={i + 1}
+                                label={t.team}
+                                sublabel=""
+                                value={t.assists}
+                                maxValue={teamsByAssists[0]?.assists ?? 1}
+                                color="bg-violet-500"
+                                logo={t.logoUrl}
+                              />
                             ))}
                           </div>
                         </div>
@@ -1403,50 +1515,44 @@ function MatchesContent() {
                           </div>
 
                           {disciplineTab === "yellow" && (
-                            <div className="space-y-1">
+                            <div className="space-y-0.5">
                               {teamsByYC.length === 0 ? (
                                 <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
                               ) : (
                                 teamsByYC.map((t, i) => (
-                                  <div
+                                  <StatBarRow
                                     key={t.team}
-                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                                  >
-                                    <div className="flex items-center gap-2.5">
-                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                      <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
-                                      <span className="text-sm font-medium">{t.team}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-sm font-bold tabular-nums">{t.yellowCards}</span>
-                                      <div className="w-3 h-4 rounded-[2px] bg-yellow-400" />
-                                    </div>
-                                  </div>
+                                    rank={i + 1}
+                                    label={t.team}
+                                    sublabel=""
+                                    value={t.yellowCards}
+                                    maxValue={teamsByYC[0]?.yellowCards ?? 1}
+                                    color="bg-yellow-400"
+                                    logo={t.logoUrl}
+                                    icon={<div className="w-2.5 h-3 rounded-[1px] bg-yellow-400" />}
+                                  />
                                 ))
                               )}
                             </div>
                           )}
 
                           {disciplineTab === "red" && (
-                            <div className="space-y-1">
+                            <div className="space-y-0.5">
                               {teamsByRC.length === 0 ? (
                                 <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
                               ) : (
                                 teamsByRC.map((t, i) => (
-                                  <div
+                                  <StatBarRow
                                     key={t.team}
-                                    className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
-                                  >
-                                    <div className="flex items-center gap-2.5">
-                                      <span className="text-xs font-bold text-muted-foreground w-4 text-center tabular-nums">{i + 1}</span>
-                                      <Image src={t.logoUrl} alt={t.team} width={20} height={20} className="shrink-0 object-contain" />
-                                      <span className="text-sm font-medium">{t.team}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-sm font-bold tabular-nums">{t.redCards}</span>
-                                      <div className="w-3 h-4 rounded-[2px] bg-red-500" />
-                                    </div>
-                                  </div>
+                                    rank={i + 1}
+                                    label={t.team}
+                                    sublabel=""
+                                    value={t.redCards}
+                                    maxValue={teamsByRC[0]?.redCards ?? 1}
+                                    color="bg-red-500"
+                                    logo={t.logoUrl}
+                                    icon={<div className="w-2.5 h-3 rounded-[1px] bg-red-500" />}
+                                  />
                                 ))
                               )}
                             </div>
