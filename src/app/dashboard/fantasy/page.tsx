@@ -363,7 +363,7 @@ function FantasyPage() {
         setGwLoading(true);
         setGwError(null);
 
-        const res = await fetch("/api/gameweeks/current", { cache: "no-store" });
+        const res = await fetch("/api/gameweeks/current", { cache: "no-store", credentials: "same-origin" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load gameweeks");
 
@@ -379,6 +379,7 @@ function FantasyPage() {
 
   const [teamName, setTeamName] = React.useState("My Team");
   const [showTeamNameModal, setShowTeamNameModal] = React.useState(false);
+  const [showEditNameModal, setShowEditNameModal] = React.useState(false);
 
   // Track whether user has built a squad (for onboarding banner)
   const [hasSquad, setHasSquad] = React.useState<boolean | null>(null); // null = loading
@@ -405,18 +406,8 @@ function FantasyPage() {
   }, []);
 
   function editTeamName() {
-    const next = window.prompt("Enter your team name:", teamName);
-    if (!next) return;
-    const cleaned = next.trim().slice(0, 30);
-    if (!cleaned) return;
-    setTeamName(cleaned);
-    window.localStorage.setItem("tbl_team_name", cleaned);
+    setShowEditNameModal(true);
   }
-
-  React.useEffect(() => {
-    const savedName = window.localStorage.getItem("tbl_team_name");
-    if (savedName && savedName.trim().length > 0) setTeamName(savedName);
-  }, []);
 
   const [stats, setStats] = React.useState<{
     gwPoints: number | null;
@@ -662,7 +653,7 @@ function FantasyPage() {
 
   React.useEffect(() => {
     loadStats();
-    const timer = window.setInterval(loadStats, 30000);
+    const timer = window.setInterval(loadStats, 120000); // 2 min — gentle on mobile data
     return () => window.clearInterval(timer);
   }, [loadStats]);
 
@@ -709,7 +700,6 @@ function FantasyPage() {
             </div>
           </button>
 
-            <ChevronRight className="h-5 w-5 text-white/70" />
           </div>
 
           <div className="mx-auto my-4 h-0.5 w-14 rounded-full bg-white/20" />
@@ -870,12 +860,26 @@ function FantasyPage() {
         <RecentTransfers />
       </div>
 
+      {/* Mandatory modal for new users (non-dismissible) */}
       <TeamNameModal
         open={showTeamNameModal}
         onSaved={(name) => {
           setTeamName(name);
           window.localStorage.setItem("tbl_team_name", name);
           setShowTeamNameModal(false);
+        }}
+      />
+
+      {/* Edit modal for existing users (dismissible) */}
+      <TeamNameModal
+        open={showEditNameModal}
+        dismissible
+        initialValue={teamName}
+        onClose={() => setShowEditNameModal(false)}
+        onSaved={(name) => {
+          setTeamName(name);
+          window.localStorage.setItem("tbl_team_name", name);
+          setShowEditNameModal(false);
         }}
       />
     </div>
@@ -890,9 +894,9 @@ export default function FantasyRoute() {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      setAuthed(!!data.user);
+      setAuthed(!!data.session?.user);
       setChecking(false);
     })();
 

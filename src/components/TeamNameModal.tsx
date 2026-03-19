@@ -9,12 +9,22 @@ import { upsertTeamName } from "@/lib/fantasyDb";
 type TeamNameModalProps = {
   open: boolean;
   onSaved: (name: string) => void;
+  /** Allow closing without saving (for edit mode, not new-user gate) */
+  dismissible?: boolean;
+  onClose?: () => void;
+  /** Pre-fill the input (for editing existing name) */
+  initialValue?: string;
 };
 
-export function TeamNameModal({ open, onSaved }: TeamNameModalProps) {
-  const [value, setValue] = React.useState("");
+export function TeamNameModal({ open, onSaved, dismissible, onClose, initialValue }: TeamNameModalProps) {
+  const [value, setValue] = React.useState(initialValue ?? "");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Sync initialValue when modal opens with a new value
+  React.useEffect(() => {
+    if (open && initialValue != null) setValue(initialValue);
+  }, [open, initialValue]);
 
   const trimmed = value.trim();
   const isValid = trimmed.length >= 2 && trimmed.length <= 30;
@@ -45,8 +55,8 @@ export function TeamNameModal({ open, onSaved }: TeamNameModalProps) {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
-          onInteractOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => { if (!dismissible || saving) e.preventDefault(); else onClose?.(); }}
+          onEscapeKeyDown={(e) => { if (!dismissible || saving) e.preventDefault(); else onClose?.(); }}
           className={cn(
             "fixed left-[50%] top-[50%] z-50 w-full max-w-sm translate-x-[-50%] translate-y-[-50%]",
             "rounded-2xl border bg-background p-6 shadow-lg",
