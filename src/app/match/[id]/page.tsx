@@ -255,12 +255,23 @@ export default function MatchPage() {
 
               {/* Score */}
               <div className="text-center shrink-0">
-                <div className={cn(
-                  "font-mono text-4xl font-extrabold tabular-nums",
-                  isLive && "text-red-600 dark:text-red-500"
-                )}>
-                  {match.home_goals ?? "-"} – {match.away_goals ?? "-"}
-                </div>
+                {match.is_played ? (
+                  <div className={cn(
+                    "font-mono text-4xl font-extrabold tabular-nums",
+                    isLive && "text-red-600 dark:text-red-500"
+                  )}>
+                    {match.home_goals ?? "-"} – {match.away_goals ?? "-"}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xl font-bold text-muted-foreground/50">vs</span>
+                    {match.kickoff_time && (
+                      <span className="inline-block rounded-md bg-primary/10 px-3 py-1 text-sm font-bold tabular-nums text-primary">
+                        {formatMatchTime(match.kickoff_time)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="mt-2">
                   {match.is_final ? (
                     <span className="inline-block rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider">
@@ -276,7 +287,7 @@ export default function MatchPage() {
                     </span>
                   ) : (
                     <span className="inline-block rounded-full bg-muted px-3 py-0.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      {statusLabel}
+                      Upcoming
                     </span>
                   )}
                 </div>

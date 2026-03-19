@@ -350,7 +350,11 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
               )}
             </>
           ) : (
-            <span className="text-[12px] font-semibold tabular-nums text-muted-foreground">{g.time}</span>
+            <div className="inline-flex flex-col items-center">
+              <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 text-[11px] font-bold tabular-nums text-primary">
+                {g.time === "—" ? "TBD" : g.time}
+              </span>
+            </div>
           )}
         </div>
 
