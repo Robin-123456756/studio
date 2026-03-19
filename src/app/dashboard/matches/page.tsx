@@ -212,29 +212,25 @@ function posBarClass(pos: number) {
   return "bg-transparent";
 }
 
-/* ---------------- Skeleton loader for match cards ---------------- */
+/* ---------------- Skeleton loader (FPL-style rows inside card) ---------------- */
 
-function MatchCardSkeleton() {
+function MatchListSkeleton() {
   return (
-    <div className="rounded-2xl border bg-card p-4 space-y-3 animate-pulse">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1">
-          <div className="h-10 w-10 rounded-full bg-muted" />
-          <div className="space-y-1.5">
-            <div className="h-3.5 w-24 rounded bg-muted" />
-            <div className="h-2.5 w-12 rounded bg-muted" />
+    <Card className="rounded-2xl overflow-hidden">
+      <CardContent className="p-0">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className={cn("px-4 py-3.5 animate-pulse", i > 0 && "border-t border-border/40")}>
+            <div className="grid grid-cols-[minmax(0,1fr)_28px_56px_28px_minmax(0,1fr)] items-center gap-x-2">
+              <div className="flex justify-end"><div className="h-3 w-20 rounded bg-muted" /></div>
+              <div className="h-7 w-7 rounded-full bg-muted justify-self-end" />
+              <div className="flex justify-center"><div className="h-5 w-12 rounded-md bg-muted" /></div>
+              <div className="h-7 w-7 rounded-full bg-muted justify-self-start" />
+              <div><div className="h-3 w-20 rounded bg-muted" /></div>
+            </div>
           </div>
-        </div>
-        <div className="h-8 w-14 rounded-lg bg-muted mx-3" />
-        <div className="flex items-center gap-3 flex-1 justify-end">
-          <div className="space-y-1.5 text-right">
-            <div className="h-3.5 w-24 rounded bg-muted ml-auto" />
-            <div className="h-2.5 w-12 rounded bg-muted ml-auto" />
-          </div>
-          <div className="h-10 w-10 rounded-full bg-muted" />
-        </div>
-      </div>
-    </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -291,212 +287,87 @@ function StatBarRow({
   );
 }
 
-/* ---------------- Match card (FPL/FotMob-inspired) ---------------- */
+/* ---------------- FPL-style match row (teams + score only) ---------------- */
 
-function MatchCard({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => void }) {
+function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => void }) {
   const showScore = g.status === "completed";
   const isLive = showScore && !g.isFinal;
-
-  const homeGoals = g.homeEvents?.filter((e) => e.goals > 0) ?? [];
-  const awayGoals = g.awayEvents?.filter((e) => e.goals > 0) ?? [];
-  const homeAssists = g.homeEvents?.filter((e) => e.assists > 0) ?? [];
-  const awayAssists = g.awayEvents?.filter((e) => e.assists > 0) ?? [];
-  const hasEvents = homeGoals.length > 0 || awayGoals.length > 0;
-
-  // Collect card events for inline display
-  const homeCards = g.homeEvents?.filter((e) => e.yellowCards > 0 || e.redCards > 0) ?? [];
-  const awayCards = g.awayEvents?.filter((e) => e.yellowCards > 0 || e.redCards > 0) ?? [];
-  const hasCardEvents = homeCards.length > 0 || awayCards.length > 0;
-
   const homeWin = showScore && (g.score1 ?? 0) > (g.score2 ?? 0);
   const awayWin = showScore && (g.score2 ?? 0) > (g.score1 ?? 0);
 
   return (
     <div
       className={cn(
-        "relative rounded-2xl border bg-card overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-[0.99]",
-        isLive && "border-red-500/30 shadow-[0_0_0_1px_rgba(239,68,68,0.1)]"
+        "relative px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50",
+        isLive && "bg-red-500/[0.03]"
       )}
       onClick={() => onNavigate?.(g.id)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onNavigate?.(g.id)}
     >
-      {/* Live left-border accent (FotMob pattern) */}
+      {/* Live left-border accent */}
       {isLive && (
-        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500 rounded-l-2xl" />
+        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500" />
       )}
 
-      <div className="p-4">
-        {/* Main row: Home — Score — Away */}
-        <div className="flex items-center">
-          {/* Home side */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0 justify-end">
-            <div className="min-w-0 text-right">
-              <div className={cn(
-                "truncate text-[13px] leading-tight",
-                homeWin ? "font-bold" : "font-medium"
-              )}>
-                {g.team1.name}
-              </div>
-            </div>
-            <div className="h-9 w-9 shrink-0">
-              <Image
-                src={g.team1.logoUrl}
-                alt={g.team1.name}
-                width={36}
-                height={36}
-                className="h-9 w-9 object-contain"
-              />
-            </div>
-          </div>
-
-          {/* Center: Score or Time */}
-          <div className="shrink-0 mx-3 min-w-[68px] text-center">
-            {showScore ? (
-              <div className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1",
-                isLive
-                  ? "bg-red-500 text-white"
-                  : "bg-muted/70"
-              )}>
-                <span className={cn(
-                  "font-mono text-lg font-extrabold tabular-nums",
-                  homeWin && !isLive && "text-foreground",
-                  awayWin && !isLive && "text-foreground"
-                )}>
-                  {g.score1 ?? 0}
-                </span>
-                <span className={cn(
-                  "text-xs font-medium",
-                  isLive ? "text-white/70" : "text-muted-foreground"
-                )}>-</span>
-                <span className={cn(
-                  "font-mono text-lg font-extrabold tabular-nums",
-                  homeWin && !isLive && "text-foreground",
-                  awayWin && !isLive && "text-foreground"
-                )}>
-                  {g.score2 ?? 0}
-                </span>
-              </div>
-            ) : (
-              <div className="inline-flex flex-col items-center">
-                <span className="text-sm font-bold tabular-nums">{g.time}</span>
-              </div>
-            )}
-            {/* Status label below score */}
-            {showScore && (
-              <div className="mt-1">
-                {g.isFinal ? (
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">FT</span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 dark:text-red-400">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-                    </span>
-                    {g.minutes != null ? `${g.minutes}'` : "LIVE"}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Away side */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="h-9 w-9 shrink-0">
-              <Image
-                src={g.team2.logoUrl}
-                alt={g.team2.name}
-                width={36}
-                height={36}
-                className="h-9 w-9 object-contain"
-              />
-            </div>
-            <div className="min-w-0">
-              <div className={cn(
-                "truncate text-[13px] leading-tight",
-                awayWin ? "font-bold" : "font-medium"
-              )}>
-                {g.team2.name}
-              </div>
-            </div>
-          </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_28px_56px_28px_minmax(0,1fr)] items-center gap-x-2">
+        {/* Home name */}
+        <div className="min-w-0 text-right">
+          <span className={cn(
+            "truncate text-[13px] leading-none block",
+            homeWin ? "font-bold" : "font-medium"
+          )}>
+            {g.team1.name}
+          </span>
         </div>
 
-        {/* Goal scorers & assists — collapsible event strip */}
-        {showScore && hasEvents && (
-          <div className="mt-3 pt-3 border-t border-border/40">
-            <div className="grid grid-cols-[1fr_68px_1fr] gap-x-2 text-[10px] text-muted-foreground">
-              <div className="text-right space-y-0.5">
-                {homeGoals.map((e) => (
-                  <div key={e.playerId} className="flex items-center justify-end gap-1">
-                    <span className="truncate">
-                      {e.playerName}
-                      {e.goals > 1
-                        ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
-                        : e.penalties > 0 ? " (P)" : ""}
-                    </span>
-                    <span className="shrink-0 text-[9px]">⚽</span>
-                  </div>
-                ))}
-                {homeAssists.map((e) => (
-                  <div key={e.playerId + "-a"} className="italic text-right text-muted-foreground/70">
-                    {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-center">
-                <div className="w-px bg-border/50 self-stretch" />
-              </div>
-              <div className="space-y-0.5">
-                {awayGoals.map((e) => (
-                  <div key={e.playerId} className="flex items-center gap-1">
-                    <span className="shrink-0 text-[9px]">⚽</span>
-                    <span className="truncate">
-                      {e.playerName}
-                      {e.goals > 1
-                        ? ` (${e.goals}${e.penalties > 0 ? `, ${e.penalties}P` : ""})`
-                        : e.penalties > 0 ? " (P)" : ""}
-                    </span>
-                  </div>
-                ))}
-                {awayAssists.map((e) => (
-                  <div key={e.playerId + "-a"} className="italic text-muted-foreground/70">
-                    {e.playerName} {e.assists > 1 ? `(${e.assists})` : ""} assist
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Home logo */}
+        <div className="h-7 w-7 justify-self-end shrink-0">
+          <Image src={g.team1.logoUrl} alt={g.team1.name} width={28} height={28} className="h-7 w-7 object-contain" />
+        </div>
 
-        {/* Yellow/Red card strip (FotMob inline events) */}
-        {showScore && hasCardEvents && (
-          <div className={cn("mt-2 pt-2", !hasEvents && "mt-3 pt-3 border-t border-border/40")}>
-            <div className="grid grid-cols-[1fr_68px_1fr] gap-x-2 text-[10px] text-muted-foreground">
-              <div className="text-right space-y-0.5">
-                {homeCards.map((e) => (
-                  <div key={e.playerId + "-c"} className="flex items-center justify-end gap-1">
-                    <span className="truncate">{e.playerName}</span>
-                    {e.yellowCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-yellow-400 shrink-0" />}
-                    {e.redCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-red-500 shrink-0" />}
-                  </div>
-                ))}
+        {/* Score or kickoff time */}
+        <div className="text-center">
+          {showScore ? (
+            <>
+              <div className={cn(
+                "font-mono text-[15px] font-extrabold tabular-nums leading-tight",
+                isLive && "text-red-600 dark:text-red-500"
+              )}>
+                {g.score1 ?? 0} - {g.score2 ?? 0}
               </div>
-              <div />
-              <div className="space-y-0.5">
-                {awayCards.map((e) => (
-                  <div key={e.playerId + "-c"} className="flex items-center gap-1">
-                    {e.yellowCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-yellow-400 shrink-0" />}
-                    {e.redCards > 0 && <div className="w-2 h-2.5 rounded-[1px] bg-red-500 shrink-0" />}
-                    <span className="truncate">{e.playerName}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+              {g.isFinal ? (
+                <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mt-0.5">FT</div>
+              ) : (
+                <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold text-red-600 dark:text-red-500">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                  </span>
+                  {g.minutes != null ? `${g.minutes}'` : "LIVE"}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-[12px] font-semibold tabular-nums text-muted-foreground">{g.time}</span>
+          )}
+        </div>
+
+        {/* Away logo */}
+        <div className="h-7 w-7 justify-self-start shrink-0">
+          <Image src={g.team2.logoUrl} alt={g.team2.name} width={28} height={28} className="h-7 w-7 object-contain" />
+        </div>
+
+        {/* Away name */}
+        <div className="min-w-0">
+          <span className={cn(
+            "truncate text-[13px] leading-none block",
+            awayWin ? "font-bold" : "font-medium"
+          )}>
+            {g.team2.name}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -925,11 +796,7 @@ function MatchesContent() {
               {error ? <div className="text-sm text-red-600">{error}</div> : null}
 
               {loading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <MatchCardSkeleton key={i} />
-                  ))}
-                </div>
+                <MatchListSkeleton />
               ) : games.length === 0 ? (
                 <div className="py-10 text-center space-y-2">
                   <div className="text-3xl">🏟️</div>
@@ -938,24 +805,26 @@ function MatchesContent() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   {groupByDate(games).map(([date, list]) => (
                     <div key={date}>
                       <div className="flex items-center gap-2 px-1 mb-2">
                         <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">
                           {formatDateHeading(date)}
                         </div>
-                        <div className="text-[10px] font-medium text-muted-foreground/60 bg-muted/50 rounded-full px-2 py-0.5">
-                          {list.length} {list.length === 1 ? "match" : "matches"}
-                        </div>
                         <div className="flex-1 h-px bg-border/40" />
                       </div>
 
-                      <div className="space-y-2.5">
-                        {list.map((g) => (
-                          <MatchCard key={g.id} g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
-                        ))}
-                      </div>
+                      {/* All matches inside one card — FPL style */}
+                      <Card className="rounded-2xl overflow-hidden">
+                        <CardContent className="p-0">
+                          {list.map((g, i) => (
+                            <div key={g.id} className={cn(i > 0 && "border-t border-border/40")}>
+                              <MatchRow g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
                     </div>
                   ))}
                 </div>
