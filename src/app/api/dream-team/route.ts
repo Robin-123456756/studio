@@ -3,6 +3,7 @@ import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { supabaseServer } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-error";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
+import { loadScoringRules, lookupPoints } from "@/lib/scoring-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +11,10 @@ export const dynamic = "force-dynamic";
  * GET /api/dream-team?gw_id=N
  *
  * Returns the best possible XI from ALL players for a given gameweek,
- * based on actual GW points. Picks the highest-scoring valid formation:
- * 1 GK, 3-5 DEF, 3-5 MID, 1-3 FWD (total 10 outfield + 1 GK = 11).
+ * based on actual GW points (with lady 2x multiplier on positive actions).
+ * Picks the highest-scoring valid formation using game rules:
+ * 1 GK, 2-3 DEF, 3-5 MID, 2-3 FWD (total 10 outfield + 1 GK = 11).
+ * Must include at least 1 lady forward (matching the mandatory lady rule).
  *
  * Note: This is the "best possible team anyone could have picked", not
  * any single manager's actual team.
@@ -59,31 +62,55 @@ export async function GET(req: Request) {
     const events = await fetchAllRows((from, to) =>
       supabase
         .from("player_match_events")
-        .select("player_id, points_awarded, quantity")
+        .select("player_id, action, points_awarded, quantity")
         .in("match_id", gwMatchIds)
         .range(from, to)
     );
 
-    const pointsMap = new Map<string, number>();
-    for (const e of events) {
-      const pid = String(e.player_id);
-      const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
-      pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
-    }
+    // Collect unique player IDs from events
+    const eventPlayerIds = new Set<string>();
+    for (const e of events) eventPlayerIds.add(String(e.player_id));
 
-    // 3. Get player metadata for all players who have events
-    const playerIds = [...pointsMap.keys()];
-    if (playerIds.length === 0) {
+    if (eventPlayerIds.size === 0) {
       return NextResponse.json({ error: "No player data for this gameweek" }, { status: 404 });
     }
 
-    const { data: playerData } = await supabase
-      .from("players")
-      .select(`
-        id, name, web_name, position, is_lady, avatar_url, now_cost, team_id,
-        teams:teams!players_team_id_fkey (name, short_name, team_uuid)
-      `)
-      .in("id", playerIds);
+    // 3. Get player metadata for all players who have events
+    const playerIds = [...eventPlayerIds];
+
+    const [{ data: playerData }, rules] = await Promise.all([
+      supabase
+        .from("players")
+        .select(`
+          id, name, web_name, position, is_lady, avatar_url, now_cost, team_id,
+          teams:teams!players_team_id_fkey (name, short_name, team_uuid)
+        `)
+        .in("id", playerIds),
+      loadScoringRules(),
+    ]);
+
+    // Build metadata lookup for lady status + position
+    const metaMap = new Map<string, { position: string; isLady: boolean }>();
+    for (const p of playerData ?? []) {
+      metaMap.set(String(p.id), {
+        position: normalizePos((p as any).position),
+        isLady: (p as any).is_lady ?? false,
+      });
+    }
+
+    // Compute points using lookupPoints (applies lady 2x on positive actions)
+    // Same pattern as scoring-engine: bonus uses stored points_awarded, others use rules
+    const pointsMap = new Map<string, number>();
+    for (const e of events) {
+      const pid = String(e.player_id);
+      const meta = metaMap.get(pid);
+      const position = meta?.position ?? "Forward";
+      const isLady = meta?.isLady ?? false;
+      const pts = e.action === "bonus"
+        ? (e.points_awarded ?? 0) * (e.quantity ?? 1)
+        : lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+      pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
+    }
 
     type PlayerWithPoints = {
       id: string;
@@ -120,29 +147,35 @@ export async function GET(req: Request) {
     const mids = players.filter((p) => p.position === "Midfielder").sort((a, b) => b.gwPoints - a.gwPoints);
     const fwds = players.filter((p) => p.position === "Forward").sort((a, b) => b.gwPoints - a.gwPoints);
 
-    // Try all valid formations: 1 GK + DEF(3-5) + MID(3-5) + FWD(1-3) = 11
-    type Formation = [number, number, number]; // [DEF, MID, FWD]
-    const validFormations: Formation[] = [];
-    for (let d = 3; d <= 5; d++) {
-      for (let m = 3; m <= 5; m++) {
-        for (let f = 1; f <= 3; f++) {
-          if (d + m + f === 10) validFormations.push([d, m, f]);
-        }
-      }
-    }
+    // Starting 10: 1 GK + 9 outfield (DEF 2-3, MID 3-5, FWD 2-3, exactly 1 lady FWD)
+    // Matches roster-validation.ts and pick-team auto-pick formations
+    const ladyFwds = fwds.filter((p) => p.isLady);
+    const nonLadyFwds = fwds.filter((p) => !p.isLady);
+
+    type Formation = { def: number; mid: number; maleFwd: number; totalFwd: number };
+    const validFormations: Formation[] = [
+      { def: 2, mid: 5, maleFwd: 1, totalFwd: 2 }, // 2-5-2
+      { def: 2, mid: 4, maleFwd: 2, totalFwd: 3 }, // 2-4-3
+      { def: 3, mid: 4, maleFwd: 1, totalFwd: 2 }, // 3-4-2
+      { def: 3, mid: 3, maleFwd: 2, totalFwd: 3 }, // 3-3-3
+    ];
 
     let bestXI: PlayerWithPoints[] = [];
     let bestTotal = -1;
 
-    for (const [nDef, nMid, nFwd] of validFormations) {
-      if (gks.length < 1 || defs.length < nDef || mids.length < nMid || fwds.length < nFwd) continue;
+    for (const f of validFormations) {
+      if (gks.length < 1 || defs.length < f.def || mids.length < f.mid) continue;
+      if (ladyFwds.length < 1 || nonLadyFwds.length < f.maleFwd) continue;
 
       const xi = [
         gks[0],
-        ...defs.slice(0, nDef),
-        ...mids.slice(0, nMid),
-        ...fwds.slice(0, nFwd),
+        ...defs.slice(0, f.def),
+        ...mids.slice(0, f.mid),
+        ...nonLadyFwds.slice(0, f.maleFwd),
+        ladyFwds[0],
       ];
+
+      if (xi.length !== 10) continue;
 
       const total = xi.reduce((sum, p) => sum + p.gwPoints, 0);
       if (total > bestTotal) {
