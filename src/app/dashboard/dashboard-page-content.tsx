@@ -50,11 +50,11 @@ export default function DashboardPageContent() {
             ? "bg-emerald-500/10 text-emerald-600"
             : "bg-muted text-muted-foreground";
 
-  const staggerStyle = { animationFillMode: "forwards" as const };
+  const staggerStyle = { animationFillMode: "both" as const };
 
   return (
     <div className="space-y-4 animate-in fade-in-50">
-      <section className={cn("opacity-0 animate-slide-up animate-stagger-1")} style={staggerStyle}>
+      <section className={cn("animate-slide-up animate-stagger-1")} style={staggerStyle}>
         <div className="flex items-center gap-3 pt-2 bg-background">
           <Image
             src="/tbl-logo.png"
@@ -101,7 +101,7 @@ export default function DashboardPageContent() {
         </div>
       </section>
 
-      <section className={cn("opacity-0 animate-slide-up animate-stagger-2")} style={staggerStyle}>
+      <section className={cn("animate-slide-up animate-stagger-2")} style={staggerStyle}>
         <Link href="/dashboard/fantasy" className="block" aria-label="Fantasy football — view your team, points, and league standings">
           <div className="rounded-2xl bg-gradient-to-br from-[#37003C] via-[#4a0050] to-[#1a0025] p-5 relative overflow-hidden">
             <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5 pointer-events-none" />
@@ -163,7 +163,7 @@ export default function DashboardPageContent() {
         </Link>
       </section>
 
-      <section className={cn("opacity-0 animate-slide-up animate-stagger-2")} style={staggerStyle}>
+      <section className={cn("animate-slide-up animate-stagger-2")} style={staggerStyle}>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)]">
             <div className="flex items-center justify-between mb-2">
@@ -182,8 +182,15 @@ export default function DashboardPageContent() {
             ) : latestResult ? (
               <div className="flex flex-col items-center gap-1">
                 <div className="text-[10px] text-muted-foreground">{formatShortDate(latestResult.kickoff_time)}</div>
-                <div className="text-[11px] font-medium text-center leading-tight truncate w-full">
-                  {latestResult.home_team?.short_name ?? "--"}
+                <div className="flex items-center gap-1.5 justify-center w-full">
+                  <img
+                    src={latestResult.home_team?.logo_url ?? "/placeholder-team.png"}
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover shrink-0"
+                  />
+                  <span className="text-[11px] font-medium leading-tight truncate">
+                    {latestResult.home_team?.short_name ?? "--"}
+                  </span>
                 </div>
                 <div
                   className={cn(
@@ -193,8 +200,15 @@ export default function DashboardPageContent() {
                 >
                   {latestResult.home_goals ?? "-"} - {latestResult.away_goals ?? "-"}
                 </div>
-                <div className="text-[11px] font-medium text-center leading-tight truncate w-full">
-                  {latestResult.away_team?.short_name ?? "--"}
+                <div className="flex items-center gap-1.5 justify-center w-full">
+                  <img
+                    src={latestResult.away_team?.logo_url ?? "/placeholder-team.png"}
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover shrink-0"
+                  />
+                  <span className="text-[11px] font-medium leading-tight truncate">
+                    {latestResult.away_team?.short_name ?? "--"}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -220,8 +234,26 @@ export default function DashboardPageContent() {
             ) : nextFixture ? (
               <div className="space-y-1.5">
                 <div className="text-[10px] text-muted-foreground">{formatShortDate(nextFixture.kickoff_time)}</div>
-                <div className="text-[11px] font-semibold leading-tight">
-                  {nextFixture.home_team?.short_name ?? "--"} vs {nextFixture.away_team?.short_name ?? "--"}
+                <div className="flex items-center gap-1.5">
+                  <img
+                    src={nextFixture.home_team?.logo_url ?? "/placeholder-team.png"}
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover shrink-0"
+                  />
+                  <span className="text-[11px] font-semibold leading-tight truncate">
+                    {nextFixture.home_team?.short_name ?? "--"}
+                  </span>
+                </div>
+                <div className="text-[10px] font-medium text-muted-foreground text-center">vs</div>
+                <div className="flex items-center gap-1.5">
+                  <img
+                    src={nextFixture.away_team?.logo_url ?? "/placeholder-team.png"}
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover shrink-0"
+                  />
+                  <span className="text-[11px] font-semibold leading-tight truncate">
+                    {nextFixture.away_team?.short_name ?? "--"}
+                  </span>
                 </div>
                 <div className="text-[10px] text-muted-foreground">{formatKickoff(nextFixture.kickoff_time)}</div>
               </div>
@@ -232,7 +264,7 @@ export default function DashboardPageContent() {
         </div>
       </section>
 
-      <section className={cn("opacity-0 animate-slide-up animate-stagger-3")} style={staggerStyle}>
+      <section className={cn("animate-slide-up animate-stagger-3")} style={staggerStyle}>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-pink-200/40 dark:border-pink-500/20 bg-card p-3">
             <div className="flex items-center gap-1.5 mb-2">
@@ -310,7 +342,7 @@ export default function DashboardPageContent() {
         </div>
       </section>
 
-      <section className={cn("opacity-0 animate-slide-up animate-stagger-3")} style={staggerStyle}>
+      <section className={cn("animate-slide-up animate-stagger-3")} style={staggerStyle}>
         <DashboardTableSection
           expanded={expanded}
           loading={loading}
@@ -319,7 +351,7 @@ export default function DashboardPageContent() {
         />
       </section>
 
-      <section className={cn("opacity-0 animate-slide-up animate-stagger-4")} style={staggerStyle}>
+      <section className={cn("animate-slide-up animate-stagger-4")} style={staggerStyle}>
         <DashboardActivitySection
           changedIds={changedIds}
           deadlineCountdown={deadlineCountdown}
@@ -332,7 +364,7 @@ export default function DashboardPageContent() {
         />
       </section>
 
-      <section className={cn("opacity-0 animate-slide-up animate-stagger-4")} style={staggerStyle}>
+      <section className={cn("animate-slide-up animate-stagger-4")} style={staggerStyle}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Link
             href="/dashboard/more/tbl-rules"

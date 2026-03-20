@@ -6,7 +6,7 @@ import { useEffect } from "react";
 const THEME_COLORS: Record<string, string> = {
   light: "#FFFFFF",
   gold: "#D4B96C",
-  dark: "#0D5C63",
+  dark: "#4A0404",
 };
 
 export function ThemeColorMeta() {

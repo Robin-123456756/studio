@@ -68,7 +68,7 @@ type ApiMatch = {
   away_events?: MatchEvent[];
 };
 
-type UiTeam = { id: string; name: string; logoUrl: string };
+type UiTeam = { id: string; name: string; shortName: string; logoUrl: string };
 type UiGame = {
   id: string;
   date: string;
@@ -178,6 +178,8 @@ function toUgDateKey(iso: string) {
 function mapApiMatchToUi(m: ApiMatch, deadlineFallback?: string | null): UiGame {
   const homeName = m.home_team?.name ?? "Home";
   const awayName = m.away_team?.name ?? "Away";
+  const homeShort = m.home_team?.short_name || homeName.slice(0, 3).toUpperCase();
+  const awayShort = m.away_team?.short_name || awayName.slice(0, 3).toUpperCase();
   const kickoffIso = m.kickoff_time ?? null;
   const fallbackIso = kickoffIso ?? deadlineFallback ?? null;
 
@@ -190,11 +192,13 @@ function mapApiMatchToUi(m: ApiMatch, deadlineFallback?: string | null): UiGame 
     team1: {
       id: m.home_team_uuid,
       name: homeName,
+      shortName: homeShort,
       logoUrl: m.home_team?.logo_url ?? "/placeholder-team.png",
     },
     team2: {
       id: m.away_team_uuid,
       name: awayName,
+      shortName: awayShort,
       logoUrl: m.away_team?.logo_url ?? "/placeholder-team.png",
     },
     score1: m.home_goals,
@@ -216,21 +220,19 @@ function posBarClass(pos: number) {
 
 function MatchListSkeleton() {
   return (
-    <Card className="rounded-2xl overflow-hidden">
-      <CardContent className="p-0">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className={cn("px-4 py-3.5 animate-pulse", i > 0 && "border-t border-border/40")}>
-            <div className="grid grid-cols-[minmax(0,1fr)_28px_56px_28px_minmax(0,1fr)] items-center gap-x-2">
-              <div className="flex justify-end"><div className="h-3 w-20 rounded bg-muted" /></div>
-              <div className="h-7 w-7 rounded-full bg-muted justify-self-end" />
-              <div className="flex justify-center"><div className="h-5 w-12 rounded-md bg-muted" /></div>
-              <div className="h-7 w-7 rounded-full bg-muted justify-self-start" />
-              <div><div className="h-3 w-20 rounded bg-muted" /></div>
-            </div>
+    <div className="-mx-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className={cn("px-4 py-3.5 animate-pulse", i > 0 && "border-t border-border/40")}>
+          <div className="grid grid-cols-[minmax(0,1fr)_28px_56px_28px_minmax(0,1fr)] items-center gap-x-2">
+            <div className="flex justify-end"><div className="h-3 w-20 rounded bg-muted" /></div>
+            <div className="h-7 w-7 rounded-full bg-muted justify-self-end" />
+            <div className="flex justify-center"><div className="h-5 w-12 rounded-md bg-muted" /></div>
+            <div className="h-7 w-7 rounded-full bg-muted justify-self-start" />
+            <div><div className="h-3 w-20 rounded bg-muted" /></div>
           </div>
-        ))}
-      </CardContent>
-    </Card>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -298,7 +300,7 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
   return (
     <div
       className={cn(
-        "relative px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50",
+        "relative px-3 py-3.5 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50",
         isLive && "bg-red-500/[0.03]"
       )}
       onClick={() => onNavigate?.(g.id)}
@@ -311,36 +313,36 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
         <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500" />
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)_28px_56px_28px_minmax(0,1fr)] items-center gap-x-2">
-        {/* Home name */}
+      <div className="grid grid-cols-[minmax(0,1fr)_24px_64px_24px_minmax(0,1fr)] items-center gap-x-1.5">
+        {/* Home name — use shortName to prevent truncation */}
         <div className="min-w-0 text-right">
           <span className={cn(
-            "truncate text-[13px] leading-none block",
-            homeWin ? "font-bold" : "font-medium"
+            "text-[13px] leading-none block",
+            homeWin ? "font-bold" : "font-medium",
+            !showScore && "font-medium"
           )}>
-            {g.team1.name}
+            {g.team1.shortName}
           </span>
         </div>
 
-        {/* Home logo */}
-        <div className="h-7 w-7 justify-self-end shrink-0">
-          <Image src={g.team1.logoUrl} alt={g.team1.name} width={28} height={28} className="h-7 w-7 object-contain" />
+        {/* Home logo — 24px keeps it compact */}
+        <div className="h-6 w-6 justify-self-end shrink-0">
+          <Image src={g.team1.logoUrl} alt={g.team1.name} width={24} height={24} className="h-6 w-6 object-contain" />
         </div>
 
-        {/* Score or kickoff time */}
+        {/* Score or kickoff time — score is the focal point */}
         <div className="text-center">
           {showScore ? (
-            <>
+            <div className="flex flex-col items-center">
               <div className={cn(
-                "font-mono text-[15px] font-extrabold tabular-nums leading-tight",
+                "font-mono text-lg font-black tabular-nums leading-none",
                 isLive && "text-red-600 dark:text-red-500"
               )}>
-                {g.score1 ?? 0} - {g.score2 ?? 0}
+                {g.score1 ?? "-"} - {g.score2 ?? "-"}
               </div>
-              {g.isFinal ? (
-                <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mt-0.5">FT</div>
-              ) : (
-                <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-bold text-red-600 dark:text-red-500">
+              {/* Only show live indicator — no "FT" on finished matches (FPL pattern) */}
+              {isLive && (
+                <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-red-600 dark:text-red-500">
                   <span className="relative flex h-1.5 w-1.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
@@ -348,28 +350,27 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
                   {g.minutes != null ? `${g.minutes}'` : "LIVE"}
                 </span>
               )}
-            </>
-          ) : (
-            <div className="inline-flex flex-col items-center">
-              <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 text-[11px] font-bold tabular-nums text-primary">
-                {g.time === "—" ? "TBD" : g.time}
-              </span>
             </div>
+          ) : (
+            <span className="inline-block rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary">
+              {g.time === "—" ? "TBD" : g.time}
+            </span>
           )}
         </div>
 
         {/* Away logo */}
-        <div className="h-7 w-7 justify-self-start shrink-0">
-          <Image src={g.team2.logoUrl} alt={g.team2.name} width={28} height={28} className="h-7 w-7 object-contain" />
+        <div className="h-6 w-6 justify-self-start shrink-0">
+          <Image src={g.team2.logoUrl} alt={g.team2.name} width={24} height={24} className="h-6 w-6 object-contain" />
         </div>
 
         {/* Away name */}
         <div className="min-w-0">
           <span className={cn(
-            "truncate text-[13px] leading-none block",
-            awayWin ? "font-bold" : "font-medium"
+            "text-[13px] leading-none block",
+            awayWin ? "font-bold" : "font-medium",
+            !showScore && "font-medium"
           )}>
-            {g.team2.name}
+            {g.team2.shortName}
           </span>
         </div>
       </div>
@@ -412,8 +413,8 @@ function MatchesContent() {
   const [statsView, setStatsView] = React.useState<"players" | "teams">("players");
   const [statsLoading, setStatsLoading] = React.useState(true);
 
-  // Gameweeks that have started (deadline passed) — sorted by id
-  const startedGwIds = React.useMemo(() => {
+  // All gameweek IDs sorted ascending — used for the chip selector
+  const allGwIds = React.useMemo(() => {
     return allGws
       .map((g) => g.id)
       .sort((a, b) => a - b);
@@ -549,7 +550,6 @@ function MatchesContent() {
   }, []);
 
   const activeGw = allGws.find((g) => g.id === gwId);
-  const activeName = activeGw?.name ?? (gwId ? `Match day ${gwId}` : "Match day —");
 
   // (prev/next arrows removed — GW chip selector handles navigation)
 
@@ -714,8 +714,47 @@ function MatchesContent() {
     <div className="animate-in fade-in-50 space-y-4">
 
       {/* Main card with tabs — content renders directly on surface */}
-      <Card className="rounded-3xl">
+      <Card className="rounded-3xl overflow-hidden">
         <CardContent className="p-4">
+
+          {/* GW chip selector + deadline — above tabs, visible on all tabs */}
+          {allGws.length > 0 && (
+            <div className="-mx-4 px-4 mb-3">
+              <div ref={gwChipContainerRef} className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+                {allGwIds.map((id) => {
+                  const gw = allGws.find((g) => g.id === id);
+                  const label = gw?.name ?? `MD ${id}`;
+                  const shortLabel = label.replace(/^(Match\s*day|Gameweek)\s*/i, "MD ");
+                  const isActive = id === gwId;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      data-gw={id}
+                      onClick={() => setGwId(id)}
+                      className={cn(
+                        "shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all whitespace-nowrap",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      {shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+              {activeGw?.deadline_time && (
+                <div className="text-center text-[10px] text-muted-foreground mt-1">
+                  Deadline: {new Intl.DateTimeFormat("en-GB", {
+                    day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+                    hour12: true, timeZone: "Africa/Kampala",
+                  }).format(new Date(activeGw.deadline_time))}
+                </div>
+              )}
+            </div>
+          )}
+
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
             <TabsList className="w-full justify-start gap-6 bg-transparent p-0">
               <TabsTrigger
@@ -754,48 +793,6 @@ function MatchesContent() {
 
             {/* MATCHES TAB */}
             <TabsContent value="matches" className="mt-4 space-y-4">
-              {/* Horizontal scrollable GW chip selector (ESPN/FotMob style) */}
-              {startedGwIds.length > 0 && (
-                <div className="-mx-4 px-4">
-                  <div ref={gwChipContainerRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none" style={{ scrollbarWidth: "none" }}>
-                    {startedGwIds.map((id) => {
-                      const gw = allGws.find((g) => g.id === id);
-                      const label = gw?.name ?? `MD ${id}`;
-                      const shortLabel = label.replace(/^(Match\s*day|Gameweek)\s*/i, "MD ");
-                      const isActive = id === gwId;
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          data-gw={id}
-                          onClick={() => setGwId(id)}
-                          className={cn(
-                            "shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all whitespace-nowrap",
-                            isActive
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                          )}
-                        >
-                          {shortLabel}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Active GW title + deadline */}
-              <div className="text-center">
-                <div className="text-lg font-extrabold truncate">{activeName}</div>
-                {activeGw?.deadline_time && (
-                  <div className="text-[10px] text-muted-foreground mt-0.5">
-                    Deadline: {new Intl.DateTimeFormat("en-GB", {
-                      day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
-                      hour12: true, timeZone: "Africa/Kampala",
-                    }).format(new Date(activeGw.deadline_time))}
-                  </div>
-                )}
-              </div>
 
               {error ? <div className="text-sm text-red-600">{error}</div> : null}
 
@@ -809,29 +806,27 @@ function MatchesContent() {
                   </div>
                 </div>
               ) : (
-                <Card className="rounded-2xl overflow-hidden">
-                  <CardContent className="p-0">
-                    {groupByDate(games).map(([date, list], groupIdx) => (
-                      <React.Fragment key={date}>
-                        {/* Date header inside the card */}
-                        <div className={cn(
-                          "px-4 py-2 bg-muted/40",
-                          groupIdx > 0 && "border-t border-border/40"
-                        )}>
-                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            {formatDateHeading(date)}
-                          </div>
+                <div className="-mx-4">
+                  {groupByDate(games).map(([date, list], groupIdx) => (
+                    <React.Fragment key={date}>
+                      {/* Date header */}
+                      <div className={cn(
+                        "px-4 py-2 bg-muted/40",
+                        groupIdx > 0 && "border-t border-border/40"
+                      )}>
+                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          {formatDateHeading(date)}
                         </div>
+                      </div>
 
-                        {list.map((g) => (
-                          <div key={g.id} className="border-t border-border/40">
-                            <MatchRow g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
-                          </div>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </CardContent>
-                </Card>
+                      {list.map((g) => (
+                        <div key={g.id} className="border-t border-border/40">
+                          <MatchRow g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
+                        </div>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </div>
               )}
             </TabsContent>
 

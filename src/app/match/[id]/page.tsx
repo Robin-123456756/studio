@@ -328,7 +328,7 @@ export default function MatchPage() {
             {/* Goals */}
             <EventSection
               title="Goals"
-              icon={<span className="text-sm">⚽</span>}
+              icon={null}
               homeItems={homeGoalScorers.map((e) => (
                 <div key={e.playerId} className="text-sm">
                   <span className="font-medium">{e.playerName}</span>
@@ -350,7 +350,7 @@ export default function MatchPage() {
             {/* Assists */}
             <EventSection
               title="Assists"
-              icon={<span className="text-sm">👟</span>}
+              icon={null}
               homeItems={homeAssists.map((e) => (
                 <div key={e.playerId + "-a"} className="text-sm text-muted-foreground">
                   {e.playerName}
@@ -431,10 +431,8 @@ export default function MatchPage() {
           <div className="grid grid-cols-1 gap-3">
             {/* Top Scorer */}
             {topScorer && (
-              <div className="relative rounded-2xl border bg-card overflow-hidden min-h-[100px]">
-                {/* Player photo background — add bg image via style prop or img tag */}
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent" />
-                <div className="relative p-4 flex items-center justify-between">
+              <div className="rounded-2xl border bg-card overflow-hidden min-h-[100px]">
+                <div className="p-4 flex items-center justify-between">
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
                       Top Scorer
@@ -451,7 +449,7 @@ export default function MatchPage() {
                     )}
                   </div>
                   <div className="text-4xl font-extrabold text-emerald-500/20 font-mono tabular-nums">
-                    ⚽
+                    {(topScorer?.goals ?? 0)}
                   </div>
                 </div>
               </div>
@@ -459,9 +457,8 @@ export default function MatchPage() {
 
             {/* Top Assist */}
             {topAssist && (
-              <div className="relative rounded-2xl border bg-card overflow-hidden min-h-[100px]">
-                <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-transparent" />
-                <div className="relative p-4 flex items-center justify-between">
+              <div className="rounded-2xl border bg-card overflow-hidden min-h-[100px]">
+                <div className="p-4 flex items-center justify-between">
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-violet-600 dark:text-violet-400 font-semibold mb-1">
                       Top Assists
@@ -477,7 +474,7 @@ export default function MatchPage() {
                     )}
                   </div>
                   <div className="text-4xl font-extrabold text-violet-500/20 font-mono tabular-nums">
-                    👟
+                    {(topAssist?.assists ?? 0)}
                   </div>
                 </div>
               </div>
@@ -485,9 +482,8 @@ export default function MatchPage() {
 
             {/* Clean Sheet */}
             {(homeCleanSheet || awayCleanSheet) && (
-              <div className="relative rounded-2xl border bg-card overflow-hidden min-h-[100px]">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent" />
-                <div className="relative p-4 flex items-center justify-between">
+              <div className="rounded-2xl border bg-card overflow-hidden min-h-[100px]">
+                <div className="p-4 flex items-center justify-between">
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-semibold mb-1">
                       Clean Sheet
