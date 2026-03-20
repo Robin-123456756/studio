@@ -79,9 +79,30 @@ export async function GET() {
     }
   }
 
+  // Check which GWs have actual player_match_events (not just played matches).
+  // Dream team page needs this to avoid showing GWs with no scoring data.
+  let gwsWithEvents: Set<number> | null = null;
+
+  if (gwIds.length > 0 && gwsWithMatches && gwsWithMatches.size > 0) {
+    const gwsToCheck = [...gwsWithMatches];
+    const { data: matchesWithEvents, error: evtErr } = await supabase
+      .from("matches")
+      .select("gameweek_id, player_match_events!inner(id)")
+      .in("gameweek_id", gwsToCheck)
+      .or("is_played.eq.true,is_final.eq.true");
+
+    if (!evtErr && matchesWithEvents) {
+      gwsWithEvents = new Set<number>();
+      for (const m of matchesWithEvents as any[]) {
+        gwsWithEvents.add(m.gameweek_id);
+      }
+    }
+  }
+
   const enrichedGws = gws.map((g) => ({
     ...g,
     hasPlayedMatches: gwsWithMatches ? gwsWithMatches.has(g.id) : true,
+    hasEventData: gwsWithEvents ? gwsWithEvents.has(g.id) : (gwsWithMatches ? gwsWithMatches.has(g.id) : true),
   }));
 
   return NextResponse.json({

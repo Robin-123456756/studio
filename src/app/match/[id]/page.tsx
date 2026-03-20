@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -183,7 +182,6 @@ export default function MatchPage() {
   const hasEvents = homeEvents.length > 0 || awayEvents.length > 0;
 
   const isLive = match.is_played && !match.is_final;
-  const statusLabel = match.is_final ? "FT" : match.is_played ? "LIVE" : "Scheduled";
   const homeWin = match.is_played && (match.home_goals ?? 0) > (match.away_goals ?? 0);
   const awayWin = match.is_played && (match.away_goals ?? 0) > (match.home_goals ?? 0);
 

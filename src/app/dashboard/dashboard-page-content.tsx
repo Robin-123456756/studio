@@ -102,7 +102,7 @@ export default function DashboardPageContent() {
       </section>
 
       <section className={cn("opacity-0 animate-slide-up animate-stagger-2")} style={staggerStyle}>
-        <Link href="/dashboard/fantasy" className="block">
+        <Link href="/dashboard/fantasy" className="block" aria-label="Fantasy football — view your team, points, and league standings">
           <div className="rounded-2xl bg-gradient-to-br from-[#37003C] via-[#4a0050] to-[#1a0025] p-5 relative overflow-hidden">
             <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5 pointer-events-none" />
             <div className="absolute -right-4 -bottom-6 h-20 w-20 rounded-full bg-white/5 pointer-events-none" />

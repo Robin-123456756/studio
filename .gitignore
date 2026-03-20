@@ -71,5 +71,9 @@ supabase/.temp/
 # Dev screenshots (Playwright / debug artifacts)
 screenshot-*.png
 
+# Playwright output (reports, test results)
+/playwright-report/
+/test-results/
+
 # Local Playwright capture scripts (machine-specific)
 capture-*.cjs

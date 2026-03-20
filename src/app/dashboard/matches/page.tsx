@@ -809,29 +809,29 @@ function MatchesContent() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {groupByDate(games).map(([date, list]) => (
-                    <div key={date}>
-                      <div className="flex items-center gap-2 px-1 mb-2">
-                        <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          {formatDateHeading(date)}
+                <Card className="rounded-2xl overflow-hidden">
+                  <CardContent className="p-0">
+                    {groupByDate(games).map(([date, list], groupIdx) => (
+                      <React.Fragment key={date}>
+                        {/* Date header inside the card */}
+                        <div className={cn(
+                          "px-4 py-2 bg-muted/40",
+                          groupIdx > 0 && "border-t border-border/40"
+                        )}>
+                          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            {formatDateHeading(date)}
+                          </div>
                         </div>
-                        <div className="flex-1 h-px bg-border/40" />
-                      </div>
 
-                      {/* All matches inside one card — FPL style */}
-                      <Card className="rounded-2xl overflow-hidden">
-                        <CardContent className="p-0">
-                          {list.map((g, i) => (
-                            <div key={g.id} className={cn(i > 0 && "border-t border-border/40")}>
-                              <MatchRow g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  ))}
-                </div>
+                        {list.map((g) => (
+                          <div key={g.id} className="border-t border-border/40">
+                            <MatchRow g={g} onNavigate={(id) => router.push(`/match/${id}?gw=${gwId}`)} />
+                          </div>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </CardContent>
+                </Card>
               )}
             </TabsContent>
 

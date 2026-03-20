@@ -6,13 +6,11 @@ import { AppLoading } from "@/components/app-loading";
 type LaunchGateProps = {
   children: React.ReactNode;
   minDurationMs?: number;
-  message?: string;
 };
 
 export function LaunchGate({
   children,
-  minDurationMs = 8000,
-  message = "Loading your season...",
+  minDurationMs = 1500,
 }: LaunchGateProps) {
   const [ready, setReady] = React.useState(false);
 

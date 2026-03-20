@@ -18,6 +18,7 @@ type ApiGameweek = {
   id: number;
   name?: string | null;
   hasPlayedMatches?: boolean;
+  hasEventData?: boolean;
 };
 
 type DreamPlayer = {
@@ -45,118 +46,111 @@ function DreamPlayerCard({
 }) {
   const display = shortName(player.name, player.webName);
   const kitColor = getKitColor(player.teamShort);
-  const plateColor =
+  const isGK = normalizePosition(player.position) === "Goalkeeper";
+  const cardW = 60;
+  const sz = 42;
+
+  const pointsPlate =
     player.gwPoints >= 9
       ? "linear-gradient(180deg, #FFD700, #e6c200)"
       : player.gwPoints >= 5
         ? "linear-gradient(180deg, #059669, #047857)"
-        : player.gwPoints >= 2
-          ? "linear-gradient(180deg, #37003C, #2d0032)"
-          : "linear-gradient(180deg, #6b7280, #555)";
+        : "linear-gradient(180deg, #37003C, #2d0032)";
+
+  const pointsColor =
+    player.gwPoints >= 9 ? "#1a1a2e" : "#fff";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        width: 68,
-        position: "relative",
-      }}
-    >
-      {/* Star badge */}
+    <div className="relative" style={{ width: cardW }}>
+      {/* Star badge (top scorer) */}
       {isStar && (
-        <div
+        <span
           style={{
-            position: "absolute",
-            top: -4,
-            right: 4,
-            zIndex: 10,
+            position: "absolute", top: -6, left: -6, zIndex: 4,
             background: "linear-gradient(135deg, #FFD700, #FFA500)",
-            borderRadius: "50%",
-            width: 18,
-            height: 18,
-            display: "grid",
-            placeItems: "center",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+            color: "#000", fontSize: 10, fontWeight: 900,
+            width: 18, height: 18, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            border: "2px solid #fff",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
           }}
         >
-          <Star style={{ width: 10, height: 10, fill: "#fff", color: "#fff" }} />
-        </div>
+          <Star style={{ width: 10, height: 10, fill: "#000", color: "#000" }} />
+        </span>
       )}
 
       {/* Lady badge */}
       {player.isLady && (
-        <div
+        <span
           style={{
-            position: "absolute",
-            top: -4,
-            left: 4,
-            zIndex: 10,
-            background: "#ec4899",
-            borderRadius: "50%",
-            width: 14,
-            height: 14,
+            position: "absolute", top: -6, right: -6, zIndex: 4,
+            background: "linear-gradient(135deg, #FF69B4, #FF1493)",
+            color: "#fff", fontSize: 11,
+            width: 18, height: 18, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
             border: "2px solid #fff",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
           }}
-        />
+        >★</span>
       )}
 
-      {/* Kit */}
-      <div style={{ width: 38, height: 32, overflow: "hidden" }}>
-        <Kit color={kitColor} />
-      </div>
-
-      {/* Name */}
+      {/* Card body */}
       <div
+        className="flex flex-col items-center"
         style={{
-          background: "#fff",
-          borderRadius: "4px 4px 0 0",
-          padding: "1px 4px",
-          fontSize: 9,
-          fontWeight: 700,
-          color: "#1a1a2e",
-          textAlign: "center",
-          width: "100%",
-          whiteSpace: "nowrap",
+          width: cardW,
+          borderRadius: 8,
           overflow: "hidden",
-          textOverflow: "ellipsis",
-          lineHeight: 1.3,
-          marginTop: -2,
-          position: "relative",
-          zIndex: 2,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
         }}
       >
-        {display}
-      </div>
+        {/* Kit section */}
+        <div
+          style={{
+            background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(100,100,100,0.22) 100%)",
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "3px 6px 0",
+            backdropFilter: "blur(2px)",
+          }}
+        >
+          <Kit color={kitColor} isGK={isGK} size={sz} />
+        </div>
 
-      {/* Points plate */}
-      <div
-        style={{
-          background: plateColor,
-          borderRadius: "0 0 4px 4px",
-          padding: "1px 4px",
-          fontSize: 10,
-          fontWeight: 800,
-          color: "#fff",
-          textAlign: "center",
-          width: "100%",
-          lineHeight: 1.3,
-        }}
-      >
-        {player.gwPoints}
-      </div>
+        {/* Name plate */}
+        <div
+          style={{
+            background: "#f5e6c8",
+            color: "#1a1a2e",
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "2px 4px",
+            textAlign: "center",
+            width: "100%",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {display}
+        </div>
 
-      {/* Team */}
-      <div
-        style={{
-          fontSize: 8,
-          fontWeight: 600,
-          color: "rgba(255,255,255,0.7)",
-          marginTop: 1,
-        }}
-      >
-        {player.teamShort}
+        {/* Points plate */}
+        <div
+          style={{
+            background: pointsPlate,
+            color: pointsColor,
+            fontSize: 10,
+            fontWeight: 800,
+            padding: "2px 4px",
+            textAlign: "center",
+            width: "100%",
+          }}
+        >
+          {player.gwPoints} pts
+        </div>
       </div>
     </div>
   );
@@ -183,11 +177,11 @@ function DreamTeamContent() {
         const allGws: ApiGameweek[] = (json.all ?? []).sort(
           (a: ApiGameweek, b: ApiGameweek) => a.id - b.id
         );
-        // Only show GWs that have at least one played match
-        const gws = allGws.filter((g) => g.hasPlayedMatches);
+        // Only show GWs that have actual player event data (scoring data entered)
+        const gws = allGws.filter((g) => g.hasEventData);
         setAllGWs(gws);
 
-        // If no GWs have played matches yet, clear loading for empty state
+        // If no GWs have event data yet, clear loading for empty state
         if (gws.length === 0) {
           setSelectedGwId(null);
           setLoading(false);

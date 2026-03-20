@@ -75,11 +75,11 @@ export function useTransfers(gwId: number | null): UseTransfersResult {
 
       // Map server transfers to TransferLogItem format
       const items: TransferLogItem[] = (json.transfers ?? []).map(
-        (t: { player_out_id: string; player_in_id: string; created_at: string }) => ({
+        (t: { out_player_id: string; in_player_id: string; created_at: string }) => ({
           gwId,
           ts: t.created_at,
-          outId: t.player_out_id,
-          inId: t.player_in_id,
+          outId: t.out_player_id,
+          inId: t.in_player_id,
         }),
       );
       setTransfersThisGW(items);

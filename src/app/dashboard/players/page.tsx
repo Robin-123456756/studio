@@ -163,6 +163,7 @@ export default function PlayersPage() {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortKey)}
+          aria-label="Sort players by"
           className="rounded-xl border bg-card px-3 py-1.5 text-xs font-semibold outline-none ring-ring focus:ring-2"
         >
           {SORT_OPTIONS.map((o) => (

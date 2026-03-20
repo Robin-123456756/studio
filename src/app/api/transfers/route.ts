@@ -105,7 +105,7 @@ export async function GET(req: Request) {
   // Also fetch the transfer log for this GW
   const { data: transfers } = await admin
     .from("user_transfers")
-    .select("id, player_out_id, player_in_id, created_at")
+    .select("id, out_player_id, in_player_id, created_at")
     .eq("user_id", userId)
     .eq("gameweek_id", gwId)
     .order("created_at", { ascending: false });
@@ -188,8 +188,8 @@ export async function POST(req: Request) {
     .insert({
       user_id: userId,
       gameweek_id: gameweekId,
-      player_out_id: playerOutId,
-      player_in_id: playerInId,
+      out_player_id: playerOutId,
+      in_player_id: playerInId,
     });
 
   if (transferErr) {

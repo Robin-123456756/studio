@@ -23,7 +23,7 @@ export async function GET() {
   // 1. Fetch all transfers for this user (newest first)
   const { data: transfers, error: transferErr } = await admin
     .from("user_transfers")
-    .select("id, player_out_id, player_in_id, gameweek_id, created_at")
+    .select("id, out_player_id, in_player_id, gameweek_id, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -38,8 +38,8 @@ export async function GET() {
   // 2. Batch-join with players to enrich with names, positions, team shorts, prices
   const playerIds = new Set<string>();
   for (const t of transfers ?? []) {
-    if (t.player_out_id) playerIds.add(t.player_out_id);
-    if (t.player_in_id) playerIds.add(t.player_in_id);
+    if (t.out_player_id) playerIds.add(t.out_player_id);
+    if (t.in_player_id) playerIds.add(t.in_player_id);
   }
 
   const playerMap = new Map<
@@ -68,13 +68,13 @@ export async function GET() {
 
   // Build enriched transfer list
   const enrichedTransfers = (transfers ?? []).map((t) => {
-    const pOut = playerMap.get(t.player_out_id);
-    const pIn = playerMap.get(t.player_in_id);
+    const pOut = playerMap.get(t.out_player_id);
+    const pIn = playerMap.get(t.in_player_id);
     return {
       gwId: t.gameweek_id,
       ts: t.created_at,
-      outId: t.player_out_id,
-      inId: t.player_in_id,
+      outId: t.out_player_id,
+      inId: t.in_player_id,
       outName: pOut?.name ?? null,
       inName: pIn?.name ?? null,
       outTeamShort: pOut?.teamShort ?? null,

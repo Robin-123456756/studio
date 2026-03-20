@@ -33,7 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ userId:
         : Promise.resolve({ data: [] }),
       supabase
         .from("user_transfers")
-        .select("gameweek_id, player_out_id, player_in_id, created_at")
+        .select("gameweek_id, out_player_id, in_player_id, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(30),

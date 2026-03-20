@@ -30,8 +30,8 @@ interface RosterEntry {
 
 interface Transfer {
   gameweek_id: number;
-  player_out_id: string;
-  player_in_id: string;
+  out_player_id: string;
+  in_player_id: string;
   created_at: string;
 }
 
@@ -351,8 +351,8 @@ export default function AdminUsersPage() {
                                     {detail.transfers.map((t, i) => (
                                       <tr key={i} style={{ borderBottom: `1px solid ${BORDER}22` }}>
                                         <td style={{ padding: "6px 8px", color: TEXT_SECONDARY }}>GW {t.gameweek_id}</td>
-                                        <td style={{ padding: "6px 8px", color: ERROR, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{t.player_out_id.slice(0, 8)}...</td>
-                                        <td style={{ padding: "6px 8px", color: SUCCESS, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{t.player_in_id.slice(0, 8)}...</td>
+                                        <td style={{ padding: "6px 8px", color: ERROR, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{t.out_player_id.slice(0, 8)}...</td>
+                                        <td style={{ padding: "6px 8px", color: SUCCESS, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{t.in_player_id.slice(0, 8)}...</td>
                                         <td style={{ padding: "6px 8px", textAlign: "right", color: TEXT_MUTED }}>{new Date(t.created_at).toLocaleDateString()}</td>
                                       </tr>
                                     ))}

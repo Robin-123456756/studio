@@ -20,7 +20,7 @@ export default function RootLayout({
       <head>
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
         <link rel="manifest" href="/manifest.json" />
         {/* favicon.ico served automatically by Next.js from src/app/favicon.ico */}
@@ -32,7 +32,7 @@ export default function RootLayout({
         <meta
           name="theme-color"
           media="(prefers-color-scheme: dark)"
-          content="#0D5C63"
+          content="#FFFFFF"
         />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
