@@ -77,3 +77,11 @@ screenshot-*.png
 
 # Local Playwright capture scripts (machine-specific)
 capture-*.cjs
+
+# Claude Code plugins & skills (local tooling, not app code)
+my-custom-plugin/
+skills/
+
+# Backup/intermediate logo files (not used by the app)
+public/tbl-logo-original.png
+public/tbl-logo-transparent.png
