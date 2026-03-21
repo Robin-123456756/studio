@@ -177,9 +177,9 @@ export default function JoinLeagueRoute() {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      setAuthed(!!data.user);
+      setAuthed(!!data.session?.user);
       setChecking(false);
     })();
 

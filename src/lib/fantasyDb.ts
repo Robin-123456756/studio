@@ -58,7 +58,7 @@ export async function updateRosterInDb() {
 }
 
 export async function loadRosterFromDb(gwId: number) {
-  const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store" });
+  const res = await fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store", credentials: "same-origin" });
   const json = await res.json();
   if (!res.ok) throw new Error(json?.error || "Failed to load roster");
 

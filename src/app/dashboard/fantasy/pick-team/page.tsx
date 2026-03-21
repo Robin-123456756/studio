@@ -745,7 +745,13 @@ export default function PickTeamPage() {
     // Active chip is session-only (not yet saved)
     try {
       const saved = localStorage.getItem(LS_ACTIVE_CHIP);
-      if (saved) setActiveChip(saved as ChipKey);
+      const validChips: ChipKey[] = ["bench_boost", "triple_captain", "wildcard", "free_hit"];
+      if (saved && validChips.includes(saved as ChipKey)) {
+        setActiveChip(saved as ChipKey);
+      } else if (saved) {
+        // Corrupted value — clean it up
+        localStorage.removeItem(LS_ACTIVE_CHIP);
+      }
     } catch { /* ignore */ }
 
     // Used chips from server
@@ -934,8 +940,8 @@ export default function PickTeamPage() {
   // auth state
   // ----------------------------
   React.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setAuthed(!!data.user);
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthed(!!data.session?.user);
       setAuthChecking(false);
     });
 
@@ -1179,6 +1185,7 @@ export default function PickTeamPage() {
         setDbLoaded(true);
     } catch (e: any) {
       console.error("DB roster load failed:", e?.message ?? e);
+      showMsg("Failed to load your saved team. Check your connection and refresh.", "error", 8000);
       setDbLoaded(true);
     }
     })();
@@ -1304,7 +1311,7 @@ export default function PickTeamPage() {
   // Client-side deadline check — re-evaluates every 30s
   const [now, setNow] = React.useState(Date.now());
   React.useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
+    const id = setInterval(() => setNow(Date.now()), 10_000);
     return () => clearInterval(id);
   }, []);
   const deadlinePassed = React.useMemo(() => {
@@ -1937,9 +1944,9 @@ export default function PickTeamPage() {
     if (captainId) localStorage.setItem(LS_CAPTAIN, captainId);
     if (viceId) localStorage.setItem(LS_VICE, viceId);
 
-    // DB save — refresh session first so server cookies are current
-    const { data: { user: freshUser } } = await supabase.auth.getUser();
-    if (!freshUser) {
+    // DB save — check session from local cache (no network call on flaky connections)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
       setAuthed(false);
       return setMsg("Sign in to save your team.");
     }
@@ -1990,6 +1997,18 @@ export default function PickTeamPage() {
         ? "Max 3 players from the same team are allowed in your full squad."
         : raw.includes("Not signed in")
         ? "Sign in to save your team."
+        : raw.includes("Deadline has passed")
+        ? "The deadline has passed — changes can no longer be saved."
+        : raw.includes("Gameweek is finished")
+        ? "This gameweek is finished — picks are locked."
+        : raw.includes("exceeds budget")
+        ? "Your squad is over budget. Remove a premium player to save."
+        : raw.includes("Invalid player")
+        ? "One or more players in your squad are no longer available. Please refresh and try again."
+        : raw.includes("already been used")
+        ? raw
+        : raw.includes("Too many requests")
+        ? "You're saving too fast — wait a moment and try again."
         : raw || "Could not save. Try again.";
       showMsg(friendly, "error", 5000);
     } finally {
@@ -2808,7 +2827,7 @@ export default function PickTeamPage() {
         {hasUnsavedChanges ? (
           <button
             onClick={save}
-            disabled={loading || saving || deadlinePassed}
+            disabled={loading || saving || deadlinePassed || rosterStillLoading || gwLoading}
             className={cn(
               "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50",
               deadlinePassed
