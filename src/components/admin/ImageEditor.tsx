@@ -20,13 +20,15 @@ type Props = {
   file: File;
   onDone: (editedBlob: Blob, previewUrl: string) => void;
   onCancel: () => void;
+  /** Pre-lock crop to this aspect ratio (from CanvasSizePicker) */
+  defaultAspect?: number;
+  /** Target export width in px (from CanvasSizePicker) */
+  targetWidth?: number;
+  /** Target export height in px (from CanvasSizePicker) */
+  targetHeight?: number;
 };
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
-
-function clamp(v: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, v));
-}
 
 /** Apply brightness/contrast/saturation via CSS filter string */
 function filterString(b: number, c: number, s: number) {
@@ -35,7 +37,7 @@ function filterString(b: number, c: number, s: number) {
 
 /* ── Component ─────────────────────────────────────────────────────────── */
 
-export default function ImageEditor({ file, onDone, onCancel }: Props) {
+export default function ImageEditor({ file, onDone, onCancel, defaultAspect, targetWidth, targetHeight }: Props) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imgSrc, setImgSrc] = useState("");
@@ -43,7 +45,7 @@ export default function ImageEditor({ file, onDone, onCancel }: Props) {
   // Crop state
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const [aspect, setAspect] = useState<number | undefined>(undefined);
+  const [aspect, setAspect] = useState<number | undefined>(defaultAspect);
 
   // Adjustments
   const [brightness, setBrightness] = useState(100);
@@ -58,6 +60,13 @@ export default function ImageEditor({ file, onDone, onCancel }: Props) {
   // Tab
   const [tab, setTab] = useState<"crop" | "adjust" | "rotate">("crop");
   const [processing, setProcessing] = useState(false);
+
+  // Sync aspect when defaultAspect prop changes (canvas size picker)
+  useEffect(() => {
+    setAspect(defaultAspect);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  }, [defaultAspect]);
 
   // Load file
   useEffect(() => {
@@ -97,8 +106,14 @@ export default function ImageEditor({ file, onDone, onCancel }: Props) {
 
     // Account for rotation in output dimensions
     const rotated = rotation % 180 !== 0;
-    const outW = rotated ? sh : sw;
-    const outH = rotated ? sw : sh;
+    let outW = rotated ? sh : sw;
+    let outH = rotated ? sw : sh;
+
+    // If a target canvas size was specified, resize the output to match
+    if (targetWidth && targetHeight) {
+      outW = targetWidth;
+      outH = targetHeight;
+    }
 
     canvas.width = outW;
     canvas.height = outH;
@@ -106,11 +121,15 @@ export default function ImageEditor({ file, onDone, onCancel }: Props) {
     ctx.clearRect(0, 0, outW, outH);
     ctx.filter = filterString(brightness, contrast, saturation);
 
+    // Draw dimensions: when resizing to target, scale to fill canvas
+    const drawW = (targetWidth && targetHeight) ? (rotated ? outH : outW) : sw;
+    const drawH = (targetWidth && targetHeight) ? (rotated ? outW : outH) : sh;
+
     ctx.save();
     ctx.translate(outW / 2, outH / 2);
     ctx.rotate((rotation * Math.PI) / 180);
     ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-    ctx.drawImage(img, sx, sy, sw, sh, -sw / 2, -sh / 2, sw, sh);
+    ctx.drawImage(img, sx, sy, sw, sh, -drawW / 2, -drawH / 2, drawW, drawH);
     ctx.restore();
 
     return new Promise((resolve, reject) => {

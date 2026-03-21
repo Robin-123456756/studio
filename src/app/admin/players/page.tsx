@@ -74,6 +74,7 @@ export default function AdminPlayersPage() {
   const [filterPos, setFilterPos] = useState<string>("ALL");
   const [filterTeam, setFilterTeam] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [filterNoPhoto, setFilterNoPhoto] = useState(false);
 
   // Editing
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -152,6 +153,7 @@ export default function AdminPlayersPage() {
     if (filterPos !== "ALL" && p.position !== filterPos) return false;
     if (filterTeam !== "ALL" && p.teamId !== filterTeam) return false;
     if (filterStatus !== "ALL" && (p.status || "available") !== filterStatus) return false;
+    if (filterNoPhoto && p.avatarUrl) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchesName = (p.fullName || p.name || "").toLowerCase().includes(q);
@@ -163,8 +165,10 @@ export default function AdminPlayersPage() {
 
   // Counts per position
   const posCounts = { ALL: players.length, GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  let noPhotoCount = 0;
   for (const p of players) {
     if (p.position in posCounts) posCounts[p.position as keyof typeof posCounts]++;
+    if (!p.avatarUrl) noPhotoCount++;
   }
 
   // --- Add Player ---
@@ -498,6 +502,31 @@ export default function AdminPlayersPage() {
           })}
         </div>
 
+        {/* No Photo filter */}
+        {noPhotoCount > 0 && (
+          <button
+            onClick={() => setFilterNoPhoto(!filterNoPhoto)}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: filterNoPhoto ? `${WARNING}20` : BG_CARD,
+              border: `1px solid ${filterNoPhoto ? WARNING + "60" : BORDER}`,
+              borderRadius: 8,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              color: filterNoPhoto ? WARNING : TEXT_SECONDARY,
+              fontSize: 12,
+              fontWeight: 600,
+              marginBottom: 12,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ fontSize: 14 }}>📷</span>
+            {filterNoPhoto ? `Showing ${noPhotoCount} without photo` : `${noPhotoCount} missing photos`}
+          </button>
+        )}
+
         {/* Search + Team Filter + Status Filter */}
         <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
           <input
@@ -657,32 +686,73 @@ export default function AdminPlayersPage() {
                         </select>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={!!editData.isLady}
-                          onChange={(e) => setEditData({ ...editData, isLady: e.target.checked })}
-                          style={{ width: 16, height: 16, accentColor: "#EC4899" }}
-                        />
-                        <span style={{ fontSize: 12, color: TEXT_SECONDARY }}>Lady Player</span>
-                      </label>
+                    {/* Lady toggle */}
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", marginBottom: 12 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!editData.isLady}
+                        onChange={(e) => setEditData({ ...editData, isLady: e.target.checked })}
+                        style={{ width: 16, height: 16, accentColor: "#EC4899" }}
+                      />
+                      <span style={{ fontSize: 12, color: TEXT_SECONDARY }}>Lady Player</span>
+                    </label>
 
-                      {/* Avatar Upload */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-                        {p.avatarUrl && (
+                    {/* Player Photo Section */}
+                    <div style={{
+                      border: `1px dashed ${p.avatarUrl ? ACCENT + "40" : WARNING + "50"}`,
+                      borderRadius: 10,
+                      padding: 14,
+                      marginBottom: 12,
+                      backgroundColor: `${BG_SURFACE}`,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 14,
+                    }}>
+                      {/* Photo preview */}
+                      <div style={{
+                        width: 64, height: 64, borderRadius: "50%",
+                        overflow: "hidden", flexShrink: 0,
+                        backgroundColor: `${POS_COLORS[p.position] || TEXT_MUTED}20`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: p.avatarUrl ? `2px solid ${ACCENT}50` : `2px dashed ${BORDER}`,
+                      }}>
+                        {p.avatarUrl ? (
                           <img
                             src={p.avatarUrl}
                             alt=""
-                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", border: `1px solid ${BORDER}` }}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
                           />
+                        ) : (
+                          <span style={{ fontSize: 22, fontWeight: 700, color: TEXT_MUTED }}>
+                            {(p.fullName || p.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                          </span>
                         )}
+                      </div>
+
+                      {/* Upload controls */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 4 }}>
+                          Player Photo
+                        </div>
+                        <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 8 }}>
+                          {p.avatarUrl ? "Tap to replace current photo" : "No photo yet — upload one"}
+                        </div>
                         <label style={{
-                          ...btnSmall,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "7px 14px",
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
                           cursor: uploading ? "wait" : "pointer",
-                          opacity: uploading ? 0.5 : 1,
+                          opacity: uploading ? 0.6 : 1,
+                          color: p.avatarUrl ? TEXT_PRIMARY : "#fff",
+                          backgroundColor: p.avatarUrl ? BG_CARD : ACCENT,
+                          border: `1px solid ${p.avatarUrl ? BORDER : ACCENT}`,
+                          fontFamily: "inherit",
                         }}>
-                          {uploading ? "Uploading..." : "Upload Photo"}
+                          {uploading ? "Uploading..." : p.avatarUrl ? "Change Photo" : "Upload Photo"}
                           <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
@@ -711,16 +781,16 @@ export default function AdminPlayersPage() {
                             }}
                           />
                         </label>
+                        {uploadMsg && editingId === p.id && (
+                          <span style={{
+                            marginLeft: 8, fontSize: 11, fontWeight: 500,
+                            color: uploadMsg.type === "ok" ? SUCCESS : ERROR,
+                          }}>
+                            {uploadMsg.text}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    {uploadMsg && editingId === p.id && (
-                      <div style={{
-                        marginBottom: 8, fontSize: 11, fontWeight: 500,
-                        color: uploadMsg.type === "ok" ? SUCCESS : ERROR,
-                      }}>
-                        {uploadMsg.text}
-                      </div>
-                    )}
                     <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={saveEdit} disabled={saving} style={btnGreen}>
                         {saving ? "Saving..." : "Save"}
@@ -769,8 +839,31 @@ export default function AdminPlayersPage() {
                     padding: "12px 16px",
                   }}
                 >
-                  {/* Top row: position badge + name + price */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  {/* Top row: avatar + position badge + name + price */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    {/* Player avatar */}
+                    <div style={{
+                      width: 36, height: 36, borderRadius: "50%",
+                      overflow: "hidden", flexShrink: 0,
+                      backgroundColor: `${POS_COLORS[p.position] || TEXT_MUTED}25`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      border: p.avatarUrl ? `2px solid ${POS_COLORS[p.position] || BORDER}40` : `2px dashed ${BORDER}`,
+                    }}>
+                      {p.avatarUrl ? (
+                        <img
+                          src={p.avatarUrl}
+                          alt=""
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <span style={{
+                          fontSize: 13, fontWeight: 700,
+                          color: POS_COLORS[p.position] || TEXT_MUTED,
+                        }}>
+                          {(p.fullName || p.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                     <span style={{
                       display: "inline-block",
                       padding: "2px 8px", borderRadius: 4,

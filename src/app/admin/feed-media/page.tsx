@@ -8,6 +8,9 @@ import dynamic from "next/dynamic";
 import type { LayoutType } from "@/components/admin/LayoutPicker";
 import type { GalleryImage } from "@/components/admin/GalleryUploader";
 import type { CardDesign } from "@/components/admin/CardDesigner";
+import type { CanvasSize } from "@/components/admin/CanvasSizePicker";
+import { CANVAS_SIZES } from "@/components/admin/CanvasSizePicker";
+import type { TemplateTypeId } from "@/components/templates/shared";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -30,12 +33,12 @@ import {
 // lucide icons
 import {
   ArrowLeft, Plus, Search, LayoutGrid, List, Upload, Image as ImageIcon,
-  Video, Eye, EyeOff, Pin, PinOff, Calendar, Clock, Hash,
+  Video, Eye, EyeOff, Pin, Calendar, Clock, Hash,
   Pencil, Trash2, RotateCcw, X, GripVertical, FileText,
   CloudUpload, Sparkles, Wand2, Brain, BookOpen, CheckCircle2,
   AlertTriangle, Loader2, ChevronDown, ChevronUp, Clipboard,
   Gauge, Lightbulb, Megaphone, Copy, Maximize2, Minimize2, Square,
-  Paintbrush,
+  Paintbrush, LayoutTemplate,
 } from "lucide-react";
 
 // Dynamic imports to keep initial bundle small
@@ -47,6 +50,9 @@ const GalleryUploader = dynamic(() => import("@/components/admin/GalleryUploader
 const FeedPreview = dynamic(() => import("@/components/admin/FeedPreview"), { ssr: false });
 const ContentCalendar = dynamic(() => import("@/components/admin/ContentCalendar"), { ssr: false });
 const CardDesigner = dynamic(() => import("@/components/admin/CardDesigner"), { ssr: false });
+const CanvasSizePicker = dynamic(() => import("@/components/admin/CanvasSizePicker"), { ssr: false });
+const TemplatePicker = dynamic(() => import("@/components/templates/TemplatePicker"), { ssr: false });
+const TemplatePreview = dynamic(() => import("@/components/templates/TemplatePreview"), { ssr: false });
 
 /* ── Constants ────────────────────────────────────────────────────────── */
 
@@ -121,6 +127,8 @@ export default function FeedMediaPage() {
   const [sendPush, setSendPush] = useState(false);
   const [publishAt, setPublishAt] = useState("");
   const [displaySize, setDisplaySize] = useState<DisplaySize>("standard");
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>(CANVAS_SIZES[0]); // "free" default
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateTypeId | null>(null);
   const [cardDesign, setCardDesign] = useState<CardDesign>({
     filters: { brightness: 100, contrast: 100, saturation: 100 },
     filterPreset: "original",
@@ -615,6 +623,8 @@ export default function FeedMediaPage() {
     setSeriesId("");
     setSeriesOrder("");
     setDisplaySize("standard");
+    setCanvasSize(CANVAS_SIZES[0]);
+    setSelectedTemplate(null);
     setCardDesign({
       filters: { brightness: 100, contrast: 100, saturation: 100 },
       filterPreset: "original",
@@ -783,7 +793,8 @@ export default function FeedMediaPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editorOpen, uploading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorOpen, uploading, hasUnsavedChanges]);
 
   /* ── Filtering ─────────────────────────────────────────────────────── */
 
@@ -1116,6 +1127,10 @@ export default function FeedMediaPage() {
                   <TabsTrigger value="preview" className="flex-1 gap-1.5">
                     <Eye className="h-3.5 w-3.5" />
                     Preview
+                  </TabsTrigger>
+                  <TabsTrigger value="templates" className="flex-1 gap-1.5">
+                    <LayoutTemplate className="h-3.5 w-3.5" />
+                    Templates
                   </TabsTrigger>
                 </TabsList>
 
@@ -1732,6 +1747,20 @@ export default function FeedMediaPage() {
                     </p>
                   </div>
 
+                  {/* Canvas size picker */}
+                  {layout !== "quick" && (
+                    <CanvasSizePicker
+                      selected={canvasSize.id}
+                      onChange={(size) => {
+                        setCanvasSize(size);
+                        // Re-open image editor if an image is already loaded so crop updates
+                        if (imageFile && size.aspect !== canvasSize.aspect) {
+                          setShowImageEditor(true);
+                        }
+                      }}
+                    />
+                  )}
+
                   {/* Hidden file inputs */}
                   <input
                     ref={imageRef}
@@ -1774,6 +1803,9 @@ export default function FeedMediaPage() {
                         <div className="mt-2">
                           <ImageEditor
                             file={imageFile}
+                            defaultAspect={canvasSize.aspect}
+                            targetWidth={canvasSize.width}
+                            targetHeight={canvasSize.height}
                             onDone={(blob, url) => {
                               setEditedImageBlob(blob);
                               setImagePreview(url);
@@ -1921,6 +1953,30 @@ export default function FeedMediaPage() {
                     videoPreview={videoPreview}
                     galleryPreviews={galleryImages.map((g) => g.preview)}
                   />
+                </TabsContent>
+
+                {/* ── TEMPLATES TAB ────────────────────────────────────── */}
+                <TabsContent value="templates" className="space-y-5">
+                  <div className="text-center text-xs text-muted-foreground mb-2 bg-muted/30 rounded-lg py-2">
+                    Auto-populated sports graphics — pick a template, select data, export or use in post
+                  </div>
+
+                  <TemplatePicker
+                    selected={selectedTemplate}
+                    onChange={setSelectedTemplate}
+                  />
+
+                  {selectedTemplate && (
+                    <TemplatePreview
+                      templateType={selectedTemplate}
+                      onUseInPost={(blob, previewUrl) => {
+                        // Load the exported template image into the post editor
+                        setEditedImageBlob(blob);
+                        setImagePreview(previewUrl);
+                        setEditorTab("compose");
+                      }}
+                    />
+                  )}
                 </TabsContent>
               </Tabs>
 
