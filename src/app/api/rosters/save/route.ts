@@ -293,7 +293,7 @@ export async function POST(req: Request) {
   const { error: rpcErr } = await admin.rpc("save_user_roster", {
     p_user_id: userId,
     p_gameweek_id: Number(gameweekId),
-    p_rows: JSON.stringify(rows),
+    p_rows: rows,
   });
 
   if (rpcErr) {
