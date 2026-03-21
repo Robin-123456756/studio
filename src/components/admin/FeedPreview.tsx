@@ -66,7 +66,7 @@ export default function FeedPreview({
   const displayBody = typeof window !== "undefined" ? DOMPurify.sanitize(rawBody) : rawBody;
 
   const containerStyle: React.CSSProperties = {
-    borderRadius: 16,
+    borderRadius: "1.2rem",
     overflow: "hidden",
     background: CARD_BG,
     maxWidth: 380,
@@ -78,7 +78,7 @@ export default function FeedPreview({
   if (layout === "hero") {
     return (
       <div style={containerStyle}>
-        <div style={{ position: "relative", minHeight: 180 }}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>
           {mediaUrl ? (
             videoPreview ? (
               <video
@@ -87,27 +87,26 @@ export default function FeedPreview({
                 loop
                 autoPlay
                 playsInline
-                style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
             ) : (
-              <img src={mediaUrl} alt="" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+              <img src={mediaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             )
           ) : (
-            <div style={{ width: "100%", height: 200, background: "#374151", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", inset: 0, background: "#374151", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: TEXT_S, fontSize: 13 }}>Image preview</span>
             </div>
           )}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%)" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16 }}>
-            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-              <PreviewPill category={category} />
-            </div>
-            <div style={{ color: TEXT_W, fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>{displayTitle}</div>
-            <div
-              style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 4, lineHeight: 1.4 }}
-              dangerouslySetInnerHTML={{ __html: displayBody }}
-            />
+        </div>
+        <div style={{ padding: 16 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <PreviewPill category={category} />
           </div>
+          <div style={{ color: TEXT_W, fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>{displayTitle}</div>
+          <div
+            style={{ color: TEXT_S, fontSize: 12, marginTop: 6, lineHeight: 1.4 }}
+            dangerouslySetInnerHTML={{ __html: displayBody }}
+          />
         </div>
       </div>
     );
@@ -117,20 +116,20 @@ export default function FeedPreview({
   if (layout === "split") {
     return (
       <div style={{ ...containerStyle, display: "flex" }}>
-        <div style={{ width: "45%", flexShrink: 0 }}>
+        <div style={{ width: "40%", flexShrink: 0, position: "relative", aspectRatio: "4/3" }}>
           {mediaUrl ? (
-            <img src={mediaUrl} alt="" style={{ width: "100%", height: "100%", minHeight: 150, objectFit: "cover", display: "block" }} />
+            <img src={mediaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           ) : (
-            <div style={{ width: "100%", height: 150, background: "#374151", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", inset: 0, background: "#374151", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: TEXT_S, fontSize: 11 }}>Image</span>
             </div>
           )}
         </div>
-        <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
           <PreviewPill category={category} />
-          <div style={{ color: TEXT_W, fontWeight: 700, fontSize: 14, marginTop: 6, lineHeight: 1.3 }}>{displayTitle}</div>
+          <div style={{ color: TEXT_W, fontWeight: 700, fontSize: 14, lineHeight: 1.3 }}>{displayTitle}</div>
           <div
-            style={{ color: TEXT_S, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}
+            style={{ color: TEXT_S, fontSize: 11, lineHeight: 1.5 }}
             dangerouslySetInnerHTML={{ __html: displayBody }}
           />
         </div>
@@ -151,7 +150,9 @@ export default function FeedPreview({
           />
         </div>
         {mediaUrl && (
-          <img src={mediaUrl} alt="" style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} />
+          <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>
+            <img src={mediaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </div>
         )}
       </div>
     );
@@ -169,8 +170,8 @@ export default function FeedPreview({
         {previews.length > 0 && (
           <div style={{ display: "flex", gap: 2, overflow: "hidden", padding: "0 2px 2px" }}>
             {previews.slice(0, 4).map((url, i) => (
-              <div key={i} style={{ flex: 1, position: "relative" }}>
-                <img src={url} alt="" style={{ width: "100%", height: 100, objectFit: "cover", display: "block", borderRadius: 4 }} />
+              <div key={i} style={{ flex: 1, position: "relative", aspectRatio: "4/3" }}>
+                <img src={url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 4 }} />
                 {i === 3 && previews.length > 4 && (
                   <div style={{
                     position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)",
@@ -201,7 +202,7 @@ export default function FeedPreview({
   if (layout === "video") {
     return (
       <div style={containerStyle}>
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: "16/9" }}>
           {videoPreview ? (
             <video
               src={videoPreview}
@@ -209,12 +210,12 @@ export default function FeedPreview({
               loop
               autoPlay
               playsInline
-              style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
           ) : mediaUrl ? (
-            <img src={mediaUrl} alt="" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+            <img src={mediaUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           ) : (
-            <div style={{ width: "100%", height: 200, background: "#374151", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", inset: 0, background: "#374151", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: TEXT_S, fontSize: 13 }}>Upload a video</span>
             </div>
           )}

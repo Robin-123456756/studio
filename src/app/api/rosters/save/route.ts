@@ -287,27 +287,18 @@ export async function POST(req: Request) {
     };
   });
 
-  // ── Upsert first, then clean stale rows (safe order — old roster preserved if upsert fails) ──
-  const { error: upsertErr } = await admin
-    .from("user_rosters")
-    .upsert(rows, { onConflict: "user_id,player_id,gameweek_id" });
+  // ── Atomic roster save via Postgres function ──
+  // Wraps flag-clear + upsert + stale-row-delete in a single transaction so
+  // a failed upsert can't leave the roster with cleared captain/vice flags.
+  const { error: rpcErr } = await admin.rpc("save_user_roster", {
+    p_user_id: userId,
+    p_gameweek_id: Number(gameweekId),
+    p_rows: JSON.stringify(rows),
+  });
 
-  if (upsertErr) {
-    console.error("UPSERT ERROR /api/rosters/save", upsertErr);
+  if (rpcErr) {
+    console.error("RPC ERROR /api/rosters/save", rpcErr);
     return NextResponse.json({ error: "Failed to save roster" }, { status: 500 });
-  }
-
-  // Remove any stale rows from a previous squad that aren't in the new one
-  const { error: cleanupErr } = await admin
-    .from("user_rosters")
-    .delete()
-    .eq("user_id", userId)
-    .eq("gameweek_id", Number(gameweekId))
-    .not("player_id", "in", `(${uniqueSquadIds.join(",")})`);
-
-  if (cleanupErr) {
-    // Non-fatal: user has their new squad + possibly some stale rows
-    console.error("CLEANUP WARNING /api/rosters/save", cleanupErr);
   }
 
   // ── Sync current_squads (persistent ownership table) ──

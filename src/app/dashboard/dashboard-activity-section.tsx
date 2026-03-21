@@ -50,9 +50,9 @@ export function DashboardActivitySection({
 
       {loading ? (
         <div className="space-y-3">
-          <div className="h-[180px] w-full rounded-2xl animate-pulse bg-muted" />
+          <div className="aspect-video w-full rounded-[1.2rem] animate-pulse bg-muted" />
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-16 w-full rounded-2xl animate-pulse bg-muted" />
+            <div key={index} className="h-16 w-full rounded-[1.2rem] animate-pulse bg-muted" />
           ))}
         </div>
       ) : (
@@ -65,35 +65,35 @@ export function DashboardActivitySection({
 
             return (
               <Link href={`/dashboard/feed/${pinned.id}`} className="block">
-                <div
-                  className="relative rounded-2xl overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all"
-                  style={{ minHeight: 180 }}
-                >
-                  {hasVideo ? (
-                    <video
-                      src={pinned.video_url ?? undefined}
-                      muted
-                      loop
-                      autoPlay
-                      playsInline
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : mediaUrl ? (
-                    <img src={mediaUrl} alt={pinned.title} className="absolute inset-0 w-full h-full object-cover" />
-                  ) : null}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="relative flex flex-col justify-end p-4" style={{ minHeight: 180 }}>
-                    <div className="flex items-center gap-2 mb-1">
+                <div className="rounded-[1.2rem] overflow-hidden bg-card shadow-[var(--shadow-1)] hover:ring-2 hover:ring-primary/30 transition-all">
+                  <div className="relative aspect-video w-full">
+                    {hasVideo ? (
+                      <video
+                        src={pinned.video_url ?? undefined}
+                        muted
+                        loop
+                        autoPlay
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : mediaUrl ? (
+                      <img src={mediaUrl} alt={pinned.title} className="absolute inset-0 w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-violet-600 to-purple-800" />
+                    )}
+                  </div>
+                  <div className="p-4 space-y-1.5">
+                    <div className="flex items-center gap-2">
                       <CategoryPill category={pinned.category} />
-                      <span className="text-[10px] text-white/50">{timeAgo(pinned.created_at)}</span>
+                      <span className="text-[10px] text-muted-foreground">{timeAgo(pinned.created_at)}</span>
                       {hasVideo && (
-                        <span className="text-[10px] text-white/50 bg-white/20 px-1.5 rounded">VIDEO</span>
+                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">VIDEO</span>
                       )}
                     </div>
-                    <div className="text-white font-bold text-[15px] leading-tight">{pinned.title}</div>
+                    <div className="font-bold text-base leading-tight">{pinned.title}</div>
                     {pinned.body && (
                       <div
-                        className="text-white/70 text-xs mt-1 line-clamp-2"
+                        className="text-muted-foreground text-xs line-clamp-2"
                         dangerouslySetInnerHTML={sanitizedHtml(pinned.body)}
                       />
                     )}
@@ -107,7 +107,7 @@ export function DashboardActivitySection({
             <Link
               key={match.id}
               href={`/match/${match.id}`}
-              className="block rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
+              className="block rounded-[1.2rem] border bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
                 <CategoryPill category="result" />
@@ -170,7 +170,7 @@ export function DashboardActivitySection({
           {transfers.slice(0, 3).map((transfer, index) => (
             <div
               key={`tx-${transfer.id ?? index}`}
-              className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-1)]"
+              className="flex items-center gap-3 rounded-[1.2rem] border bg-card px-4 py-3 shadow-[var(--shadow-1)]"
             >
               <Repeat2 className="h-4 w-4 text-purple-500 shrink-0" />
               <div className="min-w-0 flex-1">
@@ -207,37 +207,35 @@ export function DashboardActivitySection({
                 const heroImg = item.video_url || thumbUrl;
                 return (
                   <Link key={`media-${item.id}`} href={`/dashboard/feed/${item.id}`} className="block">
-                    <div
-                      className="relative rounded-2xl overflow-hidden hover:ring-2 hover:ring-primary/30 transition-all"
-                      style={{ minHeight: 200 }}
-                    >
-                      {hasVideo ? (
-                        <video
-                          src={item.video_url ?? undefined}
-                          muted
-                          loop
-                          autoPlay
-                          playsInline
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                      ) : heroImg ? (
-                        <img src={heroImg} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-violet-600 to-purple-800" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                      <div className="relative flex flex-col justify-end p-4" style={{ minHeight: 200 }}>
-                        <div className="flex items-center gap-2 mb-1.5">
+                    <div className="rounded-[1.2rem] overflow-hidden bg-card shadow-[var(--shadow-1)] hover:ring-2 hover:ring-primary/30 transition-all">
+                      <div className="relative aspect-video w-full">
+                        {hasVideo ? (
+                          <video
+                            src={item.video_url ?? undefined}
+                            muted
+                            loop
+                            autoPlay
+                            playsInline
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : heroImg ? (
+                          <img src={heroImg} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-violet-600 to-purple-800" />
+                        )}
+                      </div>
+                      <div className="p-4 space-y-1.5">
+                        <div className="flex items-center gap-2">
                           <CategoryPill category={item.category} />
-                          <span className="text-[10px] text-white/50">{timeAgo(item.created_at)}</span>
+                          <span className="text-[10px] text-muted-foreground">{timeAgo(item.created_at)}</span>
                           {hasVideo && (
-                            <span className="text-[10px] text-white/50 bg-white/20 px-1.5 rounded">VIDEO</span>
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">VIDEO</span>
                           )}
                         </div>
-                        <div className="text-white font-bold text-lg leading-tight">{item.title}</div>
+                        <div className="font-bold text-lg leading-tight">{item.title}</div>
                         {item.body && (
                           <div
-                            className="text-white/70 text-xs mt-1.5 line-clamp-2"
+                            className="text-muted-foreground text-xs line-clamp-2"
                             dangerouslySetInnerHTML={sanitizedHtml(item.body)}
                           />
                         )}
@@ -250,7 +248,7 @@ export function DashboardActivitySection({
               if (isQuick) {
                 return (
                   <Link key={`media-${item.id}`} href={`/dashboard/feed/${item.id}`} className="block">
-                    <div className="rounded-2xl border-l-4 border-purple-500 bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                    <div className="rounded-[1.2rem] border-l-4 border-purple-500 bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
                       <div className="flex items-center gap-2 mb-1">
                         <CategoryPill category={item.category} />
                         <span className="text-[10px] text-muted-foreground">{timeAgo(item.created_at)}</span>
@@ -270,10 +268,10 @@ export function DashboardActivitySection({
               if (layout === "split") {
                 return (
                   <Link key={`media-${item.id}`} href={`/dashboard/feed/${item.id}`} className="block">
-                    <div className="flex rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                    <div className="flex rounded-[1.2rem] border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
                       {thumbUrl && (
-                        <div className="w-2/5 shrink-0 relative">
-                          <img src={thumbUrl} alt={item.title} className="w-full h-full min-h-[100px] object-cover" />
+                        <div className="w-2/5 shrink-0 relative aspect-[4/3]">
+                          <img src={thumbUrl} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
                           {hasVideo && (
                             <div className="absolute inset-0 flex items-center justify-center">
                               <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
@@ -283,15 +281,15 @@ export function DashboardActivitySection({
                           )}
                         </div>
                       )}
-                      <div className="flex-1 p-3 flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1 p-3 flex flex-col justify-center gap-1">
+                        <div className="flex items-center gap-2">
                           <CategoryPill category={item.category} />
                           <span className="text-[10px] text-muted-foreground">{timeAgo(item.created_at)}</span>
                         </div>
                         <div className="text-sm font-semibold leading-tight line-clamp-2">{item.title}</div>
                         {item.body && size !== "compact" && (
                           <div
-                            className="text-xs text-muted-foreground mt-1 line-clamp-2"
+                            className="text-xs text-muted-foreground line-clamp-2"
                             dangerouslySetInnerHTML={sanitizedHtml(item.body)}
                           />
                         )}
@@ -304,21 +302,25 @@ export function DashboardActivitySection({
               if (layout === "feature") {
                 return (
                   <Link key={`media-${item.id}`} href={`/dashboard/feed/${item.id}`} className="block">
-                    <div className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
-                      <div className="p-3 pb-2">
-                        <div className="flex items-center gap-2 mb-1">
+                    <div className="rounded-[1.2rem] border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                      <div className="p-4 pb-2 space-y-1">
+                        <div className="flex items-center gap-2">
                           <CategoryPill category={item.category} />
                           <span className="text-[10px] text-muted-foreground">{timeAgo(item.created_at)}</span>
                         </div>
                         <div className="text-base font-bold leading-tight">{item.title}</div>
                         {item.body && size !== "compact" && (
                           <div
-                            className="text-xs text-muted-foreground mt-1 line-clamp-2"
+                            className="text-xs text-muted-foreground line-clamp-2"
                             dangerouslySetInnerHTML={sanitizedHtml(item.body)}
                           />
                         )}
                       </div>
-                      {thumbUrl && <img src={thumbUrl} alt={item.title} className="w-full h-32 object-cover" />}
+                      {thumbUrl && (
+                        <div className="relative aspect-video w-full">
+                          <img src={thumbUrl} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
+                        </div>
+                      )}
                     </div>
                   </Link>
                 );
@@ -328,9 +330,9 @@ export function DashboardActivitySection({
                 const images = item.media_urls!;
                 return (
                   <Link key={`media-${item.id}`} href={`/dashboard/feed/${item.id}`} className="block">
-                    <div className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
-                      <div className="p-3 pb-2">
-                        <div className="flex items-center gap-2 mb-1">
+                    <div className="rounded-[1.2rem] border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                      <div className="p-4 pb-2 space-y-1">
+                        <div className="flex items-center gap-2">
                           <CategoryPill category={item.category} />
                           <span className="text-[10px] text-muted-foreground">{timeAgo(item.created_at)}</span>
                         </div>
@@ -338,8 +340,8 @@ export function DashboardActivitySection({
                       </div>
                       <div className="flex gap-0.5 px-0.5 pb-0.5">
                         {images.slice(0, 3).map((url, index) => (
-                          <div key={index} className="flex-1 relative">
-                            <img src={url} alt="" className="w-full h-20 object-cover" />
+                          <div key={index} className="flex-1 relative aspect-[4/3]">
+                            <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
                             {index === 2 && images.length > 3 && (
                               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                                 <span className="text-white font-bold text-sm">+{images.length - 3}</span>
@@ -353,35 +355,34 @@ export function DashboardActivitySection({
                 );
               }
 
-              const thumbSize = size === "compact" ? "h-14 w-14" : "h-20 w-20";
               return (
                 <Link key={`media-${item.id}`} href={`/dashboard/feed/${item.id}`} className="block">
-                  <div className="flex gap-3 rounded-2xl border bg-card p-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
+                  <div className="rounded-[1.2rem] border bg-card overflow-hidden shadow-[var(--shadow-1)] hover:bg-accent transition-colors">
                     {thumbUrl ? (
-                      <div className="relative shrink-0">
-                        <img src={thumbUrl} alt={item.title} className={cn(thumbSize, "rounded-xl object-cover")} />
+                      <div className="relative aspect-video w-full">
+                        <img src={thumbUrl} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
                         {hasVideo && (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-7 h-7 rounded-full bg-black/50 flex items-center justify-center">
-                              <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent ml-0.5" />
+                            <div className="w-9 h-9 rounded-full bg-black/50 flex items-center justify-center">
+                              <div className="w-0 h-0 border-l-[10px] border-l-white border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-0.5" />
                             </div>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className={cn(thumbSize, "rounded-xl bg-muted shrink-0 flex items-center justify-center")}>
-                        <span className="text-xs text-muted-foreground">No img</span>
+                      <div className="aspect-video w-full bg-muted flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">No image</span>
                       </div>
                     )}
-                    <div className="min-w-0 flex-1 flex flex-col justify-center">
-                      <div className="flex items-center gap-2 mb-1">
+                    <div className="p-4 space-y-1">
+                      <div className="flex items-center gap-2">
                         <CategoryPill category={item.category} />
                         <span className="text-[10px] text-muted-foreground">{timeAgo(item.created_at)}</span>
                       </div>
                       <div className="text-sm font-semibold leading-tight line-clamp-2">{item.title}</div>
                       {item.body && size !== "compact" && (
                         <div
-                          className="text-xs text-muted-foreground mt-0.5 line-clamp-1"
+                          className="text-xs text-muted-foreground line-clamp-2"
                           dangerouslySetInnerHTML={sanitizedHtml(item.body)}
                         />
                       )}
@@ -395,7 +396,7 @@ export function DashboardActivitySection({
             <Link
               href="/dashboard/fantasy"
               className={cn(
-                "flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors",
+                "flex items-center gap-3 rounded-[1.2rem] px-4 py-3 transition-colors",
                 deadlineCountdown.tone === "critical"
                   ? "bg-red-500/10 border border-red-500/20"
                   : deadlineCountdown.tone === "urgent"
@@ -426,7 +427,7 @@ export function DashboardActivitySection({
           {table.length > 0 && (
             <Link
               href="/dashboard/matches?tab=table"
-              className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
+              className="flex items-center gap-3 rounded-[1.2rem] border bg-card px-4 py-3 shadow-[var(--shadow-1)] hover:bg-accent transition-colors"
             >
               <Trophy className="h-5 w-5 text-amber-500 shrink-0" />
               <div className="min-w-0 flex-1">
@@ -443,7 +444,7 @@ export function DashboardActivitySection({
             transfers.length === 0 &&
             table.length === 0 &&
             feedMedia.length === 0 && (
-              <div className="rounded-2xl border bg-card py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-[1.2rem] border bg-card py-8 text-center text-sm text-muted-foreground">
                 No updates yet - check back once matches begin.
               </div>
             )}

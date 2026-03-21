@@ -10,8 +10,9 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 const mockAdminFrom = vi.fn();
+const mockAdminRpc = vi.fn();
 vi.mock("@/lib/supabase-admin", () => ({
-  getSupabaseServerOrThrow: () => ({ from: mockAdminFrom }),
+  getSupabaseServerOrThrow: () => ({ from: mockAdminFrom, rpc: mockAdminRpc }),
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
@@ -67,14 +68,17 @@ function setupSaveMock(overrides: {
   gwData?: Record<string, unknown> | null;
   gwError?: unknown;
   players?: Record<string, unknown>[];
-  upsertError?: unknown;
+  rpcError?: unknown;
 } = {}) {
   const {
     gwData = { id: 1, deadline_time: FUTURE_DEADLINE, finalized: false },
     gwError = null,
     players: playerData,
-    upsertError = null,
+    rpcError = null,
   } = overrides;
+
+  // Mock the atomic save_user_roster RPC
+  mockAdminRpc.mockResolvedValue({ error: rpcError });
 
   const callCounts: Record<string, number> = {};
 
@@ -108,18 +112,7 @@ function setupSaveMock(overrides: {
       };
     }
 
-    if (table === "user_rosters") {
-      return {
-        upsert: vi.fn().mockResolvedValue({ error: upsertError }),
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              not: vi.fn().mockResolvedValue({ error: null }),
-            }),
-          }),
-        }),
-      };
-    }
+    // user_rosters mutations are handled by the save_user_roster RPC (mockAdminRpc)
 
     if (table === "current_squads") {
       return {
@@ -357,7 +350,7 @@ describe("POST /api/rosters/save", () => {
 
   it("returns 500 when upsert fails", async () => {
     authSuccess();
-    setupSaveMock({ upsertError: { message: "DB write failed" } });
+    setupSaveMock({ rpcError: { message: "DB write failed" } });
 
     const ids = makeSquadIds();
     const req = mockPostRequest("/api/rosters/save", {

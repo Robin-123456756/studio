@@ -104,7 +104,7 @@ export default function FeedItemPage() {
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-2xl px-4 py-6">
           <Skeleton className="h-6 w-32 mb-6" />
-          <Skeleton className="h-64 w-full rounded-2xl mb-6" />
+          <Skeleton className="h-64 w-full rounded-[1.2rem] mb-6" />
           <Skeleton className="h-8 w-3/4 mb-3" />
           <Skeleton className="h-4 w-1/2 mb-6" />
           <div className="space-y-3">
@@ -122,7 +122,7 @@ export default function FeedItemPage() {
   if (error || !item) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
-        <div className="rounded-2xl border bg-card p-8 max-w-sm w-full">
+        <div className="rounded-[1.2rem] border bg-card p-8 max-w-sm w-full">
           <h2 className="text-lg font-bold mb-2">Post not found</h2>
           <p className="text-sm text-muted-foreground mb-4">
             {error || "This post doesn't exist or has been removed."}
@@ -235,7 +235,7 @@ export default function FeedItemPage() {
           {isGallery && (
             <div className="mb-6">
               {/* Main image */}
-              <div className="relative rounded-2xl overflow-hidden bg-black mb-2">
+              <div className="relative rounded-[1.2rem] overflow-hidden bg-black mb-2">
                 <img
                   src={galleryImages[galleryIndex]}
                   alt={`Gallery image ${galleryIndex + 1}`}
@@ -275,7 +275,7 @@ export default function FeedItemPage() {
 
           {/* Image below text (for feature layout with no hero video) */}
           {!heroMedia && item.image_url && (
-            <div className="mt-6 rounded-2xl overflow-hidden">
+            <div className="mt-6 rounded-[1.2rem] overflow-hidden">
               <img
                 src={item.image_url}
                 alt={item.title}
