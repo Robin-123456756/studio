@@ -396,11 +396,11 @@ function FantasyPage() {
         if (res.ok) {
           const json = await res.json();
           setHasSquad(Array.isArray(json.squadIds) && json.squadIds.length === 17);
-        } else {
-          setHasSquad(false);
         }
+        // On error, leave hasSquad as null (loading) — don't show the
+        // onboarding banner just because a network request failed.
       } catch {
-        setHasSquad(false);
+        // Leave hasSquad as null — safe default is to not show the banner.
       }
     })();
   }, []);

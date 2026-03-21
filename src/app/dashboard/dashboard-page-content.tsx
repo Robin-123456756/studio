@@ -107,7 +107,7 @@ export default function DashboardPageContent() {
             <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5 pointer-events-none" />
             <div className="absolute -right-4 -bottom-6 h-20 w-20 rounded-full bg-white/5 pointer-events-none" />
             <div className="relative">
-              {fantasyLoading && isLoggedIn === null ? (
+              {fantasyLoading ? (
                 <div className="flex items-center justify-around gap-4">
                   {[0, 1, 2].map((index) => (
                     <div key={index} className="flex flex-col items-center gap-1.5">
