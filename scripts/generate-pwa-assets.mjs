@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { createRequire } from "node:module";
 
 const root = process.cwd();
-const inputIcon = resolve(root, "public/icon.jpg");
+const inputIcon = resolve(root, "public/icon.png");
 const iconOutputDir = resolve(root, "public/icons");
 const splashOutputDir = resolve(root, "public/pwa");
 const manifestPath = resolve(root, "public/manifest.json");
@@ -13,8 +13,8 @@ const startupLinksFile = resolve(root, "src/app/pwa-startup-images.tsx");
 
 const splashPadding = "24%";
 const iconPadding = "10%";
-const splashBackground = "#b91c1c";
-const iconBackground = "#b91c1c";
+const splashBackground = "#4A0404";
+const iconBackground = "#4A0404";
 
 const iconArgs = [
   inputIcon,
@@ -41,7 +41,7 @@ const splashArgs = [
   "--background",
   splashBackground,
   "--theme-color",
-  "#a63038",
+  "#4A0404",
   "--padding",
   splashPadding,
   "--splash-only",

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeColorMeta } from "@/components/ThemeColorMeta";
+import { LaunchGate } from "@/components/launch-gate";
 import { PwaStartupImages } from "@/app/pwa-startup-images";
 
 export const metadata: Metadata = {
@@ -32,7 +33,7 @@ export default function RootLayout({
         <meta
           name="theme-color"
           media="(prefers-color-scheme: dark)"
-          content="#FFFFFF"
+          content="#4A0404"
         />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -44,7 +45,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground">
         <ThemeProvider>
           <ThemeColorMeta />
-          {children}
+          <LaunchGate>{children}</LaunchGate>
         </ThemeProvider>
       </body>
     </html>
