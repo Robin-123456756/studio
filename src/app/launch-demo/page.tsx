@@ -29,14 +29,12 @@ export default function LaunchDemoPage() {
 
   if (phase === "splash") {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#A73038]">
-        <div className="bg-[#A73038] rounded-full">
-          <img
-            src="/lion-white.png.jpeg"
-            alt="Budo League"
-            className="h-auto w-[180px] object-contain mix-blend-multiply"
-          />
-        </div>
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#CC0000]">
+        <img
+          src="/icon-t.png"
+          alt="Budo League"
+          className="h-auto w-[180px] object-contain"
+        />
       </div>
     );
   }
