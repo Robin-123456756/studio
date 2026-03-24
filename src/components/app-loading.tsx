@@ -4,7 +4,7 @@ import * as React from "react";
 
 export function AppLoading() {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#4A0404]">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#FF0000]">
       <img
         src="/icon.png"
         alt="The Budo League"

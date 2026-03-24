@@ -51,7 +51,9 @@ type Match = {
   away_goals: number | null;
   is_played: boolean;
   is_final: boolean;
+  is_half_time: boolean;
   minutes: number | null;
+  started_at: string | null;
 };
 
 type ViewState = "capture" | "confirm" | "history" | "scoring" | "manual";
@@ -91,6 +93,8 @@ export default function VoiceAdminPage() {
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [matchError, setMatchError] = useState("");
   const [startingMatch, setStartingMatch] = useState(false);
+  const [settingHalfTime, setSettingHalfTime] = useState(false);
+  const [startingSecondHalf, setStartingSecondHalf] = useState(false);
   const [endingMatch, setEndingMatch] = useState(false);
 
   // Read URL hash to auto-select tab (e.g. /admin/voice#scoring)
@@ -108,7 +112,11 @@ export default function VoiceAdminPage() {
         if (res.ok) {
           const data = await res.json();
           setMatches(data.matches || []);
-          const first = (data.matches || []).find((m: Match) => !m.is_final);
+          const all = data.matches || [];
+          // Auto-select priority: live > upcoming > most recent completed
+          const live = all.find((m: Match) => m.is_played && !m.is_final);
+          const upcoming = all.find((m: Match) => !m.is_played);
+          const first = live || upcoming || all.find((m: Match) => !m.is_final);
           if (first) setSelectedMatchId(first.id);
         } else {
           setMatchError("Failed to load matches");
@@ -119,6 +127,51 @@ export default function VoiceAdminPage() {
       setLoadingMatches(false);
     })();
   }, []);
+
+  // ── Auto-timer: calculate minutes from started_at and sync to DB ──
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    const selected = matches.find(m => m.id === selectedMatchId);
+    // Only tick when match is live, not at half time, not final, and has a start time
+    if (!selected || !selected.is_played || selected.is_final || selected.is_half_time || !selected.started_at) return;
+
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - new Date(selected.started_at!).getTime()) / 60000);
+      const clamped = Math.max(0, Math.min(elapsed, 60));
+
+      // Auto-trigger half time at 30 minutes
+      if (clamped >= 30 && !selected.is_half_time && clamped <= 33) {
+        fetch("/api/admin/match-halftime", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matchId: selected.id }),
+        }).then(res => {
+          if (res.ok) {
+            setMatches(prev => prev.map(m => m.id === selected.id ? { ...m, is_half_time: true, minutes: 30 } : m));
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      // Update local minutes
+      setMatches(prev => prev.map(m => m.id === selected.id ? { ...m, minutes: clamped } : m));
+
+      // Sync to DB every tick
+      fetch("/api/admin/match-minutes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId: selected.id, minutes: clamped }),
+      }).catch(() => {});
+    };
+
+    tick(); // run immediately
+    timerRef.current = setInterval(tick, 30000); // every 30 seconds
+
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [selectedMatchId, matches.find(m => m.id === selectedMatchId)?.is_played, matches.find(m => m.id === selectedMatchId)?.is_final, matches.find(m => m.id === selectedMatchId)?.is_half_time, matches.find(m => m.id === selectedMatchId)?.started_at]);
 
   const handleResult = useCallback((result: any) => {
     setPipelineResult(result);
@@ -150,6 +203,35 @@ export default function VoiceAdminPage() {
         const status = played === 0 ? "Not Played" : played === total ? "Played" : `${played}/${total} Played`;
         return { gw: Number(gw), matches: ms, status };
       });
+  }, [matches]);
+
+  /** Matches grouped by phase: Live → Upcoming → Completed, with GW subgroups */
+  const matchesByPhase = useMemo(() => {
+    const live: Match[] = [];
+    const upcoming: Match[] = [];
+    const completed: Match[] = [];
+    for (const m of matches) {
+      if (m.is_played && !m.is_final) live.push(m);
+      else if (!m.is_played) upcoming.push(m);
+      else completed.push(m);
+    }
+
+    const toGwGroups = (arr: Match[]) => {
+      const grouped: Record<number, Match[]> = {};
+      for (const m of arr) {
+        if (!grouped[m.gameweek_id]) grouped[m.gameweek_id] = [];
+        grouped[m.gameweek_id].push(m);
+      }
+      return Object.entries(grouped)
+        .sort(([a], [b]) => Number(b) - Number(a))
+        .map(([gw, ms]) => ({ gw: Number(gw), matches: ms }));
+    };
+
+    return [
+      { label: "Live / In Progress", matches: live, gwGroups: toGwGroups(live) },
+      { label: "Upcoming", matches: upcoming, gwGroups: toGwGroups(upcoming) },
+      { label: "Completed", matches: completed, gwGroups: toGwGroups(completed) },
+    ].filter(phase => phase.matches.length > 0);
   }, [matches]);
 
   return (
@@ -232,7 +314,8 @@ export default function VoiceAdminPage() {
                 body: JSON.stringify({ matchId: selectedMatchId }),
               });
               if (res.ok) {
-                setMatches(prev => prev.map(m => m.id === selectedMatchId ? { ...m, is_played: true, home_goals: m.home_goals ?? 0, away_goals: m.away_goals ?? 0 } : m));
+                const data = await res.json();
+                setMatches(prev => prev.map(m => m.id === selectedMatchId ? { ...m, is_played: true, home_goals: m.home_goals ?? 0, away_goals: m.away_goals ?? 0, minutes: 0, started_at: data.started_at } : m));
               } else {
                 const data = await res.json();
                 alert(data.error || "Failed to start match");
@@ -252,6 +335,75 @@ export default function VoiceAdminPage() {
           }}
         >
           {startingMatch ? "Starting..." : "▶ Start Match"}
+        </button>
+      )}
+      {matches.find(m => m.id === selectedMatchId)?.is_played && !matches.find(m => m.id === selectedMatchId)?.is_final && !matches.find(m => m.id === selectedMatchId)?.is_half_time && (
+        <button
+          onClick={async () => {
+            if (!confirm("Set Half Time? This will send a HALF TIME push to all subscribers.")) return;
+            setSettingHalfTime(true);
+            try {
+              const res = await fetch("/api/admin/match-halftime", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ matchId: selectedMatchId }),
+              });
+              if (res.ok) {
+                setMatches(prev => prev.map(m => m.id === selectedMatchId ? { ...m, is_half_time: true, minutes: 30 } : m));
+              } else {
+                const data = await res.json();
+                alert(data.error || "Failed to set half time");
+              }
+            } catch {
+              alert("Network error");
+            }
+            setSettingHalfTime(false);
+          }}
+          disabled={settingHalfTime}
+          style={{
+            padding: "6px 12px", borderRadius: 6, border: `1px solid ${WARNING}40`,
+            backgroundColor: `${WARNING}15`, color: WARNING, fontSize: 11,
+            fontWeight: 600, whiteSpace: "nowrap", fontFamily: "inherit",
+            cursor: settingHalfTime ? "not-allowed" : "pointer",
+            opacity: settingHalfTime ? 0.5 : 1,
+          }}
+        >
+          {settingHalfTime ? "Setting..." : "⏸ Half Time"}
+        </button>
+      )}
+      {matches.find(m => m.id === selectedMatchId)?.is_played && !matches.find(m => m.id === selectedMatchId)?.is_final && matches.find(m => m.id === selectedMatchId)?.is_half_time && (
+        <button
+          onClick={async () => {
+            if (!confirm("Start 2nd Half? The clock will resume from 30 minutes.")) return;
+            setStartingSecondHalf(true);
+            try {
+              const res = await fetch("/api/admin/match-second-half", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ matchId: selectedMatchId }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                setMatches(prev => prev.map(m => m.id === selectedMatchId ? { ...m, is_half_time: false, minutes: 30, started_at: data.started_at } : m));
+              } else {
+                const data = await res.json();
+                alert(data.error || "Failed to start 2nd half");
+              }
+            } catch {
+              alert("Network error");
+            }
+            setStartingSecondHalf(false);
+          }}
+          disabled={startingSecondHalf}
+          style={{
+            padding: "6px 12px", borderRadius: 6, border: `1px solid ${SUCCESS}40`,
+            backgroundColor: `${SUCCESS}15`, color: SUCCESS, fontSize: 11,
+            fontWeight: 600, whiteSpace: "nowrap", fontFamily: "inherit",
+            cursor: startingSecondHalf ? "not-allowed" : "pointer",
+            opacity: startingSecondHalf ? 0.5 : 1,
+          }}
+        >
+          {startingSecondHalf ? "Starting..." : "▶ Start 2nd Half"}
         </button>
       )}
       {matches.find(m => m.id === selectedMatchId)?.is_played && !matches.find(m => m.id === selectedMatchId)?.is_final && (
@@ -337,10 +489,16 @@ export default function VoiceAdminPage() {
               <select value={selectedMatchId ?? ""} onChange={e => setSelectedMatchId(e.target.value ? parseInt(e.target.value) : null)}
                 style={{ flex: "1 1 260px", minWidth: 0, padding: "8px 12px", backgroundColor: BG_DARK, color: TEXT_PRIMARY, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 13, fontFamily: "inherit", outline: "none", cursor: "pointer", WebkitAppearance: "none", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 }}>
                 <option value="" style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY }}>Select a match...</option>
-                {matchesByGw.map(({ gw, matches: gwMatches, status }) => (
-                  <optgroup key={gw} label={`GW ${gw} — ${status}`} style={{ backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontWeight: 700 }}>
-                    {gwMatches.map(m => <option key={m.id} value={m.id} style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY, fontWeight: 400 }}>{matchLabel(m)}</option>)}
-                  </optgroup>
+                {matchesByPhase.map(phase => (
+                  phase.gwGroups.length === 1 && phase.gwGroups[0].matches.length <= 3
+                    ? <optgroup key={phase.label} label={`── ${phase.label} ──`} style={{ backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontWeight: 700 }}>
+                        {phase.gwGroups[0].matches.map(m => <option key={m.id} value={m.id} style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY, fontWeight: 400 }}>{matchLabel(m)} (GW{m.gameweek_id})</option>)}
+                      </optgroup>
+                    : phase.gwGroups.map(({ gw, matches: gwMs }) => (
+                        <optgroup key={`${phase.label}-${gw}`} label={`── ${phase.label} · GW ${gw} ──`} style={{ backgroundColor: BG_CARD, color: TEXT_SECONDARY, fontWeight: 700 }}>
+                          {gwMs.map(m => <option key={m.id} value={m.id} style={{ backgroundColor: BG_DARK, color: TEXT_PRIMARY, fontWeight: 400 }}>{matchLabel(m)}</option>)}
+                        </optgroup>
+                      ))
                 ))}
               </select>
             )}

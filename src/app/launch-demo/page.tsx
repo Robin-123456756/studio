@@ -29,9 +29,9 @@ export default function LaunchDemoPage() {
 
   if (phase === "splash") {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#FF0000]">
         <img
-          src="/tbl-logo.png"
+          src="/icon.png"
           alt="Budo League"
           className="h-auto w-[180px] object-contain"
         />

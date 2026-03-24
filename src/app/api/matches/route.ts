@@ -35,6 +35,7 @@ export async function GET(req: Request) {
         away_goals,
         is_played,
         is_final,
+        is_half_time,
         minutes,
         home_team_uuid,
         away_team_uuid
@@ -172,6 +173,7 @@ export async function GET(req: Request) {
         away_goals: m.away_goals == null ? null : Number(m.away_goals),
         is_played: m.is_played == null ? null : Boolean(m.is_played),
         is_final: m.is_final == null ? null : Boolean(m.is_final),
+        is_half_time: Boolean(m.is_half_time),
         minutes: m.minutes ?? null,
         home_team: teamMap.get(m.home_team_uuid) ?? null,
         away_team: teamMap.get(m.away_team_uuid) ?? null,

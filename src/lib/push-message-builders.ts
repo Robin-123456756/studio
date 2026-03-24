@@ -18,6 +18,16 @@ export function buildMatchStartedPush(ctx: MatchContext): PushPayload {
   };
 }
 
+/** "HALF TIME — Night Prep 1-0 Basunzi" */
+export function buildHalfTimePush(ctx: MatchContext): PushPayload {
+  return {
+    title: "HALF TIME",
+    body: `${ctx.homeTeam} ${ctx.homeGoals}-${ctx.awayGoals} ${ctx.awayTeam}`,
+    tag: `match-${ctx.matchId}`,
+    data: { link: "/dashboard" },
+  };
+}
+
 /** "GOAL! Nakato (assist: Kato) — Night Prep 1-0 Basunzi" */
 export function buildGoalPush(
   ctx: MatchContext,

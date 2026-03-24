@@ -144,6 +144,28 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Player ID is required." }, { status: 400 });
     }
 
+    // Delete child records in FK-safe order before deleting the player.
+    // Tables with RESTRICT / NO ACTION constraints block the delete otherwise.
+
+    // 1. Nullify captain/vice-captain references in fantasy_squads
+    await supabase.from("fantasy_squads").update({ captain_id: null }).eq("captain_id", id);
+    await supabase.from("fantasy_squads").update({ vice_captain_id: null }).eq("vice_captain_id", id);
+
+    // 2. Delete from tables that RESTRICT on player_id
+    await supabase.from("user_squad_players").delete().eq("player_id", id);
+    await supabase.from("player_match_events").delete().eq("player_id", id);
+
+    // 3. Delete from transfer tables (both in/out references)
+    await supabase.from("user_transfers").delete().eq("out_player_id", id);
+    await supabase.from("user_transfers").delete().eq("in_player_id", id);
+    await supabase.from("transfers").delete().eq("out_player_id", id);
+    await supabase.from("transfers").delete().eq("in_player_id", id);
+
+    // 4. Tables with CASCADE will auto-delete, but be explicit for safety:
+    //    user_rosters, player_stats, player_aliases, fantasy_squad_players,
+    //    player_price_history, current_squads — handled by CASCADE FKs.
+
+    // 5. Now delete the player itself
     const { error } = await supabase
       .from("players")
       .delete()

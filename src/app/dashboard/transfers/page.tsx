@@ -235,10 +235,6 @@ function TransfersPageInner() {
     setShowWildcardOfferModal(false);
   }
 
-  // Use the transfers hook
-  const gwId = nextGW?.id ?? currentGW?.id ?? null;
-  const { freeTransfers, cost, recordTransfer, incrementUsedTransfers, transfersThisGW, squadPlayers } = useTransfers(gwId);
-
   // Transfer history (all GWs) + season hits
   const [historyData, setHistoryData] = React.useState<TransferLogItem[]>([]);
   const [seasonHits, setSeasonHits] = React.useState(0);
@@ -286,6 +282,10 @@ function TransfersPageInner() {
   }, [currentGW, nextGW]);
 
   const gwIdForRoster = savingGw?.id ?? null;
+
+  // Use the transfers hook — must match savingGw so roster + transfers use the same GW
+  const gwId = savingGw?.id ?? null;
+  const { freeTransfers, cost, recordTransfer, incrementUsedTransfers, transfersThisGW, squadPlayers } = useTransfers(gwId);
 
   React.useEffect(() => {
     if (!gwIdForRoster) {

@@ -18,6 +18,9 @@ type MatchEvent = {
   ownGoals: number;
   bonus: number;
   isLady: boolean;
+  totalPoints: number;
+  position: string;
+  avatarUrl: string | null;
 };
 
 type MatchTeam = {
@@ -195,6 +198,16 @@ export default function MatchPage() {
   const awayCards = awayEvents.filter((e) => e.yellowCards > 0 || e.redCards > 0);
   const homeOwnGoals = homeEvents.filter((e) => e.ownGoals > 0);
   const awayOwnGoals = awayEvents.filter((e) => e.ownGoals > 0);
+
+  // Player of the Match — highest total fantasy points
+  const playerOfMatch = match.is_played && allEvents.length > 0
+    ? [...allEvents].sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0))[0] ?? null
+    : null;
+  const potmTeam = playerOfMatch
+    ? homeEvents.some(e => e.playerId === playerOfMatch.playerId)
+      ? home
+      : away
+    : null;
 
   // Match highlights: top scorer, top assist, clean sheet keeper
   const topScorer = allEvents
@@ -419,6 +432,90 @@ export default function MatchPage() {
             <div className="text-2xl">📋</div>
             <div className="text-sm text-muted-foreground">
               No event details available for this match yet.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ===== Player of the Match ===== */}
+      {playerOfMatch && (playerOfMatch.totalPoints ?? 0) > 0 && (
+        <Card className="rounded-2xl overflow-hidden border-amber-300/40 dark:border-amber-500/30">
+          <CardContent className="p-0">
+            <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/10 px-5 py-4">
+              <div className="flex items-center gap-4">
+                {/* Player photo + team badge */}
+                <div className="relative shrink-0">
+                  <div className="h-16 w-16 rounded-full bg-amber-500/15 border-2 border-amber-400/30 flex items-center justify-center overflow-hidden">
+                    {playerOfMatch.avatarUrl ? (
+                      <img
+                        src={playerOfMatch.avatarUrl}
+                        alt={playerOfMatch.playerName}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                        {playerOfMatch.playerName.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  {potmTeam?.logo_url && (
+                    <img
+                      src={potmTeam.logo_url}
+                      alt=""
+                      className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-background object-contain bg-background"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  {/* Small trophy badge */}
+                  <div className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] shadow-sm">
+                    🏆
+                  </div>
+                </div>
+
+                {/* Player info */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400 font-bold mb-0.5">
+                    Player of the Match
+                  </div>
+                  <div className="text-lg font-bold truncate">
+                    {playerOfMatch.playerName}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                    {potmTeam?.name && <span>{potmTeam.name}</span>}
+                    {playerOfMatch.position && (
+                      <>
+                        <span className="text-muted-foreground/40">·</span>
+                        <span className="text-[11px] font-semibold uppercase">{playerOfMatch.position}</span>
+                      </>
+                    )}
+                  </div>
+                  {/* Stats summary */}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2 text-xs text-muted-foreground">
+                    {playerOfMatch.goals > 0 && <span>⚽ {playerOfMatch.goals}</span>}
+                    {playerOfMatch.assists > 0 && <span>🅰️ {playerOfMatch.assists}</span>}
+                    {playerOfMatch.yellowCards > 0 && <span>🟨 {playerOfMatch.yellowCards}</span>}
+                    {playerOfMatch.redCards > 0 && <span>🟥 {playerOfMatch.redCards}</span>}
+                  </div>
+                  {playerOfMatch.isLady && (
+                    <span className="inline-block mt-1.5 text-[10px] font-semibold text-pink-500 bg-pink-500/10 rounded-full px-2 py-0.5">
+                      Lady Player
+                    </span>
+                  )}
+                </div>
+
+                {/* Points */}
+                <div className="shrink-0 text-right">
+                  <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400 tabular-nums font-mono">
+                    {playerOfMatch.totalPoints}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    pts
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

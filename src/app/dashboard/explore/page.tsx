@@ -820,22 +820,22 @@ export default function ExplorePage() {
 
       {/* ── Floating Compare Bar ── */}
       {compareCount > 0 && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md">
-          <Card className="rounded-2xl shadow-xl border-primary/20">
+        <div className="fixed bottom-20 inset-x-4 z-40 mx-auto max-w-md">
+          <Card className="rounded-2xl shadow-xl border-primary/20 overflow-hidden">
             <CardContent className="p-3 flex items-center gap-2">
               <GitCompareArrows className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-              <div className="flex-1 min-w-0 flex items-center gap-1.5">
+              <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-hidden">
                 {comparePlayerA && (
-                  <span className="text-xs font-semibold truncate max-w-[100px]">{comparePlayerA.name}</span>
+                  <span className="text-xs font-semibold truncate">{comparePlayerA.name}</span>
                 )}
                 {comparePlayerA && comparePlayerB && (
-                  <span className="text-xs text-muted-foreground">vs</span>
+                  <span className="text-xs text-muted-foreground shrink-0">vs</span>
                 )}
                 {comparePlayerB && (
-                  <span className="text-xs font-semibold truncate max-w-[100px]">{comparePlayerB.name}</span>
+                  <span className="text-xs font-semibold truncate">{comparePlayerB.name}</span>
                 )}
                 {compareCount === 1 && (
-                  <span className="text-xs text-muted-foreground">Pick another</span>
+                  <span className="text-xs text-muted-foreground shrink-0">Pick another</span>
                 )}
               </div>
               {compareCount === 2 && (

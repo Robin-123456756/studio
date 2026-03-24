@@ -13,8 +13,8 @@ const startupLinksFile = resolve(root, "src/app/pwa-startup-images.tsx");
 
 const splashPadding = "24%";
 const iconPadding = "10%";
-const splashBackground = "#4A0404";
-const iconBackground = "#4A0404";
+const splashBackground = "#FF0000";
+const iconBackground = "#FF0000";
 
 const iconArgs = [
   inputIcon,
@@ -41,7 +41,7 @@ const splashArgs = [
   "--background",
   splashBackground,
   "--theme-color",
-  "#4A0404",
+  "#FF0000",
   "--padding",
   splashPadding,
   "--splash-only",

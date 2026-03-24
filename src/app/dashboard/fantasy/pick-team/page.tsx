@@ -3130,26 +3130,38 @@ export default function PickTeamPage() {
             </div>
           ) : null}
 
-          <PickPitch
-            picked={picked}
-            startingIds={startingIds}
-            onSwapPlayers={(id1, id2) => {
-              const ok = swapPlayers(id1, id2);
-              if (ok) {
-                showSwapMsg("Swap completed");
-              }
-            }}
-            captainId={captainId}
-            viceId={viceId}
-            selectedForSwap={selectedForSwap}
-            onSelectForSwap={setSelectedForSwap}
-            onOpenSheet={(player) => setSheetPlayer(player)}
-            canSwapWithFn={canSwapWith}
-            selectedBenchSwap={selectedBenchSwap}
-            onSelectBenchSwap={setSelectedBenchSwap}
-            onSwapBench={swapBenchOrder}
-            swapMsg={swapMsg}
-          />
+          {rosterStillLoading ? (
+            <div
+              className="flex flex-col items-center justify-center text-center"
+              style={{
+                minHeight: 380,
+                background: "linear-gradient(180deg, #2d8b4e 0%, #37a35c 50%, #2d8b4e 100%)",
+              }}
+            >
+              <div className="text-white/70 text-sm font-medium animate-pulse">Loading your squad...</div>
+            </div>
+          ) : (
+            <PickPitch
+              picked={picked}
+              startingIds={startingIds}
+              onSwapPlayers={(id1, id2) => {
+                const ok = swapPlayers(id1, id2);
+                if (ok) {
+                  showSwapMsg("Swap completed");
+                }
+              }}
+              captainId={captainId}
+              viceId={viceId}
+              selectedForSwap={selectedForSwap}
+              onSelectForSwap={setSelectedForSwap}
+              onOpenSheet={(player) => setSheetPlayer(player)}
+              canSwapWithFn={canSwapWith}
+              selectedBenchSwap={selectedBenchSwap}
+              onSelectBenchSwap={setSelectedBenchSwap}
+              onSwapBench={swapBenchOrder}
+              swapMsg={swapMsg}
+            />
+          )}
         </div>
       )}
 

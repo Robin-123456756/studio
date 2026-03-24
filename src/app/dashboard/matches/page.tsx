@@ -59,6 +59,7 @@ type ApiMatch = {
   away_goals: number | null;
   is_played: boolean;
   is_final: boolean;
+  is_half_time?: boolean;
   minutes: number | null;
   home_team_uuid: string;
   away_team_uuid: string;
@@ -80,6 +81,7 @@ type UiGame = {
   score1?: number | null;
   score2?: number | null;
   isFinal?: boolean;
+  isHalfTime?: boolean;
   minutes?: number | null;
   homeEvents?: MatchEvent[];
   awayEvents?: MatchEvent[];
@@ -204,6 +206,7 @@ function mapApiMatchToUi(m: ApiMatch, deadlineFallback?: string | null): UiGame 
     score1: m.home_goals,
     score2: m.away_goals,
     isFinal: m.is_final,
+    isHalfTime: Boolean(m.is_half_time),
     minutes: m.minutes,
     homeEvents: m.home_events,
     awayEvents: m.away_events,
@@ -314,14 +317,14 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
       )}
 
       <div className="grid grid-cols-[minmax(0,1fr)_24px_64px_24px_minmax(0,1fr)] items-center gap-x-1.5">
-        {/* Home name — use shortName to prevent truncation */}
+        {/* Home name */}
         <div className="min-w-0 text-right">
           <span className={cn(
-            "text-[13px] leading-none block",
+            "text-[13px] leading-none block truncate",
             homeWin ? "font-bold" : "font-medium",
             !showScore && "font-medium"
           )}>
-            {g.team1.shortName}
+            {g.team1.name}
           </span>
         </div>
 
@@ -347,7 +350,7 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
                   </span>
-                  {g.minutes != null ? `${g.minutes}'` : "LIVE"}
+                  {g.isHalfTime ? "HT" : g.minutes != null ? `${g.minutes}'` : "LIVE"}
                 </span>
               )}
             </div>
@@ -366,11 +369,11 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
         {/* Away name */}
         <div className="min-w-0">
           <span className={cn(
-            "text-[13px] leading-none block",
+            "text-[13px] leading-none block truncate",
             awayWin ? "font-bold" : "font-medium",
             !showScore && "font-medium"
           )}>
-            {g.team2.shortName}
+            {g.team2.name}
           </span>
         </div>
       </div>
@@ -713,13 +716,12 @@ function MatchesContent() {
   return (
     <div className="animate-in fade-in-50 space-y-4">
 
-      {/* Main card with tabs — content renders directly on surface */}
-      <Card className="rounded-3xl overflow-hidden">
-        <CardContent className="p-4">
+      {/* Main content with tabs */}
+      <div className="px-4">
 
           {/* GW chip selector + deadline — above tabs, visible on all tabs */}
           {allGws.length > 0 && (
-            <div className="-mx-4 px-4 mb-3">
+            <div className="mb-3">
               <div ref={gwChipContainerRef} className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none" style={{ scrollbarWidth: "none" }}>
                 {allGwIds.map((id) => {
                   const gw = allGws.find((g) => g.id === id);
@@ -1433,8 +1435,7 @@ function MatchesContent() {
               )}
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+      </div>
 
       <div className="h-24 md:hidden" />
     </div>

@@ -271,7 +271,11 @@ export default function AdminPlayersPage() {
       setDeleteId(null);
       await loadPlayers();
     } catch (e: any) {
-      setSaveMsg({ type: "err", text: e?.message || "Delete failed" });
+      const msg = e?.message || "Delete failed";
+      const friendly = msg.includes("foreign key") || msg.includes("constraint")
+        ? "Cannot delete: player is still referenced by other records. Try again or contact support."
+        : msg;
+      setSaveMsg({ type: "err", text: friendly });
     } finally {
       setDeleting(false);
     }
