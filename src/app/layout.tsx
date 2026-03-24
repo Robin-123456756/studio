@@ -33,7 +33,7 @@ export default function RootLayout({
         <meta
           name="theme-color"
           media="(prefers-color-scheme: dark)"
-          content="#FF0000"
+          content="#A73038"
         />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
