@@ -138,7 +138,7 @@ export default function NotificationsPage() {
               body,
               time: ko ? formatRelative(ko) : "",
               color: "text-blue-500",
-              href: "/dashboard/fixtures",
+              href: "/dashboard/matches",
             });
           }
         }

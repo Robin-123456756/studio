@@ -63,7 +63,7 @@ function useSections(gwLabel: string | null): MenuSection[] {
           { href: "/dashboard/teams", label: "Teams" },
           { href: "/dashboard/players", label: "Player Statistics" },
           { href: "/dashboard/matches?tab=results", label: "Results", subtitle: gwLabel ?? undefined },
-          { href: "/dashboard/fixtures", label: "Fixtures" },
+          { href: "/dashboard/matches", label: "Fixtures" },
         ],
       },
       {
@@ -206,7 +206,7 @@ function useNotifications() {
               body: diffH <= 24 ? "Tomorrow" : `In ${Math.ceil(diffH / 24)} days`,
               time: ko ? formatRelative(ko) : "",
               color: "text-blue-500",
-              href: "/dashboard/fixtures",
+              href: "/dashboard/matches",
             });
           }
         }

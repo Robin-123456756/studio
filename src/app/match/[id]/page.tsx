@@ -129,6 +129,7 @@ export default function MatchPage() {
 
         const res = await fetch(`/api/matches/${encodeURIComponent(matchId)}`, {
           cache: "no-store",
+          credentials: "same-origin",
         });
         const json = await res.json();
 
@@ -437,6 +438,65 @@ export default function MatchPage() {
         </Card>
       )}
 
+      {/* ===== Fantasy Points ===== */}
+      {match.is_played && hasEvents && (
+        <Card className="rounded-2xl">
+          <CardContent className="p-5 space-y-3">
+            <h3 className="text-sm font-bold text-center">Fantasy Points</h3>
+            <div className="grid grid-cols-[1fr_24px_1fr] gap-x-2">
+              {/* Home column */}
+              <div className="space-y-1.5">
+                {[...homeEvents]
+                  .sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0))
+                  .map((e) => (
+                    <div key={e.playerId + "-fp"} className="flex items-center justify-between gap-1 text-sm">
+                      <div className="min-w-0 truncate">
+                        <span className="font-medium">{e.playerName}</span>
+                        {e.isLady && <span className="text-pink-500 ml-1 text-xs font-semibold">L</span>}
+                      </div>
+                      <span className={cn(
+                        "shrink-0 tabular-nums font-bold text-xs rounded-full px-2 py-0.5",
+                        (e.totalPoints ?? 0) >= 7 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+                        (e.totalPoints ?? 0) >= 4 ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+                        (e.totalPoints ?? 0) >= 0 ? "bg-muted text-muted-foreground" :
+                        "bg-red-500/15 text-red-600 dark:text-red-400"
+                      )}>
+                        {e.totalPoints ?? 0}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              {/* Divider */}
+              <div className="flex justify-center">
+                <div className="w-px bg-border/60 self-stretch" />
+              </div>
+              {/* Away column */}
+              <div className="space-y-1.5">
+                {[...awayEvents]
+                  .sort((a, b) => (b.totalPoints ?? 0) - (a.totalPoints ?? 0))
+                  .map((e) => (
+                    <div key={e.playerId + "-fp"} className="flex items-center justify-between gap-1 text-sm">
+                      <div className="min-w-0 truncate">
+                        <span className="font-medium">{e.playerName}</span>
+                        {e.isLady && <span className="text-pink-500 ml-1 text-xs font-semibold">L</span>}
+                      </div>
+                      <span className={cn(
+                        "shrink-0 tabular-nums font-bold text-xs rounded-full px-2 py-0.5",
+                        (e.totalPoints ?? 0) >= 7 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+                        (e.totalPoints ?? 0) >= 4 ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+                        (e.totalPoints ?? 0) >= 0 ? "bg-muted text-muted-foreground" :
+                        "bg-red-500/15 text-red-600 dark:text-red-400"
+                      )}>
+                        {e.totalPoints ?? 0}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ===== Player of the Match ===== */}
       {playerOfMatch && (playerOfMatch.totalPoints ?? 0) > 0 && (
         <Card className="rounded-2xl overflow-hidden border-amber-300/40 dark:border-amber-500/30">
@@ -586,7 +646,7 @@ export default function MatchPage() {
                       Clean Sheet
                     </div>
                     <div className="text-base font-bold">
-                      {homeCleanSheet ? (home?.name ?? "Home") : (away?.name ?? "Away")}
+                      {[homeCleanSheet && home?.name, awayCleanSheet && away?.name].filter(Boolean).join(" & ")}
                     </div>
                     <div className="text-sm text-muted-foreground mt-0.5">
                       0 goals conceded

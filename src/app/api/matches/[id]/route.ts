@@ -11,10 +11,12 @@ type MatchEvent = {
   playerName: string;
   playerId: string;
   goals: number;
+  penalties: number;
   assists: number;
   yellowCards: number;
   redCards: number;
   ownGoals: number;
+  bonus: number;
   isLady: boolean;
   totalPoints: number;
   position: string;
@@ -71,7 +73,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
     const rawEvents = await fetchAllRows((from, to) =>
       supabase
         .from("player_match_events")
-        .select("match_id, player_id, action, quantity, points_awarded")
+        .select("match_id, player_id, action, quantity, penalties, points_awarded")
         .eq("match_id", matchId)
         .range(from, to)
     );
@@ -134,10 +136,12 @@ export async function GET(_req: Request, { params }: RouteParams) {
             playerId: pid,
             playerName: p?.web_name ?? p?.name ?? "Unknown",
             goals: 0,
+            penalties: 0,
             assists: 0,
             yellowCards: 0,
             redCards: 0,
             ownGoals: 0,
+            bonus: 0,
             isLady: p?.is_lady ?? false,
             totalPoints: 0,
             position: p?.position ?? "MID",
@@ -148,11 +152,15 @@ export async function GET(_req: Request, { params }: RouteParams) {
         const entry = eventMap.get(pid)!;
         const qty = Number(e.quantity ?? 1);
         const act = (e.action ?? "").toLowerCase();
-        if (act === "goal") entry.goals += qty;
+        if (act === "goal") {
+          entry.goals += qty;
+          entry.penalties += Number(e.penalties ?? 0);
+        }
         else if (act === "assist") entry.assists += qty;
         else if (act === "yellow_card" || act === "yellow") entry.yellowCards += qty;
         else if (act === "red_card" || act === "red") entry.redCards += qty;
         else if (act === "own_goal") entry.ownGoals += qty;
+        else if (act === "bonus") entry.bonus += Number(e.points_awarded ?? 0);
 
         if (act === "appearance" || act === "sub_appearance") hasAppearanceEvent.add(pid);
         playedFromEvents.add(pid);
@@ -176,10 +184,12 @@ export async function GET(_req: Request, { params }: RouteParams) {
             playerId: pid,
             playerName: p?.web_name ?? p?.name ?? "Unknown",
             goals: 0,
+            penalties: 0,
             assists: 0,
             yellowCards: 0,
             redCards: 0,
             ownGoals: 0,
+            bonus: 0,
             isLady: p?.is_lady ?? false,
             totalPoints: 0,
             position: p?.position ?? "MID",

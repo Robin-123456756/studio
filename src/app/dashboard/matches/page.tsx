@@ -49,6 +49,7 @@ type MatchEvent = {
   ownGoals: number;
   bonus: number;
   isLady: boolean;
+  totalPoints: number;
 };
 
 type ApiMatch = {
@@ -85,6 +86,7 @@ type UiGame = {
   minutes?: number | null;
   homeEvents?: MatchEvent[];
   awayEvents?: MatchEvent[];
+  userPoints?: number | null;
 };
 
 type StandingsRow = {
@@ -343,7 +345,6 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
               )}>
                 {g.score1 ?? "-"} - {g.score2 ?? "-"}
               </div>
-              {/* Only show live indicator — no "FT" on finished matches (FPL pattern) */}
               {isLive && (
                 <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-red-600 dark:text-red-500">
                   <span className="relative flex h-1.5 w-1.5">
@@ -352,6 +353,9 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
                   </span>
                   {g.isHalfTime ? "HT" : g.minutes != null ? `${g.minutes}'` : "LIVE"}
                 </span>
+              )}
+              {g.isFinal && (
+                <span className="mt-1 text-[9px] font-semibold text-muted-foreground">FT</span>
               )}
             </div>
           ) : (
@@ -377,6 +381,13 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
           </span>
         </div>
       </div>
+
+      {/* User's fantasy points from this match */}
+      {g.userPoints != null && (
+        <div className="text-center mt-1.5 text-[10px] font-semibold text-primary/70">
+          Your players: {g.userPoints} pts
+        </div>
+      )}
     </div>
   );
 }
@@ -456,7 +467,7 @@ function MatchesContent() {
     })();
   }, []);
 
-  // Fetch matches for gwId
+  // Fetch matches + user roster for gwId
   React.useEffect(() => {
     if (!gwId) return;
 
@@ -465,12 +476,39 @@ function MatchesContent() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/matches?gw_id=${gwId}&enrich=1`, { cache: "no-store" });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || "Failed to load matches");
+        const [matchRes, rosterRes] = await Promise.all([
+          fetch(`/api/matches?gw_id=${gwId}&enrich=1`, { cache: "no-store" }),
+          fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store", credentials: "same-origin" }),
+        ]);
+        const matchJson = await matchRes.json();
+        if (!matchRes.ok) throw new Error(matchJson?.error || "Failed to load matches");
+
+        // Get user's starting XI + captain for accurate fantasy points
+        const rosterJson = rosterRes.ok ? await rosterRes.json() : null;
+        const startingIds = new Set<string>(rosterJson?.startingIds ?? []);
+        const captainId: string | null = rosterJson?.captainId ?? null;
 
         const activeDeadline = allGws.find((g) => g.id === gwId)?.deadline_time ?? null;
-        const mapped = (json.matches as ApiMatch[]).map((m) => mapApiMatchToUi(m, activeDeadline));
+        const mapped = (matchJson.matches as ApiMatch[]).map((m) => {
+          const game = mapApiMatchToUi(m, activeDeadline);
+
+          // Calculate user's fantasy points from this match (starters only, captain 2x)
+          if (startingIds.size > 0 && game.status === "completed") {
+            const allEvents = [...(m.home_events ?? []), ...(m.away_events ?? [])];
+            let pts = 0;
+            let hasStarter = false;
+            for (const e of allEvents) {
+              if (startingIds.has(e.playerId) && e.totalPoints != null) {
+                hasStarter = true;
+                const multiplier = e.playerId === captainId ? 2 : 1;
+                pts += e.totalPoints * multiplier;
+              }
+            }
+            if (hasStarter) game.userPoints = pts;
+          }
+
+          return game;
+        });
         setGames(mapped);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load matches");
@@ -486,11 +524,30 @@ function MatchesContent() {
   const refreshMatches = React.useCallback(() => {
     if (!gwId) return;
     const activeDeadline = allGws.find((g) => g.id === gwId)?.deadline_time ?? null;
-    fetch(`/api/matches?gw_id=${gwId}&enrich=1`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.matches) {
-          setGames((json.matches as ApiMatch[]).map((m) => mapApiMatchToUi(m, activeDeadline)));
+    Promise.all([
+      fetch(`/api/matches?gw_id=${gwId}&enrich=1`, { cache: "no-store" }).then((r) => r.json()),
+      fetch(`/api/rosters?gw_id=${gwId}`, { cache: "no-store", credentials: "same-origin" }).then((r) => r.ok ? r.json() : null).catch(() => null),
+    ])
+      .then(([matchJson, rosterJson]) => {
+        if (matchJson.matches) {
+          const startIds = new Set<string>(rosterJson?.startingIds ?? []);
+          const capId: string | null = rosterJson?.captainId ?? null;
+          setGames((matchJson.matches as ApiMatch[]).map((m) => {
+            const game = mapApiMatchToUi(m, activeDeadline);
+            if (startIds.size > 0 && game.status === "completed") {
+              const allEvts = [...(m.home_events ?? []), ...(m.away_events ?? [])];
+              let pts = 0;
+              let found = false;
+              for (const e of allEvts) {
+                if (startIds.has(e.playerId) && e.totalPoints != null) {
+                  found = true;
+                  pts += e.totalPoints * (e.playerId === capId ? 2 : 1);
+                }
+              }
+              if (found) game.userPoints = pts;
+            }
+            return game;
+          }));
         }
       })
       .catch(() => {});
