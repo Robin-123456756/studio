@@ -59,9 +59,9 @@ export default function DashboardPageContent() {
           <Image
             src="/tbl-logo.png"
             alt="The Budo League"
-            width={120}
-            height={56}
-            className="h-auto w-[100px] object-contain shrink-0"
+            width={140}
+            height={65}
+            className="h-auto w-[120px] object-contain shrink-0 mix-blend-multiply dark:invert dark:mix-blend-screen"
             priority
           />
           <div className="flex-1 min-w-0 flex flex-col items-end gap-1">

@@ -64,6 +64,7 @@ type ApiMatch = {
   minutes: number | null;
   home_team_uuid: string;
   away_team_uuid: string;
+  venue: string | null;
   home_team: ApiTeam | null;
   away_team: ApiTeam | null;
   home_events?: MatchEvent[];
@@ -87,6 +88,7 @@ type UiGame = {
   homeEvents?: MatchEvent[];
   awayEvents?: MatchEvent[];
   userPoints?: number | null;
+  venue?: string | null;
 };
 
 type StandingsRow = {
@@ -214,6 +216,7 @@ function mapApiMatchToUi(m: ApiMatch, deadlineFallback?: string | null): UiGame 
     minutes: m.minutes,
     homeEvents: m.home_events,
     awayEvents: m.away_events,
+    venue: m.venue,
   };
 }
 
@@ -383,6 +386,13 @@ function MatchRow({ g, onNavigate }: { g: UiGame; onNavigate?: (id: string) => v
           </span>
         </div>
       </div>
+
+      {/* Venue for upcoming matches */}
+      {g.status === "scheduled" && g.venue && (
+        <div className="text-center mt-1 text-[10px] text-muted-foreground">
+          📍 {g.venue}
+        </div>
+      )}
 
       {/* User's fantasy points from this match */}
       {g.userPoints != null && (
@@ -585,7 +595,7 @@ function MatchesContent() {
 
         const { data: upcoming } = await supabase
           .from("matches")
-          .select("id,gameweek_id,home_team_uuid,away_team_uuid,is_played,is_final,kickoff_time")
+          .select("id,gameweek_id,home_team_uuid,away_team_uuid,is_played,is_final,kickoff_time,venue")
           .or("is_played.eq.false,is_played.is.null")
           .order("gameweek_id", { ascending: true });
         setAllUpcomingMatches((upcoming as ApiMatch[]) ?? []);

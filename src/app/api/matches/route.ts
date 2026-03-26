@@ -39,7 +39,8 @@ export async function GET(req: Request) {
         is_half_time,
         minutes,
         home_team_uuid,
-        away_team_uuid
+        away_team_uuid,
+        venue
       `)
       .eq("gameweek_id", gwId)
       .order("kickoff_time", { ascending: true });
