@@ -7,7 +7,7 @@ import { apiError } from "@/lib/api-error";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_SIZE = 3 * 1024 * 1024; // 3MB
 
 /** POST /api/admin/players/upload-avatar — upload player photo */
 export async function POST(req: Request) {
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     // Validate size
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
-        { error: `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max: 2MB.` },
+        { error: `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max: 3MB.` },
         { status: 400 }
       );
     }

@@ -453,6 +453,7 @@ export default function MatchPage() {
                       <div className="min-w-0 truncate">
                         <span className="font-medium">{e.playerName}</span>
                         {e.isLady && <span className="text-pink-500 ml-1 text-xs font-semibold">L</span>}
+                        {e.bonus > 0 && <span className="text-amber-500 ml-1 text-[10px] font-semibold">+{e.bonus}</span>}
                       </div>
                       <span className={cn(
                         "shrink-0 tabular-nums font-bold text-xs rounded-full px-2 py-0.5",
@@ -479,6 +480,7 @@ export default function MatchPage() {
                       <div className="min-w-0 truncate">
                         <span className="font-medium">{e.playerName}</span>
                         {e.isLady && <span className="text-pink-500 ml-1 text-xs font-semibold">L</span>}
+                        {e.bonus > 0 && <span className="text-amber-500 ml-1 text-[10px] font-semibold">+{e.bonus}</span>}
                       </div>
                       <span className={cn(
                         "shrink-0 tabular-nums font-bold text-xs rounded-full px-2 py-0.5",
