@@ -28,6 +28,7 @@ const menuItems = [
   { label: "Leagues", href: "/dashboard/fantasy/leagues" },
   { label: "Budo Cup", href: "/dashboard/fantasy/cup" },
   { label: "Dream Team", href: "/dashboard/fantasy/dream-team" },
+  { label: "Stats", href: "/dashboard/stats" },
   { label: "Fixtures", href: "/dashboard/matches" },
   { label: "Player Statistics", href: "/dashboard/players" },
 ];

@@ -69,7 +69,8 @@ export async function POST(req: Request) {
       .from("player-avatars")
       .getPublicUrl(filePath);
 
-    const avatarUrl = publicUrlData.publicUrl;
+    // Append cache-bust param so browsers/CDN always fetch the fresh image
+    const avatarUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
 
     // Update player record
     const { error: updateError } = await supabase

@@ -121,6 +121,8 @@ type StatPlayer = {
     position: string | null;
     teamName: string | null;
     teamShort: string | null;
+    avatarUrl: string | null;
+    isLady: boolean;
   } | null;
 };
 
@@ -681,52 +683,52 @@ function MatchesContent() {
   }, [allUpcomingMatches]);
 
   // Aggregate stats: top scorers + top assists from fetched player stats
-  const scorerMap = new Map<string, { name: string; goals: number; team: string }>();
-  const assistMap = new Map<string, { name: string; assists: number; team: string }>();
-  const csMap = new Map<string, { name: string; cleanSheets: number; team: string }>();
-  const ycMap = new Map<string, { name: string; yellowCards: number; team: string }>();
-  const rcMap = new Map<string, { name: string; redCards: number; team: string }>();
+  type AggPlayer = { id: string; name: string; team: string; avatarUrl: string | null; position: string; isLady: boolean };
+  const scorerMap = new Map<string, AggPlayer & { goals: number }>();
+  const assistMap = new Map<string, AggPlayer & { assists: number }>();
+  const csMap = new Map<string, AggPlayer & { cleanSheets: number }>();
+  const ycMap = new Map<string, AggPlayer & { yellowCards: number }>();
+  const rcMap = new Map<string, AggPlayer & { redCards: number }>();
   for (const s of statsData) {
     const name = s.playerName;
     const team = s.player?.teamShort ?? s.player?.teamName ?? "—";
+    const avatarUrl = s.player?.avatarUrl ?? null;
+    const position = s.player?.position ?? "—";
+    const isLady = s.player?.isLady ?? false;
+    const base: AggPlayer = { id: s.playerId, name, team, avatarUrl, position, isLady };
     if (s.goals > 0) {
       const existing = scorerMap.get(s.playerId);
       scorerMap.set(s.playerId, {
-        name,
+        ...base,
         goals: (existing?.goals ?? 0) + s.goals,
-        team,
       });
     }
     if (s.assists > 0) {
       const existing = assistMap.get(s.playerId);
       assistMap.set(s.playerId, {
-        name,
+        ...base,
         assists: (existing?.assists ?? 0) + s.assists,
-        team,
       });
     }
     if (s.cleanSheet && normalizePosition(s.player?.position) === "Goalkeeper") {
       const existing = csMap.get(s.playerId);
       csMap.set(s.playerId, {
-        name,
+        ...base,
         cleanSheets: (existing?.cleanSheets ?? 0) + 1,
-        team,
       });
     }
     if (s.yellowCards > 0) {
       const existing = ycMap.get(s.playerId);
       ycMap.set(s.playerId, {
-        name,
+        ...base,
         yellowCards: (existing?.yellowCards ?? 0) + s.yellowCards,
-        team,
       });
     }
     if (s.redCards > 0) {
       const existing = rcMap.get(s.playerId);
       rcMap.set(s.playerId, {
-        name,
+        ...base,
         redCards: (existing?.redCards ?? 0) + s.redCards,
-        team,
       });
     }
   }
@@ -1193,76 +1195,198 @@ function MatchesContent() {
 
                   {/* ---- PLAYERS VIEW ---- */}
                   {statsView === "players" && (
-                    <div className="grid gap-6 sm:grid-cols-2">
+                    <div className="space-y-6">
+                      {/* Hero cards for top scorer and top assister */}
                       {topScorers.length > 0 && (
-                        <div>
-                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
-                            Top scorers
+                        <div
+                          onClick={() => router.push(`/dashboard/players/${topScorers[0].id}`)}
+                          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-600 shadow-xl cursor-pointer active:scale-[0.98] transition-transform"
+                        >
+                          <div className="absolute inset-0 opacity-10">
+                            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/30" />
+                            <div className="absolute -left-4 -bottom-4 h-32 w-32 rounded-full bg-white/20" />
                           </div>
-                          <div className="space-y-0.5">
-                            {topScorers.map((s, i) => (
-                              <StatBarRow
-                                key={s.name + s.team}
-                                rank={i + 1}
-                                label={s.name}
-                                sublabel={s.team}
-                                value={s.goals}
-                                maxValue={topScorers[0]?.goals ?? 1}
-                                color="bg-emerald-500"
-                                icon={<span className="text-[10px]">⚽</span>}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {topCleanSheets.length > 0 && (
-                        <div>
-                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
-                            Most clean sheets
-                          </div>
-                          <div className="space-y-0.5">
-                            {topCleanSheets.map((c, i) => (
-                              <StatBarRow
-                                key={c.name + c.team}
-                                rank={i + 1}
-                                label={c.name}
-                                sublabel={c.team}
-                                value={c.cleanSheets}
-                                maxValue={topCleanSheets[0]?.cleanSheets ?? 1}
-                                color="bg-blue-500"
-                                icon={<span className="text-[10px]">🧤</span>}
-                              />
-                            ))}
+                          <div className="relative flex items-stretch p-4 gap-3">
+                            <div className="relative shrink-0">
+                              <div className="h-24 w-24 overflow-hidden rounded-xl border-2 border-white/40 shadow-lg bg-white/10">
+                                {topScorers[0].avatarUrl ? (
+                                  <img src={topScorers[0].avatarUrl} alt={topScorers[0].name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-3xl opacity-60">👤</div>
+                                )}
+                              </div>
+                              <div className="absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md text-xs font-extrabold text-amber-600">👑</div>
+                            </div>
+                            <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/80">⚽ Top Scorer</p>
+                                <h3 className="text-lg font-extrabold leading-tight truncate text-amber-900 mt-0.5">{topScorers[0].name}</h3>
+                                <p className="text-xs text-amber-900/70 mt-0.5">
+                                  {topScorers[0].team} · {topScorers[0].position}
+                                  {topScorers[0].isLady && <span className="ml-1 text-pink-200">★ Lady</span>}
+                                </p>
+                              </div>
+                              <div className="flex items-end gap-1.5 mt-1.5">
+                                <span className="text-3xl font-black tabular-nums leading-none text-amber-900">{topScorers[0].goals}</span>
+                                <span className="text-xs font-semibold text-amber-900/60 pb-0.5">{topScorers[0].goals === 1 ? "goal" : "goals"}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
 
                       {topAssists.length > 0 && (
-                        <div>
-                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
-                            Top assists
+                        <div
+                          onClick={() => router.push(`/dashboard/players/${topAssists[0].id}`)}
+                          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-violet-500 to-purple-700 shadow-xl cursor-pointer active:scale-[0.98] transition-transform"
+                        >
+                          <div className="absolute inset-0 opacity-10">
+                            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/30" />
+                            <div className="absolute -left-4 -bottom-4 h-32 w-32 rounded-full bg-white/20" />
                           </div>
-                          <div className="space-y-0.5">
-                            {topAssists.map((a, i) => (
-                              <StatBarRow
-                                key={a.name + a.team}
-                                rank={i + 1}
-                                label={a.name}
-                                sublabel={a.team}
-                                value={a.assists}
-                                maxValue={topAssists[0]?.assists ?? 1}
-                                color="bg-violet-500"
-                                icon={<span className="text-[10px]">👟</span>}
-                              />
-                            ))}
+                          <div className="relative flex items-stretch p-4 gap-3">
+                            <div className="relative shrink-0">
+                              <div className="h-24 w-24 overflow-hidden rounded-xl border-2 border-white/40 shadow-lg bg-white/10">
+                                {topAssists[0].avatarUrl ? (
+                                  <img src={topAssists[0].avatarUrl} alt={topAssists[0].name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-3xl opacity-60">👤</div>
+                                )}
+                              </div>
+                              <div className="absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md text-xs font-extrabold text-purple-600">🅰️</div>
+                            </div>
+                            <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/80">🅰️ Top Assists</p>
+                                <h3 className="text-lg font-extrabold leading-tight truncate text-white mt-0.5">{topAssists[0].name}</h3>
+                                <p className="text-xs text-white/70 mt-0.5">
+                                  {topAssists[0].team} · {topAssists[0].position}
+                                  {topAssists[0].isLady && <span className="ml-1 text-pink-200">★ Lady</span>}
+                                </p>
+                              </div>
+                              <div className="flex items-end gap-1.5 mt-1.5">
+                                <span className="text-3xl font-black tabular-nums leading-none text-white">{topAssists[0].assists}</span>
+                                <span className="text-xs font-semibold text-white/60 pb-0.5">{topAssists[0].assists === 1 ? "assist" : "assists"}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
 
+                      {/* Runner-up lists with photos */}
+                      <div className="grid gap-6 sm:grid-cols-2">
+                        {topScorers.length > 1 && (
+                          <div>
+                            <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">Top scorers</div>
+                            <Card className="overflow-hidden">
+                              <div className="divide-y">
+                                {topScorers.slice(1).map((s, i) => (
+                                  <div
+                                    key={s.id}
+                                    onClick={() => router.push(`/dashboard/players/${s.id}`)}
+                                    className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
+                                  >
+                                    <span className={cn(
+                                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                                      i === 0 ? "bg-amber-100 text-amber-800" : i === 1 ? "bg-gray-100 text-gray-600" : "bg-muted text-muted-foreground"
+                                    )}>
+                                      {i === 0 ? "🥈" : i === 1 ? "🥉" : i + 2}
+                                    </span>
+                                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
+                                      {s.avatarUrl ? (
+                                        <img src={s.avatarUrl} alt={s.name} className="h-full w-full object-cover" loading="lazy" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-semibold truncate">{s.name}{s.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
+                                      <div className="text-[11px] text-muted-foreground">{s.team}</div>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-extrabold tabular-nums">{s.goals}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </Card>
+                          </div>
+                        )}
+
+                        {topAssists.length > 1 && (
+                          <div>
+                            <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">Top assists</div>
+                            <Card className="overflow-hidden">
+                              <div className="divide-y">
+                                {topAssists.slice(1).map((a, i) => (
+                                  <div
+                                    key={a.id}
+                                    onClick={() => router.push(`/dashboard/players/${a.id}`)}
+                                    className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
+                                  >
+                                    <span className={cn(
+                                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                                      i === 0 ? "bg-purple-100 text-purple-800" : i === 1 ? "bg-gray-100 text-gray-600" : "bg-muted text-muted-foreground"
+                                    )}>
+                                      {i === 0 ? "🥈" : i === 1 ? "🥉" : i + 2}
+                                    </span>
+                                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
+                                      {a.avatarUrl ? (
+                                        <img src={a.avatarUrl} alt={a.name} className="h-full w-full object-cover" loading="lazy" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-semibold truncate">{a.name}{a.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
+                                      <div className="text-[11px] text-muted-foreground">{a.team}</div>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 text-xs font-extrabold tabular-nums">{a.assists}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </Card>
+                          </div>
+                        )}
+
+                        {topCleanSheets.length > 0 && (
+                          <div>
+                            <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">Most clean sheets</div>
+                            <Card className="overflow-hidden">
+                              <div className="divide-y">
+                                {topCleanSheets.map((c, i) => (
+                                  <div
+                                    key={c.id}
+                                    onClick={() => router.push(`/dashboard/players/${c.id}`)}
+                                    className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
+                                  >
+                                    <span className={cn(
+                                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                                      i === 0 ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"
+                                    )}>
+                                      {i === 0 ? "🥇" : i + 1}
+                                    </span>
+                                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
+                                      {c.avatarUrl ? (
+                                        <img src={c.avatarUrl} alt={c.name} className="h-full w-full object-cover" loading="lazy" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-semibold truncate">{c.name}{c.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
+                                      <div className="text-[11px] text-muted-foreground">{c.team}</div>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-extrabold tabular-nums">{c.cleanSheets}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </Card>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Discipline */}
                       {(topYellowCards.length > 0 || topRedCards.length > 0) && (
-                        <div className="sm:col-span-2">
+                        <div>
                           <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
                             Discipline
                           </div>
@@ -1293,47 +1417,70 @@ function MatchesContent() {
                             </button>
                           </div>
 
-                          {disciplineTab === "yellow" && (
-                            <div className="space-y-0.5">
-                              {topYellowCards.length === 0 ? (
-                                <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
-                              ) : (
-                                topYellowCards.map((p, i) => (
-                                  <StatBarRow
-                                    key={p.name + p.team}
-                                    rank={i + 1}
-                                    label={p.name}
-                                    sublabel={p.team}
-                                    value={p.yellowCards}
-                                    maxValue={topYellowCards[0]?.yellowCards ?? 1}
-                                    color="bg-yellow-400"
-                                    icon={<div className="w-2.5 h-3 rounded-[1px] bg-yellow-400" />}
-                                  />
-                                ))
+                          <Card className="overflow-hidden">
+                            <div className="divide-y">
+                              {disciplineTab === "yellow" && (
+                                topYellowCards.length === 0 ? (
+                                  <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
+                                ) : (
+                                  topYellowCards.map((p, i) => (
+                                    <div
+                                      key={p.id}
+                                      onClick={() => router.push(`/dashboard/players/${p.id}`)}
+                                      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
+                                    >
+                                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">{i + 1}</span>
+                                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
+                                        {p.avatarUrl ? (
+                                          <img src={p.avatarUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                                        ) : (
+                                          <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-semibold truncate">{p.name}</div>
+                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <div className="w-2.5 h-3.5 rounded-[1px] bg-yellow-400" />
+                                        <span className="text-xs font-extrabold tabular-nums">{p.yellowCards}</span>
+                                      </div>
+                                    </div>
+                                  ))
+                                )
+                              )}
+                              {disciplineTab === "red" && (
+                                topRedCards.length === 0 ? (
+                                  <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
+                                ) : (
+                                  topRedCards.map((p, i) => (
+                                    <div
+                                      key={p.id}
+                                      onClick={() => router.push(`/dashboard/players/${p.id}`)}
+                                      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
+                                    >
+                                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">{i + 1}</span>
+                                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
+                                        {p.avatarUrl ? (
+                                          <img src={p.avatarUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                                        ) : (
+                                          <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-semibold truncate">{p.name}</div>
+                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <div className="w-2.5 h-3.5 rounded-[1px] bg-red-500" />
+                                        <span className="text-xs font-extrabold tabular-nums">{p.redCards}</span>
+                                      </div>
+                                    </div>
+                                  ))
+                                )
                               )}
                             </div>
-                          )}
-
-                          {disciplineTab === "red" && (
-                            <div className="space-y-0.5">
-                              {topRedCards.length === 0 ? (
-                                <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
-                              ) : (
-                                topRedCards.map((p, i) => (
-                                  <StatBarRow
-                                    key={p.name + p.team}
-                                    rank={i + 1}
-                                    label={p.name}
-                                    sublabel={p.team}
-                                    value={p.redCards}
-                                    maxValue={topRedCards[0]?.redCards ?? 1}
-                                    color="bg-red-500"
-                                    icon={<div className="w-2.5 h-3 rounded-[1px] bg-red-500" />}
-                                  />
-                                ))
-                              )}
-                            </div>
-                          )}
+                          </Card>
                         </div>
                       )}
                     </div>
