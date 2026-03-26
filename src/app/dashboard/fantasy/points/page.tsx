@@ -53,13 +53,25 @@ type PlayerStat = {
 type SquadPlayer = PlayerInfo & {
   gwPoints: number;
   stat: PlayerStat | null;
+  fixtureCount?: number; // 0 = blank GW (no fixture), 1 = normal, 2+ = DGW
 };
 
 type AutoSub = { outId: string; inId: string; reason: string };
 
 // ── Helpers ──
 
-function pointsPlateColor(pts: number): string {
+/** True when the player's team has no fixture at all in this GW */
+function isBlankGw(player: SquadPlayer): boolean {
+  return (player.fixtureCount ?? 1) === 0;
+}
+
+/** True when the player's team has 2+ fixtures in this GW */
+function isDgw(player: SquadPlayer): boolean {
+  return (player.fixtureCount ?? 1) >= 2;
+}
+
+function pointsPlateColor(pts: number, blank?: boolean): string {
+  if (blank) return "linear-gradient(180deg, #9ca3af, #888)";
   if (pts >= 9) return "linear-gradient(180deg, #FFD700, #e6c200)";
   if (pts >= 5) return "linear-gradient(180deg, #059669, #047857)";
   if (pts >= 2) return "linear-gradient(180deg, #37003C, #2d0032)";
@@ -139,6 +151,8 @@ function PointsPlayerCard({
   const isGK = normalizePosition(player.position) === "Goalkeeper";
   const kitColor = getKitColor(player.teamShort);
   const pts = player.gwPoints * multiplier;
+  const blank = isBlankGw(player);
+  const dgw = isDgw(player);
   const cardW = 60;
   const sz = 42;
 
@@ -191,6 +205,20 @@ function PointsPlayerCard({
           }}
         >{"\u2605"}</span>
       )}
+      {/* DGW badge — bottom-left to avoid collision with centered auto-sub pill */}
+      {dgw && (
+        <span
+          style={{
+            position: "absolute", bottom: -6, left: -6, zIndex: 4,
+            background: "linear-gradient(135deg, #2563EB, #3B82F6)", color: "#fff",
+            fontSize: 7, fontWeight: 900, letterSpacing: 0.3,
+            padding: "2px 4px", borderRadius: 6,
+            border: "1.5px solid #fff",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
+            lineHeight: 1,
+          }}
+        >DGW</span>
+      )}
 
       <div
         className="flex flex-col items-center"
@@ -241,7 +269,7 @@ function PointsPlayerCard({
         {/* Points plate */}
         <div
           style={{
-            background: pointsPlateColor(pts),
+            background: pointsPlateColor(pts, blank),
             color: pointsPlateTextColor(pts),
             fontSize: 11,
             fontWeight: 800,
@@ -250,7 +278,7 @@ function PointsPlayerCard({
             width: "100%",
           }}
         >
-          {pts} pts
+          {blank ? "-" : `${pts} pts`}
         </div>
       </div>
 
@@ -419,7 +447,8 @@ function PointsBreakdown({
     rows.push({ label: "Points", value: "--", pts: rawPts });
   }
   if (rows.length === 0 && rawPts === 0) {
-    rows.push({ label: "No stats recorded", value: "--", pts: 0 });
+    const blank = isBlankGw(player);
+    rows.push({ label: blank ? "No fixture this gameweek" : "No stats recorded", value: "--", pts: 0 });
   }
 
   return (
@@ -714,6 +743,8 @@ function PointsListView({
     const kitColor = getKitColor(p.teamShort);
     const mult = multipliers[p.id] ?? 1;
     const pts = p.gwPoints * mult;
+    const blank = isBlankGw(p);
+    const dgw = isDgw(p);
     const subStatus = getAutoSubStatus(p.id);
     const isActivatedVice = captainActivated === "vice" && viceId === p.id;
 
@@ -817,6 +848,13 @@ function PointsListView({
                   borderRadius: 4, marginLeft: 2,
                 }}>{"\u2193"} OUT</span>
               )}
+              {dgw && (
+                <span style={{
+                  fontSize: 8, fontWeight: 900, color: "#2563EB",
+                  background: "rgba(37,99,235,0.12)", padding: "1px 5px",
+                  borderRadius: 4, marginLeft: 2, letterSpacing: 0.3,
+                }}>DGW</span>
+              )}
             </div>
             <div style={{
               fontSize: 12, color: "hsl(var(--muted-foreground))", fontWeight: 400,
@@ -832,9 +870,11 @@ function PointsListView({
             <span style={{
               fontSize: 15,
               fontWeight: 800,
-              color: pts > 0 ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+              color: blank
+                ? "hsl(var(--muted-foreground))"
+                : pts > 0 ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
             }}>
-              {pts}
+              {blank ? "-" : pts}
             </span>
           </div>
         </button>
@@ -1117,6 +1157,7 @@ function PointsPage() {
             position: p.position,
             teamShort: p.teamShort,
             isLady: p.isLady,
+            fixtureCount: p.fixtureCount ?? 1,
             gwPoints: p.gwPoints ?? 0,
             stat: p.stat
               ? {

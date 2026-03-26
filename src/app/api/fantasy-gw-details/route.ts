@@ -162,15 +162,22 @@ export async function GET(req: Request) {
     //     never relies on pre-stored points_awarded which can be stale/0)
     const { data: gwMatches } = await admin
       .from("matches")
-      .select("id")
+      .select("id, home_team_uuid, away_team_uuid")
       .eq("gameweek_id", statsGwId);
     const gwMatchIds = (gwMatches ?? []).map((m: any) => m.id);
+
+    // Build team → fixture count map for DGW / blank GW detection
+    const teamFixtureCount = new Map<string, number>();
+    for (const m of gwMatches ?? []) {
+      teamFixtureCount.set(m.home_team_uuid, (teamFixtureCount.get(m.home_team_uuid) ?? 0) + 1);
+      teamFixtureCount.set(m.away_team_uuid, (teamFixtureCount.get(m.away_team_uuid) ?? 0) + 1);
+    }
 
     // We need player metadata early for rules-based recalculation (position, is_lady)
     const { data: playerData } = await admin
       .from("players")
       .select(
-        "id, name, web_name, position, is_lady, teams:teams!players_team_id_fkey(name, short_name)"
+        "id, name, web_name, position, is_lady, team_id, teams:teams!players_team_id_fkey(name, short_name)"
       )
       .in("id", squadIds);
 
@@ -178,7 +185,7 @@ export async function GET(req: Request) {
     const playerInfoMap = new Map<string, {
       name: string; webName: string | null;
       position: string | null; teamShort: string | null;
-      isLady: boolean;
+      isLady: boolean; teamId: string | null;
     }>();
 
     for (const p of playerData ?? []) {
@@ -194,6 +201,7 @@ export async function GET(req: Request) {
         position: p.position ?? null,
         teamShort: (p as any).teams?.short_name ?? null,
         isLady: p.is_lady ?? false,
+        teamId: (p as any).team_id ?? null,
       });
     }
 
@@ -497,6 +505,7 @@ export async function GET(req: Request) {
         position: info?.position ?? null,
         teamShort: info?.teamShort ?? null,
         isLady: info?.isLady ?? false,
+        fixtureCount: info?.teamId ? (teamFixtureCount.get(info.teamId) ?? 0) : 0,
         gwPoints,
         stat: breakdown
           ? {
