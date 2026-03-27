@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
+import { loadScoringRules, lookupPoints, norm } from "@/lib/scoring-engine";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -79,7 +80,8 @@ export async function GET(req: Request) {
     }
 
     // 4. Fetch ALL player_match_events for these players to compute points
-    //    This is the SINGLE SOURCE OF TRUTH for points (same as fantasy-gw-details)
+    //    Recalculate from scoring rules (same as fantasy-gw-details) so lady
+    //    2x multiplier is always consistent — never rely on stored points_awarded.
     const gwMatchIds = (playedMatches ?? []).map((m: any) => m.id);
     const eventPointsMap = new Map<string, number>(); // key: playerId__gameweekId
 
@@ -88,6 +90,9 @@ export async function GET(req: Request) {
     const eventPenaltiesMap = new Map<string, number>();   // key: playerId__gameweekId
     const eventAssistsMap = new Map<string, number>();     // key: playerId__gameweekId
     const eventBonusMap = new Map<string, number>();       // key: playerId__gameweekId
+
+    // Load scoring rules so we recalculate points identically to fantasy-gw-details
+    const rules = await loadScoringRules();
 
     if (gwMatchIds.length > 0 && playerIds.length > 0) {
       const events = await fetchAllRows((from, to) =>
@@ -105,7 +110,18 @@ export async function GET(req: Request) {
         if (!matchGw) continue;
         const key = `${pid}__${matchGw}`;
         const qty = e.quantity ?? 1;
-        const pts = (e.points_awarded ?? 0) * qty;
+
+        // Recalculate from scoring rules + player metadata (position, is_lady)
+        // Bonus uses stored points_awarded directly (not in scoring_rules table)
+        const meta = playersMap.get(pid);
+        const position = norm(meta?.position);
+        const isLady = meta?.is_lady ?? false;
+        let pts: number;
+        if (e.action === "bonus") {
+          pts = (e.points_awarded ?? 0) * qty;
+        } else {
+          pts = lookupPoints(rules, e.action, position, isLady) * qty;
+        }
         eventPointsMap.set(key, (eventPointsMap.get(key) ?? 0) + pts);
 
         if (e.action === "goal") {
@@ -140,8 +156,8 @@ export async function GET(req: Request) {
         cleanSheet = false;
       }
 
-      // Points, goals, assists: use player_match_events (single source of truth)
-      // Events already include the lady 2x multiplier — do NOT apply again
+      // Points: recalculated from scoring rules (same as fantasy-gw-details)
+      // Lady 2x multiplier is applied by lookupPoints() — always consistent
       const evtKey = `${s.player_id}__${s.gameweek_id}`;
       const points = eventPointsMap.get(evtKey) ?? 0;
       const goals = eventGoalsMap.get(evtKey) ?? s.goals ?? 0;

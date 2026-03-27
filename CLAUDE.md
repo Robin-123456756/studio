@@ -101,6 +101,35 @@ echo 'SELECT * FROM players;' > /tmp/query.sql
 psql -f /tmp/query.sql
 ```
 
+### Rule 8: Single Calculation Path for Points
+Every API route that displays player points MUST recalculate from the `scoring_rules`
+table using `lookupPoints(rules, action, position, isLady)` — the same function the
+scoring engine uses. NEVER read `points_awarded` from `player_match_events` as the
+point value (except for `bonus` actions, which aren't in the scoring rules table).
+
+**Why this exists:** We had a recurring bug where the Explore page used stored
+`points_awarded` values while the Dashboard recalculated from scoring rules.
+The lady 2x multiplier was applied differently in each path, causing points to
+diverge every gameweek.
+
+**The pattern (copy from fantasy-gw-details):**
+```ts
+import { loadScoringRules, lookupPoints, norm } from "@/lib/scoring-engine";
+
+const rules = await loadScoringRules();
+// ...
+for (const e of events) {
+  const position = norm(playerMeta?.position);
+  const isLady = playerMeta?.is_lady ?? false;
+  const pts = e.action === "bonus"
+    ? (e.points_awarded ?? 0) * (e.quantity ?? 1)
+    : lookupPoints(rules, e.action, position, isLady) * (e.quantity ?? 1);
+}
+```
+
+**Applies to:** `/api/player-stats`, `/api/fantasy-gw-details`, `/api/players`,
+and any future route that returns point values.
+
 ### Rule 7: Workflow Discipline
 1. Before writing any code, describe your approach and wait for approval.
 2. If the requirements are ambiguous, ask clarifying questions before writing any code.

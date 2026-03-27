@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-// lucide icons removed — GW nav now uses chip selector
+import { ChevronRight } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
@@ -1205,202 +1206,207 @@ function MatchesContent() {
 
                   {/* ---- PLAYERS VIEW ---- */}
                   {statsView === "players" && (
-                    <div className="space-y-6">
-                      {/* Hero cards for top scorer and top assister */}
-                      {topScorers.length > 0 && (
-                        <div
-                          onClick={() => router.push(`/dashboard/players/${topScorers[0].id}`)}
-                          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-600 shadow-xl cursor-pointer active:scale-[0.98] transition-transform"
+                    <div className="space-y-1">
+                      {/* Top Stats heading with All stats link */}
+                      <div className="flex items-center justify-between mb-2">
+                        <h2 className="text-lg font-extrabold">Top Stats</h2>
+                        <Link
+                          href="/dashboard/stats"
+                          className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors rounded-full border px-3 py-1.5"
                         >
-                          <div className="absolute inset-0 opacity-10">
-                            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/30" />
-                            <div className="absolute -left-4 -bottom-4 h-32 w-32 rounded-full bg-white/20" />
-                          </div>
-                          <div className="relative flex items-stretch p-4 gap-3">
-                            <div className="relative shrink-0">
-                              <div className="h-24 w-24 overflow-hidden rounded-xl border-2 border-white/40 shadow-lg bg-white/10">
-                                {topScorers[0].avatarUrl ? (
-                                  <img src={topScorers[0].avatarUrl} alt={topScorers[0].name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-3xl opacity-60">👤</div>
-                                )}
-                              </div>
-                              <div className="absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md text-xs font-extrabold text-amber-600">👑</div>
-                            </div>
-                            <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/80">⚽ Top Scorer</p>
-                                <h3 className="text-lg font-extrabold leading-tight truncate text-amber-900 mt-0.5">{topScorers[0].name}</h3>
-                                <p className="text-xs text-amber-900/70 mt-0.5">
-                                  {topScorers[0].team} · {topScorers[0].position}
-                                  {topScorers[0].isLady && <span className="ml-1 text-pink-200">★ Lady</span>}
-                                </p>
-                              </div>
-                              <div className="flex items-end gap-1.5 mt-1.5">
-                                <span className="text-3xl font-black tabular-nums leading-none text-amber-900">{topScorers[0].goals}</span>
-                                <span className="text-xs font-semibold text-amber-900/60 pb-0.5">{topScorers[0].goals === 1 ? "goal" : "goals"}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {topAssists.length > 0 && (
-                        <div
-                          onClick={() => router.push(`/dashboard/players/${topAssists[0].id}`)}
-                          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-violet-500 to-purple-700 shadow-xl cursor-pointer active:scale-[0.98] transition-transform"
-                        >
-                          <div className="absolute inset-0 opacity-10">
-                            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/30" />
-                            <div className="absolute -left-4 -bottom-4 h-32 w-32 rounded-full bg-white/20" />
-                          </div>
-                          <div className="relative flex items-stretch p-4 gap-3">
-                            <div className="relative shrink-0">
-                              <div className="h-24 w-24 overflow-hidden rounded-xl border-2 border-white/40 shadow-lg bg-white/10">
-                                {topAssists[0].avatarUrl ? (
-                                  <img src={topAssists[0].avatarUrl} alt={topAssists[0].name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-3xl opacity-60">👤</div>
-                                )}
-                              </div>
-                              <div className="absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md text-xs font-extrabold text-purple-600">🅰️</div>
-                            </div>
-                            <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/80">🅰️ Top Assists</p>
-                                <h3 className="text-lg font-extrabold leading-tight truncate text-white mt-0.5">{topAssists[0].name}</h3>
-                                <p className="text-xs text-white/70 mt-0.5">
-                                  {topAssists[0].team} · {topAssists[0].position}
-                                  {topAssists[0].isLady && <span className="ml-1 text-pink-200">★ Lady</span>}
-                                </p>
-                              </div>
-                              <div className="flex items-end gap-1.5 mt-1.5">
-                                <span className="text-3xl font-black tabular-nums leading-none text-white">{topAssists[0].assists}</span>
-                                <span className="text-xs font-semibold text-white/60 pb-0.5">{topAssists[0].assists === 1 ? "assist" : "assists"}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Runner-up lists with photos */}
-                      <div className="grid gap-6 sm:grid-cols-2">
-                        {topScorers.length > 1 && (
-                          <div>
-                            <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">Top scorers</div>
-                            <Card className="overflow-hidden">
-                              <div className="divide-y">
-                                {topScorers.slice(1).map((s, i) => (
-                                  <div
-                                    key={s.id}
-                                    onClick={() => router.push(`/dashboard/players/${s.id}`)}
-                                    className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
-                                  >
-                                    <span className={cn(
-                                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-                                      i === 0 ? "bg-amber-100 text-amber-800" : i === 1 ? "bg-gray-100 text-gray-600" : "bg-muted text-muted-foreground"
-                                    )}>
-                                      {i === 0 ? "🥈" : i === 1 ? "🥉" : i + 2}
-                                    </span>
-                                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
-                                      {s.avatarUrl ? (
-                                        <img src={s.avatarUrl} alt={s.name} className="h-full w-full object-cover" loading="lazy" />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-sm font-semibold truncate">{s.name}{s.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
-                                      <div className="text-[11px] text-muted-foreground">{s.team}</div>
-                                    </div>
-                                    <span className="shrink-0 rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-extrabold tabular-nums">{s.goals}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </Card>
-                          </div>
-                        )}
-
-                        {topAssists.length > 1 && (
-                          <div>
-                            <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">Top assists</div>
-                            <Card className="overflow-hidden">
-                              <div className="divide-y">
-                                {topAssists.slice(1).map((a, i) => (
-                                  <div
-                                    key={a.id}
-                                    onClick={() => router.push(`/dashboard/players/${a.id}`)}
-                                    className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
-                                  >
-                                    <span className={cn(
-                                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-                                      i === 0 ? "bg-purple-100 text-purple-800" : i === 1 ? "bg-gray-100 text-gray-600" : "bg-muted text-muted-foreground"
-                                    )}>
-                                      {i === 0 ? "🥈" : i === 1 ? "🥉" : i + 2}
-                                    </span>
-                                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
-                                      {a.avatarUrl ? (
-                                        <img src={a.avatarUrl} alt={a.name} className="h-full w-full object-cover" loading="lazy" />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-sm font-semibold truncate">{a.name}{a.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
-                                      <div className="text-[11px] text-muted-foreground">{a.team}</div>
-                                    </div>
-                                    <span className="shrink-0 rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 text-xs font-extrabold tabular-nums">{a.assists}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </Card>
-                          </div>
-                        )}
-
-                        {topCleanSheets.length > 0 && (
-                          <div>
-                            <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">Most clean sheets</div>
-                            <Card className="overflow-hidden">
-                              <div className="divide-y">
-                                {topCleanSheets.map((c, i) => (
-                                  <div
-                                    key={c.id}
-                                    onClick={() => router.push(`/dashboard/players/${c.id}`)}
-                                    className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
-                                  >
-                                    <span className={cn(
-                                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
-                                      i === 0 ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"
-                                    )}>
-                                      {i === 0 ? "🥇" : i + 1}
-                                    </span>
-                                    <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
-                                      {c.avatarUrl ? (
-                                        <img src={c.avatarUrl} alt={c.name} className="h-full w-full object-cover" loading="lazy" />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-sm font-semibold truncate">{c.name}{c.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
-                                      <div className="text-[11px] text-muted-foreground">{c.team}</div>
-                                    </div>
-                                    <span className="shrink-0 rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-extrabold tabular-nums">{c.cleanSheets}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </Card>
-                          </div>
-                        )}
+                          All stats
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
                       </div>
 
-                      {/* Discipline */}
+                      {/* ── Goals section ── */}
+                      {topScorers.length > 0 && (
+                        <div>
+                          <Link href="/dashboard/stats" className="flex items-center gap-1 py-3 border-b">
+                            <h3 className="text-base font-bold">Goals</h3>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </Link>
+
+                          {/* #1 hero card */}
+                          <div
+                            onClick={() => router.push(`/dashboard/players/${topScorers[0].id}`)}
+                            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-600 shadow-xl cursor-pointer active:scale-[0.98] transition-transform mt-3"
+                          >
+                            <div className="absolute inset-0 opacity-10">
+                              <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/30" />
+                              <div className="absolute -left-4 -bottom-4 h-32 w-32 rounded-full bg-white/20" />
+                            </div>
+                            <div className="relative flex items-stretch p-4 gap-3">
+                              <div className="relative shrink-0">
+                                <div className="h-24 w-24 overflow-hidden rounded-xl border-2 border-white/40 shadow-lg bg-white/10">
+                                  {topScorers[0].avatarUrl ? (
+                                    <img src={topScorers[0].avatarUrl} alt={topScorers[0].name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-3xl opacity-60">👤</div>
+                                  )}
+                                </div>
+                                <div className="absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md text-xs font-extrabold text-amber-600">👑</div>
+                              </div>
+                              <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/80">Top Scorer</p>
+                                  <h3 className="text-lg font-extrabold leading-tight truncate text-amber-900 mt-0.5">{topScorers[0].name}</h3>
+                                  <p className="text-xs text-amber-900/70 mt-0.5">
+                                    {topScorers[0].team} · {topScorers[0].position}
+                                    {topScorers[0].isLady && <span className="ml-1 text-pink-200">★ Lady</span>}
+                                  </p>
+                                </div>
+                                <div className="flex items-end gap-1.5 mt-1.5">
+                                  <span className="text-3xl font-black tabular-nums leading-none text-amber-900">{topScorers[0].goals}</span>
+                                  <span className="text-xs font-semibold text-amber-900/60 pb-0.5">{topScorers[0].goals === 1 ? "goal" : "goals"}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* #2–5 list */}
+                          {topScorers.length > 1 && (
+                            <div className="divide-y mt-1">
+                              {topScorers.slice(1, 5).map((s, i) => (
+                                <div
+                                  key={s.id}
+                                  onClick={() => router.push(`/dashboard/players/${s.id}`)}
+                                  className="flex items-center gap-3 py-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                                >
+                                  <span className="w-5 text-center text-sm font-bold text-muted-foreground">{i + 2}</span>
+                                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                    {s.avatarUrl ? (
+                                      <img src={s.avatarUrl} alt={s.name} className="h-full w-full object-cover" loading="lazy" />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-sm font-bold truncate">{s.name}{s.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
+                                    <div className="text-[11px] text-muted-foreground">{s.team}</div>
+                                  </div>
+                                  <span className="shrink-0 text-base font-extrabold tabular-nums text-amber-600">{s.goals}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Assists section ── */}
+                      {topAssists.length > 0 && (
+                        <div>
+                          <Link href="/dashboard/stats" className="flex items-center gap-1 py-3 border-b">
+                            <h3 className="text-base font-bold">Assists</h3>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </Link>
+
+                          {/* #1 hero card */}
+                          <div
+                            onClick={() => router.push(`/dashboard/players/${topAssists[0].id}`)}
+                            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-violet-500 to-purple-700 shadow-xl cursor-pointer active:scale-[0.98] transition-transform mt-3"
+                          >
+                            <div className="absolute inset-0 opacity-10">
+                              <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/30" />
+                              <div className="absolute -left-4 -bottom-4 h-32 w-32 rounded-full bg-white/20" />
+                            </div>
+                            <div className="relative flex items-stretch p-4 gap-3">
+                              <div className="relative shrink-0">
+                                <div className="h-24 w-24 overflow-hidden rounded-xl border-2 border-white/40 shadow-lg bg-white/10">
+                                  {topAssists[0].avatarUrl ? (
+                                    <img src={topAssists[0].avatarUrl} alt={topAssists[0].name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-3xl opacity-60">👤</div>
+                                  )}
+                                </div>
+                                <div className="absolute -top-2 -left-2 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md text-xs font-extrabold text-purple-600">🅰️</div>
+                              </div>
+                              <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-white/80">Top Assists</p>
+                                  <h3 className="text-lg font-extrabold leading-tight truncate text-white mt-0.5">{topAssists[0].name}</h3>
+                                  <p className="text-xs text-white/70 mt-0.5">
+                                    {topAssists[0].team} · {topAssists[0].position}
+                                    {topAssists[0].isLady && <span className="ml-1 text-pink-200">★ Lady</span>}
+                                  </p>
+                                </div>
+                                <div className="flex items-end gap-1.5 mt-1.5">
+                                  <span className="text-3xl font-black tabular-nums leading-none text-white">{topAssists[0].assists}</span>
+                                  <span className="text-xs font-semibold text-white/60 pb-0.5">{topAssists[0].assists === 1 ? "assist" : "assists"}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* #2–5 list */}
+                          {topAssists.length > 1 && (
+                            <div className="divide-y mt-1">
+                              {topAssists.slice(1, 5).map((a, i) => (
+                                <div
+                                  key={a.id}
+                                  onClick={() => router.push(`/dashboard/players/${a.id}`)}
+                                  className="flex items-center gap-3 py-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                                >
+                                  <span className="w-5 text-center text-sm font-bold text-muted-foreground">{i + 2}</span>
+                                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                    {a.avatarUrl ? (
+                                      <img src={a.avatarUrl} alt={a.name} className="h-full w-full object-cover" loading="lazy" />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-sm font-bold truncate">{a.name}{a.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
+                                    <div className="text-[11px] text-muted-foreground">{a.team}</div>
+                                  </div>
+                                  <span className="shrink-0 text-base font-extrabold tabular-nums text-purple-600">{a.assists}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Clean Sheets section ── */}
+                      {topCleanSheets.length > 0 && (
+                        <div>
+                          <Link href="/dashboard/stats" className="flex items-center gap-1 py-3 border-b">
+                            <h3 className="text-base font-bold">Clean Sheets</h3>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </Link>
+                          <div className="divide-y mt-1">
+                            {topCleanSheets.slice(0, 5).map((c, i) => (
+                              <div
+                                key={c.id}
+                                onClick={() => router.push(`/dashboard/players/${c.id}`)}
+                                className="flex items-center gap-3 py-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                              >
+                                <span className="w-5 text-center text-sm font-bold text-muted-foreground">{i + 1}</span>
+                                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                  {c.avatarUrl ? (
+                                    <img src={c.avatarUrl} alt={c.name} className="h-full w-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-bold truncate">{c.name}{c.isLady && <span className="ml-1 text-pink-500 text-xs">★</span>}</div>
+                                  <div className="text-[11px] text-muted-foreground">{c.team}</div>
+                                </div>
+                                <span className="shrink-0 text-base font-extrabold tabular-nums text-emerald-600">{c.cleanSheets}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── Discipline section ── */}
                       {(topYellowCards.length > 0 || topRedCards.length > 0) && (
                         <div>
-                          <div className="text-[11px] uppercase tracking-widest text-muted-foreground pb-2">
-                            Discipline
+                          <div className="flex items-center gap-1 py-3 border-b">
+                            <h3 className="text-base font-bold">Discipline</h3>
                           </div>
-                          <div className="flex gap-1 mb-3">
+                          <div className="flex gap-1 my-3">
                             <button
                               type="button"
                               onClick={() => setDisciplineTab("yellow")}
@@ -1427,70 +1433,68 @@ function MatchesContent() {
                             </button>
                           </div>
 
-                          <Card className="overflow-hidden">
-                            <div className="divide-y">
-                              {disciplineTab === "yellow" && (
-                                topYellowCards.length === 0 ? (
-                                  <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
-                                ) : (
-                                  topYellowCards.map((p, i) => (
-                                    <div
-                                      key={p.id}
-                                      onClick={() => router.push(`/dashboard/players/${p.id}`)}
-                                      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
-                                    >
-                                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">{i + 1}</span>
-                                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
-                                        {p.avatarUrl ? (
-                                          <img src={p.avatarUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
-                                        ) : (
-                                          <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
-                                        )}
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="text-sm font-semibold truncate">{p.name}</div>
-                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
-                                      </div>
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        <div className="w-2.5 h-3.5 rounded-[1px] bg-yellow-400" />
-                                        <span className="text-xs font-extrabold tabular-nums">{p.yellowCards}</span>
-                                      </div>
+                          <div className="divide-y">
+                            {disciplineTab === "yellow" && (
+                              topYellowCards.length === 0 ? (
+                                <div className="text-sm text-muted-foreground py-3 text-center">No yellow cards yet.</div>
+                              ) : (
+                                topYellowCards.slice(0, 5).map((p, i) => (
+                                  <div
+                                    key={p.id}
+                                    onClick={() => router.push(`/dashboard/players/${p.id}`)}
+                                    className="flex items-center gap-3 py-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                                  >
+                                    <span className="w-5 text-center text-sm font-bold text-muted-foreground">{i + 1}</span>
+                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                      {p.avatarUrl ? (
+                                        <img src={p.avatarUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                      )}
                                     </div>
-                                  ))
-                                )
-                              )}
-                              {disciplineTab === "red" && (
-                                topRedCards.length === 0 ? (
-                                  <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
-                                ) : (
-                                  topRedCards.map((p, i) => (
-                                    <div
-                                      key={p.id}
-                                      onClick={() => router.push(`/dashboard/players/${p.id}`)}
-                                      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
-                                    >
-                                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">{i + 1}</span>
-                                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
-                                        {p.avatarUrl ? (
-                                          <img src={p.avatarUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
-                                        ) : (
-                                          <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
-                                        )}
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="text-sm font-semibold truncate">{p.name}</div>
-                                        <div className="text-[11px] text-muted-foreground">{p.team}</div>
-                                      </div>
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        <div className="w-2.5 h-3.5 rounded-[1px] bg-red-500" />
-                                        <span className="text-xs font-extrabold tabular-nums">{p.redCards}</span>
-                                      </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-bold truncate">{p.name}</div>
+                                      <div className="text-[11px] text-muted-foreground">{p.team}</div>
                                     </div>
-                                  ))
-                                )
-                              )}
-                            </div>
-                          </Card>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <div className="w-2.5 h-3.5 rounded-[1px] bg-yellow-400" />
+                                      <span className="text-sm font-extrabold tabular-nums">{p.yellowCards}</span>
+                                    </div>
+                                  </div>
+                                ))
+                              )
+                            )}
+                            {disciplineTab === "red" && (
+                              topRedCards.length === 0 ? (
+                                <div className="text-sm text-muted-foreground py-3 text-center">No red cards yet.</div>
+                              ) : (
+                                topRedCards.slice(0, 5).map((p, i) => (
+                                  <div
+                                    key={p.id}
+                                    onClick={() => router.push(`/dashboard/players/${p.id}`)}
+                                    className="flex items-center gap-3 py-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                                  >
+                                    <span className="w-5 text-center text-sm font-bold text-muted-foreground">{i + 1}</span>
+                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                      {p.avatarUrl ? (
+                                        <img src={p.avatarUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-sm opacity-40">👤</div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-bold truncate">{p.name}</div>
+                                      <div className="text-[11px] text-muted-foreground">{p.team}</div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <div className="w-2.5 h-3.5 rounded-[1px] bg-red-500" />
+                                      <span className="text-sm font-extrabold tabular-nums">{p.redCards}</span>
+                                    </div>
+                                  </div>
+                                ))
+                              )
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

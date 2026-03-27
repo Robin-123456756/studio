@@ -343,7 +343,7 @@ export function LandingContent() {
             ) : standings && standings.length > 0 ? (
               <>
                 {/* Header */}
-                <div className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2rem_3rem] gap-1 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
+                <div className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2.5rem_3rem] gap-2 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
                   <span>#</span>
                   <span>Team</span>
                   <span className="text-center">PL</span>
@@ -355,7 +355,7 @@ export function LandingContent() {
                 {standings.map((row, i) => (
                   <div
                     key={row.teamId}
-                    className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2rem_3rem] gap-1 items-center px-4 py-2.5 text-sm border-b border-border/50 last:border-b-0"
+                    className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2.5rem_3rem] gap-2 items-center px-4 py-2.5 text-sm border-b border-border/50 last:border-b-0"
                   >
                     {/* Position badge */}
                     <span

@@ -177,7 +177,7 @@ export async function GET(req: Request) {
     const { data: playerData } = await admin
       .from("players")
       .select(
-        "id, name, web_name, position, is_lady, team_id, teams:teams!players_team_id_fkey(name, short_name)"
+        "id, name, web_name, position, is_lady, avatar_url, team_id, teams:teams!players_team_id_fkey(name, short_name)"
       )
       .in("id", squadIds);
 
@@ -185,7 +185,7 @@ export async function GET(req: Request) {
     const playerInfoMap = new Map<string, {
       name: string; webName: string | null;
       position: string | null; teamShort: string | null;
-      isLady: boolean; teamId: string | null;
+      isLady: boolean; teamId: string | null; avatarUrl: string | null;
     }>();
 
     for (const p of playerData ?? []) {
@@ -202,6 +202,7 @@ export async function GET(req: Request) {
         teamShort: (p as any).teams?.short_name ?? null,
         isLady: p.is_lady ?? false,
         teamId: (p as any).team_id ?? null,
+        avatarUrl: (p as any).avatar_url ?? null,
       });
     }
 
@@ -505,6 +506,7 @@ export async function GET(req: Request) {
         position: info?.position ?? null,
         teamShort: info?.teamShort ?? null,
         isLady: info?.isLady ?? false,
+        avatarUrl: info?.avatarUrl ?? null,
         fixtureCount: info?.teamId ? (teamFixtureCount.get(info.teamId) ?? 0) : 0,
         gwPoints,
         stat: breakdown
