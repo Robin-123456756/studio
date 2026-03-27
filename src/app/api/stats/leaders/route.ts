@@ -12,80 +12,145 @@ function getSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+type StatPlayer = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  position: string;
+  isLady: boolean;
+  teamName: string;
+  teamShort: string;
+  statValue: number;
+};
 
+/**
+ * Aggregates season stats from `player_match_events` — the same source of
+ * truth used by /api/player-stats, /api/fantasy-gw-details, and voice-admin.
+ *
+ * Points come from `players.total_points` which is maintained by the scoring
+ * pipeline and already includes the lady 2x multiplier.
+ */
 export async function GET(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
     const url = new URL(req.url);
     const limit = Math.min(Number(url.searchParams.get("limit")) || 10, 30);
 
-    // Fire all stat aggregations in parallel
-    const [goalsRes, assistsRes, cleanSheetsRes, pointsRes, appearancesRes] =
-      await Promise.all([
-        // Top goal scorers
-        supabase.rpc("get_stat_leaders", {
-          stat_action: "goal",
-          result_limit: limit,
-        }),
-        // Top assisters
-        supabase.rpc("get_stat_leaders", {
-          stat_action: "assist",
-          result_limit: limit,
-        }),
-        // Top clean sheets
-        supabase.rpc("get_stat_leaders", {
-          stat_action: "clean_sheet",
-          result_limit: limit,
-        }),
-        // Top points — use players.total_points directly
-        supabase
-          .from("players")
-          .select(
-            `
-            id, name, avatar_url, position, is_lady, total_points,
-            teams:teams!players_team_id_fkey ( name, short_name )
+    // ── Fire all queries in parallel ──
+    const [eventsRes, pointsRes] = await Promise.all([
+      // All player_match_events for stat aggregation
+      supabase
+        .from("player_match_events")
+        .select("player_id, action, quantity"),
+      // Points: read from players.total_points (same as /api/players)
+      supabase
+        .from("players")
+        .select(
           `
-          )
-          .gt("total_points", 0)
-          .order("total_points", { ascending: false })
-          .limit(limit),
-        // Top appearances
-        supabase.rpc("get_stat_leaders", {
-          stat_action: "appearance",
-          result_limit: limit,
-        }),
-      ]);
+          id, name, avatar_url, position, is_lady, total_points,
+          teams:teams!players_team_id_fkey ( name, short_name )
+        `
+        )
+        .gt("total_points", 0)
+        .order("total_points", { ascending: false })
+        .limit(limit),
+    ]);
 
-    // If the RPC doesn't exist yet, fall back to raw queries
-    const useRpc = !goalsRes.error;
-
-    let goals, assists, cleanSheets, appearances;
-
-    if (useRpc) {
-      goals = (goalsRes.data ?? []).map(mapRpcRow);
-      assists = (assistsRes.data ?? []).map(mapRpcRow);
-      cleanSheets = (cleanSheetsRes.data ?? []).map(mapRpcRow);
-      appearances = (appearancesRes.data ?? []).map(mapRpcRow);
-    } else {
-      // Fallback: aggregate from player_match_events directly
-      const [gRes, aRes, csRes, appRes] = await Promise.all([
-        aggregateStat(supabase, "goal", limit),
-        aggregateStat(supabase, "assist", limit),
-        aggregateStat(supabase, "clean_sheet", limit),
-        aggregateStat(supabase, "appearance", limit),
-      ]);
-      goals = gRes;
-      assists = aRes;
-      cleanSheets = csRes;
-      appearances = appRes;
+    if (eventsRes.error) {
+      return apiError(
+        "Failed to fetch player events",
+        "STAT_LEADERS_FAILED",
+        500,
+        eventsRes.error
+      );
+    }
+    if (pointsRes.error) {
+      return apiError(
+        "Failed to fetch player points",
+        "STAT_LEADERS_FAILED",
+        500,
+        pointsRes.error
+      );
     }
 
-    // Points from players table (already fetched)
-    const points = (pointsRes.data ?? []).map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      avatarUrl: p.avatar_url,
-      position: p.position,
+    // ── Aggregate per player from player_match_events ──
+    const totals = new Map<
+      string,
+      { goals: number; assists: number; cleanSheets: number; appearances: number }
+    >();
+
+    for (const e of eventsRes.data ?? []) {
+      const pid = String(e.player_id);
+      const qty = e.quantity ?? 1;
+      const existing = totals.get(pid) ?? {
+        goals: 0,
+        assists: 0,
+        cleanSheets: 0,
+        appearances: 0,
+      };
+
+      switch (e.action) {
+        case "goal":
+          existing.goals += qty;
+          break;
+        case "assist":
+          existing.assists += qty;
+          break;
+        case "clean_sheet":
+          existing.cleanSheets += qty;
+          break;
+        case "appearance":
+        case "sub_appearance":
+          existing.appearances += qty;
+          break;
+      }
+
+      totals.set(pid, existing);
+    }
+
+    // ── Fetch player details for top N of each stat ──
+    const allPlayerIds = [...totals.keys()];
+    const playerMap = new Map<string, any>();
+
+    if (allPlayerIds.length > 0) {
+      const { data: players } = await supabase
+        .from("players")
+        .select(
+          `
+          id, name, avatar_url, position, is_lady,
+          teams:teams!players_team_id_fkey ( name, short_name )
+        `
+        )
+        .in("id", allPlayerIds);
+
+      for (const p of players ?? []) {
+        playerMap.set(String(p.id), p);
+      }
+    }
+
+    // ── Build sorted leader arrays ──
+    function topN(
+      extract: (v: { goals: number; assists: number; cleanSheets: number; appearances: number }) => number
+    ): StatPlayer[] {
+      return [...totals.entries()]
+        .map(([pid, v]) => ({ pid, value: extract(v) }))
+        .filter((r) => r.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, limit)
+        .map((r) => mapPlayer(playerMap.get(r.pid), r.value));
+    }
+
+    const goals = topN((v) => v.goals);
+    const assists = topN((v) => v.assists);
+    const cleanSheets = topN((v) => v.cleanSheets);
+    const appearances = topN((v) => v.appearances);
+
+    // Points from players.total_points (already fetched)
+    const points: StatPlayer[] = (pointsRes.data ?? []).map((p: any) => ({
+      id: String(p.id),
+      name: p.name ?? "--",
+      avatarUrl: p.avatar_url ?? null,
+      position: p.position ?? "--",
       isLady: p.is_lady ?? false,
       teamName: p.teams?.name ?? "--",
       teamShort: p.teams?.short_name ?? "--",
@@ -105,74 +170,15 @@ export async function GET(req: Request) {
   }
 }
 
-function mapRpcRow(row: any) {
+function mapPlayer(p: any, statValue: number): StatPlayer {
   return {
-    id: row.player_id ?? row.id,
-    name: row.player_name ?? row.name,
-    avatarUrl: row.avatar_url,
-    position: row.position,
-    isLady: row.is_lady ?? false,
-    teamName: row.team_name ?? "--",
-    teamShort: row.team_short ?? "--",
-    statValue: Number(row.stat_value ?? row.total ?? 0),
+    id: String(p?.id ?? ""),
+    name: p?.name ?? "--",
+    avatarUrl: p?.avatar_url ?? null,
+    position: p?.position ?? "--",
+    isLady: p?.is_lady ?? false,
+    teamName: p?.teams?.name ?? "--",
+    teamShort: p?.teams?.short_name ?? "--",
+    statValue,
   };
-}
-
-async function aggregateStat(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  action: string,
-  limit: number
-) {
-  // Get aggregated events
-  const { data: events } = await supabase
-    .from("player_match_events")
-    .select("player_id, quantity")
-    .eq("action", action);
-
-  if (!events || events.length === 0) return [];
-
-  // Sum quantities per player
-  const totals = new Map<string, number>();
-  for (const e of events as any[]) {
-    const pid = String(e.player_id);
-    totals.set(pid, (totals.get(pid) ?? 0) + (e.quantity ?? 1));
-  }
-
-  // Sort and take top N
-  const sorted = [...totals.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit);
-
-  if (sorted.length === 0) return [];
-
-  // Fetch player details for top N
-  const playerIds = sorted.map(([id]) => id);
-  const { data: players } = await supabase
-    .from("players")
-    .select(
-      `
-      id, name, avatar_url, position, is_lady,
-      teams:teams!players_team_id_fkey ( name, short_name )
-    `
-    )
-    .in("id", playerIds);
-
-  const playerMap = new Map<string, any>();
-  for (const p of (players ?? []) as any[]) {
-    playerMap.set(String(p.id), p);
-  }
-
-  return sorted.map(([pid, val]) => {
-    const p = playerMap.get(pid);
-    return {
-      id: pid,
-      name: p?.name ?? "--",
-      avatarUrl: p?.avatar_url ?? null,
-      position: p?.position ?? "--",
-      isLady: p?.is_lady ?? false,
-      teamName: p?.teams?.name ?? "--",
-      teamShort: p?.teams?.short_name ?? "--",
-      statValue: val,
-    };
-  });
 }

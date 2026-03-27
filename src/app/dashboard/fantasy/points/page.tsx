@@ -34,6 +34,9 @@ type PlayerInfo = {
   teamName?: string | null;
   isLady?: boolean | null;
   price?: number | null;
+  avatarUrl?: string | null;
+  form?: string | null;
+  ownership?: number | null;
 };
 
 type PlayerStat = {
@@ -735,12 +738,20 @@ function PointsListView({
     return null;
   };
 
+  // Map full position names to short abbreviations like FPL
+  const posAbbrev = (pos: string | null | undefined): string => {
+    const n = normalizePosition(pos);
+    if (n === "Goalkeeper") return "GKP";
+    if (n === "Defender") return "DEF";
+    if (n === "Midfielder") return "MID";
+    if (n === "Forward") return "FWD";
+    return "";
+  };
+
   const renderPlayerRow = (p: SquadPlayer & { position?: string | null }, isBench?: boolean) => {
     const displayName = shortName(p.name, p.webName);
     const isCap = captainId === p.id;
     const isVc = viceId === p.id;
-    const isGK = normalizePosition(p.position) === "Goalkeeper";
-    const kitColor = getKitColor(p.teamShort);
     const mult = multipliers[p.id] ?? 1;
     const pts = p.gwPoints * mult;
     const blank = isBlankGw(p);
@@ -784,12 +795,29 @@ function PointsListView({
             }}>i</span>
           </div>
 
-          {/* Kit */}
-          <div style={{ marginLeft: 6, marginRight: 10, flexShrink: 0 }}>
-            <Kit color={kitColor} isGK={isGK} size={36} />
+          {/* Player photo */}
+          <div style={{
+            marginLeft: 6, marginRight: 10, flexShrink: 0,
+            width: 40, height: 40, borderRadius: 8, overflow: "hidden",
+            background: "hsl(var(--muted))",
+          }}>
+            {p.avatarUrl ? (
+              <img
+                src={p.avatarUrl}
+                alt={displayName}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                loading="lazy"
+              />
+            ) : (
+              <div style={{
+                width: "100%", height: "100%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 16, opacity: 0.4,
+              }}>👤</div>
+            )}
           </div>
 
-          {/* Player name + team */}
+          {/* Player name + team + position */}
           <div style={{
             flex: 1, minWidth: 0,
             paddingRight: 8,
@@ -861,20 +889,38 @@ function PointsListView({
               marginTop: 2,
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}>
-              {p.teamShort ?? "--"}
+              {p.teamShort ?? "--"} &nbsp;&nbsp; {posAbbrev(p.position)}
             </div>
           </div>
 
           {/* GW Points */}
-          <div style={{ width: 50, textAlign: "right", flexShrink: 0 }}>
+          <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
             <span style={{
-              fontSize: 15,
-              fontWeight: 800,
-              color: blank
-                ? "hsl(var(--muted-foreground))"
-                : pts > 0 ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+              fontSize: 14, fontWeight: 800, color: "hsl(var(--foreground))",
+              fontVariantNumeric: "tabular-nums",
             }}>
-              {blank ? "-" : pts}
+              {pts}
+            </span>
+          </div>
+
+          {/* Form */}
+          <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+              {p.form ?? "-"}
+            </span>
+          </div>
+
+          {/* Current Price */}
+          <div style={{ width: 52, textAlign: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--foreground))" }}>
+              {p.price != null ? `${p.price.toFixed(1)}m` : "-"}
+            </span>
+          </div>
+
+          {/* Selected % */}
+          <div style={{ width: 48, textAlign: "right", flexShrink: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>
+              {p.ownership != null ? `${p.ownership.toFixed(0)}%` : "-"}
             </span>
           </div>
         </button>
@@ -896,8 +942,17 @@ function PointsListView({
         <div style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))", textAlign: "left" }}>
           Player
         </div>
-        <div style={{ width: 50, textAlign: "right", fontSize: 12, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>
+        <div style={{ width: 40, textAlign: "center", fontSize: 11, fontWeight: 600, color: "hsl(var(--foreground))" }}>
           Pts
+        </div>
+        <div style={{ width: 40, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>
+          Form
+        </div>
+        <div style={{ width: 52, textAlign: "center", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))", lineHeight: 1.2 }}>
+          Price
+        </div>
+        <div style={{ width: 48, textAlign: "right", fontSize: 11, fontWeight: 500, color: "hsl(var(--muted-foreground))" }}>
+          Sel
         </div>
       </div>
 
@@ -1149,32 +1204,57 @@ function PointsPage() {
             return;
           }
 
+          // Fetch player browse data (form, price, ownership) in parallel
+          const playerBrowseMap = new Map<string, { form: string | null; price: number | null; ownership: number }>();
+          try {
+            const browseRes = await fetch("/api/players", { cache: "no-store" });
+            if (browseRes.ok) {
+              const browseJson = await browseRes.json();
+              for (const bp of browseJson.players ?? []) {
+                playerBrowseMap.set(String(bp.id), {
+                  form: bp.form_last5 ?? null,
+                  price: bp.price ?? null,
+                  ownership: bp.ownership ?? 0,
+                });
+              }
+            }
+          } catch {
+            // non-fatal — list view just won't show form/price/ownership
+          }
+
           // Build SquadPlayer list from API response
-          const squadPlayers: SquadPlayer[] = (json.players ?? []).map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            webName: p.webName,
-            position: p.position,
-            teamShort: p.teamShort,
-            isLady: p.isLady,
-            fixtureCount: p.fixtureCount ?? 1,
-            gwPoints: p.gwPoints ?? 0,
-            stat: p.stat
-              ? {
-                  playerId: p.id,
-                  gameweekId: json.gwId,
-                  points: p.gwPoints ?? 0,
-                  goals: p.stat.goals ?? 0,
-                  penalties: p.stat.penalties ?? 0,
-                  assists: p.stat.assists ?? 0,
-                  cleanSheet: p.stat.cleanSheet ?? false,
-                  yellowCards: p.stat.yellowCards ?? 0,
-                  redCards: p.stat.redCards ?? 0,
-                  ownGoals: p.stat.ownGoals ?? 0,
-                  playerName: p.name,
-                }
-              : null,
-          }));
+          const squadPlayers: SquadPlayer[] = (json.players ?? []).map((p: any) => {
+            const browse = playerBrowseMap.get(String(p.id));
+            return {
+              id: p.id,
+              name: p.name,
+              webName: p.webName,
+              position: p.position,
+              teamShort: p.teamShort,
+              isLady: p.isLady,
+              avatarUrl: p.avatarUrl ?? null,
+              form: browse?.form ?? null,
+              price: browse?.price ?? null,
+              ownership: browse?.ownership ?? null,
+              fixtureCount: p.fixtureCount ?? 1,
+              gwPoints: p.gwPoints ?? 0,
+              stat: p.stat
+                ? {
+                    playerId: p.id,
+                    gameweekId: json.gwId,
+                    points: p.gwPoints ?? 0,
+                    goals: p.stat.goals ?? 0,
+                    penalties: p.stat.penalties ?? 0,
+                    assists: p.stat.assists ?? 0,
+                    cleanSheet: p.stat.cleanSheet ?? false,
+                    yellowCards: p.stat.yellowCards ?? 0,
+                    redCards: p.stat.redCards ?? 0,
+                    ownGoals: p.stat.ownGoals ?? 0,
+                    playerName: p.name,
+                  }
+                : null,
+            };
+          });
 
           // Build multiplier map: captain gets captainMultiplier, activated vice gets it too
           const mults: Record<string, number> = {};
