@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
-import { calcTotalPoints } from "@/lib/voice-admin";
 import type { AIAction } from "@/lib/voice-admin/types";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { autoAssignBonus } from "@/lib/bonus-calculator";
 import { parseBody } from "@/lib/validate";
 import { apiError } from "@/lib/api-error";
+import { loadScoringRules, lookupPoints, norm } from "@/lib/scoring-engine";
 
 const VALID_ACTIONS = [
   "appearance", "goal", "assist", "clean_sheet", "own_goal",
@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Process each player's events
+    const rules = await loadScoringRules();
     const eventIds: number[] = [];
     let totalPlayersUpdated = 0;
 
@@ -109,12 +110,12 @@ export async function POST(request: NextRequest) {
         ? [...event.actions, { action: "clean_sheet" as const, quantity: 1 }]
         : event.actions;
 
-      // Calculate points for this player's actions (including auto clean sheet)
-      const { total, breakdown } = await calcTotalPoints(
-        finalActions,
-        player.position,
-        player.is_lady
-      );
+      // Calculate points for this player's actions using the canonical scoring engine
+      const breakdown = finalActions.map((act) => {
+        const pts = lookupPoints(rules, act.action, norm(player.position), player.is_lady);
+        return { action: act.action as string, quantity: act.quantity, points_per_unit: pts, subtotal: pts * act.quantity };
+      });
+      const total = breakdown.reduce((sum, b) => sum + b.subtotal, 0);
 
       // Build a lookup of penalties from the original actions
       const penaltiesForGoal = finalActions.find((a) => a.action === "goal")?.penalties ?? 0;

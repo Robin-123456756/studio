@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { apiError } from "@/lib/api-error";
+import { loadScoringRules, lookupPoints, norm } from "@/lib/scoring-engine";
 
 export async function GET(request: Request) {
   try {
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
           name,
           web_name,
           position,
+          is_lady,
           team_id,
           teams:team_id (
             name,
@@ -49,6 +51,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No events found for this match" }, { status: 404 });
     }
 
+    const rules = await loadScoringRules();
+
+    function calcEventPoints(e: any, p: any): number {
+      if (e.action === "bonus") return e.points_awarded ?? 0;
+      return lookupPoints(rules, e.action, norm(p.position), p.is_lady ?? false);
+    }
+
     // Build CSV
     const header = "Player,Position,Team,Action,Quantity,Points";
     const rows = events.map((e: any) => {
@@ -60,7 +69,7 @@ export async function GET(request: Request) {
         `"${team?.short_name || team?.name || ""}"`,
         e.action,
         e.quantity,
-        e.points_awarded ?? 0,
+        calcEventPoints(e, p),
       ].join(",");
     });
 
@@ -78,7 +87,7 @@ export async function GET(request: Request) {
           points: 0,
         };
       }
-      playerTotals[key].points += e.points_awarded ?? 0;
+      playerTotals[key].points += calcEventPoints(e, p);
     }
 
     const summaryHeader = "\n\nSUMMARY\nPlayer,Position,Team,Total Points";

@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { autoAssignBonus } from "@/lib/bonus-calculator";
 import { apiError } from "@/lib/api-error";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
+import { loadScoringRules, lookupPoints, norm } from "@/lib/scoring-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -193,25 +194,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "gameweekId, matchId, and appearances[] required" }, { status: 400 });
     }
 
-    // Load scoring rules for appearance points
-    const { data: rules } = await supabase
-      .from("scoring_rules")
-      .select("action, position, points")
-      .in("action", ["appearance", "sub_appearance"]);
-
-    const appearancePts = rules?.find((r) => r.action === "appearance")?.points ?? 2;
-    const subAppearancePts = rules?.find((r) => r.action === "sub_appearance")?.points ?? 1;
+    const rules = await loadScoringRules();
 
     const playerIds = appearances.map((a) => a.playerId);
 
-    // Fetch is_lady for each player so we can apply the 2x lady multiplier to points_awarded
+    // Fetch is_lady and position for each player so lookupPoints can apply lady 2x correctly
     const { data: playerMeta } = await supabase
       .from("players")
-      .select("id, is_lady")
+      .select("id, is_lady, position")
       .in("id", playerIds);
-    const isLadyMap = new Map<string, boolean>();
+    const playerMetaMap = new Map<string, { isLady: boolean; position: string }>();
     for (const p of playerMeta ?? []) {
-      isLadyMap.set(String(p.id), p.is_lady ?? false);
+      playerMetaMap.set(String(p.id), { isLady: p.is_lady ?? false, position: p.position ?? "ALL" });
     }
 
     // 1. Remove existing appearance/sub_appearance events for these players in this match
@@ -227,14 +221,16 @@ export async function POST(req: Request) {
     // 2. Insert new appearance events for players who played
     const newEvents: { player_id: string; match_id: number; action: string; quantity: number; points_awarded: number }[] = [];
     for (const a of appearances) {
-      const isLady = isLadyMap.get(a.playerId) ?? false;
+      const meta = playerMetaMap.get(a.playerId);
+      const isLady = meta?.isLady ?? false;
+      const position = meta?.position ?? "ALL";
       if (a.status === "started") {
         newEvents.push({
           player_id: a.playerId,
           match_id: matchId,
           action: "appearance",
           quantity: 1,
-          points_awarded: isLady && appearancePts > 0 ? appearancePts * 2 : appearancePts,
+          points_awarded: lookupPoints(rules, "appearance", norm(position), isLady),
         });
       } else if (a.status === "sub") {
         newEvents.push({
@@ -242,7 +238,7 @@ export async function POST(req: Request) {
           match_id: matchId,
           action: "sub_appearance",
           quantity: 1,
-          points_awarded: isLady && subAppearancePts > 0 ? subAppearancePts * 2 : subAppearancePts,
+          points_awarded: lookupPoints(rules, "sub_appearance", norm(position), isLady),
         });
       }
     }
