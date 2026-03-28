@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
-import { computeUserScore } from "@/lib/scoring-engine";
+import { computeUserScore, loadScoringRules, lookupPoints, norm } from "@/lib/scoring-engine";
 import { apiError } from "@/lib/api-error";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
 
@@ -115,22 +115,25 @@ export async function GET(req: Request) {
 
     const pointsMap = new Map<string, number>();
     const playedFromEvents = new Set<string>();
+    const hasAppearanceEvent = new Set<string>();
+    const rawEvents: Array<{ playerId: string; action: string; qty: number; pointsAwarded: number }> = [];
 
     if (gwMatchIds.length > 0) {
       const events = await fetchAllRows((from, to) =>
         supabase
           .from("player_match_events")
-          .select("player_id, points_awarded, quantity")
+          .select("player_id, action, quantity, points_awarded")
           .in("match_id", gwMatchIds)
           .in("player_id", allPlayerIds)
           .range(from, to)
       );
 
       for (const e of events) {
-        const pid = String(e.player_id);
-        const pts = (e.points_awarded ?? 0) * (e.quantity ?? 1);
-        pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + pts);
-        playedFromEvents.add(pid);
+        rawEvents.push({ playerId: String(e.player_id), action: e.action, qty: e.quantity ?? 1, pointsAwarded: e.points_awarded ?? 0 });
+        playedFromEvents.add(String(e.player_id));
+        if (e.action === "appearance" || e.action === "sub_appearance") {
+          hasAppearanceEvent.add(String(e.player_id));
+        }
       }
     }
 
@@ -139,16 +142,6 @@ export async function GET(req: Request) {
       .select("player_id, did_play")
       .eq("gameweek_id", gwId)
       .in("player_id", allPlayerIds);
-
-    const statsMap = new Map<string, { player_id: string; points: number; did_play: boolean }>();
-    for (const pid of allPlayerIds) {
-      const didPlayFromStats = (statsData ?? []).some((s: any) => String(s.player_id) === pid && s.did_play);
-      statsMap.set(pid, {
-        player_id: pid,
-        points: pointsMap.get(pid) ?? 0,
-        did_play: playedFromEvents.has(pid) || didPlayFromStats,
-      });
-    }
 
     // 4. Get player metadata (position, is_lady)
     const { data: playerMeta } = await supabase
@@ -159,6 +152,46 @@ export async function GET(req: Request) {
     const metaMap = new Map<string, { id: string; position: string | null; is_lady: boolean | null }>();
     for (const p of playerMeta ?? []) {
       metaMap.set(String(p.id), { id: String(p.id), position: p.position, is_lady: p.is_lady });
+    }
+
+    // Compute pointsMap using lookupPoints (Rule 8: never read points_awarded for non-bonus)
+    const rules = await loadScoringRules();
+    for (const e of rawEvents) {
+      const meta = metaMap.get(e.playerId);
+      const position = norm(meta?.position);
+      const isLady = meta?.is_lady ?? false;
+      const pts = e.action === "bonus"
+        ? e.pointsAwarded * e.qty
+        : lookupPoints(rules, e.action, position, isLady) * e.qty;
+      pointsMap.set(e.playerId, (pointsMap.get(e.playerId) ?? 0) + pts);
+    }
+
+    // Step 3f (mirrors scoring-engine.ts): add appearance points for players who
+    // played (from events or player_stats) but have no explicit appearance event.
+    // This covers voice-admin "did_play only" entries and avoids double-counting
+    // for players who already have an appearance/sub_appearance event.
+    for (const pid of allPlayerIds) {
+      if (hasAppearanceEvent.has(pid)) continue;
+      const didPlayFromStats = (statsData ?? []).some((s: any) => String(s.player_id) === pid && s.did_play);
+      const played = playedFromEvents.has(pid) || didPlayFromStats;
+      if (played) {
+        const meta = metaMap.get(pid);
+        const position = norm(meta?.position);
+        const isLady = meta?.is_lady ?? false;
+        const appearancePts = lookupPoints(rules, "appearance", position, isLady);
+        pointsMap.set(pid, (pointsMap.get(pid) ?? 0) + appearancePts);
+      }
+    }
+
+    // statsMap must be built AFTER pointsMap is populated above
+    const statsMap = new Map<string, { player_id: string; points: number; did_play: boolean }>();
+    for (const pid of allPlayerIds) {
+      const didPlayFromStats = (statsData ?? []).some((s: any) => String(s.player_id) === pid && s.did_play);
+      statsMap.set(pid, {
+        player_id: pid,
+        points: pointsMap.get(pid) ?? 0,
+        did_play: playedFromEvents.has(pid) || didPlayFromStats,
+      });
     }
 
     // 5. Compute each user's score using the scoring engine

@@ -204,6 +204,16 @@ export async function POST(req: Request) {
 
     const playerIds = appearances.map((a) => a.playerId);
 
+    // Fetch is_lady for each player so we can apply the 2x lady multiplier to points_awarded
+    const { data: playerMeta } = await supabase
+      .from("players")
+      .select("id, is_lady")
+      .in("id", playerIds);
+    const isLadyMap = new Map<string, boolean>();
+    for (const p of playerMeta ?? []) {
+      isLadyMap.set(String(p.id), p.is_lady ?? false);
+    }
+
     // 1. Remove existing appearance/sub_appearance events for these players in this match
     if (playerIds.length > 0) {
       await supabase
@@ -217,13 +227,14 @@ export async function POST(req: Request) {
     // 2. Insert new appearance events for players who played
     const newEvents: { player_id: string; match_id: number; action: string; quantity: number; points_awarded: number }[] = [];
     for (const a of appearances) {
+      const isLady = isLadyMap.get(a.playerId) ?? false;
       if (a.status === "started") {
         newEvents.push({
           player_id: a.playerId,
           match_id: matchId,
           action: "appearance",
           quantity: 1,
-          points_awarded: appearancePts,
+          points_awarded: isLady && appearancePts > 0 ? appearancePts * 2 : appearancePts,
         });
       } else if (a.status === "sub") {
         newEvents.push({
@@ -231,7 +242,7 @@ export async function POST(req: Request) {
           match_id: matchId,
           action: "sub_appearance",
           quantity: 1,
-          points_awarded: subAppearancePts,
+          points_awarded: isLady && subAppearancePts > 0 ? subAppearancePts * 2 : subAppearancePts,
         });
       }
     }
