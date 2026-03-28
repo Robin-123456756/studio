@@ -878,7 +878,7 @@ describe("calculateGameweekScores", () => {
   function mockQueryBuilder(data: any[] | null = [], error: any = null) {
     const result = { data, error };
     const chain: any = {};
-    const methods = ["select", "eq", "in", "lt", "order", "limit", "insert", "upsert"];
+    const methods = ["select", "eq", "in", "lt", "order", "limit", "insert", "upsert", "range"];
     for (const m of methods) {
       chain[m] = vi.fn().mockReturnValue(chain);
     }
@@ -1037,7 +1037,7 @@ describe("calculateGameweekScores", () => {
     });
     vi.mocked(getSupabaseServerOrThrow).mockReturnValue(mockSb as any);
 
-    await expect(calculateGameweekScores(1)).rejects.toThrow("Failed to fetch events: Events error");
+    await expect(calculateGameweekScores(1)).rejects.toThrow("Events error");
   });
 
   it("applies lady 2x multiplier on positive event points", async () => {

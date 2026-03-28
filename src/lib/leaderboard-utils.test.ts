@@ -9,7 +9,7 @@ function createMockSupabase(tables: Record<string, MockData>) {
   const builder = (tableName: string) => {
     const result = tables[tableName] ?? { data: [], error: null };
     const chain: any = {};
-    const methods = ["select", "in", "eq", "order"];
+    const methods = ["select", "in", "eq", "order", "range"];
     for (const m of methods) {
       chain[m] = vi.fn().mockReturnValue(chain);
     }
