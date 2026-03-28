@@ -362,3 +362,171 @@ Custom agents and skills are in `.claude/` directory:
 - Start a new session for each distinct task (don't chain 10 tasks in one conversation)
 - For large audits (like Playwright page crawls), use /clear to reset context after getting results
 - If you see "compaction" errors, just start a new session — no data is lost
+
+---
+
+## Gameweek State Machine
+
+Every gameweek has a state. Before writing ANY code that touches gameweeks,
+rosters, transfers, or scores — check which states are affected.
+
+| State       | Meaning                          | What's ALLOWED                        | What's FORBIDDEN                                  |
+|-------------|----------------------------------|---------------------------------------|---------------------------------------------------|
+| `upcoming`  | Deadline not yet passed          | Transfers, squad edits, chip plays    | Scoring, finalising points                        |
+| `active`    | Deadline passed, matches ongoing | Live score updates (voice admin only) | Roster changes, transfers, chip plays             |
+| `completed` | All matches done, points final   | Read-only display                     | Any mutation to rosters, scores, or match events  |
+
+### Rules
+- NEVER allow a transfer or roster save if the current gameweek is `active` or `completed`
+- NEVER recalculate or overwrite final points on a `completed` gameweek
+- NEVER run the voice admin scoring flow against a `completed` gameweek without explicit Raymond approval
+- The deadline is stored in `gameweeks.deadline` as a UTC timestamp — always compare in UTC for logic, convert to `Africa/Kampala` for display only
+- If the gameweek state is ambiguous, ASK — do not infer it from match data
+
+---
+
+## Testing Requirements
+
+### Mandatory — scoring engine
+Any change to these files REQUIRES a passing test before the task is done:
+- `src/lib/scoring-engine.ts`
+- `src/lib/lady-points-logic.ts`
+- `src/lib/leaderboard-utils.ts`
+- `src/lib/roster-validation.ts`
+
+Run the relevant test file BEFORE and AFTER your change:
+```bash
+npx vitest run src/lib/scoring-engine.test.ts
+npx vitest run src/lib/roster-validation.test.ts
+```
+
+If a test fails after your change — REVERT first, then find a different approach.
+Do NOT modify a test to make it pass unless the test itself was wrong and Raymond explicitly agrees.
+
+### When to write a NEW test
+- If Raymond reports a scoring bug → write a failing test that reproduces it FIRST, then fix
+- If you add a new action type to the scoring engine → add a test case for it
+- If the lady 2x multiplier logic changes in any way → add tests for both lady AND non-lady cases
+- If you change auto-substitution or vice-captain logic → add a test that covers the edge case
+
+---
+
+## API Error Handling Standard
+
+Every API route MUST follow this exact pattern — no exceptions.
+
+### Success response
+```ts
+return NextResponse.json({ data: result }, { status: 200 });
+```
+
+### Error responses
+```ts
+// Auth failure
+return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+// Bad input
+return NextResponse.json({ error: "Missing required field: gameweek_id" }, { status: 400 });
+
+// Not found
+return NextResponse.json({ error: "Player not found" }, { status: 404 });
+
+// Server error — NEVER expose raw Supabase errors or stack traces to the client
+console.error("[api/route-name]", error);
+return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+```
+
+### Rules
+- ALWAYS use `{ data: ... }` for success and `{ error: ... }` for failures — never `{ message: ... }`
+- NEVER expose Supabase error messages, stack traces, or internal details to the client
+- ALWAYS log the real error with a `[api/route-name]` prefix before returning 500
+- Consistent shape means the frontend can always check `if (res.error)` — do not break this contract
+- NEVER return a 200 status with an error inside the body — use the correct HTTP status code
+
+---
+
+## Mobile & Performance Rules
+
+This app serves ~100 users in Kampala on mobile, often on 3G/4G connections.
+Every API route and component must be built with this constraint in mind.
+
+### API routes
+- NEVER use `select("*")` on large tables — always select only the columns needed
+- NEVER fetch more than 50 rows without pagination
+- NEVER run N+1 queries — use Supabase joins instead of looping fetches:
+  ```ts
+  // BAD — N+1
+  const players = await supabase.from("players").select("*");
+  for (const p of players) { await supabase.from("player_stats").select(...).eq("player_id", p.id); }
+
+  // GOOD — single join
+  const { data } = await supabase.from("players").select("*, player_stats(*)");
+  ```
+- Cache static or slow-changing data with `Cache-Control` headers:
+  ```ts
+  return NextResponse.json(data, {
+    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" }
+  });
+  ```
+  Applies to: player lists, scoring rules, fixtures. NOT to: rosters, live scores, user-specific data.
+
+### Components
+- Always use Next.js `<Image>` with explicit `width` and `height` for player photos — never raw `<img>`
+- Never load a full list client-side just to filter it — filter at the DB/API level
+- Use skeleton loaders (not spinners) for content-heavy pages: roster, leaderboard, picks
+- Do not add new fonts, icon libraries, or large dependencies without asking Raymond first
+
+---
+
+## Supabase Realtime — Subscription Rules
+
+### Every subscription MUST be cleaned up
+```ts
+// CORRECT — always return the cleanup function
+useEffect(() => {
+  const channel = supabase
+    .channel(`gw-${gwId}-scores`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "player_match_events", filter: `gameweek_id=eq.${gwId}` }, handler)
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [gwId]);
+```
+
+### Rules
+- NEVER create a Realtime subscription without a `return () => supabase.removeChannel(channel)` cleanup
+- NEVER subscribe inside a function that runs on every render — only inside `useEffect` with correct deps
+- ALWAYS filter subscriptions — never subscribe to an entire table:
+  ```ts
+  // BAD — subscribes to every row change in the table
+  filter: undefined
+
+  // GOOD — scoped to one gameweek
+  filter: `gameweek_id=eq.${gwId}`
+  ```
+- Use unique, descriptive channel names: `gw-${gwId}-scores`, `team-${teamId}-roster`
+  NEVER use generic names like `"changes"` or `"realtime"` — channel name collisions cause silent bugs
+- If a component unmounts before `.subscribe()` resolves, the cleanup must still call `removeChannel`
+
+---
+
+## Transfer Window & Chip Activation Guards
+
+### Transfer rules (enforce in `/api/transfers/`)
+- Transfers are ONLY allowed when the current gameweek is `upcoming`
+- Always verify server-side: `gameweeks.deadline > now()` — never trust the client
+- Max 1 free transfer per gameweek — additional transfers cost 4 points each
+- Check the `transfers` table for the count, not the client payload
+- NEVER process a transfer request without re-validating squad composition rules afterward (roster-validation.ts)
+
+### Chip activation rules (enforce in `/api/chips/`)
+Before activating any chip, verify ALL of the following server-side:
+1. The chip has not already been used this season (`fantasy_chips` table)
+2. The current gameweek state is `upcoming`
+3. No other chip is currently active for this user this gameweek
+4. The chip type is valid: `bench_boost`, `triple_captain`, `wildcard`, `free_hit`
+
+NEVER trust the client that a chip is available — always re-check the DB.
+If any condition fails, return `{ error: "Chip not available" }` with status 400.
