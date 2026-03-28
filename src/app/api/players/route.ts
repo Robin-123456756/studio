@@ -80,7 +80,7 @@ export async function GET(req: Request) {
       supabase
         .from("gameweeks")
         .select("id")
-        .or("is_finished.eq.true,finalized.eq.true,is_final.eq.true")
+        .eq("finalized", true)
         .order("id", { ascending: false })
         .limit(5),
     ]);
@@ -171,10 +171,16 @@ export async function GET(req: Request) {
       // ── Points & form from player_stats ──
       // Form uses FPL-style fixed window: total points in last 5 completed GWs / 5.
       // This rewards players who play consistently — missing a GW counts as 0.
+      if (completedGwResult.error) {
+        console.error("[api/players] completedGwResult error", completedGwResult.error);
+      }
       const formGwIds = new Set<number>(
         (completedGwResult.data ?? []).map((g: any) => g.id)
       );
-      const formWindow = Math.max(formGwIds.size, 1); // actual window (≤5 if fewer completed GWs)
+      // Always divide by the fixed window of 5 (FPL-style) so missing a GW counts as 0.
+      // Only fall back to 1 if no GWs exist yet (very start of season / test environment).
+      const FORM_WINDOW = 5;
+      const formWindow = formGwIds.size === 0 ? 1 : FORM_WINDOW;
 
       if (allStats.length > 0) {
         const formPointsMap = new Map<string, number>();
