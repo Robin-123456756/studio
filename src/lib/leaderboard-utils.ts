@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export type StandingsEntry = {
   rank: number;
@@ -25,21 +26,22 @@ export async function computeStandings(
   const { data: teams } = await teamsQuery;
 
   // 2. Fetch GW-by-GW scores
-  let scoresQuery = supabase
-    .from("user_weekly_scores")
-    .select("user_id, gameweek_id, total_weekly_points")
-    .order("gameweek_id", { ascending: true });
-  if (userIds) {
-    scoresQuery = scoresQuery.in("user_id", userIds);
-  }
-  const { data: allGwScores } = await scoresQuery;
+  //    Uses fetchAllRows() — grows with users × gameweeks, can exceed 1000 rows
+  const allGwScores = await fetchAllRows((from, to) => {
+    let q = supabase
+      .from("user_weekly_scores")
+      .select("user_id, gameweek_id, total_weekly_points")
+      .order("gameweek_id", { ascending: true });
+    if (userIds) q = q.in("user_id", userIds);
+    return q.range(from, to);
+  });
 
   // 3. Aggregate
   const byUser = new Map<string, Record<number, number>>();
   const totalByUser = new Map<string, number>();
   let maxGw = 0;
 
-  for (const s of allGwScores ?? []) {
+  for (const s of allGwScores) {
     if (!byUser.has(s.user_id)) byUser.set(s.user_id, {});
     const pts = Number(s.total_weekly_points ?? 0);
     byUser.get(s.user_id)![s.gameweek_id] = pts;

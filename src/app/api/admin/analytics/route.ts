@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -13,17 +14,23 @@ export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
   try {
+    // fetchAllRows() for tables that grow with gameweeks and can exceed 1000 rows.
+    // Other tables (players, teams, chips) are small enough for bare queries.
     const [
-      scoresRes,
-      playerStatsRes,
+      scores,
+      playerStats,
       transfersRes,
       chipsRes,
       rostersRes,
       playersRes,
       teamsRes,
     ] = await Promise.all([
-      supabase.from("user_weekly_scores").select("user_id, gameweek_id, total_weekly_points"),
-      supabase.from("player_stats").select("player_id, gameweek_id, goals, assists, clean_sheets, points"),
+      fetchAllRows((from, to) =>
+        supabase.from("user_weekly_scores").select("user_id, gameweek_id, total_weekly_points").range(from, to)
+      ),
+      fetchAllRows((from, to) =>
+        supabase.from("player_stats").select("player_id, gameweek_id, goals, assists, clean_sheets, points").range(from, to)
+      ),
       supabase.from("user_transfers").select("user_id, gameweek_id"),
       supabase.from("user_chips").select("user_id, chip, gameweek_id"),
       supabase.from("user_rosters").select("user_id, gameweek_id"),
@@ -31,8 +38,6 @@ export async function GET() {
       supabase.from("teams").select("id, team_uuid, name, short_name"),
     ]);
 
-    const scores = scoresRes.data ?? [];
-    const playerStats = playerStatsRes.data ?? [];
     const transfers = transfersRes.data ?? [];
     const chips = chipsRes.data ?? [];
     const rosters = rostersRes.data ?? [];
