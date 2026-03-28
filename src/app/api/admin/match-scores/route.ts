@@ -5,6 +5,7 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { autoAssignBonus } from "@/lib/bonus-calculator";
 import { parseBody } from "@/lib/validate";
 import { apiError } from "@/lib/api-error";
+import { loadScoringRules, lookupPoints, norm } from "@/lib/scoring-engine";
 
 const MatchScoresSchema = z.object({
   matches: z.array(z.object({
@@ -90,21 +91,7 @@ export async function PUT(req: Request) {
     let updated = 0;
     let cleanSheetsAwarded = 0;
 
-    // Load scoring rules for clean sheet points (instead of hardcoding)
-    const { data: rulesData } = await supabase
-      .from("scoring_rules")
-      .select("action, position, points")
-      .eq("action", "clean_sheet");
-
-    const csRules: Record<string, number> = {};
-    for (const r of rulesData ?? []) {
-      csRules[r.position || "ALL"] = r.points;
-    }
-
-    function getCsPoints(position: string, isLady: boolean): number {
-      const base = csRules[position] ?? csRules["ALL"] ?? (position === "GK" || position === "DEF" ? 4 : 1);
-      return isLady && base > 0 ? base * 2 : base;
-    }
+    const rules = await loadScoringRules();
 
     let bonusWarning: string | undefined;
     for (const match of matches) {
@@ -157,7 +144,7 @@ export async function PUT(req: Request) {
 
           if (!appearance) continue;
 
-          const csPoints = getCsPoints(player.position, player.is_lady ?? false);
+          const csPoints = lookupPoints(rules, "clean_sheet", norm(player.position), player.is_lady ?? false);
 
           // Upsert clean sheet event
           const { error: csError } = await supabase

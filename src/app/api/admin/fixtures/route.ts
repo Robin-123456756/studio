@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     // Fetch upcoming matches (not played)
     const { data: matches, error: mError } = await supabase
       .from("matches")
-      .select("id, gameweek_id, home_team_uuid, away_team_uuid, kickoff_time, is_played")
+      .select("id, gameweek_id, home_team_uuid, away_team_uuid, kickoff_time, is_played, venue")
       .eq("is_played", false)
       .order("kickoff_time", { ascending: true });
 
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
         away_team_uuid: m.away_team_uuid,
         home_team: teamMap[m.home_team_uuid] || "?",
         away_team: teamMap[m.away_team_uuid] || "?",
-        venue: null,
+        venue: m.venue || null,
         kickoff_time: m.kickoff_time,
         is_played: m.is_played,
       });
@@ -131,6 +131,8 @@ export async function POST(req: Request) {
         is_played: false,
         is_final: false,
       };
+
+      if (venue) insertData.venue = venue;
 
       if (kickoff_time) {
         const kickoffIso = toIsoAssumingEAT(kickoff_time);

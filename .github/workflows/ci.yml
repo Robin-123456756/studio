@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  # Dummy env vars so Next.js build doesn't fail on missing secrets
+  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+  SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key"
+  NEXTAUTH_SECRET: "ci-secret"
+  NEXTAUTH_URL: "http://localhost:3001"
+
+jobs:
+  # ── Typecheck ──────────────────────────────────────────────
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  # ── Lint ───────────────────────────────────────────────────
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  # ── Unit Tests ─────────────────────────────────────────────
+  test:
+    name: Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  # ── Rule 8: Single Calculation Path ────────────────────────
+  # Ensures no API route reads points_awarded without using
+  # the scoring engine (lookupPoints). Prevents point drift.
+  rule8-check:
+    name: Rule 8 (scoring path)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for points_awarded without lookupPoints
+        run: |
+          VIOLATIONS=""
+          # Find API route files that reference points_awarded
+          FILES=$(grep -rl "points_awarded" src/app/api/ --include="*.ts" 2>/dev/null || true)
+          for f in $FILES; do
+            # Allow files that also import lookupPoints (they follow Rule 8)
+            if ! grep -q "lookupPoints" "$f"; then
+              # Allow test files
+              if [[ "$f" != *.test.* ]]; then
+                VIOLATIONS="$VIOLATIONS\n  - $f"
+              fi
+            fi
+          done
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Rule 8 violation: these API routes read points_awarded without importing lookupPoints from the scoring engine:"
+            echo -e "$VIOLATIONS"
+            echo ""
+            echo "Every route that displays points MUST recalculate from scoring_rules using lookupPoints()."
+            echo "See CLAUDE.md Rule 8 for the required pattern."
+            exit 1
+          fi
+          echo "Rule 8 check passed."
+
+  # ── Production Build ───────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint, test, rule8-check]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
