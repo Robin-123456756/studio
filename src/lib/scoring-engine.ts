@@ -11,6 +11,7 @@
  */
 
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 // ── Position normalization (mirrors roster-validation.ts) ─────────────
 
@@ -398,15 +399,17 @@ export async function calculateGameweekScores(gameweekId: number): Promise<Scori
   const hasAppearanceEvent = new Set<string>();
 
   if (gwMatchIds.length > 0) {
-    const { data: events, error: eventsErr } = await supabase
-      .from("player_match_events")
-      .select("player_id, action, quantity, points_awarded")
-      .in("match_id", gwMatchIds)
-      .in("player_id", allPlayerIds);
+    // fetchAllRows() — events grow with matches × players and can exceed 1000 rows
+    const events = await fetchAllRows((from, to) =>
+      supabase
+        .from("player_match_events")
+        .select("player_id, action, quantity, points_awarded")
+        .in("match_id", gwMatchIds)
+        .in("player_id", allPlayerIds)
+        .range(from, to)
+    );
 
-    if (eventsErr) throw new Error(`Failed to fetch events: ${eventsErr.message}`);
-
-    for (const e of events ?? []) {
+    for (const e of events) {
       const pid = String(e.player_id);
       const meta = metaMap.get(pid);
       const position = norm(meta?.position);

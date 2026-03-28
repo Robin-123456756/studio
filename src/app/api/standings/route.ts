@@ -119,26 +119,32 @@ export async function GET(req: Request) {
     const matchIds = (matches ?? []).map((m: any) => m.id);
 
     // Source 1: player_stats — scoped to GW range
-    let psQuery = supabase
-      .from("player_stats")
-      .select("gameweek_id, player_id");
-    if (Number.isFinite(fromGw)) psQuery = psQuery.gte("gameweek_id", fromGw);
-    if (Number.isFinite(toGwResolved)) psQuery = psQuery.lte("gameweek_id", toGwResolved!);
-    const { data: playerStats } = await psQuery;
-
-    // Source 2: player_match_events — scoped to the matches already fetched
-    const pmeData = await fetchAllRows((from, to) => {
+    //   Uses fetchAllRows() — full-season queries exceed 1000 rows.
+    const playerStats = await fetchAllRows((from, to) => {
       let q = supabase
-        .from("player_match_events")
-        .select("player_id, match_id, matches!inner(gameweek_id)");
-      if (matchIds.length > 0) q = q.in("match_id", matchIds);
+        .from("player_stats")
+        .select("gameweek_id, player_id");
+      if (Number.isFinite(fromGw)) q = q.gte("gameweek_id", fromGw);
+      if (Number.isFinite(toGwResolved)) q = q.lte("gameweek_id", toGwResolved!);
       return q.range(from, to);
     });
 
+    // Source 2: player_match_events — scoped to the matches already fetched
+    //   Skip entirely if no matches — avoids fetching the full table for nothing
+    const pmeData = matchIds.length > 0
+      ? await fetchAllRows((from, to) =>
+          supabase
+            .from("player_match_events")
+            .select("player_id, match_id, matches!inner(gameweek_id)")
+            .in("match_id", matchIds)
+            .range(from, to)
+        )
+      : [];
+
     // Combine all player IDs from both sources
     const allPlayerIds = new Set<string>();
-    for (const s of playerStats ?? []) allPlayerIds.add(s.player_id);
-    for (const e of pmeData ?? []) allPlayerIds.add(e.player_id);
+    for (const s of playerStats) allPlayerIds.add(s.player_id);
+    for (const e of pmeData) allPlayerIds.add(e.player_id);
 
     const playerLadyLookup = new Map<
       string,
@@ -164,7 +170,7 @@ export async function GET(req: Request) {
     const ladyPlayedSet = new Set<string>();
 
     // From player_stats
-    for (const s of playerStats ?? []) {
+    for (const s of playerStats) {
       const p = playerLadyLookup.get(s.player_id);
       if (p?.isLady && p.teamUuid) {
         ladyPlayedSet.add(`${s.gameweek_id}:${p.teamUuid}`);
@@ -172,7 +178,7 @@ export async function GET(req: Request) {
     }
 
     // From player_match_events (voice admin data)
-    for (const e of pmeData ?? []) {
+    for (const e of pmeData) {
       const p = playerLadyLookup.get(e.player_id);
       const gwId = (e as any).matches?.gameweek_id;
       if (p?.isLady && p.teamUuid && gwId) {

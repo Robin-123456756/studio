@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +23,17 @@ export async function GET() {
     const currentGwId = currentGw?.id ?? null;
 
     // Parallel fetches
-    const [teamsRes, scoresRes, transfersRes, chipsRes] = await Promise.all([
+    // user_weekly_scores uses fetchAllRows() — grows with users × gameweeks
+    const [teamsRes, scores, transfersRes, chipsRes] = await Promise.all([
       supabase.from("fantasy_teams").select("user_id, name"),
-      supabase.from("user_weekly_scores").select("user_id, gameweek_id, total_weekly_points"),
+      fetchAllRows((from, to) =>
+        supabase.from("user_weekly_scores").select("user_id, gameweek_id, total_weekly_points").range(from, to)
+      ),
       supabase.from("user_transfers").select("user_id"),
       supabase.from("user_chips").select("user_id, chip"),
     ]);
 
     const teams = teamsRes.data ?? [];
-    const scores = scoresRes.data ?? [];
     const transfers = transfersRes.data ?? [];
     const chips = chipsRes.data ?? [];
 

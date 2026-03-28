@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { apiError } from "@/lib/api-error";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -113,15 +114,19 @@ export async function GET(req: Request) {
 
     if (playerIds.length > 0) {
       // Fire ownership, stats, and price queries in parallel
+      // player_stats uses fetchAllRows() to avoid Supabase's 1000-row silent truncation
       const ownershipPromise = supabase
         .from("current_squads")
         .select("player_id, user_id")
         .in("player_id", playerIds);
 
-      const statsPromise = supabase
-        .from("player_stats")
-        .select("player_id, points, goals, assists, gameweek_id")
-        .in("player_id", playerIds);
+      const statsPromise = fetchAllRows((from, to) =>
+        supabase
+          .from("player_stats")
+          .select("player_id, points, goals, assists, gameweek_id")
+          .in("player_id", playerIds)
+          .range(from, to)
+      );
 
       const pricePromise = supabase
         .from("player_price_history")
@@ -129,7 +134,7 @@ export async function GET(req: Request) {
         .in("player_id", playerIds)
         .order("changed_at", { ascending: false });
 
-      const [ownershipResult, statsResult, priceResult] = await Promise.all([
+      const [ownershipResult, allStats, priceResult] = await Promise.all([
         ownershipPromise,
         statsPromise,
         pricePromise,
@@ -156,8 +161,7 @@ export async function GET(req: Request) {
       }
 
       // ── Points & form from player_stats ──
-      const allStats = statsResult.data;
-      if (allStats && allStats.length > 0) {
+      if (allStats.length > 0) {
         const gwSets = new Map<string, Set<number>>();
         for (const s of allStats) {
           const pid = String((s as any).player_id);

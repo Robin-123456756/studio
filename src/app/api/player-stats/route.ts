@@ -16,24 +16,27 @@ export async function GET(req: Request) {
     const playerId = url.searchParams.get("player_id");
 
     // 1. Fetch player_stats (base stat rows — goals, assists, cards, etc.)
-    let query = supabase
-      .from("player_stats")
-      .select(
-        `id, player_id, gameweek_id, goals, assists,
-         clean_sheet, yellow_cards, red_cards, own_goals, player_name, created_at`
-      )
-      .order("gameweek_id", { ascending: true });
-
-    if (gwId) query = query.eq("gameweek_id", Number(gwId));
-    if (playerId) query = query.eq("player_id", playerId);
-
-    const { data, error } = await query;
-    if (error) {
-      return apiError("Failed to fetch player stats", "PLAYER_STATS_FETCH_FAILED", 500, error);
+    //    Uses fetchAllRows() to avoid Supabase's 1000-row silent truncation.
+    let data: any[];
+    try {
+      data = await fetchAllRows((from, to) => {
+        let q = supabase
+          .from("player_stats")
+          .select(
+            `id, player_id, gameweek_id, goals, assists,
+             clean_sheet, yellow_cards, red_cards, own_goals, player_name, created_at`
+          )
+          .order("gameweek_id", { ascending: true });
+        if (gwId) q = q.eq("gameweek_id", Number(gwId));
+        if (playerId) q = q.eq("player_id", playerId);
+        return q.range(from, to);
+      });
+    } catch (e) {
+      return apiError("Failed to fetch player stats", "PLAYER_STATS_FETCH_FAILED", 500, e);
     }
 
     // 2. Fetch players + teams for enrichment
-    const playerIds = [...new Set((data ?? []).map((s: any) => s.player_id))];
+    const playerIds = [...new Set(data.map((s: any) => s.player_id))];
     const playersMap = new Map<string, any>();
 
     if (playerIds.length > 0) {
@@ -136,7 +139,7 @@ export async function GET(req: Request) {
     }
 
     // 5. Build response — points from events, clean sheet from match scores
-    const stats: any[] = (data ?? []).map((s: any) => {
+    const stats: any[] = data.map((s: any) => {
       const p = playersMap.get(s.player_id);
       const teamUuid = (p as any)?.team?.team_uuid ?? null;
       const csKey = teamUuid ? `${teamUuid}__${s.gameweek_id}` : "";

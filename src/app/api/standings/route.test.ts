@@ -6,9 +6,13 @@ vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseServerOrThrow: () => ({ from: mockFrom }),
 }));
 
-// Mock fetchAllRows — returns whatever the query builder would return
+// Mock fetchAllRows — call the callback once (page 0-999) and return data array
 vi.mock("@/lib/fetch-all-rows", () => ({
-  fetchAllRows: vi.fn().mockResolvedValue([]),
+  fetchAllRows: vi.fn().mockImplementation(async (buildQuery: any) => {
+    const { data, error } = await buildQuery(0, 999);
+    if (error) throw error;
+    return data ?? [];
+  }),
 }));
 
 const TEAM_A = "uuid-aaa";
@@ -90,11 +94,16 @@ function setupStandingsMock(
     }
 
     if (table === "player_stats") {
+      const psResult = { data: playerStats, error: null };
+      const rangeStub = vi.fn().mockResolvedValue(psResult);
       return {
         select: vi.fn().mockReturnValue({
           gte: vi.fn().mockReturnValue({
-            lte: vi.fn().mockResolvedValue({ data: playerStats, error: null }),
+            lte: vi.fn().mockReturnValue({ range: rangeStub }),
+            range: rangeStub,
           }),
+          lte: vi.fn().mockReturnValue({ range: rangeStub }),
+          range: rangeStub,
         }),
       };
     }
@@ -103,6 +112,17 @@ function setupStandingsMock(
       return {
         select: vi.fn().mockReturnValue({
           in: vi.fn().mockResolvedValue({ data: players, error: null }),
+        }),
+      };
+    }
+
+    if (table === "player_match_events") {
+      const pmeResult = { data: [], error: null };
+      const rangeStub = vi.fn().mockResolvedValue(pmeResult);
+      return {
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({ range: rangeStub, in: vi.fn().mockReturnValue({ range: rangeStub }) }),
+          range: rangeStub,
         }),
       };
     }
