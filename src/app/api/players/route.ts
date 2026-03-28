@@ -63,6 +63,7 @@ export async function GET(req: Request) {
       playersResult,
       managerCountResult,
       upcomingMatchesResult,
+      completedGwResult,
     ] = await Promise.all([
       query,
       supabase.from("fantasy_teams").select("user_id", { count: "exact", head: true }),
@@ -75,6 +76,13 @@ export async function GET(req: Request) {
         `)
         .eq("is_played", false)
         .order("gameweek_id", { ascending: true }),
+      // Last 5 completed gameweeks for FPL-style form (fixed-window PPG)
+      supabase
+        .from("gameweeks")
+        .select("id")
+        .or("is_finished.eq.true,finalized.eq.true,is_final.eq.true")
+        .order("id", { ascending: false })
+        .limit(5),
     ]);
 
     const { data, error } = playersResult;
@@ -161,8 +169,15 @@ export async function GET(req: Request) {
       }
 
       // ── Points & form from player_stats ──
+      // Form uses FPL-style fixed window: total points in last 5 completed GWs / 5.
+      // This rewards players who play consistently — missing a GW counts as 0.
+      const formGwIds = new Set<number>(
+        (completedGwResult.data ?? []).map((g: any) => g.id)
+      );
+      const formWindow = Math.max(formGwIds.size, 1); // actual window (≤5 if fewer completed GWs)
+
       if (allStats.length > 0) {
-        const gwSets = new Map<string, Set<number>>();
+        const formPointsMap = new Map<string, number>();
         for (const s of allStats) {
           const pid = String((s as any).player_id);
           const gwId = (s as any).gameweek_id;
@@ -170,6 +185,7 @@ export async function GET(req: Request) {
           const goals = (s as any).goals ?? 0;
           const assists = (s as any).assists ?? 0;
 
+          // Season totals (all GWs)
           const existing = totalsMap.get(pid) ?? {
             points: 0,
             goals: 0,
@@ -182,14 +198,15 @@ export async function GET(req: Request) {
           existing.appearances += 1;
           totalsMap.set(pid, existing);
 
-          const gws = gwSets.get(pid) ?? new Set();
-          gws.add(gwId);
-          gwSets.set(pid, gws);
+          // Form: only accumulate points from the last 5 completed GWs
+          if (formGwIds.has(gwId)) {
+            formPointsMap.set(pid, (formPointsMap.get(pid) ?? 0) + pts);
+          }
         }
-        for (const [pid, gws] of gwSets) {
-          const total = totalsMap.get(pid)?.points ?? 0;
-          const gwCount = gws.size;
-          formMap.set(pid, gwCount > 0 ? (total / gwCount).toFixed(1) : "0.0");
+        // Divide by fixed window (not games played) so missing GWs count as 0
+        for (const pid of playerIds) {
+          const recentPts = formPointsMap.get(pid) ?? 0;
+          formMap.set(pid, (recentPts / formWindow).toFixed(1));
         }
       }
 
