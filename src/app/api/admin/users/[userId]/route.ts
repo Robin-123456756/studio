@@ -14,13 +14,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ userId:
   const { userId } = await params;
 
   try {
-    // Get current GW
-    const { data: currentGw } = await supabase
+    // Get the GW users are currently picking for (same logic as Transfers page):
+    // current GW if not finalized, otherwise the next unfinalized GW.
+    const { data: allGws } = await supabase
       .from("gameweeks")
-      .select("id")
-      .eq("is_current", true)
-      .maybeSingle();
-    const currentGwId = currentGw?.id ?? null;
+      .select("id, is_current, finalized")
+      .order("id", { ascending: true });
+
+    const gws = allGws ?? [];
+    const flaggedCurrent = gws.find((g) => g.is_current === true) ?? null;
+    const activeGw =
+      flaggedCurrent && !flaggedCurrent.finalized
+        ? flaggedCurrent
+        : gws.find((g) => !g.finalized) ?? flaggedCurrent;
+    const currentGwId = activeGw?.id ?? null;
 
     const [teamRes, rosterRes, transfersRes, chipsRes, scoresRes] = await Promise.all([
       supabase.from("fantasy_teams").select("name").eq("user_id", userId).maybeSingle(),

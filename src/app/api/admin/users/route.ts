@@ -13,13 +13,20 @@ export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
   try {
-    // Get current GW
-    const { data: currentGw } = await supabase
+    // Get the GW users are currently picking for (same logic as Transfers page):
+    // current GW if not finalized, otherwise the next unfinalized GW.
+    const { data: allGws } = await supabase
       .from("gameweeks")
-      .select("id")
-      .eq("is_current", true)
-      .maybeSingle();
-    const currentGwId = currentGw?.id ?? null;
+      .select("id, is_current, finalized")
+      .order("id", { ascending: true });
+
+    const gws = allGws ?? [];
+    const flaggedCurrent = gws.find((g) => g.is_current === true) ?? null;
+    const activeGw =
+      flaggedCurrent && !flaggedCurrent.finalized
+        ? flaggedCurrent
+        : gws.find((g) => !g.finalized) ?? flaggedCurrent;
+    const currentGwId = activeGw?.id ?? null;
 
     // Parallel fetches
     const [teamsRes, scoresRes, transfersRes, chipsRes] = await Promise.all([
@@ -43,7 +50,7 @@ export async function GET() {
       const existing = scoreMap.get(uid) || { total: 0, currentGw: 0, gwCount: 0 };
       existing.total += pts;
       existing.gwCount++;
-      if (gwId === currentGwId) existing.currentGw = pts;
+      if (gwId === currentGwId) existing.currentGw += pts;
       scoreMap.set(uid, existing);
     }
 
