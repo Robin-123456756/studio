@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { getActiveGameweekId } from "@/lib/active-gameweek";
 import { apiError } from "@/lib/api-error";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
 
@@ -14,13 +15,7 @@ export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
   try {
-    // Get current GW
-    const { data: currentGw } = await supabase
-      .from("gameweeks")
-      .select("id")
-      .eq("is_current", true)
-      .maybeSingle();
-    const currentGwId = currentGw?.id ?? null;
+    const currentGwId = await getActiveGameweekId(supabase);
 
     // Parallel fetches
     // user_weekly_scores uses fetchAllRows() — grows with users × gameweeks
@@ -46,7 +41,7 @@ export async function GET() {
       const existing = scoreMap.get(uid) || { total: 0, currentGw: 0, gwCount: 0 };
       existing.total += pts;
       existing.gwCount++;
-      if (gwId === currentGwId) existing.currentGw = pts;
+      if (gwId === currentGwId) existing.currentGw += pts;
       scoreMap.set(uid, existing);
     }
 

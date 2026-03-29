@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { getActiveGameweekId } from "@/lib/active-gameweek";
 import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
@@ -14,13 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ userId:
   const { userId } = await params;
 
   try {
-    // Get current GW
-    const { data: currentGw } = await supabase
-      .from("gameweeks")
-      .select("id")
-      .eq("is_current", true)
-      .maybeSingle();
-    const currentGwId = currentGw?.id ?? null;
+    const currentGwId = await getActiveGameweekId(supabase);
 
     const [teamRes, rosterRes, transfersRes, chipsRes, scoresRes] = await Promise.all([
       supabase.from("fantasy_teams").select("name").eq("user_id", userId).maybeSingle(),
