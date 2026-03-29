@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getSupabaseServerOrThrow } from "@/lib/supabase-admin";
+import { getActiveGameweekId } from "@/lib/active-gameweek";
 import { apiError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
@@ -13,20 +14,7 @@ export async function GET() {
   const supabase = getSupabaseServerOrThrow();
 
   try {
-    // Get the GW users are currently picking for (same logic as Transfers page):
-    // current GW if not finalized, otherwise the next unfinalized GW.
-    const { data: allGws } = await supabase
-      .from("gameweeks")
-      .select("id, is_current, finalized")
-      .order("id", { ascending: true });
-
-    const gws = allGws ?? [];
-    const flaggedCurrent = gws.find((g) => g.is_current === true) ?? null;
-    const activeGw =
-      flaggedCurrent && !flaggedCurrent.finalized
-        ? flaggedCurrent
-        : gws.find((g) => !g.finalized) ?? flaggedCurrent;
-    const currentGwId = activeGw?.id ?? null;
+    const currentGwId = await getActiveGameweekId(supabase);
 
     // Parallel fetches
     const [teamsRes, scoresRes, transfersRes, chipsRes] = await Promise.all([
